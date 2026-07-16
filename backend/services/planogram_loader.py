@@ -57,24 +57,25 @@ def load_json(project_id: str, filename: str) -> Any:
 
 
 def save_json(project_id: str, filename: str, data: Any) -> None:
-    """Persist data as JSON.  For existing projects the path is filesystem-derived;
-    for new projects a validated path is constructed with an is_relative_to guard."""
+    """Persist data as JSON into an existing project directory.
+
+    The project directory must already exist on disk.  Creating new project
+    directories is an admin-level operation (done by placing the project
+    folder under storage/projects/) and is intentionally not exposed through
+    this function to keep all path operations filesystem-derived rather than
+    user-input-derived.
+    """
     if filename not in _ALLOWED_FILES:
         raise ValueError(f"Unknown file: {filename!r}")
 
     project_dir = _find_existing_project(project_id)
     if project_dir is None:
-        # New project — must construct the directory from the validated id.
-        _validate_project_id(project_id)
-        candidate = (STORAGE_ROOT / project_id).resolve()
-        if not candidate.is_relative_to(STORAGE_ROOT.resolve()):
-            raise ValueError("Path traversal attempt detected")
-        candidate.mkdir(parents=True, exist_ok=True)
-        # Re-derive from filesystem now that the directory exists
-        project_dir = _find_existing_project(project_id)
-        if project_dir is None:
-            raise RuntimeError("Failed to create project directory")
+        raise ValueError(
+            f"Project '{project_id}' does not exist.  "
+            "Create the project directory under storage/projects/ first."
+        )
 
+    # project_dir is from iterdir() — not constructed from user input
     with (project_dir / filename).open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 

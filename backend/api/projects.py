@@ -152,5 +152,3 @@ async def import_products(project_id: str, file: UploadFile = File(...)):
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"message": "products.json imported", "project_id": project_id}
-
-    return {"message": "products.json imported", "project_id": project_id}

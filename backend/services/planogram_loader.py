@@ -1,17 +1,42 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 STORAGE_ROOT = Path(__file__).parent.parent / "storage" / "projects"
 
+# Only allow safe project identifiers — no path traversal characters
+_SAFE_ID_RE = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
+
+# Only allow a fixed set of known filenames — prevents arbitrary file access
+_ALLOWED_FILES = frozenset({
+    "store.json",
+    "products.json",
+    "planogram.json",
+    "analytics.json",
+    "ean_index.json",
+})
+
+
+def _validate_project_id(project_id: str) -> None:
+    if not _SAFE_ID_RE.match(project_id):
+        raise ValueError(f"Invalid project_id: {project_id!r}")
+
 
 def _project_path(project_id: str) -> Path:
-    return STORAGE_ROOT / project_id
+    _validate_project_id(project_id)
+    resolved = (STORAGE_ROOT / project_id).resolve()
+    # Guard against path traversal — resolved path must stay inside STORAGE_ROOT
+    if not resolved.is_relative_to(STORAGE_ROOT.resolve()):
+        raise ValueError("Path traversal attempt detected")
+    return resolved
 
 
 def load_json(project_id: str, filename: str) -> Any:
+    if filename not in _ALLOWED_FILES:
+        raise ValueError(f"Unknown file: {filename!r}")
     path = _project_path(project_id) / filename
     if not path.exists():
         return None
@@ -20,6 +45,8 @@ def load_json(project_id: str, filename: str) -> Any:
 
 
 def save_json(project_id: str, filename: str, data: Any) -> None:
+    if filename not in _ALLOWED_FILES:
+        raise ValueError(f"Unknown file: {filename!r}")
     path = _project_path(project_id)
     path.mkdir(parents=True, exist_ok=True)
     with (path / filename).open("w", encoding="utf-8") as f:
@@ -53,3 +80,4 @@ def build_ean_index(project_id: str) -> dict:
 
     save_json(project_id, "ean_index.json", index)
     return index
+

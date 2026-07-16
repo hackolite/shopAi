@@ -87,33 +87,43 @@ const OVERLAY_Z_OFFSET = 0.002;
 const OVERLAY_OPACITY  = 0.85;
 
 // ─── Planogram face overlay ───────────────────────────────────────────────────
-/** Renders a canvas-based texture showing product category colors on a gondola face. */
+type OverlayFace = 'front' | 'back' | 'left' | 'right';
+
+/** Renders a canvas-based texture showing product category colors on any gondola face. */
 function PlanogramFaceOverlay({
   planogramId,
   W,
   H,
   D,
-  side,
+  face,
 }: {
   planogramId: string;
   W: number;
   H: number;
   D: number;
-  /** +1 = front face (+Z), -1 = back face (-Z) */
-  side: 1 | -1;
+  face: OverlayFace;
 }) {
   const { planogramDetails } = usePlanogramStore();
   const setSelection = useSceneStore((state) => state.setSelection);
+  const selection    = useSceneStore((state) => state.selection);
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
 
+  // ID of the selected cell within THIS planogram (null if selection is elsewhere)
+  const selectedCellId =
+    selection.type === 'planogram_cell' &&
+    selection.planogramId === planogramId &&
+    selection.cellIds?.length === 1
+      ? selection.cellIds[0]
+      : null;
+
   const texture = useMemo(() => {
-    if (!planogram || planogram.cells.length === 0) return null;
+    if (!planogram) return null;
     const productByEan = new Map(products.map((p) => [p.ean, p]));
     const cellPx = 10;
     const canvas = document.createElement('canvas');
-    canvas.width  = planogram.cols * cellPx;
-    canvas.height = planogram.rows * cellPx;
+    canvas.width  = Math.max(1, planogram.cols * cellPx);
+    canvas.height = Math.max(1, planogram.rows * cellPx);
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
@@ -127,8 +137,20 @@ function PlanogramFaceOverlay({
       ctx.fillRect(cell.col * cellPx + 1, cell.row * cellPx + 1, cellPx - 2, cellPx - 2);
     }
 
+    // Highlight the selected cell with a bright yellow outline + tint
+    if (selectedCellId) {
+      const selCell = planogram.cells.find((c) => c.id === selectedCellId);
+      if (selCell) {
+        ctx.fillStyle = 'rgba(255,230,0,0.35)';
+        ctx.fillRect(selCell.col * cellPx + 1, selCell.row * cellPx + 1, cellPx - 2, cellPx - 2);
+        ctx.strokeStyle = '#ffe000';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(selCell.col * cellPx + 1, selCell.row * cellPx + 1, cellPx - 2, cellPx - 2);
+      }
+    }
+
     return new THREE.CanvasTexture(canvas);
-  }, [planogram, products]);
+  }, [planogram, products, selectedCellId]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -152,12 +174,42 @@ function PlanogramFaceOverlay({
 
   if (!texture) return null;
 
-  const zOffset = (D / 2 + OVERLAY_Z_OFFSET) * side;
-  const rotY    = side === -1 ? Math.PI : 0;
+  // Compute position, Y-rotation, and plane size for each face
+  let position: [number, number, number];
+  let rotY: number;
+  let faceW: number;
+  let faceH: number;
+
+  switch (face) {
+    case 'front':
+      position = [0, 0,  D / 2 + OVERLAY_Z_OFFSET];
+      rotY  = 0;
+      faceW = W; faceH = H;
+      break;
+    case 'back':
+      position = [0, 0, -(D / 2 + OVERLAY_Z_OFFSET)];
+      rotY  = Math.PI;
+      faceW = W; faceH = H;
+      break;
+    case 'left':
+      position = [-(W / 2 + OVERLAY_Z_OFFSET), 0, 0];
+      rotY  = -Math.PI / 2;
+      faceW = D; faceH = H;
+      break;
+    case 'right':
+      position = [ W / 2 + OVERLAY_Z_OFFSET, 0, 0];
+      rotY  = Math.PI / 2;
+      faceW = D; faceH = H;
+      break;
+    default: {
+      const _exhaustive: never = face;
+      throw new Error(`Unhandled face: ${_exhaustive}`);
+    }
+  }
 
   return (
-    <mesh position={[0, 0, zOffset]} rotation={[0, rotY, 0]} onClick={handleClick}>
-      <planeGeometry args={[W * 0.97, H * 0.97]} />
+    <mesh position={position} rotation={[0, rotY, 0]} onClick={handleClick}>
+      <planeGeometry args={[faceW * 0.97, faceH * 0.97]} />
       <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
     </mesh>
   );
@@ -224,20 +276,18 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         />
       </mesh>
 
-      {/* Planogram face overlays (gondola-type furniture only) */}
+      {/* Planogram face overlays — all 4 faces for gondola-type furniture */}
       {isGondola && furniture.faces.front && (
-        <PlanogramFaceOverlay
-          planogramId={furniture.faces.front}
-          W={W} H={H} D={D}
-          side={1}
-        />
+        <PlanogramFaceOverlay planogramId={furniture.faces.front} W={W} H={H} D={D} face="front" />
       )}
       {isGondola && furniture.faces.back && (
-        <PlanogramFaceOverlay
-          planogramId={furniture.faces.back}
-          W={W} H={H} D={D}
-          side={-1}
-        />
+        <PlanogramFaceOverlay planogramId={furniture.faces.back} W={W} H={H} D={D} face="back" />
+      )}
+      {isGondola && furniture.faces.left && (
+        <PlanogramFaceOverlay planogramId={furniture.faces.left} W={W} H={H} D={D} face="left" />
+      )}
+      {isGondola && furniture.faces.right && (
+        <PlanogramFaceOverlay planogramId={furniture.faces.right} W={W} H={H} D={D} face="right" />
       )}
 
       {/* Name label */}

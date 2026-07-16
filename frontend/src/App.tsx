@@ -22,9 +22,9 @@ export default function App() {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
 
-  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard } = useSceneStore();
+  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail } = usePlanogramStore();
+  const { setPlanograms, setPlanogramDetail, planogramDetails } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool } = useUIStore();
 
   // ── Boot: load all project data ───────────────────────────────────────────
@@ -135,20 +135,46 @@ export default function App() {
     cadApi.deleteFurniture(projectId, selectedFurnitureId).catch(console.error);
   }, [selectedFurnitureId, removeFurniture, projectId]);
 
+  // ── Export complete implementation ───────────────────────────────────────
+  const exportProject = useCallback(() => {
+    if (!scene) return;
+    const planogramsArr = Array.from(planogramDetails.values());
+    const payload = { scene, planograms: planogramsArr };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${projectName.replace(/\s+/g, '_')}_export.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [scene, planogramDetails, projectName]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const isEditable = (e.target as HTMLElement)?.isContentEditable;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+
+      // Ctrl/Cmd+Z → undo
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+      }
 
       if (e.key === 'Escape') {
         selectFurniture(null);
         return;
       }
 
-      if (e.key === 'm' || e.key === 'M') {
-        setActiveTool('measure');
-        return;
+      // Tool shortcuts (no modifier)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 's' || e.key === 'S') { setActiveTool('select');    return; }
+        if (e.key === 'g' || e.key === 'G') { setActiveTool('translate'); return; }
+        if (e.key === 'r' || e.key === 'R') { setActiveTool('rotate');    return; }
+        if (e.key === 'e' || e.key === 'E') { setActiveTool('scale');     return; }
+        if (e.key === 'm' || e.key === 'M') { setActiveTool('measure');   return; }
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -170,13 +196,13 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool]);
+  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
       {/* Top toolbar */}
-      <Toolbar projectName={projectName} />
+      <Toolbar projectName={projectName} onExport={exportProject} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── Left panel (260px) ───────────────────────────────────────── */}

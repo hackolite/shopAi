@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { FurnitureInstance, Scene, Selection } from '../types/cad';
 
+/** Maximum number of undo steps to keep in memory. */
+const MAX_HISTORY = 50;
+
 export interface FurnitureClipboard {
   furniture: FurnitureInstance;
   /** planogram IDs mapped by face name */
@@ -14,6 +17,8 @@ interface SceneState {
   expandedNodes: Set<string>;
   loading: boolean;
   clipboard: FurnitureClipboard | null;
+  /** Undo history — snapshots of scene BEFORE each mutation. */
+  history: Scene[];
   setScene: (scene: Scene) => void;
   selectFurniture: (id: string | null) => void;
   setSelection: (selection: Selection) => void;
@@ -23,6 +28,7 @@ interface SceneState {
   toggleNodeExpanded: (id: string) => void;
   setLoading: (loading: boolean) => void;
   setClipboard: (data: FurnitureClipboard | null) => void;
+  undo: () => void;
 }
 
 export const useSceneStore = create<SceneState>((set) => ({
@@ -32,8 +38,9 @@ export const useSceneStore = create<SceneState>((set) => ({
   expandedNodes: new Set<string>(),
   loading: false,
   clipboard: null,
+  history: [],
 
-  setScene: (scene) => set({ scene }),
+  setScene: (scene) => set({ scene, history: [] }),
   selectFurniture: (id) =>
     set({
       selectedFurnitureId: id,
@@ -46,37 +53,43 @@ export const useSceneStore = create<SceneState>((set) => ({
         selection.type === 'furniture' ? selection.furnitureId ?? null : null,
     }),
   updateFurniture: (furniture) =>
-    set((state) => ({
-      scene: state.scene
-        ? {
-            ...state.scene,
-            furniture: state.scene.furniture.map((item) =>
-              item.id === furniture.id ? furniture : item,
-            ),
-          }
-        : null,
-    })),
+    set((state) => {
+      if (!state.scene) return {};
+      return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
+        scene: {
+          ...state.scene,
+          furniture: state.scene.furniture.map((item) =>
+            item.id === furniture.id ? furniture : item,
+          ),
+        },
+      };
+    }),
   addFurniture: (furniture) =>
-    set((state) => ({
-      scene: state.scene
-        ? { ...state.scene, furniture: [...state.scene.furniture, furniture] }
-        : null,
-    })),
+    set((state) => {
+      if (!state.scene) return {};
+      return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
+        scene: { ...state.scene, furniture: [...state.scene.furniture, furniture] },
+      };
+    }),
   removeFurniture: (id) =>
-    set((state) => ({
-      scene: state.scene
-        ? {
-            ...state.scene,
-            furniture: state.scene.furniture.filter((item) => item.id !== id),
-          }
-        : null,
-      selectedFurnitureId:
-        state.selectedFurnitureId === id ? null : state.selectedFurnitureId,
-      selection:
-        state.selection.type === 'furniture' && state.selection.furnitureId === id
-          ? { type: null }
-          : state.selection,
-    })),
+    set((state) => {
+      if (!state.scene) return {};
+      return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
+        scene: {
+          ...state.scene,
+          furniture: state.scene.furniture.filter((item) => item.id !== id),
+        },
+        selectedFurnitureId:
+          state.selectedFurnitureId === id ? null : state.selectedFurnitureId,
+        selection:
+          state.selection.type === 'furniture' && state.selection.furnitureId === id
+            ? { type: null }
+            : state.selection,
+      };
+    }),
   toggleNodeExpanded: (id) =>
     set((state) => {
       const expandedNodes = new Set(state.expandedNodes);
@@ -89,4 +102,13 @@ export const useSceneStore = create<SceneState>((set) => ({
     }),
   setLoading: (loading) => set({ loading }),
   setClipboard: (data) => set({ clipboard: data }),
+  undo: () =>
+    set((state) => {
+      if (state.history.length === 0) return {};
+      const prev = state.history[state.history.length - 1];
+      return {
+        scene: prev,
+        history: state.history.slice(0, -1),
+      };
+    }),
 }));

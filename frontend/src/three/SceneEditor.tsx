@@ -867,10 +867,12 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
-  // Two handles: right edge (resize width) and far edge (resize depth).
+  // Four handles: one per edge (right, left, far, near).
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
-    { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' },
-    { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' },
+    { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' }, // right edge
+    { axis: 'width',  sign: -1, hx: 0,     hz: D / 2, cursor: 'ew-resize' }, // left edge
+    { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' }, // far edge
+    { axis: 'depth',  sign: -1, hx: W / 2, hz: 0,     cursor: 'ns-resize' }, // near edge
   ];
 
   return (

@@ -56,12 +56,12 @@ const MeshRegistryCtx = createContext<RegisterFn>(() => {});
 
 // ─── Color map ────────────────────────────────────────────────────────────────
 const FURNITURE_COLORS: Record<string, string> = {
-  gondola_single: '#dde2e8',
-  gondola_double: '#d4dae2',
-  end_gondola:    '#cdd4dc',
-  fridge:         '#b8d4e8',
-  register:       '#c4905a',
-  wall:           '#9b9b9b',
+  gondola_single:    '#dde2e8',
+  gondola_double:    '#d4dae2',
+  fridge:            '#b8d4e8',
+  fridge_horizontal: '#a8c8e0',
+  register:          '#c4905a',
+  wall:              '#9b9b9b',
 };
 
 function getFurnitureColor(type: string): string {
@@ -87,7 +87,7 @@ const OVERLAY_Z_OFFSET = 0.002;
 const OVERLAY_OPACITY  = 0.85;
 
 // ─── Planogram face overlay ───────────────────────────────────────────────────
-type OverlayFace = 'front' | 'back' | 'left' | 'right';
+type OverlayFace = 'front' | 'back' | 'left' | 'right' | 'top';
 
 /** Renders a canvas-based texture showing product category colors on any gondola face. */
 function PlanogramFaceOverlay({
@@ -184,32 +184,37 @@ function PlanogramFaceOverlay({
 
   if (!texture) return null;
 
-  // Compute position, Y-rotation, and plane size for each face
+  // Compute position, rotation, and plane size for each face
   let position: [number, number, number];
-  let rotY: number;
+  let rotation: [number, number, number];
   let faceW: number;
   let faceH: number;
 
   switch (face) {
     case 'front':
       position = [0, 0,  D / 2 + OVERLAY_Z_OFFSET];
-      rotY  = 0;
+      rotation = [0, 0, 0];
       faceW = W; faceH = H;
       break;
     case 'back':
       position = [0, 0, -(D / 2 + OVERLAY_Z_OFFSET)];
-      rotY  = Math.PI;
+      rotation = [0, Math.PI, 0];
       faceW = W; faceH = H;
       break;
     case 'left':
       position = [-(W / 2 + OVERLAY_Z_OFFSET), 0, 0];
-      rotY  = -Math.PI / 2;
+      rotation = [0, -Math.PI / 2, 0];
       faceW = D; faceH = H;
       break;
     case 'right':
       position = [ W / 2 + OVERLAY_Z_OFFSET, 0, 0];
-      rotY  = Math.PI / 2;
+      rotation = [0, Math.PI / 2, 0];
       faceW = D; faceH = H;
+      break;
+    case 'top':
+      position = [0, H / 2 + OVERLAY_Z_OFFSET, 0];
+      rotation = [-Math.PI / 2, 0, 0];
+      faceW = W; faceH = D;
       break;
     default: {
       const _exhaustive: never = face;
@@ -218,7 +223,7 @@ function PlanogramFaceOverlay({
   }
 
   return (
-    <mesh position={position} rotation={[0, rotY, 0]} onClick={handleClick}>
+    <mesh position={position} rotation={rotation} onClick={handleClick}>
       <planeGeometry args={[faceW * 0.97, faceH * 0.97]} />
       <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
     </mesh>
@@ -237,8 +242,9 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
 
-  const isSelected = selectedFurnitureId === furniture.id;
-  const isGondola  = furniture.type.startsWith('gondola') || furniture.type === 'end_gondola';
+  const isSelected  = selectedFurnitureId === furniture.id;
+  // Used only for material appearance (roughness/metalness), not for overlay logic.
+  const isGondolaStyle = furniture.type.startsWith('gondola');
 
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
   const H  = furniture.dimensions.height * CM_TO_UNIT;
@@ -281,24 +287,18 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
           color={color}
           emissive={isSelected ? '#1a3a6a' : hovered ? '#1a1a3a' : '#000000'}
           emissiveIntensity={isSelected ? 0.35 : hovered ? 0.12 : 0}
-          roughness={isGondola ? 0.4 : 0.55}
-          metalness={isGondola ? 0.5 : 0.25}
+          roughness={isGondolaStyle ? 0.4 : 0.55}
+          metalness={isGondolaStyle ? 0.5 : 0.25}
         />
       </mesh>
 
-      {/* Planogram face overlays — all 4 faces for gondola-type furniture */}
-      {isGondola && furniture.faces.front && (
-        <PlanogramFaceOverlay planogramId={furniture.faces.front} W={W} H={H} D={D} face="front" />
-      )}
-      {isGondola && furniture.faces.back && (
-        <PlanogramFaceOverlay planogramId={furniture.faces.back} W={W} H={H} D={D} face="back" />
-      )}
-      {isGondola && furniture.faces.left && (
-        <PlanogramFaceOverlay planogramId={furniture.faces.left} W={W} H={H} D={D} face="left" />
-      )}
-      {isGondola && furniture.faces.right && (
-        <PlanogramFaceOverlay planogramId={furniture.faces.right} W={W} H={H} D={D} face="right" />
-      )}
+      {/* Planogram face overlays — rendered for any furniture face that has an assigned planogram */}
+      {(['front', 'back', 'left', 'right', 'top'] as const).map((face) => {
+        const planogramId = furniture.faces[face];
+        return planogramId ? (
+          <PlanogramFaceOverlay key={face} planogramId={planogramId} W={W} H={H} D={D} face={face} />
+        ) : null;
+      })}
 
       {/* Name label */}
       <Html position={[0, H / 2 + 0.3, 0]} center>
@@ -629,8 +629,8 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         position={[w / 2, GRID_Y_OFFSET, d / 2]}
         args={[size, size]}
         cellSize={SNAP_UNIT}
-        cellThickness={0.4}
-        cellColor="#1e2d3d"
+        cellThickness={1.2}
+        cellColor="#2e4d6e"
         sectionSize={5.0}
         sectionThickness={0.9}
         sectionColor="#2a4a6a"

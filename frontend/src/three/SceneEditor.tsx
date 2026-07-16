@@ -245,7 +245,7 @@ interface FurnitureMeshProps {
 
 function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const [hovered, setHovered] = useState(false);
-  const { selectedFurnitureId, selectFurniture } = useSceneStore();
+  const { selectedFurnitureId, selectFurniture, selection } = useSceneStore();
   const { activeTool } = useUIStore();
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
@@ -266,6 +266,26 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const color = isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
 
   const { selectZone } = useZoneStore();
+
+  // Detect product selection on this gondola (planogram cell click)
+  const isProductSelected =
+    selection.type === 'planogram_cell' && selection.furnitureId === furniture.id;
+
+  // Determine which face of the gondola the selected planogram belongs to, so
+  // the semi-circle can be oriented correctly (flat edge = gondola face, arc = aisle).
+  const selectedFace = isProductSelected && selection.planogramId
+    ? (Object.entries(furniture.faces) as [string, string | null][])
+        .find(([, pid]) => pid === selection.planogramId)?.[0] ?? 'front'
+    : 'front';
+
+  // Position and Y-rotation for the semi-circle depending on which face is selected.
+  const semiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
+    front:  { pos: [0,      -H / 2 + 0.02, D / 2],  yRot: 0           },
+    back:   { pos: [0,      -H / 2 + 0.02, -D / 2], yRot: Math.PI     },
+    right:  { pos: [W / 2,  -H / 2 + 0.02, 0],      yRot: Math.PI / 2 },
+    left:   { pos: [-W / 2, -H / 2 + 0.02, 0],      yRot: -Math.PI / 2},
+  };
+  const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
 
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
@@ -319,10 +339,10 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         />
       </mesh>
 
-      {/* Customer proximity semi-circle — 2 m radius, shown on the front face when selected.
-          The flat edge (diameter) aligns with the front gondola face; the arc extends into the aisle. */}
-      {isSelected && (
-        <mesh position={[0, -H / 2 + 0.02, D / 2]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* Customer proximity semi-circle — 2 m radius, shown when a product cell on this
+          gondola is selected. Flat edge = gondola face; arc extends into the aisle. */}
+      {isProductSelected && (
+        <mesh position={scc.pos} rotation={[Math.PI / 2, scc.yRot, 0]}>
           <circleGeometry args={[2, 64, 0, Math.PI]} />
           <meshBasicMaterial color="#ff69b4" transparent opacity={0.28} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>

@@ -10,6 +10,7 @@ const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = 
   { id: 'translate', label: 'Move',      icon: '✥', title: 'Move (G)' },
   { id: 'rotate',    label: 'Rotate',    icon: '↻', title: 'Rotate (R)' },
   { id: 'scale',     label: 'Resize',    icon: '⤡', title: 'Resize / Scale (E)' },
+  { id: 'measure',   label: 'Mesure',    icon: '📏', title: 'Mesure distance (M)' },
 ];
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [

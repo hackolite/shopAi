@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { cadApi } from '../../api/cad';
-import type { FurnitureInstance, FaceId, FurnitureDefinition } from '../../types/cad';
+import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram } from '../../types/cad';
 
 const FURNITURE_EMOJI: Record<string, string> = {
   gondola_single: '📦',
@@ -133,7 +133,7 @@ function FurnitureRow({
 export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHierarchyProps) {
   const { scene, selectedFurnitureId, selectFurniture, updateFurniture, addFurniture, removeFurniture } =
     useSceneStore();
-  const { planograms } = usePlanogramStore();
+  const { planograms, setPlanograms, setPlanogramDetail } = usePlanogramStore();
 
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [library, setLibrary] = useState<FurnitureDefinition[]>([]);
@@ -170,6 +170,9 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
   const handleAddFurniture = async (def: FurnitureDefinition) => {
     if (!projectId || !scene) return;
     setAddLoading(true);
+    const faces = Object.fromEntries(
+      (def.hasFaces ?? []).map((faceId) => [faceId, null]),
+    ) as Partial<Record<FaceId, string | null>>;
     const newFurniture: FurnitureInstance = {
       id:         crypto.randomUUID(),
       name:       def.name,
@@ -183,12 +186,60 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
       locked:     false,
       parentId:   null,
       childIds:   [],
-      faces:      {},
+      faces,
     };
 
     try {
       const created = await cadApi.addFurniture(projectId, newFurniture);
       addFurniture(created);
+
+      if (def.hasFaces.length > 0) {
+        try {
+          const createdPlanograms = await Promise.all(
+            def.hasFaces.map(async (faceId) => {
+              const isFrontBack = faceId === 'front' || faceId === 'back';
+              const isLeftRight = faceId === 'left' || faceId === 'right';
+              const widthCm = isFrontBack
+                ? created.dimensions.width
+                : isLeftRight
+                  ? created.dimensions.depth
+                  : created.dimensions.width;
+              const heightCm = faceId === 'top' || faceId === 'bottom'
+                ? created.dimensions.depth
+                : created.dimensions.height;
+              const planogram: Planogram = {
+                id: crypto.randomUUID(),
+                name: `${def.name} - ${FACE_LABELS[faceId]}`,
+                furnitureId: created.id,
+                face: faceId,
+                rows: 3,
+                cols: Math.max(1, Math.floor(widthCm / 40)),
+                widthCm,
+                heightCm,
+                cells: [],
+              };
+              const createdPlanogram = await cadApi.createPlanogram(projectId, planogram);
+              setPlanogramDetail(createdPlanogram);
+              return [faceId, createdPlanogram.id] as const;
+            }),
+          );
+
+          const updatedFurniture = {
+            ...created,
+            faces: {
+              ...created.faces,
+              ...Object.fromEntries(createdPlanograms),
+            },
+          };
+          const persistedFurniture = await cadApi.updateFurniture(projectId, created.id, updatedFurniture);
+          updateFurniture(persistedFurniture);
+
+          const refreshed = await cadApi.listPlanograms(projectId);
+          setPlanograms(refreshed.planograms);
+        } catch (err) {
+          console.error('Failed to auto-create planograms for furniture:', err);
+        }
+      }
     } catch {
       addFurniture(newFurniture);
     } finally {

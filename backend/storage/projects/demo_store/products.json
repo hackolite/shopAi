@@ -1,0 +1,827 @@
+[
+  {
+    "ean": "3017620422003",
+    "name": "Nutella 750g",
+    "category": "epicerie",
+    "brand": "Ferrero",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000001",
+    "name": "Pâtes Barilla 500g",
+    "category": "epicerie",
+    "brand": "Barilla",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 22
+    }
+  },
+  {
+    "ean": "3000000000002",
+    "name": "Riz Uncle Ben's 1kg",
+    "category": "epicerie",
+    "brand": "Uncle Bens",
+    "dimensions_cm": {
+      "width": 15,
+      "depth": 10,
+      "height": 25
+    }
+  },
+  {
+    "ean": "3000000000003",
+    "name": "Farine T55 1kg",
+    "category": "epicerie",
+    "brand": "Francine",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 8,
+      "height": 25
+    }
+  },
+  {
+    "ean": "3000000000004",
+    "name": "Sucre en poudre 1kg",
+    "category": "epicerie",
+    "brand": "Beghin Say",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000005",
+    "name": "Huile olive 75cl",
+    "category": "epicerie",
+    "brand": "Puget",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 28
+    }
+  },
+  {
+    "ean": "3000000000006",
+    "name": "Miel fleurs 500g",
+    "category": "epicerie",
+    "brand": "Lune de Miel",
+    "dimensions_cm": {
+      "width": 9,
+      "depth": 9,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000007",
+    "name": "Confiture fraises 370g",
+    "category": "epicerie",
+    "brand": "Bonne Maman",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 12
+    }
+  },
+  {
+    "ean": "3000000000008",
+    "name": "Chocolat noir 100g",
+    "category": "epicerie",
+    "brand": "Lindt",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 2,
+      "height": 18
+    }
+  },
+  {
+    "ean": "3000000000009",
+    "name": "Biscottes x36",
+    "category": "epicerie",
+    "brand": "Heudebert",
+    "dimensions_cm": {
+      "width": 22,
+      "depth": 12,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000010",
+    "name": "Corn Flakes 750g",
+    "category": "epicerie",
+    "brand": "Kelloggs",
+    "dimensions_cm": {
+      "width": 25,
+      "depth": 8,
+      "height": 32
+    }
+  },
+  {
+    "ean": "3000000000011",
+    "name": "Levure chimique",
+    "category": "epicerie",
+    "brand": "Alsa",
+    "dimensions_cm": {
+      "width": 5,
+      "depth": 3,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000012",
+    "name": "Sel fin 1kg",
+    "category": "epicerie",
+    "brand": "La Baleine",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 18
+    }
+  },
+  {
+    "ean": "3000000000013",
+    "name": "Poivre moulu 50g",
+    "category": "epicerie",
+    "brand": "Ducros",
+    "dimensions_cm": {
+      "width": 5,
+      "depth": 5,
+      "height": 12
+    }
+  },
+  {
+    "ean": "3000000000014",
+    "name": "Thon en boite x3",
+    "category": "epicerie",
+    "brand": "Saupiquet",
+    "dimensions_cm": {
+      "width": 15,
+      "depth": 10,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000015",
+    "name": "Petits pois 400g",
+    "category": "epicerie",
+    "brand": "Bonduelle",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000016",
+    "name": "Sauce tomate 690g",
+    "category": "epicerie",
+    "brand": "Panzani",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000017",
+    "name": "Ketchup 560g",
+    "category": "epicerie",
+    "brand": "Heinz",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 25
+    }
+  },
+  {
+    "ean": "3000000000018",
+    "name": "Moutarde 435g",
+    "category": "epicerie",
+    "brand": "Amora",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000019",
+    "name": "Vinaigre balsamique 50cl",
+    "category": "epicerie",
+    "brand": "Maille",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 22
+    }
+  },
+  {
+    "ean": "3000000000020",
+    "name": "Chips original 200g",
+    "category": "epicerie",
+    "brand": "Lay's",
+    "dimensions_cm": {
+      "width": 22,
+      "depth": 10,
+      "height": 28
+    }
+  },
+  {
+    "ean": "3000000000021",
+    "name": "Crackers céréales 250g",
+    "category": "epicerie",
+    "brand": "Jacquet",
+    "dimensions_cm": {
+      "width": 18,
+      "depth": 8,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000022",
+    "name": "Céréales enfants 500g",
+    "category": "epicerie",
+    "brand": "Nestlé",
+    "dimensions_cm": {
+      "width": 20,
+      "depth": 8,
+      "height": 30
+    }
+  },
+  {
+    "ean": "3000000000023",
+    "name": "Tablette choco lait 200g",
+    "category": "epicerie",
+    "brand": "Milka",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 2,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000024",
+    "name": "Caramels mous 200g",
+    "category": "epicerie",
+    "brand": "Werther's",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 8
+    }
+  },
+  {
+    "ean": "3000000000025",
+    "name": "Eau minérale plate 1,5L",
+    "category": "boisson",
+    "brand": "Evian",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 35
+    }
+  },
+  {
+    "ean": "3000000000026",
+    "name": "Eau pétillante 1,5L",
+    "category": "boisson",
+    "brand": "Perrier",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 35
+    }
+  },
+  {
+    "ean": "3000000000027",
+    "name": "Coca-Cola 1,5L",
+    "category": "boisson",
+    "brand": "Coca-Cola",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 32
+    }
+  },
+  {
+    "ean": "3000000000028",
+    "name": "Pepsi Max 1,5L",
+    "category": "boisson",
+    "brand": "Pepsi",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 32
+    }
+  },
+  {
+    "ean": "3000000000029",
+    "name": "Jus orange 1L",
+    "category": "boisson",
+    "brand": "Tropicana",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 28
+    }
+  },
+  {
+    "ean": "3000000000030",
+    "name": "Jus pomme 1L",
+    "category": "boisson",
+    "brand": "Innocent",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 28
+    }
+  },
+  {
+    "ean": "3000000000031",
+    "name": "Lait demi-écrémé 1L",
+    "category": "boisson",
+    "brand": "Lactel",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 26
+    }
+  },
+  {
+    "ean": "3000000000032",
+    "name": "Lait entier 1L",
+    "category": "boisson",
+    "brand": "Candia",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 26
+    }
+  },
+  {
+    "ean": "3000000000033",
+    "name": "Café moulu 250g",
+    "category": "boisson",
+    "brand": "Lavazza",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 8,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000034",
+    "name": "Nescafé 200g",
+    "category": "boisson",
+    "brand": "Nestlé",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 18
+    }
+  },
+  {
+    "ean": "3000000000035",
+    "name": "Thé 25 sachets",
+    "category": "boisson",
+    "brand": "Lipton",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 8,
+      "height": 12
+    }
+  },
+  {
+    "ean": "3000000000036",
+    "name": "Infusions Bio 20 sachets",
+    "category": "boisson",
+    "brand": "Yogi Tea",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 8,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000037",
+    "name": "Sirop grenadine 75cl",
+    "category": "boisson",
+    "brand": "Teisseire",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 28
+    }
+  },
+  {
+    "ean": "3000000000038",
+    "name": "Bière blonde 33cl x6",
+    "category": "boisson",
+    "brand": "Kronenbourg",
+    "dimensions_cm": {
+      "width": 20,
+      "depth": 10,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000039",
+    "name": "Vin rouge 75cl",
+    "category": "boisson",
+    "brand": "Merlot AOP",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 30
+    }
+  },
+  {
+    "ean": "3000000000040",
+    "name": "Energy drink 25cl",
+    "category": "boisson",
+    "brand": "Monster",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000041",
+    "name": "Kombucha 33cl",
+    "category": "boisson",
+    "brand": "Happy Gut",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000042",
+    "name": "Limonade 1L",
+    "category": "boisson",
+    "brand": "Lorina",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 28
+    }
+  },
+  {
+    "ean": "3000000000043",
+    "name": "Cacao poudre 250g",
+    "category": "boisson",
+    "brand": "Van Houten",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 18
+    }
+  },
+  {
+    "ean": "3000000000044",
+    "name": "Lait végétal avoine 1L",
+    "category": "boisson",
+    "brand": "Oatly",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 26
+    }
+  },
+  {
+    "ean": "3000000000045",
+    "name": "Beurre doux 250g",
+    "category": "frais",
+    "brand": "Président",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 5,
+      "height": 5
+    }
+  },
+  {
+    "ean": "3000000000046",
+    "name": "Crème fraîche 20cl",
+    "category": "frais",
+    "brand": "Isigny",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 8
+    }
+  },
+  {
+    "ean": "3000000000047",
+    "name": "Yaourt nature x8",
+    "category": "frais",
+    "brand": "Danone",
+    "dimensions_cm": {
+      "width": 20,
+      "depth": 10,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000048",
+    "name": "Fromage blanc 500g",
+    "category": "frais",
+    "brand": "Gervais",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 12
+    }
+  },
+  {
+    "ean": "3000000000049",
+    "name": "Emmental râpé 200g",
+    "category": "frais",
+    "brand": "Président",
+    "dimensions_cm": {
+      "width": 15,
+      "depth": 8,
+      "height": 5
+    }
+  },
+  {
+    "ean": "3000000000050",
+    "name": "Camembert 250g",
+    "category": "frais",
+    "brand": "Président",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 12,
+      "height": 3
+    }
+  },
+  {
+    "ean": "3000000000051",
+    "name": "Jambon blanc x4",
+    "category": "frais",
+    "brand": "Herta",
+    "dimensions_cm": {
+      "width": 15,
+      "depth": 12,
+      "height": 3
+    }
+  },
+  {
+    "ean": "3000000000052",
+    "name": "Lardons fumés 200g",
+    "category": "frais",
+    "brand": "Herta",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 8,
+      "height": 3
+    }
+  },
+  {
+    "ean": "3000000000053",
+    "name": "Œufs x12",
+    "category": "frais",
+    "brand": "Poule Heureuse",
+    "dimensions_cm": {
+      "width": 18,
+      "depth": 12,
+      "height": 8
+    }
+  },
+  {
+    "ean": "3000000000054",
+    "name": "Margarine 500g",
+    "category": "frais",
+    "brand": "St Hubert",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 10,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000055",
+    "name": "Dessert chocolat x4",
+    "category": "frais",
+    "brand": "Danette",
+    "dimensions_cm": {
+      "width": 15,
+      "depth": 10,
+      "height": 8
+    }
+  },
+  {
+    "ean": "3000000000056",
+    "name": "Compote pommes x4",
+    "category": "frais",
+    "brand": "Charles & Alice",
+    "dimensions_cm": {
+      "width": 15,
+      "depth": 10,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000057",
+    "name": "Tofu nature 200g",
+    "category": "frais",
+    "brand": "Soy",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 8,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000058",
+    "name": "Pizza margherita",
+    "category": "frais",
+    "brand": "Buitoni",
+    "dimensions_cm": {
+      "width": 30,
+      "depth": 20,
+      "height": 5
+    }
+  },
+  {
+    "ean": "3000000000059",
+    "name": "Quiche lorraine",
+    "category": "frais",
+    "brand": "Marie",
+    "dimensions_cm": {
+      "width": 25,
+      "depth": 25,
+      "height": 5
+    }
+  },
+  {
+    "ean": "3000000000060",
+    "name": "Shampoing fortifiant 400ml",
+    "category": "hygiene",
+    "brand": "Elsève",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 22
+    }
+  },
+  {
+    "ean": "3000000000061",
+    "name": "Gel douche 500ml",
+    "category": "hygiene",
+    "brand": "Sanex",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 22
+    }
+  },
+  {
+    "ean": "3000000000062",
+    "name": "Déodorant spray 200ml",
+    "category": "hygiene",
+    "brand": "Dove",
+    "dimensions_cm": {
+      "width": 5,
+      "depth": 5,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000063",
+    "name": "Dentifrice 75ml",
+    "category": "hygiene",
+    "brand": "Colgate",
+    "dimensions_cm": {
+      "width": 5,
+      "depth": 5,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000064",
+    "name": "Brosse à dents souple",
+    "category": "hygiene",
+    "brand": "Oral-B",
+    "dimensions_cm": {
+      "width": 5,
+      "depth": 3,
+      "height": 18
+    }
+  },
+  {
+    "ean": "3000000000065",
+    "name": "Rasoir jetable x5",
+    "category": "hygiene",
+    "brand": "Bic",
+    "dimensions_cm": {
+      "width": 10,
+      "depth": 5,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000066",
+    "name": "Crème hydratante 200ml",
+    "category": "hygiene",
+    "brand": "Nivea",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 15
+    }
+  },
+  {
+    "ean": "3000000000067",
+    "name": "Savon solide x3",
+    "category": "hygiene",
+    "brand": "Le Petit Marseillais",
+    "dimensions_cm": {
+      "width": 12,
+      "depth": 8,
+      "height": 6
+    }
+  },
+  {
+    "ean": "3000000000068",
+    "name": "Coton-tiges x300",
+    "category": "hygiene",
+    "brand": "Mixa",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 12
+    }
+  },
+  {
+    "ean": "3000000000069",
+    "name": "Shampooing sec 200ml",
+    "category": "hygiene",
+    "brand": "Batiste",
+    "dimensions_cm": {
+      "width": 6,
+      "depth": 6,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000070",
+    "name": "Après-shampoing 200ml",
+    "category": "hygiene",
+    "brand": "Pantene",
+    "dimensions_cm": {
+      "width": 8,
+      "depth": 8,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000071",
+    "name": "Lotion tonique 200ml",
+    "category": "hygiene",
+    "brand": "Clarins",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 20
+    }
+  },
+  {
+    "ean": "3000000000072",
+    "name": "Mousse à raser 200ml",
+    "category": "hygiene",
+    "brand": "Gillette",
+    "dimensions_cm": {
+      "width": 7,
+      "depth": 7,
+      "height": 22
+    }
+  },
+  {
+    "ean": "3000000000073",
+    "name": "Mouchoirs x9",
+    "category": "hygiene",
+    "brand": "Kleenex",
+    "dimensions_cm": {
+      "width": 22,
+      "depth": 12,
+      "height": 10
+    }
+  },
+  {
+    "ean": "3000000000074",
+    "name": "Papier toilette x12",
+    "category": "hygiene",
+    "brand": "Lotus",
+    "dimensions_cm": {
+      "width": 30,
+      "depth": 28,
+      "height": 15
+    }
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "store_id": "demo_store",
+  "name": "Demo Market",
+  "geometry": {
+    "type": "rectangle",
+    "width": 50,
+    "depth": 30
+  },
+  "height": 4,
+  "aisles": [
+    { "id": "A01", "zone": "epicerie", "x_start": 2, "x_end": 6, "z_start": 2, "z_end": 28 },
+    { "id": "A02", "zone": "epicerie", "x_start": 8, "x_end": 12, "z_start": 2, "z_end": 28 },
+    { "id": "A03", "zone": "boisson", "x_start": 14, "x_end": 18, "z_start": 2, "z_end": 28 },
+    { "id": "A04", "zone": "boisson", "x_start": 20, "x_end": 24, "z_start": 2, "z_end": 28 },
+    { "id": "A05", "zone": "frais", "x_start": 26, "x_end": 30, "z_start": 2, "z_end": 28 },
+    { "id": "A06", "zone": "frais", "x_start": 32, "x_end": 36, "z_start": 2, "z_end": 28 },
+    { "id": "A07", "zone": "hygiene", "x_start": 38, "x_end": 42, "z_start": 2, "z_end": 28 },
+    { "id": "A08", "zone": "hygiene", "x_start": 44, "x_end": 48, "z_start": 2, "z_end": 28 },
+    { "id": "PROMO", "zone": "promotion", "x_start": 15, "x_end": 35, "z_start": 0, "z_end": 2 }
+  ]
+}

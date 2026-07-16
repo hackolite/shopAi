@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -26,7 +26,7 @@ class CADBaseModel(BaseModel):
         return {key: float(value[key]) for key in required}
 
 
-class Face(StrEnum):
+class Face(str, Enum):
     front = "front"
     back = "back"
     left = "left"

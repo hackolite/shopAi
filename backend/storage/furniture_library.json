@@ -1,0 +1,94 @@
+{
+  "furniture": [
+    {
+      "id": "gondola_single",
+      "type": "gondola_single",
+      "name": "Gondole simple",
+      "category": "gondola",
+      "defaultDimensions": {"width": 120, "depth": 60, "height": 200},
+      "hasFaces": ["front", "back"],
+      "defaultMaterial": "metal_white",
+      "description": "Gondole simple face standard"
+    },
+    {
+      "id": "gondola_double",
+      "type": "gondola_double",
+      "name": "Gondole double",
+      "category": "gondola",
+      "defaultDimensions": {"width": 120, "depth": 100, "height": 200},
+      "hasFaces": ["front", "back"],
+      "defaultMaterial": "metal_gray",
+      "description": "Gondole double face pour allées centrales"
+    },
+    {
+      "id": "end_gondola",
+      "type": "end_gondola",
+      "name": "Tête de gondole",
+      "category": "gondola",
+      "defaultDimensions": {"width": 80, "depth": 60, "height": 180},
+      "hasFaces": ["front"],
+      "defaultMaterial": "solid_red",
+      "description": "Mobilier promotionnel en bout d'allée"
+    },
+    {
+      "id": "pallet",
+      "type": "pallet",
+      "name": "Palette promo",
+      "category": "display",
+      "defaultDimensions": {"width": 120, "depth": 80, "height": 140},
+      "hasFaces": ["front", "back", "left", "right"],
+      "defaultMaterial": "wood_dark",
+      "description": "Palette de masse pour zones promotionnelles"
+    },
+    {
+      "id": "fridge",
+      "type": "fridge",
+      "name": "Frigo vertical",
+      "category": "cold_storage",
+      "defaultDimensions": {"width": 100, "depth": 80, "height": 210},
+      "hasFaces": ["front"],
+      "defaultMaterial": "glass_clear",
+      "description": "Frigo vitré pour produits frais et boissons"
+    },
+    {
+      "id": "display",
+      "type": "display",
+      "name": "Présentoir",
+      "category": "display",
+      "defaultDimensions": {"width": 60, "depth": 40, "height": 180},
+      "hasFaces": ["front", "left", "right"],
+      "defaultMaterial": "plastic_white",
+      "description": "Présentoir compact pour nouveautés"
+    },
+    {
+      "id": "register",
+      "type": "register",
+      "name": "Caisse",
+      "category": "checkout",
+      "defaultDimensions": {"width": 80, "depth": 60, "height": 90},
+      "hasFaces": [],
+      "defaultMaterial": "plastic_black",
+      "description": "Mobilier de caisse proche de l'entrée"
+    },
+    {
+      "id": "wall",
+      "type": "wall",
+      "name": "Mur",
+      "category": "structure",
+      "defaultDimensions": {"width": 500, "depth": 20, "height": 300},
+      "hasFaces": ["front"],
+      "defaultMaterial": "solid_blue",
+      "description": "Mur structurel ou décoratif"
+    },
+    {
+      "id": "partition",
+      "type": "partition",
+      "name": "Cloison",
+      "category": "structure",
+      "defaultDimensions": {"width": 200, "depth": 15, "height": 240},
+      "hasFaces": ["front", "back"],
+      "defaultMaterial": "solid_blue",
+      "description": "Cloison légère pour séparer des zones"
+    }
+  ]
+}

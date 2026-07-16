@@ -1,6 +1,6 @@
 import { Suspense, useState, useRef, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
@@ -9,7 +9,45 @@ import { useCatalogStore } from '../store/catalogStore';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
-import type { FurnitureInstance, StoreConfig, Dimensions } from '../types/cad';
+import type { FurnitureInstance, StoreConfig } from '../types/cad';
+
+// ─── Grid / snap constants ─────────────────────────────────────────────────────
+/** Snap grid step in centimetres (10 cm). */
+const SNAP_CM   = 10;
+/** Snap grid step in Three.js units (1 unit = 100 cm → 10 cm = 0.1 units). */
+const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
+/** Minimum furniture dimension allowed after a resize (cm). */
+const MIN_DIM_CM = 20;
+/** Round a centimetre value to the nearest snap grid step. */
+const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
+/**
+ * How much larger (multiplier) the grid plane is than the store footprint,
+ * so it visually extends past the walls on all sides.
+ */
+const GRID_SIZE_MULTIPLIER = 1.4;
+/**
+ * Fade-out distance multiplier for the Grid component relative to the store's
+ * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
+ */
+const GRID_FADE_MULTIPLIER = 1.8;
+/** Y offset of the Grid plane above the floor slab (avoids Z-fighting). */
+const GRID_Y_OFFSET = 0.005;
+/** Shared up-vector reused across components to avoid per-render allocations. */
+const UP_VEC3 = new THREE.Vector3(0, 1, 0);
+
+// ─── Resize handle appearance ─────────────────────────────────────────────────
+const HANDLE_SIZE    = 0.12;
+const HANDLE_COLOR   = '#ffcc00';
+const HANDLE_HOVER   = '#ffffff';
+const HANDLE_EMISSIVE = '#664400';
+
+/**
+ * Angle thresholds (radians) used to decide whether a handle's drag axis
+ * appears more horizontal (EW) or vertical (NS) on screen.
+ * 45° = π/4, 135° = 3π/4.
+ */
+const ANGLE_45_DEG  = Math.PI / 4;
+const ANGLE_135_DEG = 3 * Math.PI / 4;
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -206,21 +244,16 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   );
 }
 
-// ─── TransformProxy ───────────────────────────────────────────────────────────
+// ─── TransformProxy (translate / rotate only) ─────────────────────────────────
 interface TransformProxyProps {
   furniture: FurnitureInstance;
   transformTarget: THREE.Group;
-  mode: 'translate' | 'rotate' | 'scale';
+  mode: 'translate' | 'rotate';
   projectId: string | null;
 }
 
 function TransformProxy({ furniture, transformTarget, mode, projectId }: TransformProxyProps) {
   const { updateFurniture } = useSceneStore();
-  const baseDimsRef = useRef<Dimensions | null>(null);
-
-  const handleMouseDown = useCallback(() => {
-    baseDimsRef.current = { ...furniture.dimensions };
-  }, [furniture.dimensions]);
 
   const handleMouseUp = useCallback(() => {
     const obj = transformTarget;
@@ -230,14 +263,12 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const W = furniture.dimensions.width  * CM_TO_UNIT;
       const H = furniture.dimensions.height * CM_TO_UNIT;
       const D = furniture.dimensions.depth  * CM_TO_UNIT;
-      // Lock Y=0 so furniture stays on the floor (movement only on X/Z floor plane)
       const newPos: [number, number, number] = [
-        (obj.position.x - W / 2) / CM_TO_UNIT,
+        snapToCm((obj.position.x - W / 2) / CM_TO_UNIT),
         0,
-        (obj.position.z - D / 2) / CM_TO_UNIT,
+        snapToCm((obj.position.z - D / 2) / CM_TO_UNIT),
       ];
-      // Snap Y back to floor in the 3D object too
-      obj.position.y = H / 2;
+      obj.position.set(newPos[0] * CM_TO_UNIT + W / 2, H / 2, newPos[2] * CM_TO_UNIT + D / 2);
       const updated = { ...furniture, position: newPos };
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
@@ -252,47 +283,279 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
     }
-
-    if (mode === 'scale' && baseDimsRef.current) {
-      const s = obj.scale;
-      const base = baseDimsRef.current;
-      const newDims: Dimensions = {
-        width:  Math.max(10, base.width  * Math.abs(s.x)),
-        height: Math.max(10, base.height * Math.abs(s.y)),
-        depth:  Math.max(10, base.depth  * Math.abs(s.z)),
-      };
-      obj.scale.set(1, 1, 1);
-      const updated = { ...furniture, dimensions: newDims };
-      updateFurniture(updated);
-      if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
-    }
   }, [furniture, transformTarget, mode, projectId, updateFurniture]);
 
   return (
     <TransformControls
       object={transformTarget}
       mode={mode}
-      onMouseDown={handleMouseDown}
+      translationSnap={SNAP_UNIT}
       onMouseUp={handleMouseUp}
     />
   );
 }
 
-// ─── Store Floor + Grid ───────────────────────────────────────────────────────
-function StoreFloor({ store }: { store: StoreConfig }) {
-  const { selectFurniture } = useSceneStore();
-  const w  = store.dimensions.width  * CM_TO_UNIT;
-  const d  = store.dimensions.depth  * CM_TO_UNIT;
+// ─── Resize handles (scale mode — one handle per face, drags from that side) ──
+interface ResizeHandlesProps {
+  furniture: FurnitureInstance;
+  projectId: string | null;
+}
+
+function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
+  const { updateFurniture } = useSceneStore();
+  const { gl, raycaster, camera } = useThree();
+
+  const W  = furniture.dimensions.width  * CM_TO_UNIT;
+  const H  = furniture.dimensions.height * CM_TO_UNIT;
+  const D  = furniture.dimensions.depth  * CM_TO_UNIT;
+  const ry = furniture.rotation[1] * (Math.PI / 180);
+  const px = furniture.position[0] * CM_TO_UNIT;
+  const pz = furniture.position[2] * CM_TO_UNIT;
+
+  // Drag state — all refs so event listeners stay stable.
+  const isDragging    = useRef(false);
+  const dragAxis      = useRef<'width' | 'depth'>('width');
+  const dragSign      = useRef<1 | -1>(1);
+  const dragStart     = useRef(new THREE.Vector3());
+  const pointerIdRef  = useRef(-1);
+  const baseFurRef    = useRef<FurnitureInstance>(furniture);
+  /** Tracks the latest intermediate furniture value during a drag. */
+  const currentFurRef = useRef<FurnitureInstance>(furniture);
+  currentFurRef.current = furniture;
+
+  // Pre-allocated vectors reused every pointermove to reduce GC pressure.
+  const _lx    = useRef(new THREE.Vector3());
+  const _lz    = useRef(new THREE.Vector3());
+  const _hit   = useRef(new THREE.Vector3());
+  const _delta = useRef(new THREE.Vector3());
+  const _ndc   = useRef(new THREE.Vector2());
+
+  /** Horizontal Y=0 plane used for raycasting during a drag. */
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  /** Write the world-space hit point on the drag plane into `out`; returns false if ray is parallel. */
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
+    const rect = gl.domElement.getBoundingClientRect();
+    _ndc.current.set(
+      ((clientX - rect.left) / rect.width)  *  2 - 1,
+      -((clientY - rect.top)  / rect.height) *  2 + 1,
+    );
+    raycaster.setFromCamera(_ndc.current, camera);
+    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
+  }, [gl, raycaster, camera, dragPlane]);
+
+  /** Called from each handle's pointerDown handler. */
+  const startDrag = useCallback((
+    axis: 'width' | 'depth',
+    sign: 1 | -1,
+    clientX: number,
+    clientY: number,
+    pointerId: number,
+  ) => {
+    if (!getHitPoint(clientX, clientY, dragStart.current)) return; // ray parallel to plane — ignore
+    baseFurRef.current   = currentFurRef.current;
+    isDragging.current   = true;
+    dragAxis.current     = axis;
+    dragSign.current     = sign;
+    pointerIdRef.current = pointerId;
+  }, [getHitPoint]);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      // Capture coords synchronously; compute and update inside rAF to throttle.
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseFurRef.current;
+        const bW  = base.dimensions.width  * CM_TO_UNIT;
+        const bD  = base.dimensions.depth  * CM_TO_UNIT;
+        const bRy = base.rotation[1] * (Math.PI / 180);
+
+        // Local axes of the furniture in world space (reused vectors).
+        const lx = _lx.current.set( Math.cos(bRy), 0, Math.sin(bRy));
+        const lz = _lz.current.set(-Math.sin(bRy), 0, Math.cos(bRy));
+
+        const bCx = base.position[0] * CM_TO_UNIT + bW / 2;
+        const bCz = base.position[2] * CM_TO_UNIT + bD / 2;
+
+        if (!getHitPoint(clientX, clientY, _hit.current)) return; // ray parallel — skip frame
+        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
+        const sign  = dragSign.current;
+
+        const newDims = { ...base.dimensions };
+        const newPos  = [...base.position] as [number, number, number];
+
+        if (dragAxis.current === 'width') {
+          // How much the dragged face moved (positive = outward).
+          const move = delta.dot(lx) * sign;
+          const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
+          const dW   = newW - bW;
+          // Shift center along the local X axis toward the dragged side.
+          const newCx = bCx + Math.cos(bRy) * dW / 2 * sign;
+          const newCz = bCz + Math.sin(bRy) * dW / 2 * sign;
+          newDims.width = newW / CM_TO_UNIT;
+          newPos[0]     = (newCx - newW / 2) / CM_TO_UNIT;
+          newPos[2]     = (newCz - bD  / 2)  / CM_TO_UNIT;
+        } else {
+          const move = delta.dot(lz) * sign;
+          const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
+          const dD   = newD - bD;
+          const newCx = bCx + (-Math.sin(bRy)) * dD / 2 * sign;
+          const newCz = bCz +   Math.cos(bRy)  * dD / 2 * sign;
+          newDims.depth = newD / CM_TO_UNIT;
+          newPos[0]     = (newCx - bW  / 2) / CM_TO_UNIT;
+          newPos[2]     = (newCz - newD / 2) / CM_TO_UNIT;
+        }
+
+        updateFurniture({ ...base, dimensions: newDims, position: newPos });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+
+      // Release pointer capture explicitly.
+      if (pointerIdRef.current >= 0) {
+        try {
+          gl.domElement.releasePointerCapture(pointerIdRef.current);
+        } catch (err) {
+          console.warn('releasePointerCapture failed:', err);
+        }
+        pointerIdRef.current = -1;
+      }
+
+      // Snap final position and dimensions to the grid.
+      // Clamp to minimum first so the snapped value can never fall below it.
+      const cur = currentFurRef.current;
+      const snapDim = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
+      const snapped: FurnitureInstance = {
+        ...cur,
+        position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
+        dimensions: {
+          ...cur.dimensions,
+          width: snapDim(cur.dimensions.width),
+          depth: snapDim(cur.dimensions.depth),
+        },
+      };
+      updateFurniture(snapped);
+      if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, getHitPoint, updateFurniture, projectId]);
+
+  // Ensure cursor is reset when this component unmounts (e.g. tool switch or deselect).
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  // ── Render four face handles (+W, -W, +D, -D) ──
+  const centerX = px + W / 2;
+  const centerZ = pz + D / 2;
+
+  // Choose resize cursor based on the handle's approximate screen-space orientation.
+  // The width axis (local X) is along world [cos(ry), 0, sin(ry)]; depth is 90° offset.
+  // ANGLE_45_DEG / ANGLE_135_DEG split the rotation into quadrants where width appears
+  // more horizontal (EW) vs vertical (NS) on a top-down view.
+  const ryMod180 = Math.abs(ry % Math.PI);
+  const widthIsEW = ryMod180 < ANGLE_45_DEG || ryMod180 > ANGLE_135_DEG;
+
+  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; lx: number; lz: number }[] = [
+    { axis: 'width', sign:  1, lx:  Math.cos(ry),  lz:  Math.sin(ry) },
+    { axis: 'width', sign: -1, lx: -Math.cos(ry),  lz: -Math.sin(ry) },
+    { axis: 'depth', sign:  1, lx: -Math.sin(ry),  lz:  Math.cos(ry) },
+    { axis: 'depth', sign: -1, lx:  Math.sin(ry),  lz: -Math.cos(ry) },
+  ];
 
   return (
     <group>
+      {handles.map(({ axis, sign, lx: hlx, lz: hlz }) => {
+        const halfDim = axis === 'width' ? W / 2 : D / 2;
+        const hx = centerX + hlx * halfDim;
+        const hz = centerZ + hlz * halfDim;
+        // 'width' axis is EW when widthIsEW; depth is always the opposite.
+        const cursor = (axis === 'width') === widthIsEW ? 'ew-resize' : 'ns-resize';
+        return (
+          <HandleMesh
+            key={`${axis}${sign}`}
+            position={[hx, H / 2, hz]}
+            axis={axis}
+            sign={sign}
+            cursor={cursor}
+            onStartDrag={startDrag}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+interface HandleMeshProps {
+  position: [number, number, number];
+  axis: 'width' | 'depth';
+  sign: 1 | -1;
+  cursor: string;
+  onStartDrag: (axis: 'width' | 'depth', sign: 1 | -1, clientX: number, clientY: number, pointerId: number) => void;
+}
+
+function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshProps) {
+  const [hovered, setHovered] = useState(false);
+  const { gl } = useThree();
+
+  return (
+    <mesh
+      position={position}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
+        onStartDrag(axis, sign, e.clientX, e.clientY, e.nativeEvent.pointerId);
+      }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true);  document.body.style.cursor = cursor; }}
+      onPointerOut={()  => { setHovered(false); document.body.style.cursor = 'auto'; }}
+    >
+      <boxGeometry args={[HANDLE_SIZE, HANDLE_SIZE, HANDLE_SIZE]} />
+      <meshStandardMaterial color={hovered ? HANDLE_HOVER : HANDLE_COLOR} emissive={hovered ? HANDLE_EMISSIVE : '#000'} emissiveIntensity={0.4} />
+    </mesh>
+  );
+}
+
+// ─── Store Floor + fine grid ───────────────────────────────────────────────────
+function StoreFloor({ store }: { store: StoreConfig }) {
+  const { selectFurniture } = useSceneStore();
+  const w = store.dimensions.width  * CM_TO_UNIT;
+  const d = store.dimensions.depth  * CM_TO_UNIT;
+  const size = Math.ceil(Math.max(w, d) * GRID_SIZE_MULTIPLIER);
+
+  return (
+    <group>
+      {/* Floor slab — clicking deselects */}
       <mesh position={[w / 2, -0.05, d / 2]} receiveShadow onClick={() => selectFurniture(null)}>
         <boxGeometry args={[w, 0.1, d]} />
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
-      <gridHelper
-        args={[Math.ceil(Math.max(w, d) * 1.2), 60, '#263754', '#1a2a3a']}
-        position={[w / 2, 0.01, d / 2]}
+
+      {/* Fine grid: 10 cm cells, 1 m sections */}
+      <Grid
+        position={[w / 2, GRID_Y_OFFSET, d / 2]}
+        args={[size, size]}
+        cellSize={SNAP_UNIT}
+        cellThickness={0.4}
+        cellColor="#1e2d3d"
+        sectionSize={1.0}
+        sectionThickness={0.9}
+        sectionColor="#2a4a6a"
+        fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
+        fadeStrength={1.2}
+        infiniteGrid={false}
       />
     </group>
   );
@@ -328,8 +591,13 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     ? scene.furniture.find(f => f.id === selectedFurnitureId) ?? null
     : null;
 
-  const showTransform = activeTool !== 'select' && selectedFurniture && transformTarget;
-  const tMode = (activeTool === 'scale' ? 'scale' : activeTool === 'rotate' ? 'rotate' : 'translate') as 'translate' | 'rotate' | 'scale';
+  // Show transform controls whenever furniture is selected.
+  // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
+  // 'scale' uses the custom ResizeHandles component instead.
+  const hasSelection      = selectedFurniture != null && transformTarget != null;
+  const showResizeHandles = hasSelection && activeTool === 'scale';
+  const showTransform     = hasSelection && activeTool !== 'scale';
+  const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
   return (
     <MeshRegistryCtx.Provider value={registerGroup}>
@@ -352,6 +620,21 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           projectId={projectId}
         />
       )}
+
+      {showResizeHandles && (
+        <ResizeHandles furniture={selectedFurniture} projectId={projectId} />
+      )}
+
+      {/*
+        Orbit controls: rotation is disabled when furniture is selected so that
+        dragging in the scene moves/transforms the selected object instead of
+        spinning the camera.  Zoom and pan remain available at all times.
+      */}
+      <OrbitControls
+        makeDefault
+        target={[25, 0, 15]}
+        enableRotate={!selectedFurnitureId}
+      />
     </MeshRegistryCtx.Provider>
   );
 }
@@ -380,7 +663,6 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
         <color attach="background" args={['#111827']} />
         <Suspense fallback={null}>
           <SceneContent projectId={projectId} />
-          <OrbitControls makeDefault target={[25, 0, 15]} />
           <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
             <GizmoViewport axisColors={['#e84545', '#52b788', '#4a9eff']} />
           </GizmoHelper>

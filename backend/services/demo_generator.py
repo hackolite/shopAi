@@ -193,6 +193,43 @@ def generate_retail_cad_demo() -> dict:
         furniture.append(gondola.model_dump(mode="json"))
         planograms.extend([front_planogram, back_planogram])
 
+    # End gondolas (tête de gondole) at each end of the main aisle
+    end_gondola_specs = [
+        # (position, rotation_y, name)
+        ([1100.0, 0.0, 1200.0], 270.0, "Tête de gondole 1"),
+        ([2600.0, 0.0, 1200.0],  90.0, "Tête de gondole 2"),
+    ]
+    for eg_index, (eg_position, eg_rot_y, eg_name) in enumerate(end_gondola_specs, start=1):
+        furniture_id = str(uuid4())
+        end_gondola = FurnitureInstance(
+            id=furniture_id,
+            name=eg_name,
+            type="end_gondola",
+            libraryId="end_gondola",
+            position=eg_position,
+            rotation=[0.0, eg_rot_y, 0.0],
+            dimensions={"width": 80.0, "depth": 60.0, "height": 180.0},
+            materialId="solid_red",
+            visible=True,
+            locked=False,
+            parentId=None,
+            childIds=[],
+            faces=_default_faces(),
+        )
+        front_planogram = _make_planogram(
+            f"{eg_name} - Face avant",
+            furniture_id,
+            Face.front,
+            rows=4,
+            cols=2,
+            width_cm=80.0,
+            height_cm=180.0,
+            product_iter=product_iter,
+        )
+        end_gondola.faces["front"] = front_planogram["id"]
+        furniture.append(end_gondola.model_dump(mode="json"))
+        planograms.append(front_planogram)
+
     fridge_positions = ([1600.0, 0.0, 2550.0], [2900.0, 0.0, 2550.0])
     for index, position in enumerate(fridge_positions, start=1):
         furniture_id = str(uuid4())

@@ -245,7 +245,7 @@ interface FurnitureMeshProps {
 
 function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const [hovered, setHovered] = useState(false);
-  const { selectedFurnitureId, selectFurniture } = useSceneStore();
+  const { selectedFurnitureId, selectFurniture, selection } = useSceneStore();
   const { activeTool } = useUIStore();
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
@@ -266,6 +266,26 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const color = isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
 
   const { selectZone } = useZoneStore();
+
+  // Detect product selection on this gondola (planogram cell click)
+  const isProductSelected =
+    selection.type === 'planogram_cell' && selection.furnitureId === furniture.id;
+
+  // Determine which face of the gondola the selected planogram belongs to, so
+  // the semi-circle can be oriented correctly (flat edge = gondola face, arc = aisle).
+  const selectedFace = isProductSelected && selection.planogramId
+    ? (Object.entries(furniture.faces) as [string, string | null][])
+        .find(([, pid]) => pid === selection.planogramId)?.[0] ?? 'front'
+    : 'front';
+
+  // Position and Y-rotation for the semi-circle depending on which face is selected.
+  const semiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
+    front:  { pos: [0,      -H / 2 + 0.02, D / 2],  yRot: 0           },
+    back:   { pos: [0,      -H / 2 + 0.02, -D / 2], yRot: Math.PI     },
+    right:  { pos: [W / 2,  -H / 2 + 0.02, 0],      yRot: Math.PI / 2 },
+    left:   { pos: [-W / 2, -H / 2 + 0.02, 0],      yRot: -Math.PI / 2},
+  };
+  const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
 
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
@@ -318,6 +338,15 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
           metalness={isGondolaStyle ? 0.5 : 0.25}
         />
       </mesh>
+
+      {/* Customer proximity semi-circle — 2 m radius, shown when a product cell on this
+          gondola is selected. Flat edge = gondola face; arc extends into the aisle. */}
+      {isProductSelected && (
+        <mesh position={scc.pos} rotation={[Math.PI / 2, scc.yRot, 0]}>
+          <circleGeometry args={[2, 64, 0, Math.PI]} />
+          <meshBasicMaterial color="#ff69b4" transparent opacity={0.28} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+      )}
 
       {/* Planogram face overlays — rendered for any furniture face that has an assigned planogram */}
       {(['front', 'back', 'left', 'right', 'top'] as const).map((face) => {
@@ -867,10 +896,12 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
-  // Two handles: right edge (resize width) and far edge (resize depth).
+  // Four handles: one per edge (right, left, far, near).
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
-    { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' },
-    { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' },
+    { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' }, // right edge
+    { axis: 'width',  sign: -1, hx: 0,     hz: D / 2, cursor: 'ew-resize' }, // left edge
+    { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' }, // far edge
+    { axis: 'depth',  sign: -1, hx: W / 2, hz: 0,     cursor: 'ns-resize' }, // near edge
   ];
 
   return (
@@ -1573,6 +1604,42 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
 
+  // ── Video recording ───────────────────────────────────────────────────────
+  const canvasWrapperRef    = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef    = useRef<MediaRecorder | null>(null);
+  const recordChunksRef     = useRef<Blob[]>([]);
+  const [recording, setRecording] = useState(false);
+
+  const startRecording = useCallback(() => {
+    const canvas = canvasWrapperRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stream: MediaStream = (canvas as any).captureStream(30);
+    const mimeType = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm']
+      .find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    recordChunksRef.current = [];
+    mr.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
+    mr.onstop = () => {
+      const blob = new Blob(recordChunksRef.current, { type: 'video/webm' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `scene_${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    mr.start();
+    mediaRecorderRef.current = mr;
+    setRecording(true);
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    setRecording(false);
+  }, []);
+
   // Auto-save zones whenever they change after the initial load from the backend.
   useEffect(() => {
     if (!zonesLoaded || !projectId) return;
@@ -1592,7 +1659,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={canvasWrapperRef} className="relative w-full h-full">
       {!scene && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-950">
           <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -1608,6 +1675,34 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           </GizmoHelper>
         </Suspense>
       </Canvas>
+
+      {/* ── Video recording controls ────────────────────────────────────── */}
+      <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
+        {recording ? (
+          <>
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/90 border border-red-700 text-red-300 text-xs font-semibold select-none">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
+              On Air
+            </span>
+            <button
+              onClick={stopRecording}
+              title="Arrêter l'enregistrement"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-gray-800 text-white text-xs font-medium hover:bg-gray-700 transition-colors border border-gray-600"
+            >
+              ⏹ Stop
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={startRecording}
+            title="Enregistrer une vidéo de la scène 3D"
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-gray-800 text-gray-300 text-xs font-medium hover:bg-red-900 hover:text-white transition-colors border border-gray-700"
+          >
+            ⏺ Enregistrer
+          </button>
+        )}
+      </div>
+
       {/* Hint overlay */}
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none">
         <span className="px-2 py-1 rounded text-xs text-gray-500 bg-black/40">

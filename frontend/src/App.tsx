@@ -10,6 +10,7 @@ import SceneHierarchy from './components/SceneHierarchy';
 import CatalogPanel from './components/CatalogPanel';
 import Inspector from './components/Inspector';
 import PlanogramEditor from './components/PlanogramEditor';
+import type { FurnitureInstance } from './types/cad';
 
 const DEFAULT_PROJECT = 'retail_cad';
 
@@ -19,7 +20,7 @@ export default function App() {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
 
-  const { setScene, selectFurniture } = useSceneStore();
+  const { setScene, selectFurniture, addFurniture, scene, selectedFurnitureId, clipboard, setClipboard } = useSceneStore();
   const { setProducts }               = useCatalogStore();
   const { setPlanograms }             = usePlanogramStore();
   const { viewMode, setViewMode }     = useUIStore();
@@ -28,12 +29,12 @@ export default function App() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [scene, catalog, planoData] = await Promise.all([
+        const [sceneData, catalog, planoData] = await Promise.all([
           cadApi.getScene(projectId),
           cadApi.getCatalog(projectId),
           cadApi.listPlanograms(projectId),
         ]);
-        setScene(scene);
+        setScene(sceneData);
         setProducts(catalog.products);
         setPlanograms(planoData.planograms);
       } catch (err) {
@@ -42,17 +43,6 @@ export default function App() {
     };
     void load();
   }, [projectId, setScene, setProducts, setPlanograms]);
-
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        selectFurniture(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture]);
 
   // ── Open planogram ────────────────────────────────────────────────────────
   const openPlanogram = (planogramId: string) => {
@@ -64,6 +54,98 @@ export default function App() {
     setActivePlanogramId(null);
     setViewMode('3d');
   };
+
+  // ── Copy-paste helpers ────────────────────────────────────────────────────
+  const copySelected = () => {
+    if (!selectedFurnitureId || !scene) return;
+    const furniture = scene.furniture.find(f => f.id === selectedFurnitureId);
+    if (!furniture) return;
+    const planogramIds: Record<string, string> = {};
+    for (const [face, pid] of Object.entries(furniture.faces)) {
+      if (pid) planogramIds[face] = pid;
+    }
+    setClipboard({ furniture, planogramIds });
+  };
+
+  const pasteClipboard = async () => {
+    if (!clipboard) return;
+    const { furniture: src } = clipboard;
+    const newId = crypto.randomUUID();
+    const offset = 150; // 150 cm offset
+
+    // Build new furniture with no face links yet
+    const newFurniture: FurnitureInstance = {
+      ...src,
+      id: newId,
+      name: `${src.name} (copie)`,
+      position: [src.position[0] + offset, src.position[1], src.position[2] + offset] as [number, number, number],
+      faces: Object.fromEntries(Object.keys(src.faces).map(face => [face, null])),
+      childIds: [],
+      parentId: null,
+    };
+
+    try {
+      const created = await cadApi.addFurniture(projectId, newFurniture);
+
+      // Clone each associated planogram
+      for (const [faceId, planogramId] of Object.entries(clipboard.planogramIds)) {
+        try {
+          const srcPlanogram = await cadApi.getPlanogram(projectId, planogramId);
+          const newPlanogram = {
+            ...srcPlanogram,
+            id: crypto.randomUUID(),
+            name: `${srcPlanogram.name} (copie)`,
+            furnitureId: newId,
+            cells: srcPlanogram.cells.map(cell => ({ ...cell, id: crypto.randomUUID() })),
+          };
+          const createdPlanogram = await cadApi.createPlanogram(projectId, newPlanogram);
+          (created.faces as Record<string, string | null>)[faceId] = createdPlanogram.id;
+        } catch (err) {
+          console.error('Failed to clone planogram:', err);
+        }
+      }
+
+      // Persist face links on the furniture
+      await cadApi.updateFurniture(projectId, created.id, created);
+      addFurniture(created);
+      selectFurniture(created.id);
+
+      // Refresh planogram list
+      const planoData = await cadApi.listPlanograms(projectId);
+      setPlanograms(planoData.planograms);
+    } catch (err) {
+      console.error('Paste failed:', err);
+    }
+  };
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore when inside an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'Escape') {
+        selectFurniture(null);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        copySelected();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        void pasteClipboard();
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFurnitureId, scene, clipboard]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

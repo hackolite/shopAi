@@ -5,10 +5,11 @@ interface ToolbarProps {
   projectName: string;
 }
 
-const TOOLS: { id: ActiveTool; label: string; icon: string }[] = [
-  { id: 'select',    label: 'Select',    icon: '↖' },
-  { id: 'translate', label: 'Translate', icon: '✥' },
-  { id: 'rotate',    label: 'Rotate',    icon: '↻' },
+const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = [
+  { id: 'select',    label: 'Select',    icon: '↖', title: 'Select (S)' },
+  { id: 'translate', label: 'Move',      icon: '✥', title: 'Move (G)' },
+  { id: 'rotate',    label: 'Rotate',    icon: '↻', title: 'Rotate (R)' },
+  { id: 'scale',     label: 'Resize',    icon: '⤡', title: 'Resize / Scale (E)' },
 ];
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
@@ -37,7 +38,7 @@ export default function Toolbar({ projectName }: ToolbarProps) {
         {TOOLS.map((tool) => (
           <button
             key={tool.id}
-            title={tool.label}
+            title={tool.title}
             onClick={() => setActiveTool(tool.id)}
             className={[
               'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',

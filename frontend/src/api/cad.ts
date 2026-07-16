@@ -91,6 +91,15 @@ export const cadApi = {
       method: 'DELETE',
     }),
 
+  uploadProductImage: (id: string, ean: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<{ ean: string; imageUrl: string }>(
+      `${BASE}/${id}/catalog/products/${ean}/image`,
+      { method: 'POST', body: form },
+    );
+  },
+
   listPlanograms: (id: string) =>
     request<{ planograms: PlanogramSummary[] }>(`${BASE}/${id}/planograms`),
   createPlanogram: (id: string, planogram: Planogram) =>

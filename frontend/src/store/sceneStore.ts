@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import type { FurnitureInstance, Scene, Selection } from '../types/cad';
 
+export interface FurnitureClipboard {
+  furniture: FurnitureInstance;
+  /** planogram IDs mapped by face name */
+  planogramIds: Record<string, string>;
+}
+
 interface SceneState {
   scene: Scene | null;
   selectedFurnitureId: string | null;
   selection: Selection;
   expandedNodes: Set<string>;
   loading: boolean;
+  clipboard: FurnitureClipboard | null;
   setScene: (scene: Scene) => void;
   selectFurniture: (id: string | null) => void;
   setSelection: (selection: Selection) => void;
@@ -15,6 +22,7 @@ interface SceneState {
   removeFurniture: (id: string) => void;
   toggleNodeExpanded: (id: string) => void;
   setLoading: (loading: boolean) => void;
+  setClipboard: (data: FurnitureClipboard | null) => void;
 }
 
 export const useSceneStore = create<SceneState>((set) => ({
@@ -23,6 +31,7 @@ export const useSceneStore = create<SceneState>((set) => ({
   selection: { type: null },
   expandedNodes: new Set<string>(),
   loading: false,
+  clipboard: null,
 
   setScene: (scene) => set({ scene }),
   selectFurniture: (id) =>
@@ -79,4 +88,5 @@ export const useSceneStore = create<SceneState>((set) => ({
       return { expandedNodes };
     }),
   setLoading: (loading) => set({ loading }),
+  setClipboard: (data) => set({ clipboard: data }),
 }));

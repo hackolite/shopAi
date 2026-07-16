@@ -98,6 +98,8 @@ export interface PlanogramSummary {
   rows: number;
   cols: number;
   cellCount: number;
+  widthCm: number;
+  heightCm: number;
 }
 
 // ─── Material ─────────────────────────────────────────────────────────────────

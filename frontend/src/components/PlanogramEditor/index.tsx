@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
+import { useSceneStore } from '../../store/sceneStore';
 import { cadApi } from '../../api/cad';
-import type { Planogram, PlanogramCell } from '../../types/cad';
+import type { CADProduct, Planogram, PlanogramCell } from '../../types/cad';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {
   'Épicerie':  '#F5C518',
   'Boissons':  '#2196F3',
@@ -21,10 +23,40 @@ type CellMap = Map<string, PlanogramCell>;
 
 function buildCellMap(cells: PlanogramCell[]): CellMap {
   const map = new Map<string, PlanogramCell>();
-  for (const cell of cells) {
-    map.set(`${cell.row}-${cell.col}`, cell);
-  }
+  for (const cell of cells) map.set(`${cell.row}-${cell.col}`, cell);
   return map;
+}
+
+/** Default SVG thumbnail shown when a product has no imageUrl. */
+function DefaultThumb({ color }: { color: string }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ width: '100%', height: '100%' }}
+    >
+      <rect x="2" y="2" width="36" height="36" rx="3" fill={color + '33'} stroke={color} strokeWidth="1.5" />
+      <rect x="8" y="12" width="24" height="3" rx="1.5" fill={color + 'aa'} />
+      <rect x="8" y="19" width="18" height="2" rx="1" fill={color + '77'} />
+      <rect x="8" y="25" width="14" height="2" rx="1" fill={color + '55'} />
+    </svg>
+  );
+}
+
+/** Product thumbnail: shows imageUrl if available, otherwise a colored SVG. */
+function ProductThumb({ product }: { product: CADProduct }) {
+  const color = getCategoryColor(product.category);
+  if (product.imageUrl) {
+    return (
+      <img
+        src={product.imageUrl}
+        alt={product.name}
+        className="w-full h-full object-contain"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+      />
+    );
+  }
+  return <DefaultThumb color={color} />;
 }
 
 interface PlanogramEditorProps {
@@ -33,33 +65,40 @@ interface PlanogramEditorProps {
   onClose: () => void;
 }
 
-export default function PlanogramEditor({
-  projectId,
-  planogramId,
-  onClose,
-}: PlanogramEditorProps) {
+export default function PlanogramEditor({ projectId, planogramId, onClose }: PlanogramEditorProps) {
   const [planogram, setPlanogram] = useState<Planogram | null>(null);
   const [cellMap,   setCellMap]   = useState<CellMap>(new Map());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [history,   setHistory]   = useState<Planogram[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [dragOver,  setDragOver]  = useState<string | null>(null);
+  const [uploadingEan, setUploadingEan] = useState<string | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const { setActivePlanogram } = usePlanogramStore();
-  const { products, selectedEan, addRecentlyUsed } = useCatalogStore();
+  const { products, selectedEan, addRecentlyUsed, setProducts } = useCatalogStore();
+  const { scene } = useSceneStore();
 
-  // Build product lookup
   const productByEan = new Map(products.map((p) => [p.ean, p] as const));
+
+  // ── Overflow detection ───────────────────────────────────────────────────
+  const furniture = planogram
+    ? scene?.furniture.find(f => f.id === planogram.furnitureId)
+    : null;
+
+  const isOverflowing = planogram && furniture
+    ? planogram.widthCm  > furniture.dimensions.width  + 0.5 ||
+      planogram.heightCm > furniture.dimensions.height + 0.5
+    : false;
 
   // ── Load planogram ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
     setSelectedKey(null);
-    cadApi
-      .getPlanogram(projectId, planogramId)
+    cadApi.getPlanogram(projectId, planogramId)
       .then((p) => {
         setPlanogram(p);
         setCellMap(buildCellMap(p.cells));
@@ -78,7 +117,6 @@ export default function PlanogramEditor({
     }, 500);
   };
 
-  // ── Mutate helpers ───────────────────────────────────────────────────────
   const applyUpdate = (updated: Planogram) => {
     setPlanogram(updated);
     setCellMap(buildCellMap(updated.cells));
@@ -90,21 +128,14 @@ export default function PlanogramEditor({
     if (!planogram) return;
     const key      = `${row}-${col}`;
     const existing = cellMap.get(key);
-
     setHistory((prev) => [...prev.slice(-20), planogram]);
-
     const newCell: PlanogramCell = {
-      id:       existing?.id ?? crypto.randomUUID(),
-      ean,
-      row,
-      col,
-      rotation: 0,
+      id: existing?.id ?? crypto.randomUUID(),
+      ean, row, col, rotation: 0,
     };
-
     const newCells = existing
       ? planogram.cells.map((c) => (c.row === row && c.col === col ? newCell : c))
       : [...planogram.cells, newCell];
-
     applyUpdate({ ...planogram, cells: newCells });
     addRecentlyUsed(ean);
   };
@@ -112,9 +143,7 @@ export default function PlanogramEditor({
   const clearCell = (row: number, col: number) => {
     if (!planogram) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
-    const newCells = planogram.cells.filter(
-      (c) => !(c.row === row && c.col === col),
-    );
+    const newCells = planogram.cells.filter((c) => !(c.row === row && c.col === col));
     applyUpdate({ ...planogram, cells: newCells });
     setSelectedKey(null);
   };
@@ -131,8 +160,25 @@ export default function PlanogramEditor({
     });
   };
 
+  // ── Image upload ─────────────────────────────────────────────────────────
+  const handleImageUpload = async (ean: string, file: File) => {
+    if (!projectId) return;
+    setUploadingEan(ean);
+    try {
+      const result = await cadApi.uploadProductImage(projectId, ean, file);
+      // Refresh catalog with updated imageUrl
+      const updatedProducts = products.map(p =>
+        p.ean === ean ? { ...p, imageUrl: result.imageUrl } : p
+      );
+      setProducts(updatedProducts);
+    } catch (err) {
+      console.error('Image upload failed:', err);
+    } finally {
+      setUploadingEan(null);
+    }
+  };
+
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  // Use a ref so the effect never needs to re-subscribe when handlers change.
   const keyHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   keyHandlerRef.current = (e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -152,11 +198,10 @@ export default function PlanogramEditor({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // ── Cell click handler ───────────────────────────────────────────────────
+  // ── Cell click ───────────────────────────────────────────────────────────
   const handleCellClick = (row: number, col: number) => {
     const key  = `${row}-${col}`;
     const cell = cellMap.get(key);
-
     if (!cell && selectedEan) {
       fillCellWithEan(row, col, selectedEan);
       return;
@@ -164,7 +209,6 @@ export default function PlanogramEditor({
     setSelectedKey(key === selectedKey ? null : key);
   };
 
-  // ── Drag-and-drop ────────────────────────────────────────────────────────
   const handleDrop = (e: React.DragEvent, row: number, col: number) => {
     e.preventDefault();
     setDragOver(null);
@@ -191,23 +235,42 @@ export default function PlanogramEditor({
 
   const rows = planogram.rows;
   const cols = planogram.cols;
+  // Cell pixel size proportional to physical dimensions (min 56px, max 120px per cell)
+  const physCellW = planogram.widthCm  / cols;
+  const physCellH = planogram.heightCm / rows;
+  const maxCellPx = 120;
+  const minCellPx = 48;
+  const cellW = Math.max(minCellPx, Math.min(maxCellPx, Math.round(physCellW * 1.2)));
+  const cellH = Math.max(minCellPx, Math.min(maxCellPx, Math.round(physCellH * 0.6)));
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800 shrink-0">
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold text-gray-200 truncate">
-            {planogram.name}
-          </h2>
+          <h2 className="text-sm font-semibold text-gray-200 truncate">{planogram.name}</h2>
           <p className="text-xs text-gray-500">
-            {rows} rows × {cols} cols
+            {rows} lignes × {cols} colonnes
             &nbsp;·&nbsp;
             {planogram.widthCm} × {planogram.heightCm} cm
             &nbsp;·&nbsp;
-            {planogram.cells.length} / {rows * cols} cells filled
+            {planogram.cells.length} / {rows * cols} remplis
           </p>
         </div>
+
+        {/* Hidden file input for image upload */}
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            const ean = uploadInputRef.current?.dataset.ean;
+            if (file && ean) void handleImageUpload(ean, file);
+            e.target.value = '';
+          }}
+        />
 
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -228,21 +291,27 @@ export default function PlanogramEditor({
         </div>
       </div>
 
+      {/* Overflow warning */}
+      {isOverflowing && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border-b border-red-700/50 text-xs text-red-300 shrink-0">
+          <span className="text-base">🔴</span>
+          <span>
+            Ce planogramme ({planogram.widthCm} × {planogram.heightCm} cm) dépasse les dimensions de la gondole
+            ({furniture?.dimensions.width ?? '?'} × {furniture?.dimensions.height ?? '?'} cm).
+            Les produits en dehors des limites ne seront pas affichés correctement.
+          </span>
+        </div>
+      )}
+
       {/* Grid area */}
       <div className="flex-1 overflow-auto p-4">
         {/* Column numbers */}
         <div
           className="grid mb-1"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, minmax(72px, 1fr))`,
-            gap: '2px',
-            marginLeft: '24px',
-          }}
+          style={{ gridTemplateColumns: `repeat(${cols}, ${cellW}px)`, gap: '2px', marginLeft: '24px' }}
         >
           {Array.from({ length: cols }, (_, c) => (
-            <div key={c} className="text-center text-xs text-gray-600 pb-0.5">
-              {c + 1}
-            </div>
+            <div key={c} className="text-center text-xs text-gray-600 pb-0.5">{c + 1}</div>
           ))}
         </div>
 
@@ -253,7 +322,7 @@ export default function PlanogramEditor({
               <div
                 key={r}
                 className="text-xs text-gray-600 w-5 flex items-center justify-center"
-                style={{ height: '56px' }}
+                style={{ height: `${cellH}px` }}
               >
                 {r + 1}
               </div>
@@ -262,36 +331,33 @@ export default function PlanogramEditor({
 
           {/* Main grid */}
           <div
-            className="grid flex-1"
+            className="grid"
             style={{
-              gridTemplateColumns: `repeat(${cols}, minmax(72px, 1fr))`,
-              gridTemplateRows:    `repeat(${rows}, 56px)`,
+              gridTemplateColumns: `repeat(${cols}, ${cellW}px)`,
+              gridTemplateRows:    `repeat(${rows}, ${cellH}px)`,
               gap: '2px',
             }}
           >
             {Array.from({ length: rows }, (_, row) =>
               Array.from({ length: cols }, (_, col) => {
-                const key  = `${row}-${col}`;
-                const cell = cellMap.get(key);
-                const prod = cell ? productByEan.get(cell.ean) : undefined;
+                const key      = `${row}-${col}`;
+                const cell     = cellMap.get(key);
+                const prod     = cell ? productByEan.get(cell.ean) : undefined;
                 const catColor = prod ? getCategoryColor(prod.category) : undefined;
                 const isSelected = selectedKey === key;
                 const isDragOver = dragOver === key;
+                const isUploading = prod && uploadingEan === prod.ean;
 
                 return (
                   <div
                     key={key}
                     onClick={() => handleCellClick(row, col)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      if (cell) clearCell(row, col);
-                    }}
+                    onContextMenu={(e) => { e.preventDefault(); if (cell) clearCell(row, col); }}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(key); }}
                     onDragLeave={() => setDragOver(null)}
                     onDrop={(e) => handleDrop(e, row, col)}
                     className={[
-                      'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all text-center overflow-hidden select-none',
-                      'border',
+                      'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all overflow-hidden select-none border group',
                       cell
                         ? 'border-transparent'
                         : isDragOver
@@ -299,59 +365,70 @@ export default function PlanogramEditor({
                         : 'border-dashed border-gray-700 hover:border-gray-500',
                       isSelected ? 'ring-2 ring-blue-500' : '',
                     ].join(' ')}
-                    style={{
-                      background: cell && catColor
-                        ? catColor + '22'
-                        : undefined,
-                    }}
+                    style={{ background: cell && catColor ? catColor + '18' : undefined }}
                   >
                     {cell && prod ? (
                       <>
-                        {/* Filled cell */}
-                        <div
-                          className="absolute inset-x-0 top-0 h-1 rounded-t"
-                          style={{ background: catColor }}
-                        />
-                        <div className="px-1 pt-1.5 pb-0.5 w-full">
-                          <div
-                            className="text-xs font-medium leading-tight truncate"
-                            style={{ color: catColor }}
-                          >
-                            {prod.name.length > 16
-                              ? prod.name.slice(0, 14) + '…'
-                              : prod.name}
+                        {/* Category stripe */}
+                        <div className="absolute inset-x-0 top-0 h-1 rounded-t" style={{ background: catColor }} />
+
+                        {/* Thumbnail */}
+                        <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
+                          <div className="w-full" style={{ height: `${Math.max(28, cellH - 24)}px` }}>
+                            {isUploading ? (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                              </div>
+                            ) : (
+                              <ProductThumb product={prod} />
+                            )}
                           </div>
-                          <div className="text-gray-500 text-xs font-mono truncate mt-0.5">
-                            {cell.ean.slice(-6)}
+                          <div
+                            className="text-xs font-medium leading-tight truncate w-full text-center"
+                            style={{ color: catColor, fontSize: '10px' }}
+                          >
+                            {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
                           </div>
                         </div>
-                        {/* Delete on hover */}
-                        <button
-                          className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 hover:opacity-100 bg-gray-900/60 rounded transition-all text-xs leading-none"
-                          onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
+
+                        {/* Hover actions */}
+                        <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Upload image */}
+                          <button
+                            className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
+                            title="Uploader une vignette"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (uploadInputRef.current) {
+                                uploadInputRef.current.dataset.ean = prod.ean;
+                                uploadInputRef.current.click();
+                              }
+                            }}
+                          >
+                            📷
+                          </button>
+                          {/* Remove */}
+                          <button
+                            className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
+                            onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
+                            title="Retirer"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </>
                     ) : cell ? (
                       // Cell with EAN but no catalog match
                       <>
-                        <div className="text-xs text-gray-400 font-mono">
-                          {cell.ean.slice(-6)}
-                        </div>
+                        <div className="text-xs text-gray-400 font-mono text-center px-1">{cell.ean.slice(-6)}</div>
                         <button
-                          className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 hover:opacity-100 text-xs leading-none"
+                          className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
                           onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                        >
-                          ×
-                        </button>
+                        >×</button>
                       </>
                     ) : (
                       // Empty cell
-                      <span className="text-gray-700 text-xs opacity-0 hover:opacity-100 transition-opacity">
-                        +
-                      </span>
+                      <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity">+</span>
                     )}
                   </div>
                 );
@@ -361,21 +438,19 @@ export default function PlanogramEditor({
         </div>
       </div>
 
-      {/* Bottom palette / hint */}
+      {/* Bottom hint */}
       <div className="border-t border-gray-800 px-4 py-2 flex items-center gap-3 shrink-0 text-xs text-gray-500">
         {selectedEan ? (
           <>
             <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-            <span>
-              Selected: <span className="font-mono text-gray-300">{selectedEan}</span>
-            </span>
-            <span className="text-gray-600">· Click empty cell to place · Drag from catalog</span>
+            <span>Sélectionné: <span className="font-mono text-gray-300">{selectedEan}</span></span>
+            <span className="text-gray-600">· Cliquer une cellule vide pour placer · Glisser depuis le catalogue</span>
           </>
         ) : (
-          <span>Select a product in the catalog, then click a cell to place it</span>
+          <span>Sélectionnez un produit dans le catalogue, puis cliquez une cellule</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">Right-click or × to clear · Del to remove · Ctrl+Z to undo</span>
+        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z undo · 📷 uploader une vignette</span>
       </div>
     </div>
   );

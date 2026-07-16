@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import base64
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from models.project import Catalog, FurnitureInstance, Material, Planogram, Product, ProjectSettings, SceneData, Store
@@ -214,6 +215,25 @@ def remove_product(project_id: str, ean: str):
     return {"deleted": True, "ean": ean}
 
 
+@router.post("/{project_id}/catalog/products/{ean}/image")
+async def upload_product_image(project_id: str, ean: str, file: UploadFile = File(...)):
+    """Accept an image upload and store it as a base64 data-URL in the product's imageUrl field."""
+    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"}
+    content_type = file.content_type or "image/png"
+    if content_type not in allowed_types:
+        raise HTTPException(status_code=415, detail=f"Unsupported image type: {content_type}")
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image too large (max 5 MB)")
+    b64 = base64.b64encode(contents).decode("ascii")
+    data_url = f"data:{content_type};base64,{b64}"
+    catalog = _load_catalog(project_id)
+    index = _find_index(catalog.products, "ean", ean)
+    catalog.products[index] = catalog.products[index].model_copy(update={"imageUrl": data_url})
+    _save_catalog(project_id, catalog)
+    return {"ean": ean, "imageUrl": data_url}
+
+
 @router.get("/{project_id}/catalog/search")
 def search_catalog(project_id: str, q: str):
     query = q.strip().lower()
@@ -243,6 +263,8 @@ def list_planograms_endpoint(project_id: str):
                 "rows": planogram.rows,
                 "cols": planogram.cols,
                 "cellCount": len(planogram.cells),
+                "widthCm": planogram.widthCm,
+                "heightCm": planogram.heightCm,
             }
             for planogram in _load_planograms(project_id)
         ]

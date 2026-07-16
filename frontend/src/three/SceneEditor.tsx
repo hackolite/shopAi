@@ -686,6 +686,145 @@ function StoreBoundary({ store }: { store: StoreConfig }) {
   return <Line points={corners} color="#facc15" lineWidth={3} />;
 }
 
+/** Minimum store dimension (cm) allowed after a resize. */
+const MIN_STORE_DIM_CM = 500;
+/** Y level of the store boundary resize handles. */
+const BOUNDARY_HANDLE_Y = GRID_Y_OFFSET + 0.06;
+
+// ─── Store boundary resize handles ────────────────────────────────────────────
+function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; projectId: string | null }) {
+  const { updateStore } = useSceneStore();
+  const { gl, raycaster, camera } = useThree();
+
+  const W  = store.dimensions.width  * CM_TO_UNIT;
+  const D  = store.dimensions.depth  * CM_TO_UNIT;
+
+  const isDragging    = useRef(false);
+  const dragAxis      = useRef<'width' | 'depth'>('width');
+  const dragSign      = useRef<1 | -1>(1);
+  const dragStart     = useRef(new THREE.Vector3());
+  const pointerIdRef  = useRef(-1);
+  const baseStoreRef  = useRef<StoreConfig>(store);
+  const curStoreRef   = useRef<StoreConfig>(store);
+  curStoreRef.current = store;
+
+  const _ndc   = useRef(new THREE.Vector2());
+  const _hit   = useRef(new THREE.Vector3());
+  const _delta = useRef(new THREE.Vector3());
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
+    const rect = gl.domElement.getBoundingClientRect();
+    _ndc.current.set(
+      ((clientX - rect.left) / rect.width)  *  2 - 1,
+      -((clientY - rect.top) / rect.height) *  2 + 1,
+    );
+    raycaster.setFromCamera(_ndc.current, camera);
+    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
+  }, [gl, raycaster, camera, dragPlane]);
+
+  const startDrag = useCallback((
+    axis: 'width' | 'depth',
+    sign: 1 | -1,
+    clientX: number,
+    clientY: number,
+    pointerId: number,
+  ) => {
+    if (!getHitPoint(clientX, clientY, dragStart.current)) return;
+    baseStoreRef.current = curStoreRef.current;
+    isDragging.current   = true;
+    dragAxis.current     = axis;
+    dragSign.current     = sign;
+    pointerIdRef.current = pointerId;
+  }, [getHitPoint]);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseStoreRef.current;
+        const bW   = base.dimensions.width  * CM_TO_UNIT;
+        const bD   = base.dimensions.depth  * CM_TO_UNIT;
+
+        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
+        const sign  = dragSign.current;
+
+        const newDims = { ...base.dimensions };
+
+        if (dragAxis.current === 'width') {
+          const move = delta.x * sign;
+          newDims.width = Math.max(MIN_STORE_DIM_CM, (bW + move) / CM_TO_UNIT);
+        } else {
+          const move = delta.z * sign;
+          newDims.depth = Math.max(MIN_STORE_DIM_CM, (bD + move) / CM_TO_UNIT);
+        }
+
+        updateStore({ ...base, dimensions: newDims });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+
+      if (pointerIdRef.current >= 0) {
+        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        pointerIdRef.current = -1;
+      }
+
+      const cur = curStoreRef.current;
+      const snapDim = (v: number) => snapToCm(Math.max(MIN_STORE_DIM_CM, v));
+      const snapped: StoreConfig = {
+        ...cur,
+        dimensions: {
+          ...cur.dimensions,
+          width: snapDim(cur.dimensions.width),
+          depth: snapDim(cur.dimensions.depth),
+        },
+      };
+      updateStore(snapped);
+      if (projectId) cadApi.updateStore(projectId, snapped).catch(console.error);
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, getHitPoint, updateStore, projectId]);
+
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  // Two handles: right edge (resize width) and far edge (resize depth).
+  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
+    { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' },
+    { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' },
+  ];
+
+  return (
+    <group>
+      {handles.map(({ axis, sign, hx, hz, cursor }) => (
+        <HandleMesh
+          key={`store-${axis}${sign}`}
+          position={[hx, BOUNDARY_HANDLE_Y, hz]}
+          axis={axis}
+          sign={sign}
+          cursor={cursor}
+          onStartDrag={startDrag}
+        />
+      ))}
+    </group>
+  );
+}
+
 // ─── Floor zone appearance constants ──────────────────────────────────────────
 const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
   entrance: { fill: '#22c55e', border: '#16a34a' },
@@ -1272,9 +1411,10 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // Show transform controls whenever furniture is selected.
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
   // 'scale' uses the custom ResizeHandles component instead.
-  const hasSelection      = selectedFurniture != null && transformTarget != null;
-  const showResizeHandles = hasSelection && activeTool === 'scale';
-  const showTransform     = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
+  const hasSelection           = selectedFurniture != null && transformTarget != null;
+  const showResizeHandles      = hasSelection && activeTool === 'scale';
+  const showTransform          = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
+  const showBoundaryHandles    = activeTool === 'scale' && !selectedFurnitureId && !selectedZoneId;
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
   return (
@@ -1304,6 +1444,10 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 
       {showResizeHandles && (
         <ResizeHandles furniture={selectedFurniture} projectId={projectId} />
+      )}
+
+      {showBoundaryHandles && (
+        <StoreBoundaryResizeHandles store={scene.store} projectId={projectId} />
       )}
 
       {/*

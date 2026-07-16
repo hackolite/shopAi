@@ -747,6 +747,8 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
 function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
+  const px = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const pz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
   const size = Math.ceil(Math.max(w, d) * GRID_SIZE_MULTIPLIER);
@@ -759,14 +761,14 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   return (
     <group>
       {/* Floor slab — clicking deselects */}
-      <mesh position={[w / 2, -0.05, d / 2]} receiveShadow onClick={handleFloorClick}>
+      <mesh position={[px + w / 2, -0.05, pz + d / 2]} receiveShadow onClick={handleFloorClick}>
         <boxGeometry args={[w, 0.1, d]} />
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
 
       {/* Fine grid: 1 m cells, 5 m sections */}
       <Grid
-        position={[w / 2, GRID_Y_OFFSET, d / 2]}
+        position={[px + w / 2, GRID_Y_OFFSET, pz + d / 2]}
         args={[size, size]}
         cellSize={SNAP_UNIT}
         cellThickness={1.2}
@@ -797,6 +799,8 @@ function StoreBoundary({
 }) {
   const [hovered, setHovered] = useState(false);
 
+  const ox = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const oz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
   const y = GRID_Y_OFFSET + 0.012;
@@ -804,11 +808,11 @@ function StoreBoundary({
   const lineColor = isSelected ? '#ffe566' : hovered ? '#fde047' : '#facc15';
 
   const corners: [number, number, number][] = [
-    [0, y, 0],
-    [w, y, 0],
-    [w, y, d],
-    [0, y, d],
-    [0, y, 0],
+    [ox,     y, oz    ],
+    [ox + w, y, oz    ],
+    [ox + w, y, oz + d],
+    [ox,     y, oz + d],
+    [ox,     y, oz    ],
   ];
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
@@ -827,11 +831,11 @@ function StoreBoundary({
 
   // Four invisible hit-area boxes — one per wall edge.
   // They sit flat on Y, centred on each edge.
-  const hitBoxes: { px: number; pz: number; sx: number; sz: number }[] = [
-    { px: w / 2, pz: 0,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // south
-    { px: w / 2, pz: d,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // north
-    { px: 0,     pz: d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // west
-    { px: w,     pz: d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // east
+  const hitBoxes: { hx: number; hz: number; sx: number; sz: number }[] = [
+    { hx: ox + w / 2, hz: oz,         sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // south
+    { hx: ox + w / 2, hz: oz + d,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // north
+    { hx: ox,         hz: oz + d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // west
+    { hx: ox + w,     hz: oz + d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // east
   ];
 
   return (
@@ -840,7 +844,7 @@ function StoreBoundary({
       {hitBoxes.map((hb, i) => (
         <mesh
           key={i}
-          position={[hb.px, y, hb.pz]}
+          position={[hb.hx, y, hb.hz]}
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
@@ -861,11 +865,12 @@ const BOUNDARY_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 
 // ─── Store boundary resize handles ────────────────────────────────────────────
 function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; projectId: string | null }) {
-  const { updateStoreAndShiftFurniture } = useSceneStore();
-  const scene = useSceneStore((s) => s.scene);
+  const { updateStore } = useSceneStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
 
+  const ox = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const oz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const W  = store.dimensions.width  * CM_TO_UNIT;
   const D  = store.dimensions.depth  * CM_TO_UNIT;
 
@@ -877,17 +882,6 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
   const baseStoreRef  = useRef<StoreConfig>(store);
   const curStoreRef   = useRef<StoreConfig>(store);
   curStoreRef.current = store;
-
-  // Keeps the latest scene in a ref so startDrag can capture furniture without
-  // adding scene to startDrag's deps (avoids recreating the callback every frame).
-  const sceneRef = useRef(scene);
-  sceneRef.current = scene;
-  /**
-   * Furniture state captured at the start of a left/near edge drag.
-   * Used as the base when computing cumulative position shifts, so that
-   * repeated rAF updates don't accumulate floating-point drift.
-   */
-  const baseFurnitureRef = useRef<FurnitureInstance[]>([]);
 
   const _ndc   = useRef(new THREE.Vector2());
   const _hit   = useRef(new THREE.Vector3());
@@ -913,9 +907,6 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
   ) => {
     if (!getHitPoint(clientX, clientY, dragStart.current)) return;
     baseStoreRef.current = curStoreRef.current;
-    // For left/near handles (sign === -1) capture current furniture positions so
-    // we can shift them proportionally as the store grows toward that edge.
-    if (sign === -1) baseFurnitureRef.current = sceneRef.current?.furniture ?? [];
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
@@ -931,38 +922,41 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       const { clientX, clientY } = e;
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const base = baseStoreRef.current;
-        const bW   = base.dimensions.width  * CM_TO_UNIT;
-        const bD   = base.dimensions.depth  * CM_TO_UNIT;
+        const base  = baseStoreRef.current;
+        const bW    = base.dimensions.width  * CM_TO_UNIT;
+        const bD    = base.dimensions.depth  * CM_TO_UNIT;
+        const bPosX = base.position?.[0] ?? 0;
+        const bPosZ = base.position?.[2] ?? 0;
 
         if (!getHitPoint(clientX, clientY, _hit.current)) return;
         const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
         const sign  = dragSign.current;
 
         const newDims = { ...base.dimensions };
-        // When the left (sign=-1, axis=width) or near (sign=-1, axis=depth) handle
-        // is dragged, the store grows toward the fixed origin edge.  Since the origin
-        // stays at (0,0), we shift all furniture by the same delta so they maintain
-        // their layout relative to that edge.
-        let shiftXCm = 0;
-        let shiftZCm = 0;
+        const newPos: [number, number, number] = [bPosX, 0, bPosZ];
 
         if (dragAxis.current === 'width') {
+          // move > 0 when dragging outward (expanding the dragged edge).
           const move = delta.x * sign;
-          newDims.width = Math.max(MIN_STORE_DIM_CM, (bW + move) / CM_TO_UNIT);
-          if (sign === -1) shiftXCm = newDims.width - base.dimensions.width;
+          const newW = Math.max(MIN_STORE_DIM_CM * CM_TO_UNIT, bW + move);
+          newDims.width = newW / CM_TO_UNIT;
+          if (sign === -1) {
+            // Left handle: shift origin left so right edge stays fixed.
+            const dW = newW - bW;
+            newPos[0] = bPosX - dW / CM_TO_UNIT;
+          }
         } else {
           const move = delta.z * sign;
-          newDims.depth = Math.max(MIN_STORE_DIM_CM, (bD + move) / CM_TO_UNIT);
-          if (sign === -1) shiftZCm = newDims.depth - base.dimensions.depth;
+          const newD = Math.max(MIN_STORE_DIM_CM * CM_TO_UNIT, bD + move);
+          newDims.depth = newD / CM_TO_UNIT;
+          if (sign === -1) {
+            // Near handle: shift origin near so far edge stays fixed.
+            const dD = newD - bD;
+            newPos[2] = bPosZ - dD / CM_TO_UNIT;
+          }
         }
 
-        updateStoreAndShiftFurniture(
-          { ...base, dimensions: newDims },
-          baseFurnitureRef.current,
-          shiftXCm,
-          shiftZCm,
-        );
+        updateStore({ ...base, dimensions: newDims, position: newPos });
       });
     };
 
@@ -977,42 +971,39 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
         pointerIdRef.current = -1;
       }
 
-      const cur  = curStoreRef.current;
-      const base = baseStoreRef.current;
-      const sign = dragSign.current;
+      const cur   = curStoreRef.current;
+      const base  = baseStoreRef.current;
+      const sign  = dragSign.current;
       const snapDim = (v: number) => snapToCm(Math.max(MIN_STORE_DIM_CM, v));
-      const snapped: StoreConfig = {
-        ...cur,
-        dimensions: {
-          ...cur.dimensions,
-          width: snapDim(cur.dimensions.width),
-          depth: snapDim(cur.dimensions.depth),
-        },
-      };
 
-      // Compute final snapped shift for left/near handles.
-      let finalShiftXCm = 0;
-      let finalShiftZCm = 0;
+      const snappedW = snapDim(cur.dimensions.width);
+      const snappedD = snapDim(cur.dimensions.depth);
+      const snappedPos: [number, number, number] = [
+        cur.position?.[0] ?? 0,
+        0,
+        cur.position?.[2] ?? 0,
+      ];
+
+      // Re-align the non-dragged edge after snapping for sign=-1 handles.
       if (sign === -1) {
+        const bPosX = base.position?.[0] ?? 0;
+        const bPosZ = base.position?.[2] ?? 0;
         if (dragAxis.current === 'width') {
-          finalShiftXCm = snapped.dimensions.width - base.dimensions.width;
+          // right edge = bPosX + base.dims.width must stay fixed.
+          snappedPos[0] = bPosX + base.dimensions.width - snappedW;
         } else {
-          finalShiftZCm = snapped.dimensions.depth - base.dimensions.depth;
+          snappedPos[2] = bPosZ + base.dimensions.depth - snappedD;
         }
       }
 
-      updateStoreAndShiftFurniture(snapped, baseFurnitureRef.current, finalShiftXCm, finalShiftZCm);
-      if (projectId) cadApi.updateStore(projectId, snapped).catch(console.error);
+      const snapped: StoreConfig = {
+        ...cur,
+        position: snappedPos,
+        dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
+      };
 
-      // Persist shifted furniture positions to the backend.
-      // Zustand's set() is synchronous, so useSceneStore.getState() immediately
-      // reflects the positions set by updateStoreAndShiftFurniture above.
-      if ((finalShiftXCm !== 0 || finalShiftZCm !== 0) && projectId) {
-        const latestFurniture = useSceneStore.getState().scene?.furniture ?? [];
-        latestFurniture.forEach((f) => {
-          cadApi.updateFurniture(projectId, f.id, f).catch(console.error);
-        });
-      }
+      updateStore(snapped);
+      if (projectId) cadApi.updateStore(projectId, snapped).catch(console.error);
     };
 
     gl.domElement.addEventListener('pointermove', onMove);
@@ -1022,19 +1013,17 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateStoreAndShiftFurniture, projectId, setResizeDragging]);
+  }, [gl, getHitPoint, updateStore, projectId, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
   // Four handles: one per edge of the store boundary.
-  // Right (sign=+1) and far (sign=+1) handles extend the store in +X/+Z.
-  // Left (sign=-1) and near (sign=-1) handles also extend the store, but the
-  // store origin stays fixed so all furniture is shifted to preserve the layout.
+  // Each handle moves only its own edge; the opposite edge stays fixed.
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
-    { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' }, // right edge
-    { axis: 'width',  sign: -1, hx: 0,     hz: D / 2, cursor: 'ew-resize' }, // left edge
-    { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' }, // far edge
-    { axis: 'depth',  sign: -1, hx: W / 2, hz: 0,     cursor: 'ns-resize' }, // near edge
+    { axis: 'width',  sign:  1, hx: ox + W,     hz: oz + D / 2, cursor: 'ew-resize' }, // right edge
+    { axis: 'width',  sign: -1, hx: ox,         hz: oz + D / 2, cursor: 'ew-resize' }, // left edge
+    { axis: 'depth',  sign:  1, hx: ox + W / 2, hz: oz + D,     cursor: 'ns-resize' }, // far edge
+    { axis: 'depth',  sign: -1, hx: ox + W / 2, hz: oz,         cursor: 'ns-resize' }, // near edge
   ];
 
   return (
@@ -1052,6 +1041,7 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
     </group>
   );
 }
+
 
 // ─── Floor zone appearance constants ──────────────────────────────────────────
 const ZONE_COLORS: Record<string, { fill: string; border: string }> = {

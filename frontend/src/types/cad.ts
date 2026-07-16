@@ -59,6 +59,8 @@ export interface FloorZone {
 export interface StoreConfig {
   id: string;
   name: string;
+  /** World-space position of the store's (0,0) corner (cm). Defaults to [0,0,0]. */
+  position?: Vec3;
   dimensions: { width: number; depth: number; height: number };
   floorColor: string;
   wallColor: string;

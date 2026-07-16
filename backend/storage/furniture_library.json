@@ -26,7 +26,7 @@
       "name": "Tête de gondole",
       "category": "gondola",
       "defaultDimensions": {"width": 80, "depth": 60, "height": 180},
-      "hasFaces": ["front"],
+      "hasFaces": ["front", "back", "left", "right"],
       "defaultMaterial": "solid_red",
       "description": "Mobilier promotionnel en bout d'allée"
     },

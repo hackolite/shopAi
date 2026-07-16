@@ -13,6 +13,8 @@ interface PlanogramState {
   activePlanogram: Planogram | null;
   selectedCellIds: Set<string>;
   loading: boolean;
+  /** When set, App.tsx will open this planogram in the editor and then clear this. */
+  requestOpenPlanogramId: string | null;
   setPlanograms: (planograms: PlanogramSummary[]) => void;
   setPlanogramDetail: (planogram: Planogram) => void;
   setActivePlanogram: (planogram: Planogram | null) => void;
@@ -23,6 +25,7 @@ interface PlanogramState {
   addCell: (cell: PlanogramCell) => void;
   removeCell: (cellId: string) => void;
   setLoading: (loading: boolean) => void;
+  setRequestOpenPlanogramId: (id: string | null) => void;
 }
 
 export const usePlanogramStore = create<PlanogramState>((set) => ({
@@ -31,6 +34,7 @@ export const usePlanogramStore = create<PlanogramState>((set) => ({
   activePlanogram: null,
   selectedCellIds: new Set<string>(),
   loading: false,
+  requestOpenPlanogramId: null,
 
   setPlanograms: (planograms) => set({ planograms }),
   setPlanogramDetail: (planogram) =>
@@ -95,4 +99,5 @@ export const usePlanogramStore = create<PlanogramState>((set) => ({
       };
     }),
   setLoading: (loading) => set({ loading }),
+  setRequestOpenPlanogramId: (id) => set({ requestOpenPlanogramId: id }),
 }));

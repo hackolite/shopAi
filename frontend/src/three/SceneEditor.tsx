@@ -1005,17 +1005,12 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       if (projectId) cadApi.updateStore(projectId, snapped).catch(console.error);
 
       // Persist shifted furniture positions to the backend.
+      // Zustand's set() is synchronous, so useSceneStore.getState() immediately
+      // reflects the positions set by updateStoreAndShiftFurniture above.
       if ((finalShiftXCm !== 0 || finalShiftZCm !== 0) && projectId) {
-        baseFurnitureRef.current.forEach((f) => {
-          const updated: FurnitureInstance = {
-            ...f,
-            position: [
-              f.position[0] + finalShiftXCm,
-              f.position[1],
-              f.position[2] + finalShiftZCm,
-            ] as [number, number, number],
-          };
-          cadApi.updateFurniture(projectId, f.id, updated).catch(console.error);
+        const latestFurniture = useSceneStore.getState().scene?.furniture ?? [];
+        latestFurniture.forEach((f) => {
+          cadApi.updateFurniture(projectId, f.id, f).catch(console.error);
         });
       }
     };

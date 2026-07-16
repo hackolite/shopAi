@@ -90,15 +90,13 @@ export const useSceneStore = create<SceneState>((set) => ({
   updateStoreAndShiftFurniture: (store, baseFurniture, shiftXCm, shiftZCm) =>
     set((state) => {
       if (!state.scene) return {};
+      const newHistory = [...state.history.slice(-MAX_HISTORY + 1), state.scene];
       if (shiftXCm === 0 && shiftZCm === 0) {
-        return {
-          history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
-          scene: { ...state.scene, store },
-        };
+        return { history: newHistory, scene: { ...state.scene, store } };
       }
       const baseById = new Map<string, FurnitureInstance>(baseFurniture.map((f) => [f.id, f]));
       return {
-        history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
+        history: newHistory,
         scene: {
           store,
           furniture: state.scene.furniture.map((f) => {

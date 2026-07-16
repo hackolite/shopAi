@@ -55,7 +55,7 @@ export default function App() {
     });
   }, [loadProject]);
 
-  const handleSearch = async (ean: string) => {
+  const handleSearch = useCallback(async (ean: string) => {
     setSearchLoading(true);
     setSearchError(null);
     try {
@@ -67,12 +67,12 @@ export default function App() {
     } finally {
       setSearchLoading(false);
     }
-  };
+  }, [projectId]);
 
-  const handleProjectLoad = (id: string) => {
+  const handleProjectLoad = useCallback((id: string) => {
     setProjectId(id);
     loadProject(id);
-  };
+  }, [loadProject]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">

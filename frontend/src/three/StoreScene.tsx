@@ -1,9 +1,9 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, memo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
-import { ProductBlock } from './ProductBlock';
+import { VoxelInstances } from './ProductBlock';
 import { StoreStructure } from './Shelf';
 import type { Store, Voxel, SearchResult } from '../types';
 
@@ -34,9 +34,10 @@ interface SceneProps {
   flyTarget: THREE.Vector3 | null;
 }
 
-function SceneContent({ store, voxels, searchResult, onHoverVoxel, flyTarget }: SceneProps) {
-  const highlightedIds = new Set(
-    searchResult?.instances.map((i) => i.instance_id) ?? [],
+const SceneContent = memo(function SceneContent({ store, voxels, searchResult, onHoverVoxel, flyTarget }: SceneProps) {
+  const highlightedIds = useMemo(
+    () => new Set(searchResult?.instances.map((i) => i.instance_id) ?? []),
+    [searchResult],
   );
 
   return (
@@ -69,21 +70,18 @@ function SceneContent({ store, voxels, searchResult, onHoverVoxel, flyTarget }: 
         infiniteGrid={false}
       />
 
-      {/* Product voxels */}
-      {voxels.map((v) => (
-        <ProductBlock
-          key={`${v.instance_id}_${v.facing_index}`}
-          voxel={v}
-          isHighlighted={highlightedIds.has(v.instance_id)}
-          onHover={onHoverVoxel}
-        />
-      ))}
+      {/* Product voxels (InstancedMesh per colour group) */}
+      <VoxelInstances
+        voxels={voxels}
+        highlightedIds={highlightedIds}
+        onHover={onHoverVoxel}
+      />
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
       <CameraFlyTo target={flyTarget} />
     </>
   );
-}
+});
 
 // ─── Public component ─────────────────────────────────────────────────────────
 interface StoreSceneProps {
@@ -95,13 +93,13 @@ interface StoreSceneProps {
 
 const DEFAULT_CAMERA_POS: [number, number, number] = [60, 40, 60];
 
-export function StoreScene({ store, voxels, searchResult, onHoverVoxel }: StoreSceneProps) {
+export const StoreScene = memo(function StoreScene({ store, voxels, searchResult, onHoverVoxel }: StoreSceneProps) {
   // Compute fly-to target from first search result instance
-  let flyTarget: THREE.Vector3 | null = null;
-  if (searchResult && searchResult.instances.length > 0) {
+  const flyTarget = useMemo(() => {
+    if (!searchResult || searchResult.instances.length === 0) return null;
     const [x, y, z] = searchResult.instances[0].position;
-    flyTarget = new THREE.Vector3(x, y, z);
-  }
+    return new THREE.Vector3(x, y, z);
+  }, [searchResult]);
 
   return (
     <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden">
@@ -138,4 +136,4 @@ export function StoreScene({ store, voxels, searchResult, onHoverVoxel }: StoreS
       )}
     </div>
   );
-}
+});

@@ -322,16 +322,15 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
   /** Horizontal Y=0 plane used for raycasting during a drag. */
   const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
 
-  /** Write the world-space hit point on the drag plane into `out` and return it. */
-  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): THREE.Vector3 => {
+  /** Write the world-space hit point on the drag plane into `out`; returns false if ray is parallel. */
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
     const rect = gl.domElement.getBoundingClientRect();
     _ndc.current.set(
       ((clientX - rect.left) / rect.width)  *  2 - 1,
       -((clientY - rect.top)  / rect.height) *  2 + 1,
     );
     raycaster.setFromCamera(_ndc.current, camera);
-    raycaster.ray.intersectPlane(dragPlane, out);
-    return out;
+    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
   }, [gl, raycaster, camera, dragPlane]);
 
   /** Called from each handle's pointerDown handler. */
@@ -342,64 +341,71 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
     clientY: number,
     pointerId: number,
   ) => {
+    if (!getHitPoint(clientX, clientY, dragStart.current)) return; // ray parallel to plane — ignore
     baseFurRef.current   = currentFurRef.current;
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
-    getHitPoint(clientX, clientY, dragStart.current);
   }, [getHitPoint]);
 
   useEffect(() => {
+    let rafId = 0;
+
     const onMove = (e: PointerEvent) => {
       if (!isDragging.current) return;
+      // Capture coords synchronously; compute and update inside rAF to throttle.
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseFurRef.current;
+        const bW  = base.dimensions.width  * CM_TO_UNIT;
+        const bD  = base.dimensions.depth  * CM_TO_UNIT;
+        const bRy = base.rotation[1] * (Math.PI / 180);
 
-      const base = baseFurRef.current;
-      const bW  = base.dimensions.width  * CM_TO_UNIT;
-      const bD  = base.dimensions.depth  * CM_TO_UNIT;
-      const bRy = base.rotation[1] * (Math.PI / 180);
+        // Local axes of the furniture in world space (reused vectors).
+        const lx = _lx.current.set( Math.cos(bRy), 0, Math.sin(bRy));
+        const lz = _lz.current.set(-Math.sin(bRy), 0, Math.cos(bRy));
 
-      // Local axes of the furniture in world space (reused vectors).
-      const lx = _lx.current.set( Math.cos(bRy), 0, Math.sin(bRy));
-      const lz = _lz.current.set(-Math.sin(bRy), 0, Math.cos(bRy));
+        const bCx = base.position[0] * CM_TO_UNIT + bW / 2;
+        const bCz = base.position[2] * CM_TO_UNIT + bD / 2;
 
-      const bCx = base.position[0] * CM_TO_UNIT + bW / 2;
-      const bCz = base.position[2] * CM_TO_UNIT + bD / 2;
+        if (!getHitPoint(clientX, clientY, _hit.current)) return; // ray parallel — skip frame
+        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
+        const sign  = dragSign.current;
 
-      const hit   = getHitPoint(e.clientX, e.clientY, _hit.current);
-      const delta = _delta.current.copy(hit).sub(dragStart.current);
-      const sign  = dragSign.current;
+        const newDims = { ...base.dimensions };
+        const newPos  = [...base.position] as [number, number, number];
 
-      const newDims = { ...base.dimensions };
-      const newPos  = [...base.position] as [number, number, number];
+        if (dragAxis.current === 'width') {
+          // How much the dragged face moved (positive = outward).
+          const move = delta.dot(lx) * sign;
+          const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
+          const dW   = newW - bW;
+          // Shift center along the local X axis toward the dragged side.
+          const newCx = bCx + Math.cos(bRy) * dW / 2 * sign;
+          const newCz = bCz + Math.sin(bRy) * dW / 2 * sign;
+          newDims.width = newW / CM_TO_UNIT;
+          newPos[0]     = (newCx - newW / 2) / CM_TO_UNIT;
+          newPos[2]     = (newCz - bD  / 2)  / CM_TO_UNIT;
+        } else {
+          const move = delta.dot(lz) * sign;
+          const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
+          const dD   = newD - bD;
+          const newCx = bCx + (-Math.sin(bRy)) * dD / 2 * sign;
+          const newCz = bCz +   Math.cos(bRy)  * dD / 2 * sign;
+          newDims.depth = newD / CM_TO_UNIT;
+          newPos[0]     = (newCx - bW  / 2) / CM_TO_UNIT;
+          newPos[2]     = (newCz - newD / 2) / CM_TO_UNIT;
+        }
 
-      if (dragAxis.current === 'width') {
-        // How much the dragged face moved (positive = outward).
-        const move = delta.dot(lx) * sign;
-        const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
-        const dW   = newW - bW;
-        // Shift center along the local X axis toward the dragged side.
-        const newCx = bCx + Math.cos(bRy) * dW / 2 * sign;
-        const newCz = bCz + Math.sin(bRy) * dW / 2 * sign;
-        newDims.width = newW / CM_TO_UNIT;
-        newPos[0]     = (newCx - newW / 2) / CM_TO_UNIT;
-        newPos[2]     = (newCz - bD  / 2)  / CM_TO_UNIT;
-      } else {
-        const move = delta.dot(lz) * sign;
-        const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
-        const dD   = newD - bD;
-        const newCx = bCx + (-Math.sin(bRy)) * dD / 2 * sign;
-        const newCz = bCz +   Math.cos(bRy)  * dD / 2 * sign;
-        newDims.depth = newD / CM_TO_UNIT;
-        newPos[0]     = (newCx - bW  / 2) / CM_TO_UNIT;
-        newPos[2]     = (newCz - newD / 2) / CM_TO_UNIT;
-      }
-
-      updateFurniture({ ...base, dimensions: newDims, position: newPos });
+        updateFurniture({ ...base, dimensions: newDims, position: newPos });
+      });
     };
 
     const onUp = () => {
       if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
       isDragging.current = false;
 
       // Release pointer capture explicitly.
@@ -430,14 +436,23 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
     gl.domElement.addEventListener('pointermove', onMove);
     gl.domElement.addEventListener('pointerup',   onUp);
     return () => {
+      cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
   }, [gl, getHitPoint, updateFurniture, projectId]);
 
+  // Ensure cursor is reset when this component unmounts (e.g. tool switch or deselect).
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
   // ── Render four face handles (+W, -W, +D, -D) ──
   const centerX = px + W / 2;
   const centerZ = pz + D / 2;
+
+  // Choose resize cursor based on the handle's approximate screen-space orientation.
+  // The width axis (local X) is along world [cos(ry), 0, sin(ry)]; the depth axis is 90° offset.
+  const ryMod180 = Math.abs(ry % Math.PI);
+  const widthIsEW = ryMod180 < Math.PI / 4 || ryMod180 > (3 * Math.PI) / 4;
 
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; lx: number; lz: number }[] = [
     { axis: 'width', sign:  1, lx:  Math.cos(ry),  lz:  Math.sin(ry) },
@@ -452,12 +467,14 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
         const halfDim = axis === 'width' ? W / 2 : D / 2;
         const hx = centerX + hlx * halfDim;
         const hz = centerZ + hlz * halfDim;
+        const cursor = (axis === 'width') === widthIsEW ? 'ew-resize' : 'ns-resize';
         return (
           <HandleMesh
             key={`${axis}${sign}`}
             position={[hx, H / 2, hz]}
             axis={axis}
             sign={sign}
+            cursor={cursor}
             onStartDrag={startDrag}
           />
         );
@@ -470,16 +487,13 @@ interface HandleMeshProps {
   position: [number, number, number];
   axis: 'width' | 'depth';
   sign: 1 | -1;
+  cursor: string;
   onStartDrag: (axis: 'width' | 'depth', sign: 1 | -1, clientX: number, clientY: number, pointerId: number) => void;
 }
 
-function HandleMesh({ position, axis, sign, onStartDrag }: HandleMeshProps) {
+function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshProps) {
   const [hovered, setHovered] = useState(false);
   const { gl } = useThree();
-  const cursor = axis === 'width' ? 'ew-resize' : 'ns-resize';
-
-  // Ensure cursor is restored if the component unmounts while hovered.
-  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
   return (
     <mesh

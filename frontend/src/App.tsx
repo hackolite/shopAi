@@ -25,7 +25,7 @@ export default function App() {
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard } = useSceneStore();
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail } = usePlanogramStore();
-  const { viewMode, setViewMode }     = useUIStore();
+  const { viewMode, setViewMode, setActiveTool } = useUIStore();
 
   // ── Boot: load all project data ───────────────────────────────────────────
   useEffect(() => {
@@ -110,6 +110,7 @@ export default function App() {
             cells: srcPlanogram.cells.map(cell => ({ ...cell, id: crypto.randomUUID() })),
           };
           const createdPlanogram = await cadApi.createPlanogram(projectId, newPlanogram);
+          setPlanogramDetail(createdPlanogram);
           (created.faces as Record<string, string | null>)[faceId] = createdPlanogram.id;
         } catch (err) {
           console.error('Failed to clone planogram:', err);
@@ -125,7 +126,7 @@ export default function App() {
     } catch (err) {
       console.error('Paste failed:', err);
     }
-  }, [clipboard, projectId, addFurniture, selectFurniture, setPlanograms]);
+  }, [clipboard, projectId, addFurniture, selectFurniture, setPlanograms, setPlanogramDetail]);
 
   // ── Delete selected furniture ─────────────────────────────────────────────
   const deleteSelected = useCallback(() => {
@@ -142,6 +143,11 @@ export default function App() {
 
       if (e.key === 'Escape') {
         selectFurniture(null);
+        return;
+      }
+
+      if (e.key === 'm' || e.key === 'M') {
+        setActiveTool('measure');
         return;
       }
 
@@ -164,7 +170,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard]);
+  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

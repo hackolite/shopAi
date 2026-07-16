@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type ActivePanel = 'scene' | 'catalog' | 'planogram' | 'materials';
-export type ActiveTool = 'select' | 'translate' | 'rotate' | 'scale';
+export type ActiveTool = 'select' | 'translate' | 'rotate' | 'scale' | 'measure';
 export type ViewMode = '3d' | 'planogram' | 'split';
 
 interface UIState {

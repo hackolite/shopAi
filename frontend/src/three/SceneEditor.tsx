@@ -1,6 +1,6 @@
 import { Suspense, useState, useRef, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls, Grid } from '@react-three/drei';
+import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
+import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
@@ -12,9 +12,9 @@ import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
-/** Snap grid step in centimetres (10 cm). */
-const SNAP_CM   = 10;
-/** Snap grid step in Three.js units (1 unit = 100 cm → 10 cm = 0.1 units). */
+/** Snap grid step in centimetres (1 m). */
+const SNAP_CM   = 100;
+/** Snap grid step in Three.js units (1 unit = 100 cm → 1 m = 1 unit). */
 const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 /** Minimum furniture dimension allowed after a resize (cm). */
 const MIN_DIM_CM = 20;
@@ -102,6 +102,7 @@ function PlanogramFaceOverlay({
   side: 1 | -1;
 }) {
   const { planogramDetails } = usePlanogramStore();
+  const setSelection = useSceneStore((state) => state.setSelection);
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
 
@@ -132,13 +133,29 @@ function PlanogramFaceOverlay({
     return () => { texture?.dispose(); };
   }, [texture]);
 
+  const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
+    if (!planogram || !event.uv) return;
+    const col = Math.min(planogram.cols - 1, Math.max(0, Math.floor(event.uv.x * planogram.cols)));
+    const row = Math.min(planogram.rows - 1, Math.max(0, Math.floor((1 - event.uv.y) * planogram.rows)));
+    const cell = planogram.cells.find((item) => item.row === row && item.col === col);
+    if (!cell) return;
+    event.stopPropagation();
+    setSelection({
+      type: 'planogram_cell',
+      ean: cell.ean,
+      furnitureId: planogram.furnitureId,
+      planogramId: planogram.id,
+      cellIds: [cell.id],
+    });
+  }, [planogram, setSelection]);
+
   if (!texture) return null;
 
   const zOffset = (D / 2 + OVERLAY_Z_OFFSET) * side;
   const rotY    = side === -1 ? Math.PI : 0;
 
   return (
-    <mesh position={[0, 0, zOffset]} rotation={[0, rotY, 0]}>
+    <mesh position={[0, 0, zOffset]} rotation={[0, rotY, 0]} onClick={handleClick}>
       <planeGeometry args={[W * 0.97, H * 0.97]} />
       <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
     </mesh>
@@ -156,8 +173,6 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const { activeTool } = useUIStore();
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
-
-  if (!furniture.visible) return null;
 
   const isSelected = selectedFurnitureId === furniture.id;
   const isGondola  = furniture.type.startsWith('gondola') || furniture.type === 'end_gondola';
@@ -184,6 +199,8 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     groupRef.current = node!;
     registerGroup(furniture.id, node);
   }, [furniture.id, registerGroup]);
+
+  if (!furniture.visible) return null;
 
   return (
     <group
@@ -276,9 +293,11 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
 
     if (mode === 'rotate') {
       const newRotY = (obj.rotation.y * 180) / Math.PI;
+      const snappedRotY = Math.round(newRotY / 90) * 90;
+      obj.rotation.y = snappedRotY * (Math.PI / 180);
       const updated = {
         ...furniture,
-        rotation: [furniture.rotation[0], newRotY, furniture.rotation[2]] as [number, number, number],
+        rotation: [furniture.rotation[0], snappedRotY, furniture.rotation[2]] as [number, number, number],
       };
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
@@ -543,14 +562,14 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
 
-      {/* Fine grid: 10 cm cells, 1 m sections */}
+      {/* Fine grid: 1 m cells, 5 m sections */}
       <Grid
         position={[w / 2, GRID_Y_OFFSET, d / 2]}
         args={[size, size]}
         cellSize={SNAP_UNIT}
         cellThickness={0.4}
         cellColor="#1e2d3d"
-        sectionSize={1.0}
+        sectionSize={5.0}
         sectionThickness={0.9}
         sectionColor="#2a4a6a"
         fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
@@ -558,6 +577,65 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         infiniteGrid={false}
       />
     </group>
+  );
+}
+
+function MeasureTool({ store }: { store: StoreConfig }) {
+  const { activeTool } = useUIStore();
+  const [points, setPoints] = useState<THREE.Vector3[]>([]);
+
+  useEffect(() => {
+    if (activeTool !== 'measure') setPoints([]);
+  }, [activeTool]);
+
+  if (activeTool !== 'measure') return null;
+
+  const w = store.dimensions.width * CM_TO_UNIT;
+  const d = store.dimensions.depth * CM_TO_UNIT;
+  const distance = points.length === 2 ? points[0].distanceTo(points[1]) : 0;
+  const midpoint = points.length === 2
+    ? points[0].clone().add(points[1]).multiplyScalar(0.5)
+    : null;
+
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    const point = event.point.clone();
+    point.y = GRID_Y_OFFSET + 0.03;
+    setPoints((prev) => (prev.length >= 2 ? [point] : [...prev, point]));
+  };
+
+  return (
+    <>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[w / 2, GRID_Y_OFFSET + 0.02, d / 2]}
+        onClick={handleClick}
+      >
+        <planeGeometry args={[w, d]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      {points.length === 2 && midpoint && (
+        <>
+          <Line points={points} color="#facc15" lineWidth={2} />
+          <Html position={midpoint} center>
+            <div
+              style={{
+                color: '#facc15',
+                background: 'rgba(0,0,0,0.75)',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                border: '1px solid rgba(250,204,21,0.35)',
+              }}
+            >
+              {distance.toFixed(2)} m
+            </div>
+          </Html>
+        </>
+      )}
+    </>
   );
 }
 
@@ -596,7 +674,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // 'scale' uses the custom ResizeHandles component instead.
   const hasSelection      = selectedFurniture != null && transformTarget != null;
   const showResizeHandles = hasSelection && activeTool === 'scale';
-  const showTransform     = hasSelection && activeTool !== 'scale';
+  const showTransform     = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
   return (
@@ -607,6 +685,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
       <pointLight position={[0,  8, 0]}  intensity={0.2}  color="#fff8e7" />
 
       <StoreFloor store={scene.store} />
+      <MeasureTool store={scene.store} />
 
       {scene.furniture.map((f) => (
         <FurnitureMesh key={f.id} furniture={f} />

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
+import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId } from '../../types/cad';
@@ -85,25 +86,43 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   };
 
   const setRotY = (v: number) => {
-    const r = [...furniture.rotation] as [number, number, number];
-    r[1] = v;
-    save({ ...furniture, rotation: r });
+   const snapped = Math.round(v / 90) * 90;
+   const r = [...furniture.rotation] as [number, number, number];
+   r[1] = snapped;
+   save({ ...furniture, rotation: r });
   };
 
-  const faceEntries = (Object.entries(furniture.faces) as [FaceId, string | null][])
-    .filter(([, pid]) => pid != null && pid !== '');
+  const faceEntries = Object.entries(furniture.faces) as [FaceId, string | null][];
+
+  const handleDeleteFace = async (faceId: FaceId, planogramId: string) => {
+   if (projectId) {
+     try {
+       await cadApi.deletePlanogram(projectId, planogramId);
+     } catch {}
+   }
+   const newFaces = { ...furniture.faces, [faceId]: null };
+   save({ ...furniture, faces: newFaces });
+  };
 
   /** True if the planogram's declared dimensions exceed the furniture face. */
-  const isFaceOverflowing = (planogramId: string): boolean => {
+  const isFaceOverflowing = (faceId: FaceId, planogramId: string): boolean => {
     const summary = planograms.find(p => p.id === planogramId);
     if (!summary) return false;
-    return (
-      summary.widthCm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
-      summary.heightCm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
-    );
+   const allowedWidth =
+     faceId === 'left' || faceId === 'right'
+       ? furniture.dimensions.depth
+       : furniture.dimensions.width;
+   const allowedHeight =
+     faceId === 'top' || faceId === 'bottom'
+       ? furniture.dimensions.depth
+       : furniture.dimensions.height;
+   return (
+     summary.widthCm  > allowedWidth + OVERFLOW_TOLERANCE_CM ||
+     summary.heightCm > allowedHeight + OVERFLOW_TOLERANCE_CM
+   );
   };
 
-  const anyOverflow = faceEntries.some(([, pid]) => pid && isFaceOverflowing(pid));
+  const anyOverflow = faceEntries.some(([faceId, pid]) => pid && isFaceOverflowing(faceId, pid));
 
   return (
     <div className="space-y-4">
@@ -175,26 +194,41 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
           </h4>
           <div className="space-y-1">
             {faceEntries.map(([faceId, planogramId]) => {
-              const overflow = planogramId ? isFaceOverflowing(planogramId) : false;
+              const overflow = planogramId ? isFaceOverflowing(faceId, planogramId) : false;
               return (
-                <button
+                <div
                   key={faceId}
-                  onClick={() => onOpenPlanogram(planogramId!)}
                   className={[
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-gray-300 transition-colors text-left',
+                    'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-gray-300 transition-colors',
                     overflow
-                      ? 'bg-red-900/30 border border-red-700/50 hover:bg-red-900/50'
-                      : 'bg-gray-800 hover:bg-gray-700',
+                      ? 'bg-red-900/30 border border-red-700/50'
+                      : 'bg-gray-800',
                   ].join(' ')}
                   title={overflow ? '⚠ Le planogramme dépasse les dimensions de la gondole' : undefined}
                 >
                   <span>{overflow ? '🔴' : '🗂️'}</span>
                   <span className="flex-1">{FACE_LABELS[faceId]}</span>
-                  {overflow
-                    ? <span className="text-red-400 font-semibold">DÉBORD</span>
-                    : <span className="text-blue-400">Ouvrir →</span>
-                  }
-                </button>
+                  {planogramId ? (
+                    <>
+                      {overflow && <span className="text-red-400 font-semibold">DÉBORD</span>}
+                      <button
+                        onClick={() => onOpenPlanogram(planogramId)}
+                        className="text-blue-400 hover:text-blue-300"
+                      >
+                        Ouvrir →
+                      </button>
+                      <button
+                        onClick={() => { handleDeleteFace(faceId, planogramId).catch(console.error); }}
+                        title="Supprimer le planogramme"
+                        className="text-gray-500 hover:text-red-400"
+                      >
+                        🗑
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-gray-600">—</span>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -227,18 +261,36 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
 }
 
 export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps) {
-  const { scene, selectedFurnitureId } = useSceneStore();
-  const { activePlanogram, selectedCellIds } = usePlanogramStore();
+  const { scene, selectedFurnitureId, selection } = useSceneStore();
+  const { activePlanogram, selectedCellIds, planograms, planogramDetails } = usePlanogramStore();
+  const { products } = useCatalogStore();
 
   const selectedFurniture = scene?.furniture.find(
     (f) => f.id === selectedFurnitureId,
   ) ?? null;
 
-  const selectedCellIdArr = Array.from(selectedCellIds);
+  const selectedPlanogram =
+    selection.type === 'planogram_cell' && selection.planogramId
+      ? (activePlanogram?.id === selection.planogramId
+          ? activePlanogram
+          : (planogramDetails.get(selection.planogramId) ?? null))
+      : activePlanogram;
+
+  const selectedCellIdArr =
+    selection.type === 'planogram_cell' && selection.cellIds?.length
+      ? selection.cellIds
+      : Array.from(selectedCellIds);
   const selectedCell =
-    activePlanogram && selectedCellIdArr.length === 1
-      ? activePlanogram.cells.find((c) => c.id === selectedCellIdArr[0]) ?? null
+    selectedPlanogram && selectedCellIdArr.length === 1
+      ? selectedPlanogram.cells.find((c) => c.id === selectedCellIdArr[0]) ?? null
       : null;
+  const selectedPlanogramSummary =
+    selection.type === 'planogram_cell' && selection.planogramId
+      ? (planograms.find((planogram) => planogram.id === selection.planogramId) ?? null)
+      : null;
+  const selectedEanProduct = selection.type === 'planogram_cell' && selection.ean
+    ? (products.find((product) => product.ean === selection.ean) ?? null)
+    : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -256,31 +308,74 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
           />
         )}
 
-        {!selectedFurniture && selectedCell && activePlanogram && (
+        {!selectedFurniture && (selectedCell || selectedEanProduct) && (
           <div className="space-y-3">
-            <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Cellule</h4>
-            <div className="space-y-1.5 text-xs text-gray-300">
-              <div className="flex justify-between">
-                <span className="text-gray-500">EAN</span>
-                <span className="font-mono">{selectedCell.ean}</span>
+            {selectedCell && (
+              <>
+                <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Cellule</h4>
+                <div className="space-y-1.5 text-xs text-gray-300">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">EAN</span>
+                    <span className="font-mono">{selectedCell.ean}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Ligne</span>
+                    <span>{selectedCell.row + 1}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Colonne</span>
+                    <span>{selectedCell.col + 1}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Planogramme</span>
+                    <span className="truncate max-w-32">
+                      {selectedPlanogram?.name ?? selectedPlanogramSummary?.name ?? '—'}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {selectedEanProduct && (
+              <div className="space-y-2 pt-2 border-t border-gray-800">
+                <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Produit</h4>
+                {selectedEanProduct.imageUrl && (
+                  <img
+                    src={selectedEanProduct.imageUrl}
+                    alt={selectedEanProduct.name}
+                    className="w-full h-32 object-contain bg-gray-800 rounded border border-gray-700"
+                  />
+                )}
+                <div className="space-y-1.5 text-xs text-gray-300">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Nom</span>
+                    <span className="text-right">{selectedEanProduct.name}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Marque</span>
+                    <span className="text-right">{selectedEanProduct.brand}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Catégorie</span>
+                    <span className="text-right">{selectedEanProduct.category}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Dimensions</span>
+                    <span className="text-right">
+                      {selectedEanProduct.widthCm} × {selectedEanProduct.depthCm} × {selectedEanProduct.heightCm} cm
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">EAN</span>
+                    <span className="font-mono text-right">{selectedEanProduct.ean}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Ligne</span>
-                <span>{selectedCell.row + 1}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Colonne</span>
-                <span>{selectedCell.col + 1}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Planogramme</span>
-                <span className="truncate max-w-32">{activePlanogram.name}</span>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
-        {!selectedFurniture && !selectedCell && (
+        {!selectedFurniture && !selectedCell && !selectedEanProduct && (
           <div className="space-y-4">
             <p className="text-xs text-gray-600 italic">
               Sélectionnez un meuble ou un produit dans la scène.

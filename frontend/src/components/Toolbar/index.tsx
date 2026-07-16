@@ -1,4 +1,6 @@
 import { useUIStore } from '../../store/uiStore';
+import { useSceneStore } from '../../store/sceneStore';
+import { useZoneStore } from '../../store/zoneStore';
 import type { ActiveTool, ViewMode } from '../../store/uiStore';
 
 interface ToolbarProps {
@@ -22,6 +24,14 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
 
 export default function Toolbar({ projectName, onExport }: ToolbarProps) {
   const { activeTool, setActiveTool, viewMode, setViewMode } = useUIStore();
+  const scene = useSceneStore((s) => s.scene);
+  const { addZone, zones } = useZoneStore();
+
+  const storeW = scene?.store.dimensions.width  ?? 2000;
+  const storeD = scene?.store.dimensions.depth  ?? 1500;
+
+  const hasEntrance = zones.some((z) => z.type === 'entrance');
+  const hasExit     = zones.some((z) => z.type === 'exit');
 
   return (
     <div className="flex items-center h-11 bg-gray-950 border-b border-gray-800 shrink-0 px-3 gap-4 select-none">
@@ -53,6 +63,39 @@ export default function Toolbar({ projectName, onExport }: ToolbarProps) {
             <span className="hidden sm:inline">{tool.label}</span>
           </button>
         ))}
+      </div>
+
+      {/* ── Separator ── */}
+      <div className="h-5 w-px bg-gray-800" />
+
+      {/* ── Zone buttons (Entrée / Sortie) ── */}
+      <div className="flex items-center gap-1">
+        <button
+          title="Ajouter / sélectionner la zone Entrée"
+          onClick={() => addZone('entrance', storeW, storeD)}
+          className={[
+            'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+            hasEntrance
+              ? 'bg-green-700 text-white'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
+          ].join(' ')}
+        >
+          <span>🟢</span>
+          <span className="hidden sm:inline">Entrée</span>
+        </button>
+        <button
+          title="Ajouter / sélectionner la zone Sortie sans achat"
+          onClick={() => addZone('exit', storeW, storeD)}
+          className={[
+            'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+            hasExit
+              ? 'bg-orange-700 text-white'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
+          ].join(' ')}
+        >
+          <span>🟠</span>
+          <span className="hidden sm:inline">Sortie</span>
+        </button>
       </div>
 
       {/* ── Separator ── */}

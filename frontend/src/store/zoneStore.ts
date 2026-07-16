@@ -36,10 +36,11 @@ interface ZoneState {
 
 const DEFAULT_ZONE_WIDTH_CM = 200;
 const DEFAULT_ZONE_DEPTH_CM = 100;
-const SNAP_CM = 100;
+/** Snap grid step in centimetres – matches the 1 m floor grid. */
+const SNAP_GRID_CM = 100;
 
 function snapToCm(v: number) {
-  return Math.round(v / SNAP_CM) * SNAP_CM;
+  return Math.round(v / SNAP_GRID_CM) * SNAP_GRID_CM;
 }
 
 export const useZoneStore = create<ZoneState>((set, get) => ({

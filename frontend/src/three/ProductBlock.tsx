@@ -2,7 +2,10 @@ import { useRef, useEffect, useCallback, useState, useMemo, memo } from 'react';
 import * as THREE from 'three';
 import type { Voxel } from '../types';
 
-const SCALE = 0.95; // gap between adjacent voxels
+const SCALE           = 0.95;  // gap between adjacent voxels
+const CAP_HEIGHT      = 0.018; // 18 mm top-cap slab
+const CAP_SCALE       = 0.97;  // cap slightly narrower than body to avoid z-fighting
+const CAP_LIGHTNESS   = 0.55;  // how much to lerp cap colour toward white
 
 // Shared geometry & scratch objects (allocated once)
 const _dummy = new THREE.Object3D();
@@ -36,7 +39,7 @@ const ColorGroup = memo(function ColorGroup({
   // Lighter cap colour (top face of each product box)
   const capColor = useMemo(() => {
     const c = new THREE.Color(baseColor);
-    c.lerp(new THREE.Color('#ffffff'), 0.55);
+    c.lerp(new THREE.Color('#ffffff'), CAP_LIGHTNESS);
     return '#' + c.getHexString();
   }, [baseColor]);
 
@@ -58,9 +61,8 @@ const ColorGroup = memo(function ColorGroup({
 
       // Top cap — thin slab sitting exactly on top of the body
       const bodyTop = py + sy / 2 + (sy * SCALE) / 2;
-      const capH    = 0.018; // 18 mm cap
-      _dummy.position.set(px + sx / 2, bodyTop + capH / 2, pz + sz / 2);
-      _dummy.scale.set(sx * SCALE * 0.97, capH, sz * SCALE * 0.97);
+      _dummy.position.set(px + sx / 2, bodyTop + CAP_HEIGHT / 2, pz + sz / 2);
+      _dummy.scale.set(sx * SCALE * CAP_SCALE, CAP_HEIGHT, sz * SCALE * CAP_SCALE);
       _dummy.updateMatrix();
       cap.setMatrixAt(i, _dummy.matrix);
     }

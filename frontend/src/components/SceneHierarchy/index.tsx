@@ -170,9 +170,6 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
   const handleAddFurniture = async (def: FurnitureDefinition) => {
     if (!projectId || !scene) return;
     setAddLoading(true);
-    const faces = Object.fromEntries(
-      (def.hasFaces ?? []).map((faceId) => [faceId, null]),
-    ) as Partial<Record<FaceId, string | null>>;
     const newFurniture: FurnitureInstance = {
       id:         crypto.randomUUID(),
       name:       def.name,
@@ -186,14 +183,13 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
       locked:     false,
       parentId:   null,
       childIds:   [],
-      faces,
+      faces:      {},
     };
 
     try {
       const created = await cadApi.addFurniture(projectId, newFurniture);
-      addFurniture(created);
 
-      if (def.hasFaces.length > 0) {
+      if ((def.hasFaces ?? []).length > 0) {
         try {
           const createdPlanograms = await Promise.all(
             def.hasFaces.map(async (faceId) => {
@@ -226,19 +222,19 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
 
           const updatedFurniture = {
             ...created,
-            faces: {
-              ...created.faces,
-              ...Object.fromEntries(createdPlanograms),
-            },
+            faces: Object.fromEntries(createdPlanograms),
           };
           const persistedFurniture = await cadApi.updateFurniture(projectId, created.id, updatedFurniture);
-          updateFurniture(persistedFurniture);
+          addFurniture(persistedFurniture);
 
           const refreshed = await cadApi.listPlanograms(projectId);
           setPlanograms(refreshed.planograms);
         } catch (err) {
           console.error('Failed to auto-create planograms for furniture:', err);
+          addFurniture(created);
         }
+      } else {
+        addFurniture(created);
       }
     } catch {
       addFurniture(newFurniture);

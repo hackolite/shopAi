@@ -218,7 +218,7 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
                         Ouvrir →
                       </button>
                       <button
-                        onClick={() => { void handleDeleteFace(faceId, planogramId); }}
+                        onClick={() => { handleDeleteFace(faceId, planogramId).catch(console.error); }}
                         title="Supprimer le planogramme"
                         className="text-gray-500 hover:text-red-400"
                       >

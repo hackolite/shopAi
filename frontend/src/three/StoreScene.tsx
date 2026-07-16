@@ -31,10 +31,11 @@ interface SceneProps {
   voxels: Voxel[];
   searchResult: SearchResult | null;
   onHoverVoxel?: (voxel: Voxel | null) => void;
+  onClickVoxel?: (voxel: Voxel) => void;
   flyTarget: THREE.Vector3 | null;
 }
 
-const SceneContent = memo(function SceneContent({ store, voxels, searchResult, onHoverVoxel, flyTarget }: SceneProps) {
+const SceneContent = memo(function SceneContent({ store, voxels, searchResult, onHoverVoxel, onClickVoxel, flyTarget }: SceneProps) {
   const highlightedIds = useMemo(
     () => new Set(searchResult?.instances.map((i) => i.instance_id) ?? []),
     [searchResult],
@@ -75,6 +76,7 @@ const SceneContent = memo(function SceneContent({ store, voxels, searchResult, o
         voxels={voxels}
         highlightedIds={highlightedIds}
         onHover={onHoverVoxel}
+        onClickVoxel={onClickVoxel}
       />
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
@@ -89,11 +91,12 @@ interface StoreSceneProps {
   voxels: Voxel[];
   searchResult: SearchResult | null;
   onHoverVoxel?: (voxel: Voxel | null) => void;
+  onClickVoxel?: (voxel: Voxel) => void;
 }
 
 const DEFAULT_CAMERA_POS: [number, number, number] = [60, 40, 60];
 
-export const StoreScene = memo(function StoreScene({ store, voxels, searchResult, onHoverVoxel }: StoreSceneProps) {
+export const StoreScene = memo(function StoreScene({ store, voxels, searchResult, onHoverVoxel, onClickVoxel }: StoreSceneProps) {
   // Compute fly-to target from first search result instance
   const flyTarget = useMemo(() => {
     if (!searchResult || searchResult.instances.length === 0) return null;
@@ -118,6 +121,7 @@ export const StoreScene = memo(function StoreScene({ store, voxels, searchResult
               voxels={voxels}
               searchResult={searchResult}
               onHoverVoxel={onHoverVoxel}
+              onClickVoxel={onClickVoxel}
               flyTarget={flyTarget}
             />
           )}

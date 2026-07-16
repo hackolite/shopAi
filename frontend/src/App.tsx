@@ -74,6 +74,10 @@ export default function App() {
     loadProject(id);
   }, [loadProject]);
 
+  const handleVoxelClick = useCallback((voxel: Voxel) => {
+    handleSearch(voxel.ean);
+  }, [handleSearch]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
       <Header projectId={projectId} />
@@ -109,6 +113,7 @@ export default function App() {
             voxels={voxels}
             searchResult={searchResult}
             onHoverVoxel={setHoveredVoxel}
+            onClickVoxel={handleVoxelClick}
           />
 
           {hoveredVoxel && !searchResult && (

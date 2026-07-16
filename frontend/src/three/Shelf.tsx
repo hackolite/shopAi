@@ -5,8 +5,7 @@ interface StoreStructureProps {
 }
 
 // ── Store geometry constants (1 unit = 1 metre) ───────────────────────────────
-const WALL_HEIGHT     = 4;      // 4 m walls
-const WALL_THICKNESS  = 0.3;    // 30 cm walls
+const WALL_HEIGHT     = 4;      // used for ceiling height
 
 // ── Gondola constants (realistic supermarket shelving) ────────────────────────
 const GONDOLA_HEIGHT  = 2.0;    // 2 m total gondola height
@@ -22,7 +21,6 @@ export function StoreStructure({ store }: StoreStructureProps) {
   const H = WALL_HEIGHT;
 
   const floorColor   = '#D0D0D0';
-  const wallColor    = '#B0B8C1';
   const ceilingColor = '#E8E8E8';
 
   return (
@@ -37,30 +35,6 @@ export function StoreStructure({ store }: StoreStructureProps) {
       <mesh position={[W / 2, H + 0.05, D / 2]}>
         <boxGeometry args={[W, 0.1, D]} />
         <meshStandardMaterial color={ceilingColor} transparent opacity={0.15} />
-      </mesh>
-
-      {/* Front wall */}
-      <mesh position={[W / 2, H / 2, -WALL_THICKNESS / 2]}>
-        <boxGeometry args={[W, H, WALL_THICKNESS]} />
-        <meshStandardMaterial color={wallColor} roughness={0.85} />
-      </mesh>
-
-      {/* Back wall */}
-      <mesh position={[W / 2, H / 2, D + WALL_THICKNESS / 2]}>
-        <boxGeometry args={[W, H, WALL_THICKNESS]} />
-        <meshStandardMaterial color={wallColor} roughness={0.85} />
-      </mesh>
-
-      {/* Left wall */}
-      <mesh position={[-WALL_THICKNESS / 2, H / 2, D / 2]}>
-        <boxGeometry args={[WALL_THICKNESS, H, D]} />
-        <meshStandardMaterial color={wallColor} roughness={0.85} />
-      </mesh>
-
-      {/* Right wall */}
-      <mesh position={[W + WALL_THICKNESS / 2, H / 2, D / 2]}>
-        <boxGeometry args={[WALL_THICKNESS, H, D]} />
-        <meshStandardMaterial color={wallColor} roughness={0.85} />
       </mesh>
 
       {/* Aisle gondola structures */}

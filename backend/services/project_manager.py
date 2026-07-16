@@ -61,7 +61,15 @@ def _normalize_data(data: Any) -> Any:
 
 def _read_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
+        content = handle.read()
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as exc:
+        # Recover from files that contain concatenated JSON objects ("Extra data").
+        if "Extra data" in str(exc):
+            obj, _ = json.JSONDecoder().raw_decode(content)
+            return obj
+        raise
 
 
 def _write_json(path: Path, data: Any) -> None:

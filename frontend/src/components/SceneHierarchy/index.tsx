@@ -5,12 +5,12 @@ import { cadApi } from '../../api/cad';
 import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram } from '../../types/cad';
 
 const FURNITURE_EMOJI: Record<string, string> = {
-  gondola_single: '📦',
-  gondola_double: '📦',
-  end_gondola:    '📦',
-  fridge:         '❄️',
-  register:       '🏧',
-  wall:           '🧱',
+  gondola_single:    '📦',
+  gondola_double:    '📦',
+  fridge:            '❄️',
+  fridge_horizontal: '❄️',
+  register:          '🏧',
+  wall:              '🧱',
 };
 
 // Face display names — centralised here so they can be replaced with a

@@ -1,9 +1,11 @@
-import { Suspense, useState, useRef, useEffect, useCallback, createContext, useContext } from 'react';
+import { Suspense, useState, useRef, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
+import { usePlanogramStore } from '../store/planogramStore';
+import { useCatalogStore } from '../store/catalogStore';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -27,65 +29,81 @@ function getFurnitureColor(type: string): string {
   return FURNITURE_COLORS[type] ?? '#c8cdd3';
 }
 
-// ─── Gondola shelf geometry ───────────────────────────────────────────────────
-/** Typical vertical spacing between shelves in metres (42 cm). */
-const GONDOLA_SHELF_SPACING_M = 0.42;
 /** Tools that allow selecting furniture by clicking on it. */
 const SELECTABLE_TOOLS = new Set<ActiveTool>(['select', 'translate', 'rotate', 'scale']);
 
-/** Renders a realistic double-sided gondola shelving unit (dimensions in Three.js metres). */
-function GondolaGeometry({ W, H, D, color }: { W: number; H: number; D: number; color: string }) {
-  const BACK_T    = Math.max(0.018, Math.min(0.04, D * 0.05));
-  const SHELF_T   = Math.max(0.015, Math.min(0.03, H * 0.012));
-  const UPRIGHT_T = Math.max(0.02,  Math.min(0.05, W * 0.02));
-  const SHELF_D   = (D - BACK_T) / 2 - UPRIGHT_T * 0.5;
+// ─── Category colors for planogram face overlay ───────────────────────────────
+const PLANO_CATEGORY_COLORS: Record<string, string> = {
+  'Épicerie':  '#F5C518',
+  'Boissons':  '#2196F3',
+  'Frais':     '#4CAF50',
+  'Hygiène':   '#9C27B0',
+  'Bébé':      '#FF9800',
+  'Promotion': '#F44336',
+};
 
-  const numShelves = Math.max(2, Math.min(12, Math.round(H / GONDOLA_SHELF_SPACING_M)));
-  const shelfLevels: number[] = [];
-  for (let i = 0; i < numShelves; i++) {
-    shelfLevels.push(0.03 + (i * (H - 0.08)) / Math.max(numShelves - 1, 1));
-  }
+/** Small Z offset to prevent z-fighting between the overlay plane and the box face. */
+const OVERLAY_Z_OFFSET = 0.002;
+/** Opacity of the planogram face overlay. */
+const OVERLAY_OPACITY  = 0.85;
 
-  const mat = <meshStandardMaterial color={color} roughness={0.25} metalness={0.65} />;
+// ─── Planogram face overlay ───────────────────────────────────────────────────
+/** Renders a canvas-based texture showing product category colors on a gondola face. */
+function PlanogramFaceOverlay({
+  planogramId,
+  W,
+  H,
+  D,
+  side,
+}: {
+  planogramId: string;
+  W: number;
+  H: number;
+  D: number;
+  /** +1 = front face (+Z), -1 = back face (-Z) */
+  side: 1 | -1;
+}) {
+  const { planogramDetails } = usePlanogramStore();
+  const { products } = useCatalogStore();
+  const planogram = planogramDetails.get(planogramId);
+
+  const texture = useMemo(() => {
+    if (!planogram || planogram.cells.length === 0) return null;
+    const productByEan = new Map(products.map((p) => [p.ean, p]));
+    const cellPx = 10;
+    const canvas = document.createElement('canvas');
+    canvas.width  = planogram.cols * cellPx;
+    canvas.height = planogram.rows * cellPx;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.fillStyle = '#1c2030';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (const cell of planogram.cells) {
+      const prod  = productByEan.get(cell.ean);
+      const color = prod ? (PLANO_CATEGORY_COLORS[prod.category] ?? '#888888') : '#444455';
+      ctx.fillStyle = color;
+      ctx.fillRect(cell.col * cellPx + 1, cell.row * cellPx + 1, cellPx - 2, cellPx - 2);
+    }
+
+    return new THREE.CanvasTexture(canvas);
+  }, [planogram, products]);
+
+  useEffect(() => {
+    return () => { texture?.dispose(); };
+  }, [texture]);
+
+  if (!texture) return null;
+
+  const zOffset = (D / 2 + OVERLAY_Z_OFFSET) * side;
+  const rotY    = side === -1 ? Math.PI : 0;
 
   return (
-    <>
-      {/* Central back panel */}
-      <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W, H, BACK_T]} />
-        {mat}
-      </mesh>
-
-      {/* Front-face shelf boards */}
-      {shelfLevels.map((ly) => (
-        <mesh key={`sf${ly}`} position={[0, ly, BACK_T / 2 + SHELF_D / 2]} castShadow>
-          <boxGeometry args={[W - UPRIGHT_T * 2, SHELF_T, SHELF_D]} />
-          {mat}
-        </mesh>
-      ))}
-
-      {/* Back-face shelf boards */}
-      {shelfLevels.map((ly) => (
-        <mesh key={`sb${ly}`} position={[0, ly, -(BACK_T / 2 + SHELF_D / 2)]} castShadow>
-          <boxGeometry args={[W - UPRIGHT_T * 2, SHELF_T, SHELF_D]} />
-          {mat}
-        </mesh>
-      ))}
-
-      {/* Top valance */}
-      <mesh position={[0, H - SHELF_T / 2, 0]} castShadow>
-        <boxGeometry args={[W, SHELF_T, D]} />
-        {mat}
-      </mesh>
-
-      {/* End uprights */}
-      {([-1, 1] as const).map((side) => (
-        <mesh key={side} position={[side * (W / 2 - UPRIGHT_T / 2), H / 2, 0]} castShadow>
-          <boxGeometry args={[UPRIGHT_T, H, D]} />
-          {mat}
-        </mesh>
-      ))}
-    </>
+    <mesh position={[0, 0, zOffset]} rotation={[0, rotY, 0]}>
+      <planeGeometry args={[W * 0.97, H * 0.97]} />
+      <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
+    </mesh>
   );
 }
 
@@ -138,19 +156,32 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
     >
-      {isGondola ? (
-        <GondolaGeometry W={W} H={H} D={D} color={color} />
-      ) : (
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[W, H, D]} />
-          <meshStandardMaterial
-            color={color}
-            emissive={isSelected ? '#1a3a6a' : hovered ? '#1a1a3a' : '#000000'}
-            emissiveIntensity={isSelected ? 0.35 : hovered ? 0.12 : 0}
-            roughness={0.55}
-            metalness={0.25}
-          />
-        </mesh>
+      {/* Main body — simple box for all furniture types */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[W, H, D]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={isSelected ? '#1a3a6a' : hovered ? '#1a1a3a' : '#000000'}
+          emissiveIntensity={isSelected ? 0.35 : hovered ? 0.12 : 0}
+          roughness={isGondola ? 0.4 : 0.55}
+          metalness={isGondola ? 0.5 : 0.25}
+        />
+      </mesh>
+
+      {/* Planogram face overlays (gondola-type furniture only) */}
+      {isGondola && furniture.faces.front && (
+        <PlanogramFaceOverlay
+          planogramId={furniture.faces.front}
+          W={W} H={H} D={D}
+          side={1}
+        />
+      )}
+      {isGondola && furniture.faces.back && (
+        <PlanogramFaceOverlay
+          planogramId={furniture.faces.back}
+          W={W} H={H} D={D}
+          side={-1}
+        />
       )}
 
       {/* Name label */}
@@ -199,11 +230,14 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const W = furniture.dimensions.width  * CM_TO_UNIT;
       const H = furniture.dimensions.height * CM_TO_UNIT;
       const D = furniture.dimensions.depth  * CM_TO_UNIT;
+      // Lock Y=0 so furniture stays on the floor (movement only on X/Z floor plane)
       const newPos: [number, number, number] = [
         (obj.position.x - W / 2) / CM_TO_UNIT,
-        Math.max(0, (obj.position.y - H / 2) / CM_TO_UNIT),
+        0,
         (obj.position.z - D / 2) / CM_TO_UNIT,
       ];
+      // Snap Y back to floor in the 3D object too
+      obj.position.y = H / 2;
       const updated = { ...furniture, position: newPos };
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);

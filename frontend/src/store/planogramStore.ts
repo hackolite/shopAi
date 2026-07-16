@@ -8,10 +8,13 @@ import type {
 
 interface PlanogramState {
   planograms: PlanogramSummary[];
+  /** Full planogram data cached by ID (loaded at startup for 3D overlays). */
+  planogramDetails: Map<string, Planogram>;
   activePlanogram: Planogram | null;
   selectedCellIds: Set<string>;
   loading: boolean;
   setPlanograms: (planograms: PlanogramSummary[]) => void;
+  setPlanogramDetail: (planogram: Planogram) => void;
   setActivePlanogram: (planogram: Planogram | null) => void;
   openPlanogramForFurniture: (furnitureId: string, face: FaceId) => void;
   selectCell: (cellId: string, multi?: boolean) => void;
@@ -24,11 +27,18 @@ interface PlanogramState {
 
 export const usePlanogramStore = create<PlanogramState>((set) => ({
   planograms: [],
+  planogramDetails: new Map<string, Planogram>(),
   activePlanogram: null,
   selectedCellIds: new Set<string>(),
   loading: false,
 
   setPlanograms: (planograms) => set({ planograms }),
+  setPlanogramDetail: (planogram) =>
+    set((state) => {
+      const planogramDetails = new Map(state.planogramDetails);
+      planogramDetails.set(planogram.id, planogram);
+      return { planogramDetails };
+    }),
   setActivePlanogram: (planogram) =>
     set({ activePlanogram: planogram, selectedCellIds: new Set<string>() }),
   openPlanogramForFurniture: (_furnitureId, _face) => {

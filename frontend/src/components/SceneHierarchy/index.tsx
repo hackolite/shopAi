@@ -39,6 +39,7 @@ interface FurnitureRowProps {
   onSelect: () => void;
   onOpenPlanogram: (id: string) => void;
   onToggleVisible: () => void;
+  onDelete: () => void;
   planogramNames: Map<string, string>;
 }
 
@@ -48,6 +49,7 @@ function FurnitureRow({
   onSelect,
   onOpenPlanogram,
   onToggleVisible,
+  onDelete,
   planogramNames,
 }: FurnitureRowProps) {
   const [expanded, setExpanded] = useState(false);
@@ -93,6 +95,18 @@ function FurnitureRow({
         >
           {furniture.visible ? '👁' : '🚫'}
         </button>
+
+        {/* Delete button */}
+        {!furniture.locked && (
+          <button
+            className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 shrink-0 transition-opacity text-xs leading-none px-0.5"
+            title="Supprimer le meuble"
+            aria-label="Supprimer le meuble"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          >
+            🗑
+          </button>
+        )}
       </div>
 
       {/* Face sub-rows */}
@@ -117,7 +131,7 @@ function FurnitureRow({
 }
 
 export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHierarchyProps) {
-  const { scene, selectedFurnitureId, selectFurniture, updateFurniture, addFurniture } =
+  const { scene, selectedFurnitureId, selectFurniture, updateFurniture, addFurniture, removeFurniture } =
     useSceneStore();
   const { planograms } = usePlanogramStore();
 
@@ -142,6 +156,14 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
     updateFurniture(updated);
     if (projectId) {
       cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
+    }
+  };
+
+  const handleDelete = (furniture: FurnitureInstance) => {
+    if (furniture.locked) return;
+    removeFurniture(furniture.id);
+    if (projectId) {
+      cadApi.deleteFurniture(projectId, furniture.id).catch(console.error);
     }
   };
 
@@ -204,6 +226,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
               onSelect={() => selectFurniture(furniture.id)}
               onOpenPlanogram={onOpenPlanogram}
               onToggleVisible={() => handleToggleVisible(furniture)}
+              onDelete={() => handleDelete(furniture)}
               planogramNames={planogramNames}
             />
           </div>

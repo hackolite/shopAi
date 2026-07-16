@@ -24,6 +24,11 @@ const CELL_WIDTH_SCALE  = 1.2;
 /** Height scale: multiply physical cm-per-row by this to get pixel height. */
 const CELL_HEIGHT_SCALE = 0.6;
 
+/** Zoom control bounds and step for the planogram view. */
+const ZOOM_MIN  = 0.5;
+const ZOOM_MAX  = 4;
+const ZOOM_STEP = 0.25;
+
 function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] ?? '#9E9E9E';
 }
@@ -83,6 +88,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [loading,   setLoading]   = useState(true);
   const [dragOver,  setDragOver]  = useState<string | null>(null);
   const [uploadingEan, setUploadingEan] = useState<string | null>(null);
+  /** Zoom multiplier: 1 = default, max 3. */
+  const [zoom, setZoom] = useState(1.5);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -247,11 +254,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const rows = planogram.rows;
   const cols = planogram.cols;
-  // Cell pixel size proportional to physical dimensions
+  // Cell pixel size proportional to physical dimensions, scaled by zoom
   const physCellW = planogram.widthCm  / cols;
   const physCellH = planogram.heightCm / rows;
-  const cellW = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX, Math.round(physCellW * CELL_WIDTH_SCALE)));
-  const cellH = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX, Math.round(physCellH * CELL_HEIGHT_SCALE)));
+  const cellW = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX * ZOOM_MAX, Math.round(physCellW * CELL_WIDTH_SCALE  * zoom)));
+  const cellH = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX * ZOOM_MAX, Math.round(physCellH * CELL_HEIGHT_SCALE * zoom)));
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -284,6 +291,23 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         />
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Zoom controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              title="Zoom arrière"
+            >−</button>
+            <span className="text-xs text-gray-500 w-10 text-center">{Math.round(zoom * 100)}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors"
+              title="Zoom avant"
+            >+</button>
+          </div>
+
+          <div className="h-4 w-px bg-gray-700" />
+
           <button
             onClick={undo}
             disabled={history.length === 0}

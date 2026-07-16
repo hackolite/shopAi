@@ -153,7 +153,8 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const isEditable = (e.target as HTMLElement)?.isContentEditable;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
 
       // Ctrl/Cmd+Z → undo
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {

@@ -7,10 +7,10 @@ interface ToolbarProps {
 }
 
 const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = [
-  { id: 'select',    label: 'Select',  icon: '↖', title: 'Select (S)' },
+  { id: 'select',    label: 'Sélect.',  icon: '↖', title: 'Sélectionner (S)' },
   { id: 'translate', label: 'Déplacer', icon: '✥', title: 'Déplacer (G)' },
   { id: 'rotate',    label: 'Rotation', icon: '↻', title: 'Rotation (R)' },
-  { id: 'scale',     label: 'Resize',   icon: '⤡', title: 'Resize / Scale (E)' },
+  { id: 'scale',     label: 'Redim.',   icon: '⤡', title: 'Redimensionner (E)' },
   { id: 'measure',   label: 'Mesure',   icon: '📏', title: 'Mesure distance (M)' },
 ];
 

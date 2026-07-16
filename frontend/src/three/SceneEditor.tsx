@@ -201,6 +201,10 @@ function PlanogramFaceOverlay({
       rotY  = Math.PI / 2;
       faceW = D; faceH = H;
       break;
+    default: {
+      const _exhaustive: never = face;
+      throw new Error(`Unhandled face: ${_exhaustive}`);
+    }
   }
 
   return (

@@ -77,6 +77,8 @@ class Store(CADBaseModel):
     rotation: list[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0])
     dimensions: dict[str, float]
     walls: list[Wall] = Field(default_factory=list)
+    floorColor: str = '#1e2230'
+    wallColor: str = '#404060'
 
     @field_validator("position")
     @classmethod

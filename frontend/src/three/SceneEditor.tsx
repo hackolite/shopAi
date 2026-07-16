@@ -88,8 +88,8 @@ interface StoreFloorProps {
 
 function StoreFloor({ store }: StoreFloorProps) {
   const { selectFurniture } = useSceneStore();
-  const w  = store.widthCm * CM_TO_UNIT;
-  const d  = store.depthCm * CM_TO_UNIT;
+  const w  = store.dimensions.width  * CM_TO_UNIT;
+  const d  = store.dimensions.depth  * CM_TO_UNIT;
   const cx = w / 2;
   const cz = d / 2;
 

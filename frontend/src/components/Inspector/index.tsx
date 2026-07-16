@@ -274,7 +274,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                   <div className="flex justify-between text-gray-400">
                     <span>Store</span>
                     <span className="text-gray-300">
-                      {scene.store.widthCm / 100}m × {scene.store.depthCm / 100}m
+                      {scene.store.dimensions.width / 100}m × {scene.store.dimensions.depth / 100}m
                     </span>
                   </div>
                 </div>

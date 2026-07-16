@@ -22,9 +22,9 @@ export default function App() {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
 
-  const { setScene, selectFurniture, addFurniture, scene, selectedFurnitureId, clipboard, setClipboard } = useSceneStore();
+  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms }             = usePlanogramStore();
+  const { setPlanograms, setPlanogramDetail } = usePlanogramStore();
   const { viewMode, setViewMode }     = useUIStore();
 
   // ── Boot: load all project data ───────────────────────────────────────────
@@ -39,12 +39,24 @@ export default function App() {
         setScene(sceneData);
         setProducts(catalog.products);
         setPlanograms(planoData.planograms);
+
+        // Load full planogram details for 3D face overlays
+        await Promise.all(
+          planoData.planograms.map(async (summary) => {
+            try {
+              const detail = await cadApi.getPlanogram(projectId, summary.id);
+              setPlanogramDetail(detail);
+            } catch {
+              // ignore individual failures
+            }
+          }),
+        );
       } catch (err) {
         console.error('Failed to load project data:', err);
       }
     };
     void load();
-  }, [projectId, setScene, setProducts, setPlanograms]);
+  }, [projectId, setScene, setProducts, setPlanograms, setPlanogramDetail]);
 
   // ── Open planogram ────────────────────────────────────────────────────────
   const openPlanogram = (planogramId: string) => {
@@ -115,6 +127,13 @@ export default function App() {
     }
   }, [clipboard, projectId, addFurniture, selectFurniture, setPlanograms]);
 
+  // ── Delete selected furniture ─────────────────────────────────────────────
+  const deleteSelected = useCallback(() => {
+    if (!selectedFurnitureId) return;
+    removeFurniture(selectedFurnitureId);
+    cadApi.deleteFurniture(projectId, selectedFurnitureId).catch(console.error);
+  }, [selectedFurnitureId, removeFurniture, projectId]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -123,6 +142,11 @@ export default function App() {
 
       if (e.key === 'Escape') {
         selectFurniture(null);
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelected();
         return;
       }
 
@@ -140,7 +164,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, copySelected, pasteClipboard]);
+  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

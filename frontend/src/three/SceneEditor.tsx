@@ -30,8 +30,24 @@ const GRID_SIZE_MULTIPLIER = 1.4;
  * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
  */
 const GRID_FADE_MULTIPLIER = 1.8;
+/** Y offset of the Grid plane above the floor slab (avoids Z-fighting). */
+const GRID_Y_OFFSET = 0.005;
 /** Shared up-vector reused across components to avoid per-render allocations. */
 const UP_VEC3 = new THREE.Vector3(0, 1, 0);
+
+// ─── Resize handle appearance ─────────────────────────────────────────────────
+const HANDLE_SIZE    = 0.12;
+const HANDLE_COLOR   = '#ffcc00';
+const HANDLE_HOVER   = '#ffffff';
+const HANDLE_EMISSIVE = '#664400';
+
+/**
+ * Angle thresholds (radians) used to decide whether a handle's drag axis
+ * appears more horizontal (EW) or vertical (NS) on screen.
+ * 45° = π/4, 135° = 3π/4.
+ */
+const ANGLE_45_DEG  = Math.PI / 4;
+const ANGLE_135_DEG = 3 * Math.PI / 4;
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -285,11 +301,6 @@ interface ResizeHandlesProps {
   projectId: string | null;
 }
 
-/** Small cube shown on each face when the scale tool is active. */
-const HANDLE_SIZE  = 0.12;
-const HANDLE_COLOR = '#ffcc00';
-const HANDLE_HOVER = '#ffffff';
-
 function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
   const { updateFurniture } = useSceneStore();
   const { gl, raycaster, camera } = useThree();
@@ -419,14 +430,16 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
       }
 
       // Snap final position and dimensions to the grid.
+      // Clamp to minimum first so the snapped value can never fall below it.
       const cur = currentFurRef.current;
+      const snapDim = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
       const snapped: FurnitureInstance = {
         ...cur,
         position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
         dimensions: {
           ...cur.dimensions,
-          width: Math.max(MIN_DIM_CM, snapToCm(cur.dimensions.width)),
-          depth: Math.max(MIN_DIM_CM, snapToCm(cur.dimensions.depth)),
+          width: snapDim(cur.dimensions.width),
+          depth: snapDim(cur.dimensions.depth),
         },
       };
       updateFurniture(snapped);
@@ -450,9 +463,11 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
   const centerZ = pz + D / 2;
 
   // Choose resize cursor based on the handle's approximate screen-space orientation.
-  // The width axis (local X) is along world [cos(ry), 0, sin(ry)]; the depth axis is 90° offset.
+  // The width axis (local X) is along world [cos(ry), 0, sin(ry)]; depth is 90° offset.
+  // ANGLE_45_DEG / ANGLE_135_DEG split the rotation into quadrants where width appears
+  // more horizontal (EW) vs vertical (NS) on a top-down view.
   const ryMod180 = Math.abs(ry % Math.PI);
-  const widthIsEW = ryMod180 < Math.PI / 4 || ryMod180 > (3 * Math.PI) / 4;
+  const widthIsEW = ryMod180 < ANGLE_45_DEG || ryMod180 > ANGLE_135_DEG;
 
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; lx: number; lz: number }[] = [
     { axis: 'width', sign:  1, lx:  Math.cos(ry),  lz:  Math.sin(ry) },
@@ -467,6 +482,7 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
         const halfDim = axis === 'width' ? W / 2 : D / 2;
         const hx = centerX + hlx * halfDim;
         const hz = centerZ + hlz * halfDim;
+        // 'width' axis is EW when widthIsEW; depth is always the opposite.
         const cursor = (axis === 'width') === widthIsEW ? 'ew-resize' : 'ns-resize';
         return (
           <HandleMesh
@@ -507,7 +523,7 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
       onPointerOut={()  => { setHovered(false); document.body.style.cursor = 'auto'; }}
     >
       <boxGeometry args={[HANDLE_SIZE, HANDLE_SIZE, HANDLE_SIZE]} />
-      <meshStandardMaterial color={hovered ? HANDLE_HOVER : HANDLE_COLOR} emissive={hovered ? '#664400' : '#000'} emissiveIntensity={0.4} />
+      <meshStandardMaterial color={hovered ? HANDLE_HOVER : HANDLE_COLOR} emissive={hovered ? HANDLE_EMISSIVE : '#000'} emissiveIntensity={0.4} />
     </mesh>
   );
 }
@@ -529,7 +545,7 @@ function StoreFloor({ store }: { store: StoreConfig }) {
 
       {/* Fine grid: 10 cm cells, 1 m sections */}
       <Grid
-        position={[w / 2, 0.005, d / 2]}
+        position={[w / 2, GRID_Y_OFFSET, d / 2]}
         args={[size, size]}
         cellSize={SNAP_UNIT}
         cellThickness={0.4}

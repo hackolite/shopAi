@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FurnitureInstance, Scene, Selection } from '../types/cad';
+import type { FurnitureInstance, Scene, Selection, StoreConfig } from '../types/cad';
 
 /** Maximum number of undo steps to keep in memory. */
 const MAX_HISTORY = 50;
@@ -23,6 +23,7 @@ interface SceneState {
   selectFurniture: (id: string | null) => void;
   setSelection: (selection: Selection) => void;
   updateFurniture: (furniture: FurnitureInstance) => void;
+  updateStore: (store: StoreConfig) => void;
   addFurniture: (furniture: FurnitureInstance) => void;
   removeFurniture: (id: string) => void;
   toggleNodeExpanded: (id: string) => void;
@@ -63,6 +64,14 @@ export const useSceneStore = create<SceneState>((set) => ({
             item.id === furniture.id ? furniture : item,
           ),
         },
+      };
+    }),
+  updateStore: (store) =>
+    set((state) => {
+      if (!state.scene) return {};
+      return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
+        scene: { ...state.scene, store },
       };
     }),
   addFurniture: (furniture) =>

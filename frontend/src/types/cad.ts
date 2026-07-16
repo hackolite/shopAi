@@ -40,10 +40,9 @@ export interface FurnitureDefinition {
 
 // ─── Store / Scene ────────────────────────────────────────────────────────────
 export interface StoreConfig {
+  id: string;
   name: string;
-  widthCm: number;
-  depthCm: number;
-  heightCm: number;
+  dimensions: { width: number; depth: number; height: number };
   floorColor: string;
   wallColor: string;
 }

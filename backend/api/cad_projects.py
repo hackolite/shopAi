@@ -233,15 +233,20 @@ def search_catalog(project_id: str, q: str):
 
 @router.get("/{project_id}/planograms")
 def list_planograms_endpoint(project_id: str):
-    return [
-        {
-            "id": planogram.id,
-            "name": planogram.name,
-            "furnitureId": planogram.furnitureId,
-            "face": planogram.face.value,
-        }
-        for planogram in _load_planograms(project_id)
-    ]
+    return {
+        "planograms": [
+            {
+                "id": planogram.id,
+                "name": planogram.name,
+                "furnitureId": planogram.furnitureId,
+                "face": planogram.face.value,
+                "rows": planogram.rows,
+                "cols": planogram.cols,
+                "cellCount": len(planogram.cells),
+            }
+            for planogram in _load_planograms(project_id)
+        ]
+    }
 
 
 @router.post("/{project_id}/planograms")

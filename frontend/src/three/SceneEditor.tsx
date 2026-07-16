@@ -673,20 +673,75 @@ function StoreFloor({ store }: { store: StoreConfig }) {
 }
 
 // ─── Store boundary (yellow perimeter outline) ─────────────────────────────────
-function StoreBoundary({ store }: { store: StoreConfig }) {
+/** Half-thickness of the invisible hit-box used to make each wall edge clickable. */
+const BOUNDARY_HIT_HALF = 0.25;
+
+function StoreBoundary({
+  store,
+  isSelected,
+  onSelect,
+}: {
+  store: StoreConfig;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
   const y = GRID_Y_OFFSET + 0.012;
 
+  const lineColor = isSelected ? '#ffe566' : hovered ? '#fde047' : '#facc15';
+
   const corners: [number, number, number][] = [
-    [0,  y, 0],
-    [w,  y, 0],
-    [w,  y, d],
-    [0,  y, d],
-    [0,  y, 0],
+    [0, y, 0],
+    [w, y, 0],
+    [w, y, d],
+    [0, y, d],
+    [0, y, 0],
   ];
 
-  return <Line points={corners} color="#facc15" lineWidth={3} />;
+  const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    setHovered(true);
+    document.body.style.cursor = 'pointer';
+  };
+  const handlePointerOut = () => {
+    setHovered(false);
+    document.body.style.cursor = 'auto';
+  };
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    onSelect();
+  };
+
+  // Four invisible hit-area boxes — one per wall edge.
+  // They sit flat on Y, centred on each edge.
+  const hitBoxes: { px: number; pz: number; sx: number; sz: number }[] = [
+    { px: w / 2, pz: 0,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // south
+    { px: w / 2, pz: d,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // north
+    { px: 0,     pz: d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // west
+    { px: w,     pz: d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // east
+  ];
+
+  return (
+    <>
+      <Line points={corners} color={lineColor} lineWidth={isSelected ? 4 : hovered ? 3.5 : 3} />
+      {hitBoxes.map((hb, i) => (
+        <mesh
+          key={i}
+          position={[hb.px, y, hb.pz]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          onClick={handleClick}
+        >
+          <planeGeometry args={[hb.sx, hb.sz]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ))}
+    </>
+  );
 }
 
 /** Minimum store dimension (cm) allowed after a resize. */
@@ -922,6 +977,13 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
   };
 
+  // Prevent the click from bubbling to the floor's deselect handler so the
+  // zone selection highlight persists after a simple click (not just drag).
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (activeTool === 'measure') return;
+    e.stopPropagation();
+  };
+
   const bx = zone.x * CM_TO_UNIT;
   const bz = zone.z * CM_TO_UNIT;
   const lineY = y + 0.001;
@@ -941,6 +1003,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         position={[cx, y, cz]}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={handlePointerDown}
+        onClick={handleClick}
         onPointerOver={(e) => {
           if (activeTool === 'measure') return;
           e.stopPropagation();
@@ -1374,13 +1437,15 @@ function MeasureTool({ store }: { store: StoreConfig }) {
 
 // ─── Scene Content ────────────────────────────────────────────────────────────
 function SceneContent({ projectId }: { projectId: string | null }) {
-  const { scene, selectedFurnitureId } = useSceneStore();
+  const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool } = useUIStore();
-  const { selectedZoneId, removeZone } = useZoneStore();
+  const { selectedZoneId, removeZone, selectZone } = useZoneStore();
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
   const [transformTarget, setTransformTarget] = useState<THREE.Group | null>(null);
   const [isResizeDragging, setIsResizeDragging] = useState(false);
+  // Whether the yellow store boundary is currently selected by the user.
+  const [storeBoundarySelected, setStoreBoundarySelected] = useState(false);
 
   const registerGroup = useCallback<RegisterFn>((id, group) => {
     if (group) {
@@ -1397,6 +1462,11 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     const grp = selectedFurnitureId ? (meshGroupsRef.current.get(selectedFurnitureId) ?? null) : null;
     setTransformTarget(grp);
   }, [selectedFurnitureId]);
+
+  // Deselect the boundary whenever furniture or a zone is explicitly selected.
+  useEffect(() => {
+    if (selectedFurnitureId || selectedZoneId) setStoreBoundarySelected(false);
+  }, [selectedFurnitureId, selectedZoneId]);
 
   // Delete selected zone with the Delete/Backspace key
   useEffect(() => {
@@ -1417,13 +1487,24 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     ? scene.furniture.find(f => f.id === selectedFurnitureId) ?? null
     : null;
 
+  // Clicking the store boundary deselects furniture/zones and selects the boundary.
+  const handleSelectBoundary = () => {
+    selectFurniture(null);
+    selectZone(null);
+    setStoreBoundarySelected(true);
+  };
+
   // Show transform controls whenever furniture is selected.
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
   // 'scale' uses the custom ResizeHandles component instead.
-  const hasSelection           = selectedFurniture != null && transformTarget != null;
-  const showResizeHandles      = hasSelection && activeTool === 'scale';
-  const showTransform          = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
-  const showBoundaryHandles    = activeTool === 'scale' && !selectedFurnitureId && !selectedZoneId;
+  const hasSelection        = selectedFurniture != null && transformTarget != null;
+  const showResizeHandles   = hasSelection && activeTool === 'scale';
+  const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
+  // Show boundary handles when the boundary is explicitly selected + scale tool,
+  // OR passively in scale mode when nothing else is selected (backward compat).
+  const showBoundaryHandles =
+    activeTool === 'scale' &&
+    (storeBoundarySelected || (!selectedFurnitureId && !selectedZoneId));
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
   return (
@@ -1435,7 +1516,11 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         <pointLight position={[0,  8, 0]}  intensity={0.2}  color="#fff8e7" />
 
         <StoreFloor store={scene.store} />
-        <StoreBoundary store={scene.store} />
+        <StoreBoundary
+          store={scene.store}
+          isSelected={storeBoundarySelected}
+          onSelect={handleSelectBoundary}
+        />
         <FloorZoneLayer />
         <MeasureTool store={scene.store} />
 

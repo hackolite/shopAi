@@ -242,8 +242,9 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
 
-  const isSelected = selectedFurnitureId === furniture.id;
-  const isGondola  = furniture.type.startsWith('gondola');
+  const isSelected  = selectedFurnitureId === furniture.id;
+  // Used only for material appearance (roughness/metalness), not for overlay logic.
+  const isGondolaStyle = furniture.type.startsWith('gondola');
 
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
   const H  = furniture.dimensions.height * CM_TO_UNIT;
@@ -286,8 +287,8 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
           color={color}
           emissive={isSelected ? '#1a3a6a' : hovered ? '#1a1a3a' : '#000000'}
           emissiveIntensity={isSelected ? 0.35 : hovered ? 0.12 : 0}
-          roughness={isGondola ? 0.4 : 0.55}
-          metalness={isGondola ? 0.5 : 0.25}
+          roughness={isGondolaStyle ? 0.4 : 0.55}
+          metalness={isGondolaStyle ? 0.5 : 0.25}
         />
       </mesh>
 

@@ -10,6 +10,7 @@ import SceneHierarchy from './components/SceneHierarchy';
 import CatalogPanel from './components/CatalogPanel';
 import Inspector from './components/Inspector';
 import PlanogramEditor from './components/PlanogramEditor';
+import { useZoneStore } from './store/zoneStore';
 import type { FurnitureInstance } from './types/cad';
 
 const DEFAULT_PROJECT = 'retail_cad';
@@ -26,6 +27,7 @@ export default function App() {
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, planogramDetails, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool } = useUIStore();
+  const { setZones } = useZoneStore();
 
   // ── Boot: load all project data ───────────────────────────────────────────
   useEffect(() => {
@@ -39,6 +41,7 @@ export default function App() {
         setScene(sceneData);
         setProducts(catalog.products);
         setPlanograms(planoData.planograms);
+        setZones(sceneData.store.zones ?? []);
 
         // Load full planogram details for 3D face overlays
         await Promise.all(
@@ -56,7 +59,7 @@ export default function App() {
       }
     };
     void load();
-  }, [projectId, setScene, setProducts, setPlanograms, setPlanogramDetail]);
+  }, [projectId, setScene, setProducts, setPlanograms, setPlanogramDetail, setZones]);
 
   // ── Open planogram ────────────────────────────────────────────────────────
   const openPlanogram = (planogramId: string) => {

@@ -70,6 +70,21 @@ class Wall(CADBaseModel):
         return cls._validate_dimensions(value)
 
 
+class ZoneTypeEnum(str, Enum):
+    entrance = "entrance"
+    exit = "exit"
+
+
+class FloorZone(CADBaseModel):
+    id: str
+    type: ZoneTypeEnum
+    label: str
+    x: float
+    z: float
+    width: float
+    depth: float
+
+
 class Store(CADBaseModel):
     id: str
     name: str
@@ -79,6 +94,7 @@ class Store(CADBaseModel):
     walls: list[Wall] = Field(default_factory=list)
     floorColor: str = '#1e2230'
     wallColor: str = '#404060'
+    zones: list[FloorZone] = Field(default_factory=list)
 
     @field_validator("position")
     @classmethod

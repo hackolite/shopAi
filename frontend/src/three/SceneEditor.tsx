@@ -8,7 +8,7 @@ import { useUIStore } from '../store/uiStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useCatalogStore } from '../store/catalogStore';
 import { useZoneStore } from '../store/zoneStore';
-import type { FloorZone } from '../store/zoneStore';
+import type { FloorZone } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -1500,11 +1500,11 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const hasSelection        = selectedFurniture != null && transformTarget != null;
   const showResizeHandles   = hasSelection && activeTool === 'scale';
   const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
-  // Show boundary handles when the boundary is explicitly selected + scale tool,
+  // Show boundary handles when the boundary is explicitly selected (any non-measure tool),
   // OR passively in scale mode when nothing else is selected (backward compat).
   const showBoundaryHandles =
-    activeTool === 'scale' &&
-    (storeBoundarySelected || (!selectedFurnitureId && !selectedZoneId));
+    activeTool !== 'measure' &&
+    (storeBoundarySelected || (activeTool === 'scale' && !selectedFurnitureId && !selectedZoneId));
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
   return (
@@ -1564,6 +1564,21 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 // ─── SceneEditor ─────────────────────────────────────────────────────────────
 function SceneEditor({ projectId }: { projectId: string | null }) {
   const { scene } = useSceneStore();
+  const { zones, zonesLoaded } = useZoneStore();
+
+  // Keep a stable ref to the latest scene so the save timer closure is always fresh.
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+
+  // Auto-save zones whenever they change after the initial load from the backend.
+  useEffect(() => {
+    if (!zonesLoaded || !projectId) return;
+    const timer = setTimeout(() => {
+      const s = sceneRef.current;
+      if (s) cadApi.updateStore(projectId, { ...s.store, zones }).catch(console.error);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [zones, zonesLoaded, projectId]);
 
   if (!projectId) {
     return (

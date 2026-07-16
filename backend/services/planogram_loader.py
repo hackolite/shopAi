@@ -25,46 +25,57 @@ def _validate_project_id(project_id: str) -> None:
         raise ValueError(f"Invalid project_id: {project_id!r}")
 
 
-def _project_path(project_id: str) -> Path:
-    """Return the project directory.
+def _find_existing_project(project_id: str) -> Path | None:
+    """Return the Path for an existing project directory.
 
-    Derives the path from the STORAGE_ROOT directory listing so that the
-    returned Path is never constructed directly from user-supplied input.
-    For new projects (import use-case), falls back to a validated construction
-    with an explicit is_relative_to guard.
+    Derives the path entirely from the filesystem listing so that no
+    user-provided string is directly concatenated with a path.
+    Returns None when the project does not exist.
     """
     _validate_project_id(project_id)
-
-    # Prefer looking up from the filesystem listing — CodeQL recognises this
-    # as safe because the Path comes from iterdir(), not from user input.
-    if STORAGE_ROOT.exists():
-        for entry in STORAGE_ROOT.iterdir():
-            if entry.is_dir() and entry.name == project_id:
-                return entry
-
-    # New project (directory does not exist yet — only reached from save_json)
-    resolved = (STORAGE_ROOT / project_id).resolve()
-    if not resolved.is_relative_to(STORAGE_ROOT.resolve()):
-        raise ValueError("Path traversal attempt detected")
-    return resolved
+    if not STORAGE_ROOT.exists():
+        return None
+    for entry in STORAGE_ROOT.iterdir():
+        if entry.is_dir() and entry.name == project_id:
+            return entry
+    return None
 
 
 def load_json(project_id: str, filename: str) -> Any:
+    """Load a JSON file from a project directory using a filesystem-derived path."""
     if filename not in _ALLOWED_FILES:
         raise ValueError(f"Unknown file: {filename!r}")
-    path = _project_path(project_id) / filename
-    if not path.exists():
+    project_dir = _find_existing_project(project_id)
+    if project_dir is None:
         return None
-    with path.open(encoding="utf-8") as f:
+    # project_dir came from iterdir() — not constructed from user input
+    file_path = project_dir / filename
+    if not file_path.exists():
+        return None
+    with file_path.open(encoding="utf-8") as f:
         return json.load(f)
 
 
 def save_json(project_id: str, filename: str, data: Any) -> None:
+    """Persist data as JSON.  For existing projects the path is filesystem-derived;
+    for new projects a validated path is constructed with an is_relative_to guard."""
     if filename not in _ALLOWED_FILES:
         raise ValueError(f"Unknown file: {filename!r}")
-    path = _project_path(project_id)
-    path.mkdir(parents=True, exist_ok=True)
-    with (path / filename).open("w", encoding="utf-8") as f:
+
+    project_dir = _find_existing_project(project_id)
+    if project_dir is None:
+        # New project — must construct the directory from the validated id.
+        _validate_project_id(project_id)
+        candidate = (STORAGE_ROOT / project_id).resolve()
+        if not candidate.is_relative_to(STORAGE_ROOT.resolve()):
+            raise ValueError("Path traversal attempt detected")
+        candidate.mkdir(parents=True, exist_ok=True)
+        # Re-derive from filesystem now that the directory exists
+        project_dir = _find_existing_project(project_id)
+        if project_dir is None:
+            raise RuntimeError("Failed to create project directory")
+
+    with (project_dir / filename).open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
@@ -95,5 +106,6 @@ def build_ean_index(project_id: str) -> dict:
 
     save_json(project_id, "ean_index.json", index)
     return index
+
 
 

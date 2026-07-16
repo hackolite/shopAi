@@ -94,6 +94,65 @@ const OVERLAY_Z_OFFSET = 0.002;
 /** Opacity of the planogram face overlay. */
 const OVERLAY_OPACITY  = 0.85;
 
+// ─── 3D text sprite (captured by canvas.captureStream unlike Html overlays) ───
+function makeTextTexture(text: string, isSelected = false): THREE.CanvasTexture {
+  const fontSize = 16;
+  const padding  = 8;
+
+  const tmp    = document.createElement('canvas');
+  const tmpCtx = tmp.getContext('2d')!;
+  tmpCtx.font  = `${fontSize}px ui-monospace, monospace`;
+  const textWidth = Math.ceil(tmpCtx.measureText(text).width);
+
+  const cw = textWidth + padding * 2;
+  const ch = fontSize + padding * 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, 0, cw, ch);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font      = `${fontSize}px ui-monospace, monospace`;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, padding, ch / 2);
+
+  if (isSelected) {
+    ctx.strokeStyle = '#4a9eff';
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(1, 1, cw - 2, ch - 2);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+interface TextSprite3DProps {
+  text: string;
+  position: [number, number, number];
+  isSelected?: boolean;
+  scale?: number;
+}
+
+function TextSprite3D({ text, position, isSelected = false, scale = 1 }: TextSprite3DProps) {
+  const texture = useMemo(() => makeTextTexture(text, isSelected), [text, isSelected]);
+  useEffect(() => () => { texture.dispose(); }, [texture]);
+
+  const aspectRatio = texture.image.width / texture.image.height;
+  const spriteH = 0.35 * scale;
+  const spriteW = spriteH * aspectRatio;
+
+  return (
+    <sprite position={position} scale={[spriteW, spriteH, 1]}>
+      <spriteMaterial map={texture} transparent depthTest={false} />
+    </sprite>
+  );
+}
+
 // ─── Planogram face overlay ───────────────────────────────────────────────────
 type OverlayFace = 'front' | 'back' | 'left' | 'right' | 'top';
 
@@ -266,6 +325,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const color = isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
 
   const { selectZone } = useZoneStore();
+  const { planogramDetails } = usePlanogramStore();
 
   // Detect product selection on this gondola (planogram cell click)
   const isProductSelected =
@@ -278,13 +338,39 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         .find(([, pid]) => pid === selection.planogramId)?.[0] ?? 'front'
     : 'front';
 
-  // Position and Y-rotation for the semi-circle depending on which face is selected.
-  const semiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
-    front:  { pos: [0,      -H / 2 + 0.02, D / 2],  yRot: 0           },
-    back:   { pos: [0,      -H / 2 + 0.02, -D / 2], yRot: Math.PI     },
-    right:  { pos: [W / 2,  -H / 2 + 0.02, 0],      yRot: Math.PI / 2 },
-    left:   { pos: [-W / 2, -H / 2 + 0.02, 0],      yRot: -Math.PI / 2},
+  // Compute the horizontal offset of the selected cell within its face so the
+  // semi-circle is centred under the product, not the whole gondola.
+  // Default to 0 (gondola centre) when planogram data is unavailable.
+  let semiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
+    front: { pos: [0,      -H / 2 + 0.02,  D / 2], yRot: 0            },
+    back:  { pos: [0,      -H / 2 + 0.02, -D / 2], yRot: Math.PI      },
+    right: { pos: [ W / 2, -H / 2 + 0.02, 0     ], yRot:  Math.PI / 2 },
+    left:  { pos: [-W / 2, -H / 2 + 0.02, 0     ], yRot: -Math.PI / 2 },
   };
+
+  if (isProductSelected && selection.planogramId && selection.cellIds?.length) {
+    const planogram = planogramDetails.get(selection.planogramId);
+    const cell = planogram?.cells.find((c) => c.id === selection.cellIds![0]);
+    if (planogram && cell) {
+      // t ∈ [0,1]: normalised column position from the left edge viewed from outside.
+      const t = (cell.col + 0.5) / planogram.cols;
+      // Front face: col=0 → left → local -X direction.
+      const cellXf =  t * W - W / 2;
+      // Back face is mirrored in X compared with the front face.
+      const cellXb = W / 2 - t * W;
+      // Right face: col=0 → local +Z side (viewed from +X, left = +Z).
+      const cellZr = D / 2 - t * D;
+      // Left face is mirrored in Z compared with the right face.
+      const cellZl = t * D - D / 2;
+      semiCircleConfig = {
+        front: { pos: [cellXf,  -H / 2 + 0.02,  D / 2], yRot: 0            },
+        back:  { pos: [cellXb,  -H / 2 + 0.02, -D / 2], yRot: Math.PI      },
+        right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr], yRot:  Math.PI / 2 },
+        left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl], yRot: -Math.PI / 2 },
+      };
+    }
+  }
+
   const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
 
   const handleClick = (e: { stopPropagation: () => void }) => {
@@ -356,24 +442,12 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         ) : null;
       })}
 
-      {/* Name label */}
-      <Html position={[0, H / 2 + 0.3, 0]} center>
-        <div
-          style={{
-            color: 'white',
-            fontSize: '11px',
-            whiteSpace: 'nowrap',
-            background: 'rgba(0,0,0,0.72)',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            pointerEvents: 'none',
-            fontFamily: 'ui-monospace, monospace',
-            border: isSelected ? '1px solid #4a9eff' : '1px solid transparent',
-          }}
-        >
-          {furniture.name}
-        </div>
-      </Html>
+      {/* Name label — rendered as a 3D sprite so it is captured by canvas.captureStream */}
+      <TextSprite3D
+        text={furniture.name}
+        position={[0, H / 2 + 0.3, 0]}
+        isSelected={isSelected}
+      />
     </group>
   );
 }
@@ -896,12 +970,12 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
-  // Four handles: one per edge (right, left, far, near).
+  // Two handles: right edge and far edge only.
+  // The left and near edges cannot be resized independently because StoreConfig
+  // has no origin position — dragging them would move the opposite edge instead.
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
     { axis: 'width',  sign:  1, hx: W,     hz: D / 2, cursor: 'ew-resize' }, // right edge
-    { axis: 'width',  sign: -1, hx: 0,     hz: D / 2, cursor: 'ew-resize' }, // left edge
     { axis: 'depth',  sign:  1, hx: W / 2, hz: D,     cursor: 'ns-resize' }, // far edge
-    { axis: 'depth',  sign: -1, hx: W / 2, hz: 0,     cursor: 'ns-resize' }, // near edge
   ];
 
   return (
@@ -1063,26 +1137,12 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         lineWidth={isSelected ? 3 : 2}
       />
 
-      {/* Label */}
-      <Html position={[cx, y + 0.12, cz]} center>
-        <div
-          style={{
-            color: 'white',
-            fontSize: '13px',
-            fontWeight: 'bold',
-            whiteSpace: 'nowrap',
-            background: 'rgba(0,0,0,0.72)',
-            padding: '3px 9px',
-            borderRadius: '4px',
-            pointerEvents: 'none',
-            border: `1px solid ${isSelected ? '#ffffff88' : color.border + '88'}`,
-            letterSpacing: '0.05em',
-            userSelect: 'none',
-          }}
-        >
-          {zone.label}
-        </div>
-      </Html>
+      {/* Label — 3D sprite so it is captured by canvas.captureStream */}
+      <TextSprite3D
+        text={zone.label}
+        position={[cx, y + 0.12, cz]}
+        scale={1.2}
+      />
     </group>
   );
 }
@@ -1614,10 +1674,13 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     const canvas = canvasWrapperRef.current?.querySelector('canvas');
     if (!canvas) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stream: MediaStream = (canvas as any).captureStream(30);
+    const stream: MediaStream = (canvas as any).captureStream(60);
     const mimeType = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm']
       .find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
-    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    const mr = new MediaRecorder(stream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: 8_000_000,
+    });
     recordChunksRef.current = [];
     mr.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
     mr.onstop = () => {

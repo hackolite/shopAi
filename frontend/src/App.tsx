@@ -1,164 +1,175 @@
-import { useState, useEffect, useCallback } from 'react';
-import { api } from './api';
-import type { Store, Voxel, SearchResult } from './types';
-import { StoreScene } from './three/StoreScene';
-import { Header } from './components/Header';
-import { SidePanel } from './components/SidePanel';
-import { SearchBar } from './components/SearchBar';
-import { ProductInfo } from './components/ProductInfo';
+import { useState, useEffect } from 'react';
+import { cadApi } from './api/cad';
+import { useSceneStore } from './store/sceneStore';
+import { useCatalogStore } from './store/catalogStore';
+import { usePlanogramStore } from './store/planogramStore';
+import { useUIStore } from './store/uiStore';
+import { SceneEditor } from './three/SceneEditor';
+import Toolbar from './components/Toolbar';
+import SceneHierarchy from './components/SceneHierarchy';
+import CatalogPanel from './components/CatalogPanel';
+import Inspector from './components/Inspector';
+import PlanogramEditor from './components/PlanogramEditor';
 
-const DEFAULT_PROJECT = 'demo_store';
+const DEFAULT_PROJECT = 'retail_cad';
 
 export default function App() {
-  const [projects, setProjects] = useState<string[]>([]);
-  const [projectId, setProjectId] = useState<string>(DEFAULT_PROJECT);
-  const [store, setStore] = useState<Store | null>(null);
-  const [voxels, setVoxels] = useState<Voxel[]>([]);
-  const [eanList, setEanList] = useState<string[]>([]);
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [hoveredVoxel, setHoveredVoxel] = useState<Voxel | null>(null);
-  const [sceneLoading, setSceneLoading] = useState(false);
+  const [projectId]           = useState<string>(DEFAULT_PROJECT);
+  const [projectName]         = useState<string>('Retail CAD');
+  const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
+  const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
 
-  const loadProject = useCallback(async (id: string) => {
-    setSceneLoading(true);
-    setSearchResult(null);
-    setSearchError(null);
-    try {
-      const [storeData, planogramData] = await Promise.all([
-        api.getStore(id),
-        api.getPlanogram(id),
-      ]);
-      setStore(storeData);
-      setVoxels(planogramData.voxels);
+  const { setScene, selectFurniture } = useSceneStore();
+  const { setProducts }               = useCatalogStore();
+  const { setPlanograms }             = usePlanogramStore();
+  const { viewMode, setViewMode }     = useUIStore();
 
-      const eanIdx = await fetch(`/api/projects/${id}/ean-index`)
-        .then((r) => r.json())
-        .catch(() => ({}));
-      setEanList(Object.keys(eanIdx));
-    } catch (err) {
-      console.error('Failed to load project:', err);
-    } finally {
-      setSceneLoading(false);
-    }
-  }, []);
-
+  // ── Boot: load all project data ───────────────────────────────────────────
   useEffect(() => {
-    api.listProjects().then(({ projects }) => {
-      setProjects(projects);
-      const id = projects.includes(DEFAULT_PROJECT) ? DEFAULT_PROJECT : projects[0];
-      if (id) {
-        setProjectId(id);
-        loadProject(id);
+    const load = async () => {
+      try {
+        const [scene, catalog, planoData] = await Promise.all([
+          cadApi.getScene(projectId),
+          cadApi.getCatalog(projectId),
+          cadApi.listPlanograms(projectId),
+        ]);
+        setScene(scene);
+        setProducts(catalog.products);
+        setPlanograms(planoData.planograms);
+      } catch (err) {
+        console.error('Failed to load project data:', err);
       }
-    });
-  }, [loadProject]);
+    };
+    void load();
+  }, [projectId, setScene, setProducts, setPlanograms]);
 
-  const handleSearch = useCallback(async (ean: string) => {
-    setSearchLoading(true);
-    setSearchError(null);
-    try {
-      const result = await api.searchEan(projectId, ean);
-      setSearchResult(result);
-    } catch (err) {
-      setSearchResult(null);
-      setSearchError((err as Error).message);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, [projectId]);
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        selectFurniture(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectFurniture]);
 
-  const handleProjectLoad = useCallback((id: string) => {
-    setProjectId(id);
-    loadProject(id);
-  }, [loadProject]);
+  // ── Open planogram ────────────────────────────────────────────────────────
+  const openPlanogram = (planogramId: string) => {
+    setActivePlanogramId(planogramId);
+    setViewMode(viewMode === 'split' ? 'split' : 'planogram');
+  };
 
-  const handleVoxelClick = useCallback((voxel: Voxel) => {
-    handleSearch(voxel.ean);
-  }, [handleSearch]);
+  const closePlanogram = () => {
+    setActivePlanogramId(null);
+    setViewMode('3d');
+  };
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
-      <Header projectId={projectId} />
+      {/* Top toolbar */}
+      <Toolbar projectName={projectName} />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel */}
-        <div className="flex flex-col w-64 shrink-0 border-r border-gray-800 bg-gray-900 overflow-y-auto">
-          <SidePanel
-            projectId={projectId}
-            projects={projects}
-            onProjectLoad={handleProjectLoad}
-          />
-          <SearchBar
-            onSearch={handleSearch}
-            loading={searchLoading}
-            suggestions={eanList}
-          />
+        {/* ── Left panel (260px) ───────────────────────────────────────── */}
+        <div className="w-64 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
+          {/* Tab switcher */}
+          <div className="flex shrink-0 border-b border-gray-800">
+            <button
+              className={[
+                'flex-1 py-1.5 text-xs font-medium transition-colors',
+                leftTab === 'hierarchy'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-gray-500 hover:text-gray-300',
+              ].join(' ')}
+              onClick={() => setLeftTab('hierarchy')}
+            >
+              Scene
+            </button>
+            <button
+              className={[
+                'flex-1 py-1.5 text-xs font-medium transition-colors',
+                leftTab === 'catalog'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-gray-500 hover:text-gray-300',
+              ].join(' ')}
+              onClick={() => setLeftTab('catalog')}
+            >
+              Catalog
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            {leftTab === 'hierarchy' ? (
+              <SceneHierarchy
+                projectId={projectId}
+                onOpenPlanogram={openPlanogram}
+              />
+            ) : (
+              <CatalogPanel projectId={projectId} />
+            )}
+          </div>
         </div>
 
-        {/* 3D Viewport */}
-        <main className="flex-1 relative">
-          {sceneLoading && (
-            <div className="absolute inset-0 z-10 bg-gray-950/80 flex items-center justify-center">
-              <div className="text-center space-y-2">
-                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-gray-400 text-sm">Loading store…</p>
-              </div>
-            </div>
+        {/* ── Main viewport ──────────────────────────────────────────────── */}
+        <main className="flex-1 relative overflow-hidden">
+          {viewMode === '3d' && (
+            <SceneEditor projectId={projectId} />
           )}
 
-          <StoreScene
-            store={store}
-            voxels={voxels}
-            searchResult={searchResult}
-            onHoverVoxel={setHoveredVoxel}
-            onClickVoxel={handleVoxelClick}
-          />
-
-          {hoveredVoxel && !searchResult && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur border border-gray-700 rounded px-3 py-2 text-xs text-gray-300 pointer-events-none">
-              <span className="font-mono">{hoveredVoxel.ean}</span>
-              <span className="mx-2 text-gray-600">·</span>
-              <span className="capitalize">{hoveredVoxel.category}</span>
-            </div>
-          )}
-
-          {searchResult && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur border border-blue-800 rounded px-4 py-2 text-sm text-gray-200 pointer-events-none flex items-center gap-3">
-              <span
-                className="w-2.5 h-2.5 rounded-full animate-pulse"
-                style={{ background: '#FFD700' }}
+          {viewMode === 'planogram' && (
+            activePlanogramId ? (
+              <PlanogramEditor
+                projectId={projectId}
+                planogramId={activePlanogramId}
+                onClose={closePlanogram}
               />
-              <span>
-                <strong className="text-white">{searchResult.product.name}</strong>
-                {' '}&mdash;{' '}
-                <span className="text-gray-400">
-                  {searchResult.total_positions} position{searchResult.total_positions > 1 ? 's' : ''},{' '}
-                  {searchResult.total_facings} facings
-                </span>
-              </span>
-              <button
-                className="pointer-events-auto text-gray-500 hover:text-gray-300 ml-2"
-                onClick={() => setSearchResult(null)}
-              >
-                ×
-              </button>
+            ) : (
+              <div className="flex flex-col items-center justify-center w-full h-full gap-3">
+                <span className="text-4xl">🗂️</span>
+                <p className="text-gray-500 text-sm">
+                  Click a planogram face in the Scene panel to open it
+                </p>
+                <button
+                  className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                  onClick={() => setViewMode('3d')}
+                >
+                  ← Back to 3D view
+                </button>
+              </div>
+            )
+          )}
+
+          {viewMode === 'split' && (
+            <div className="flex h-full">
+              <div className="flex-1 border-r border-gray-800">
+                <SceneEditor projectId={projectId} />
+              </div>
+              <div className="flex-1">
+                {activePlanogramId ? (
+                  <PlanogramEditor
+                    projectId={projectId}
+                    planogramId={activePlanogramId}
+                    onClose={closePlanogram}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-600 text-sm">
+                      Select a planogram face to edit
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </main>
 
-        {/* Right panel */}
+        {/* ── Right panel (280px) ──────────────────────────────────────── */}
         <aside className="w-72 shrink-0 border-l border-gray-800 bg-gray-900 overflow-y-auto">
-          <div className="p-4 border-b border-gray-800">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Product Info
-            </h3>
-          </div>
-          <ProductInfo
-            result={searchResult}
-            hoveredVoxel={hoveredVoxel}
-            error={searchError}
+          <Inspector
+            projectId={projectId}
+            onOpenPlanogram={openPlanogram}
           />
         </aside>
       </div>

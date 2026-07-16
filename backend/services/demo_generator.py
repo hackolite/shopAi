@@ -186,8 +186,9 @@ def generate_retail_cad_demo() -> dict:
             childIds=[],
             faces=_default_faces(),
         )
-        front_planogram = _make_planogram(f"Gondole {label} - Face avant", furniture_id, Face.front, 5, 8, 120.0, 200.0, product_iter)
+        front_planogram = _make_planogram(f"Gondole {label} - Face avant",   furniture_id, Face.front, 5, 8, 120.0, 200.0, product_iter)
         back_planogram  = _make_planogram(f"Gondole {label} - Face arrière", furniture_id, Face.back,  5, 8, 120.0, 200.0, product_iter)
+        # End-cap (left/right) faces are 60 cm wide (= gondola depth) × 200 cm tall
         left_planogram  = _make_planogram(f"Gondole {label} - Face gauche",  furniture_id, Face.left,  5, 4,  60.0, 200.0, product_iter)
         right_planogram = _make_planogram(f"Gondole {label} - Face droite",  furniture_id, Face.right, 5, 4,  60.0, 200.0, product_iter)
         gondola.faces["front"] = front_planogram["id"]

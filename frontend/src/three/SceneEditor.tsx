@@ -747,8 +747,8 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
 function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
-  const px = (store.position?.[0] ?? 0) * CM_TO_UNIT;
-  const pz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
+  const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
   const size = Math.ceil(Math.max(w, d) * GRID_SIZE_MULTIPLIER);
@@ -761,14 +761,14 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   return (
     <group>
       {/* Floor slab — clicking deselects */}
-      <mesh position={[px + w / 2, -0.05, pz + d / 2]} receiveShadow onClick={handleFloorClick}>
+      <mesh position={[storeOriginX + w / 2, -0.05, storeOriginZ + d / 2]} receiveShadow onClick={handleFloorClick}>
         <boxGeometry args={[w, 0.1, d]} />
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
 
       {/* Fine grid: 1 m cells, 5 m sections */}
       <Grid
-        position={[px + w / 2, GRID_Y_OFFSET, pz + d / 2]}
+        position={[storeOriginX + w / 2, GRID_Y_OFFSET, storeOriginZ + d / 2]}
         args={[size, size]}
         cellSize={SNAP_UNIT}
         cellThickness={1.2}
@@ -799,8 +799,8 @@ function StoreBoundary({
 }) {
   const [hovered, setHovered] = useState(false);
 
-  const ox = (store.position?.[0] ?? 0) * CM_TO_UNIT;
-  const oz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
+  const originX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const originZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
   const y = GRID_Y_OFFSET + 0.012;
@@ -808,11 +808,11 @@ function StoreBoundary({
   const lineColor = isSelected ? '#ffe566' : hovered ? '#fde047' : '#facc15';
 
   const corners: [number, number, number][] = [
-    [ox,     y, oz    ],
-    [ox + w, y, oz    ],
-    [ox + w, y, oz + d],
-    [ox,     y, oz + d],
-    [ox,     y, oz    ],
+    [originX,     y, originZ    ],
+    [originX + w, y, originZ    ],
+    [originX + w, y, originZ + d],
+    [originX,     y, originZ + d],
+    [originX,     y, originZ    ],
   ];
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
@@ -831,11 +831,11 @@ function StoreBoundary({
 
   // Four invisible hit-area boxes — one per wall edge.
   // They sit flat on Y, centred on each edge.
-  const hitBoxes: { hx: number; hz: number; sx: number; sz: number }[] = [
-    { hx: ox + w / 2, hz: oz,         sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // south
-    { hx: ox + w / 2, hz: oz + d,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // north
-    { hx: ox,         hz: oz + d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // west
-    { hx: ox + w,     hz: oz + d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // east
+  const hitBoxes: { centerX: number; centerZ: number; sx: number; sz: number }[] = [
+    { centerX: originX + w / 2, centerZ: originZ,         sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // south
+    { centerX: originX + w / 2, centerZ: originZ + d,     sx: w, sz: BOUNDARY_HIT_HALF * 2 }, // north
+    { centerX: originX,         centerZ: originZ + d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // west
+    { centerX: originX + w,     centerZ: originZ + d / 2, sx: BOUNDARY_HIT_HALF * 2, sz: d }, // east
   ];
 
   return (
@@ -844,7 +844,7 @@ function StoreBoundary({
       {hitBoxes.map((hb, i) => (
         <mesh
           key={i}
-          position={[hb.hx, y, hb.hz]}
+          position={[hb.centerX, y, hb.centerZ]}
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
@@ -869,8 +869,8 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
 
-  const ox = (store.position?.[0] ?? 0) * CM_TO_UNIT;
-  const oz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
+  const originX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const originZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const W  = store.dimensions.width  * CM_TO_UNIT;
   const D  = store.dimensions.depth  * CM_TO_UNIT;
 
@@ -1019,19 +1019,19 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
 
   // Four handles: one per edge of the store boundary.
   // Each handle moves only its own edge; the opposite edge stays fixed.
-  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
-    { axis: 'width',  sign:  1, hx: ox + W,     hz: oz + D / 2, cursor: 'ew-resize' }, // right edge
-    { axis: 'width',  sign: -1, hx: ox,         hz: oz + D / 2, cursor: 'ew-resize' }, // left edge
-    { axis: 'depth',  sign:  1, hx: ox + W / 2, hz: oz + D,     cursor: 'ns-resize' }, // far edge
-    { axis: 'depth',  sign: -1, hx: ox + W / 2, hz: oz,         cursor: 'ns-resize' }, // near edge
+  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; posX: number; posZ: number; cursor: string }[] = [
+    { axis: 'width',  sign:  1, posX: originX + W,     posZ: originZ + D / 2, cursor: 'ew-resize' }, // right edge
+    { axis: 'width',  sign: -1, posX: originX,         posZ: originZ + D / 2, cursor: 'ew-resize' }, // left edge
+    { axis: 'depth',  sign:  1, posX: originX + W / 2, posZ: originZ + D,     cursor: 'ns-resize' }, // far edge
+    { axis: 'depth',  sign: -1, posX: originX + W / 2, posZ: originZ,         cursor: 'ns-resize' }, // near edge
   ];
 
   return (
     <group>
-      {handles.map(({ axis, sign, hx, hz, cursor }) => (
+      {handles.map(({ axis, sign, posX, posZ, cursor }) => (
         <HandleMesh
           key={`store-${axis}${sign}`}
-          position={[hx, BOUNDARY_HANDLE_Y, hz]}
+          position={[posX, BOUNDARY_HANDLE_Y, posZ]}
           axis={axis}
           sign={sign}
           cursor={cursor}

@@ -18,6 +18,8 @@ const SNAP_CM   = 10;
 const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 /** Minimum furniture dimension allowed after a resize (cm). */
 const MIN_DIM_CM = 20;
+/** Round a centimetre value to the nearest snap grid step. */
+const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -233,12 +235,10 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const W = furniture.dimensions.width  * CM_TO_UNIT;
       const H = furniture.dimensions.height * CM_TO_UNIT;
       const D = furniture.dimensions.depth  * CM_TO_UNIT;
-      // Snap to grid and lock Y so furniture stays on the floor
-      const snap = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
       const newPos: [number, number, number] = [
-        snap((obj.position.x - W / 2) / CM_TO_UNIT),
+        snapToCm((obj.position.x - W / 2) / CM_TO_UNIT),
         0,
-        snap((obj.position.z - D / 2) / CM_TO_UNIT),
+        snapToCm((obj.position.z - D / 2) / CM_TO_UNIT),
       ];
       obj.position.set(newPos[0] * CM_TO_UNIT + W / 2, H / 2, newPos[2] * CM_TO_UNIT + D / 2);
       const updated = { ...furniture, position: newPos };
@@ -294,6 +294,7 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
   const dragAxis      = useRef<'width' | 'depth'>('width');
   const dragSign      = useRef<1 | -1>(1);
   const dragStart     = useRef(new THREE.Vector3());
+  const pointerIdRef  = useRef(-1);
   const baseFurRef    = useRef<FurnitureInstance>(furniture);
   /** Tracks the latest intermediate furniture value during a drag. */
   const currentFurRef = useRef<FurnitureInstance>(furniture);
@@ -319,11 +320,13 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
     sign: 1 | -1,
     clientX: number,
     clientY: number,
+    pointerId: number,
   ) => {
-    baseFurRef.current  = currentFurRef.current;
-    isDragging.current  = true;
-    dragAxis.current    = axis;
-    dragSign.current    = sign;
+    baseFurRef.current   = currentFurRef.current;
+    isDragging.current   = true;
+    dragAxis.current     = axis;
+    dragSign.current     = sign;
+    pointerIdRef.current = pointerId;
     dragStart.current.copy(getHitPoint(clientX, clientY));
   }, [getHitPoint]);
 
@@ -379,16 +382,21 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
       if (!isDragging.current) return;
       isDragging.current = false;
 
+      // Release pointer capture explicitly.
+      if (pointerIdRef.current >= 0) {
+        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        pointerIdRef.current = -1;
+      }
+
       // Snap final position and dimensions to the grid.
-      const cur  = currentFurRef.current;
-      const snap = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
+      const cur = currentFurRef.current;
       const snapped: FurnitureInstance = {
         ...cur,
-        position: [snap(cur.position[0]), cur.position[1], snap(cur.position[2])],
+        position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
         dimensions: {
           ...cur.dimensions,
-          width: Math.max(MIN_DIM_CM, snap(cur.dimensions.width)),
-          depth: Math.max(MIN_DIM_CM, snap(cur.dimensions.depth)),
+          width: Math.max(MIN_DIM_CM, snapToCm(cur.dimensions.width)),
+          depth: Math.max(MIN_DIM_CM, snapToCm(cur.dimensions.depth)),
         },
       };
       updateFurniture(snapped);
@@ -438,20 +446,24 @@ interface HandleMeshProps {
   position: [number, number, number];
   axis: 'width' | 'depth';
   sign: 1 | -1;
-  onStartDrag: (axis: 'width' | 'depth', sign: 1 | -1, clientX: number, clientY: number) => void;
+  onStartDrag: (axis: 'width' | 'depth', sign: 1 | -1, clientX: number, clientY: number, pointerId: number) => void;
 }
 
 function HandleMesh({ position, axis, sign, onStartDrag }: HandleMeshProps) {
   const [hovered, setHovered] = useState(false);
   const { gl } = useThree();
   const cursor = axis === 'width' ? 'ew-resize' : 'ns-resize';
+
+  // Ensure cursor is restored if the component unmounts while hovered.
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
   return (
     <mesh
       position={position}
       onPointerDown={(e) => {
         e.stopPropagation();
         gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
-        onStartDrag(axis, sign, e.clientX, e.clientY);
+        onStartDrag(axis, sign, e.clientX, e.clientY, e.nativeEvent.pointerId);
       }}
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true);  document.body.style.cursor = cursor; }}
       onPointerOut={()  => { setHovered(false); document.body.style.cursor = 'auto'; }}

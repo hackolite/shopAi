@@ -5,8 +5,8 @@
       "type": "gondola_single",
       "name": "Gondole simple",
       "category": "gondola",
-      "defaultDimensions": {"width": 120, "depth": 60, "height": 200},
-      "hasFaces": ["front", "back"],
+      "defaultDimensions": {"width": 1000, "depth": 200, "height": 200},
+      "hasFaces": ["front", "back", "left", "right"],
       "defaultMaterial": "metal_white",
       "description": "Gondole simple face standard"
     },

@@ -95,8 +95,8 @@
             "faces": {
                 "front": "22bc8cd3-2eb9-45ac-a539-9420084a89f8",
                 "back": "2f761bce-25ca-4917-aada-22de5b75839e",
-                "left": null,
-                "right": null,
+                "left": "aa000001-0000-4000-a000-000000000001",
+                "right": "aa000001-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -129,76 +129,8 @@
             "faces": {
                 "front": "9abeeca1-9cdd-4ff9-98ce-41d1d5820a59",
                 "back": "6c3fc892-4cb6-4b8c-8c65-5fc52abe1adb",
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "101d8ba9-08bf-44c8-b198-96a130d25b70",
-            "name": "Tête G1",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                100.0,
-                0.0,
-                400.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": "cee96c46-0099-45f9-a258-a1e9ef3d7700",
-                "back": null,
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "a5e96ad0-d8e5-487c-a2e2-7162cf223662",
-            "name": "Tête D1",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                2500.0,
-                0.0,
-                400.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": "cc2d0b74-03b9-41a8-9e63-5fc8a059c66e",
-                "back": null,
-                "left": null,
-                "right": null,
+                "left": "aa000002-0000-4000-a000-000000000001",
+                "right": "aa000002-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -231,8 +163,8 @@
             "faces": {
                 "front": "4971b9bb-01aa-41a6-a73a-7d7a15ab0f3f",
                 "back": "3be3fbd9-41db-43a0-8e53-a0da576e7b5b",
-                "left": null,
-                "right": null,
+                "left": "aa000003-0000-4000-a000-000000000001",
+                "right": "aa000003-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -265,76 +197,8 @@
             "faces": {
                 "front": "9e14f57e-f42b-44ea-b2b7-7f1c6d35d8cc",
                 "back": "3ac5c374-dc58-4440-bfb4-48773a9b7e25",
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000001",
-            "name": "Tête G2",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                100.0,
-                0.0,
-                900.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000002",
-            "name": "Tête D2",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                2500.0,
-                0.0,
-                900.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
+                "left": "aa000004-0000-4000-a000-000000000001",
+                "right": "aa000004-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -367,8 +231,8 @@
             "faces": {
                 "front": "0847df7a-ab49-4e7f-aeed-b2cdde5f6abc",
                 "back": "dfa49268-fa50-4fb2-9a0e-82e4a8b25cdf",
-                "left": null,
-                "right": null,
+                "left": "aa000005-0000-4000-a000-000000000001",
+                "right": "aa000005-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -401,76 +265,8 @@
             "faces": {
                 "front": "bfdc7e33-5c11-46dc-aaee-55571e01c5d0",
                 "back": "07fe4dce-19d4-4a0d-9e41-83b9b11adda3",
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000003",
-            "name": "Tête G3",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                100.0,
-                0.0,
-                1400.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000004",
-            "name": "Tête D3",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                2500.0,
-                0.0,
-                1400.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
+                "left": "aa000006-0000-4000-a000-000000000001",
+                "right": "aa000006-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -503,8 +299,8 @@
             "faces": {
                 "front": "48dbd491-e26d-4f27-98fb-ddcf48cee023",
                 "back": "e9cfd2db-7ac4-4cf5-b27b-4fdf4b22fa52",
-                "left": null,
-                "right": null,
+                "left": "aa000007-0000-4000-a000-000000000001",
+                "right": "aa000007-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -537,76 +333,8 @@
             "faces": {
                 "front": "33c28594-7d21-4a0d-9cd3-2f23e4e97b05",
                 "back": "2d5ad97f-ebf3-42b7-985c-e7c59b74b97a",
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000005",
-            "name": "Tête G4",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                100.0,
-                0.0,
-                1900.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000006",
-            "name": "Tête D4",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                2500.0,
-                0.0,
-                1900.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
+                "left": "aa000008-0000-4000-a000-000000000001",
+                "right": "aa000008-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -639,8 +367,8 @@
             "faces": {
                 "front": "2b64aaf3-b67c-4d02-af78-e44e3d1ca0fa",
                 "back": "7c244c1c-f6c5-4a20-b5a4-0c29b2c1da39",
-                "left": null,
-                "right": null,
+                "left": "aa000009-0000-4000-a000-000000000001",
+                "right": "aa000009-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }
@@ -673,76 +401,8 @@
             "faces": {
                 "front": "e85fa940-3f6d-4a72-ba4e-af7cef3e1d2b",
                 "back": "649ee3df-aa08-4be5-8e87-7d5c9cf4d831",
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000007",
-            "name": "Tête G5",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                100.0,
-                0.0,
-                2400.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
-                "top": null,
-                "bottom": null
-            }
-        },
-        {
-            "id": "b1c2d3e4-0001-4000-a000-000000000008",
-            "name": "Tête D5",
-            "type": "end_gondola",
-            "libraryId": "end_gondola",
-            "position": [
-                2500.0,
-                0.0,
-                2400.0
-            ],
-            "rotation": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "dimensions": {
-                "width": 200.0,
-                "depth": 200.0,
-                "height": 180.0
-            },
-            "materialId": "solid_red",
-            "visible": true,
-            "locked": false,
-            "parentId": null,
-            "childIds": [],
-            "faces": {
-                "front": null,
-                "back": null,
-                "left": null,
-                "right": null,
+                "left": "aa000010-0000-4000-a000-000000000001",
+                "right": "aa000010-0000-4000-a000-000000000002",
                 "top": null,
                 "bottom": null
             }

@@ -3,14 +3,15 @@ import type { ActiveTool, ViewMode } from '../../store/uiStore';
 
 interface ToolbarProps {
   projectName: string;
+  onExport: () => void;
 }
 
 const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = [
-  { id: 'select',    label: 'Select',    icon: '↖', title: 'Select (S)' },
-  { id: 'translate', label: 'Move',      icon: '✥', title: 'Move (G)' },
-  { id: 'rotate',    label: 'Rotate',    icon: '↻', title: 'Rotate (R)' },
-  { id: 'scale',     label: 'Resize',    icon: '⤡', title: 'Resize / Scale (E)' },
-  { id: 'measure',   label: 'Mesure',    icon: '📏', title: 'Mesure distance (M)' },
+  { id: 'select',    label: 'Select',  icon: '↖', title: 'Select (S)' },
+  { id: 'translate', label: 'Déplacer', icon: '✥', title: 'Déplacer (G)' },
+  { id: 'rotate',    label: 'Rotation', icon: '↻', title: 'Rotation (R)' },
+  { id: 'scale',     label: 'Resize',   icon: '⤡', title: 'Resize / Scale (E)' },
+  { id: 'measure',   label: 'Mesure',   icon: '📏', title: 'Mesure distance (M)' },
 ];
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
@@ -19,7 +20,7 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: 'split',     label: '⊞'  },
 ];
 
-export default function Toolbar({ projectName }: ToolbarProps) {
+export default function Toolbar({ projectName, onExport }: ToolbarProps) {
   const { activeTool, setActiveTool, viewMode, setViewMode } = useUIStore();
 
   return (
@@ -77,8 +78,16 @@ export default function Toolbar({ projectName }: ToolbarProps) {
 
       <div className="flex-1" />
 
-      {/* ── Right: Status ── */}
+      {/* ── Right: Export + Status ── */}
       <div className="flex items-center gap-3 text-xs text-gray-500">
+        <button
+          onClick={onExport}
+          title="Exporter l'implémentation complète (scène + planogrammes)"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors font-medium"
+        >
+          <span>⬇</span>
+          <span className="hidden md:inline">Exporter</span>
+        </button>
         <span className="hidden md:inline flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
           Auto-saved

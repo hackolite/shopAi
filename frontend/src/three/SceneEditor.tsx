@@ -443,15 +443,17 @@ interface HandleMeshProps {
 
 function HandleMesh({ position, axis, sign, onStartDrag }: HandleMeshProps) {
   const [hovered, setHovered] = useState(false);
+  const { gl } = useThree();
+  const cursor = axis === 'width' ? 'ew-resize' : 'ns-resize';
   return (
     <mesh
       position={position}
       onPointerDown={(e) => {
         e.stopPropagation();
-        (e.target as Element).setPointerCapture(e.pointerId);
+        gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
         onStartDrag(axis, sign, e.clientX, e.clientY);
       }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(true);  document.body.style.cursor = 'ew-resize'; }}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true);  document.body.style.cursor = cursor; }}
       onPointerOut={()  => { setHovered(false); document.body.style.cursor = 'auto'; }}
     >
       <boxGeometry args={[HANDLE_SIZE, HANDLE_SIZE, HANDLE_SIZE]} />

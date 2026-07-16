@@ -7,6 +7,8 @@ import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useCatalogStore } from '../store/catalogStore';
+import { useZoneStore } from '../store/zoneStore';
+import type { FloorZone } from '../store/zoneStore';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -257,10 +259,13 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const baseColor = getFurnitureColor(furniture.type);
   const color = isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
 
+  const { selectZone } = useZoneStore();
+
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     if (!SELECTABLE_TOOLS.has(activeTool)) return;
     selectFurniture(furniture.id);
+    selectZone(null);
   };
 
   // Callback ref keeps the registry entry fresh on every re-render and handles unmount
@@ -280,6 +285,22 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
       onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
     >
+      {/* Register: floor highlight showing customer passage zone */}
+      {furniture.type === 'register' && (
+        <group>
+          {/* Amber glow under the register footprint */}
+          <mesh position={[0, -H / 2 + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[W + 0.5, D + 0.5]} />
+            <meshBasicMaterial color="#f59e0b" transparent opacity={0.5} depthWrite={false} />
+          </mesh>
+          {/* Customer passage lane extending from the front face (+Z local) */}
+          <mesh position={[0, -H / 2 + 0.01, D / 2 + 1.5]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[W, 3.0]} />
+            <meshBasicMaterial color="#f59e0b" transparent opacity={0.22} depthWrite={false} />
+          </mesh>
+        </group>
+      )}
+
       {/* Main body — simple box for all furniture types */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={[W, H, D]} />
@@ -612,14 +633,20 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
 // ─── Store Floor + fine grid ───────────────────────────────────────────────────
 function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
+  const { selectZone } = useZoneStore();
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
   const size = Math.ceil(Math.max(w, d) * GRID_SIZE_MULTIPLIER);
 
+  const handleFloorClick = () => {
+    selectFurniture(null);
+    selectZone(null);
+  };
+
   return (
     <group>
       {/* Floor slab — clicking deselects */}
-      <mesh position={[w / 2, -0.05, d / 2]} receiveShadow onClick={() => selectFurniture(null)}>
+      <mesh position={[w / 2, -0.05, d / 2]} receiveShadow onClick={handleFloorClick}>
         <boxGeometry args={[w, 0.1, d]} />
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
@@ -639,6 +666,349 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         infiniteGrid={false}
       />
     </group>
+  );
+}
+
+// ─── Store boundary (yellow perimeter outline) ─────────────────────────────────
+function StoreBoundary({ store }: { store: StoreConfig }) {
+  const w = store.dimensions.width  * CM_TO_UNIT;
+  const d = store.dimensions.depth  * CM_TO_UNIT;
+  const y = GRID_Y_OFFSET + 0.012;
+
+  const corners: [number, number, number][] = [
+    [0,  y, 0],
+    [w,  y, 0],
+    [w,  y, d],
+    [0,  y, d],
+    [0,  y, 0],
+  ];
+
+  return <Line points={corners} color="#facc15" lineWidth={3} />;
+}
+
+// ─── Floor zone appearance constants ──────────────────────────────────────────
+const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
+  entrance: { fill: '#22c55e', border: '#16a34a' },
+  exit:     { fill: '#f97316', border: '#ea580c' },
+};
+const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
+
+// ─── Floor zone mesh (movable) ────────────────────────────────────────────────
+function FloorZoneMesh({ zone }: { zone: FloorZone }) {
+  const { selectZone, updateZone, selectedZoneId } = useZoneStore();
+  const { selectFurniture } = useSceneStore();
+  const { activeTool } = useUIStore();
+  const { gl, raycaster, camera } = useThree();
+  const [hovered, setHovered] = useState(false);
+
+  const isSelected = selectedZoneId === zone.id;
+  const W = zone.width  * CM_TO_UNIT;
+  const D = zone.depth  * CM_TO_UNIT;
+  const cx = zone.x * CM_TO_UNIT + W / 2;
+  const cz = zone.z * CM_TO_UNIT + D / 2;
+  const y  = GRID_Y_OFFSET + 0.016;
+
+  const color = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
+
+  // Drag state (same pattern as ResizeHandles / FurnitureMesh)
+  const isDragging   = useRef(false);
+  const dragStart    = useRef(new THREE.Vector3());
+  const baseZoneRef  = useRef<FloorZone>(zone);
+  const curZoneRef   = useRef<FloorZone>(zone);
+  curZoneRef.current = zone;
+
+  const _ndc  = useRef(new THREE.Vector2());
+  const _hit  = useRef(new THREE.Vector3());
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
+    const rect = gl.domElement.getBoundingClientRect();
+    _ndc.current.set(
+      ((clientX - rect.left) / rect.width)  *  2 - 1,
+      -((clientY - rect.top) / rect.height) *  2 + 1,
+    );
+    raycaster.setFromCamera(_ndc.current, camera);
+    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
+  }, [gl, raycaster, camera, dragPlane]);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseZoneRef.current;
+        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        const dx = _hit.current.x - dragStart.current.x;
+        const dz = _hit.current.z - dragStart.current.z;
+        updateZone({ ...base, x: base.x + dx / CM_TO_UNIT, z: base.z + dz / CM_TO_UNIT });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+      const cur = curZoneRef.current;
+      updateZone({ ...cur, x: snapToCm(cur.x), z: snapToCm(cur.z) });
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, getHitPoint, updateZone]);
+
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (activeTool === 'measure') return;
+    e.stopPropagation();
+    selectZone(zone.id);
+    selectFurniture(null);
+    if (!getHitPoint(e.clientX, e.clientY, dragStart.current)) return;
+    baseZoneRef.current = curZoneRef.current;
+    isDragging.current  = true;
+    gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
+  };
+
+  const bx = zone.x * CM_TO_UNIT;
+  const bz = zone.z * CM_TO_UNIT;
+  const lineY = y + 0.001;
+
+  const borderPts: [number, number, number][] = [
+    [bx,      lineY, bz],
+    [bx + W,  lineY, bz],
+    [bx + W,  lineY, bz + D],
+    [bx,      lineY, bz + D],
+    [bx,      lineY, bz],
+  ];
+
+  return (
+    <group>
+      {/* Semi-transparent fill plane */}
+      <mesh
+        position={[cx, y, cz]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onPointerDown={handlePointerDown}
+        onPointerOver={(e) => {
+          if (activeTool === 'measure') return;
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = 'move';
+        }}
+        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
+      >
+        <planeGeometry args={[W, D]} />
+        <meshBasicMaterial
+          color={color.fill}
+          transparent
+          opacity={isSelected ? 0.55 : hovered ? 0.45 : 0.32}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Border outline */}
+      <Line
+        points={borderPts}
+        color={isSelected ? '#ffffff' : color.border}
+        lineWidth={isSelected ? 3 : 2}
+      />
+
+      {/* Label */}
+      <Html position={[cx, y + 0.12, cz]} center>
+        <div
+          style={{
+            color: 'white',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            background: 'rgba(0,0,0,0.72)',
+            padding: '3px 9px',
+            borderRadius: '4px',
+            pointerEvents: 'none',
+            border: `1px solid ${isSelected ? '#ffffff88' : color.border + '88'}`,
+            letterSpacing: '0.05em',
+            userSelect: 'none',
+          }}
+        >
+          {zone.label}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+// ─── Floor zone resize handles ────────────────────────────────────────────────
+function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
+  const { updateZone } = useZoneStore();
+  const { gl, raycaster, camera } = useThree();
+
+  const W  = zone.width  * CM_TO_UNIT;
+  const D  = zone.depth  * CM_TO_UNIT;
+  const px = zone.x * CM_TO_UNIT;
+  const pz = zone.z * CM_TO_UNIT;
+
+  const isDragging    = useRef(false);
+  const dragAxis      = useRef<'width' | 'depth'>('width');
+  const dragSign      = useRef<1 | -1>(1);
+  const dragStart     = useRef(new THREE.Vector3());
+  const pointerIdRef  = useRef(-1);
+  const baseZoneRef   = useRef<FloorZone>(zone);
+  const curZoneRef    = useRef<FloorZone>(zone);
+  curZoneRef.current  = zone;
+
+  const _ndc   = useRef(new THREE.Vector2());
+  const _hit   = useRef(new THREE.Vector3());
+  const _delta = useRef(new THREE.Vector3());
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
+    const rect = gl.domElement.getBoundingClientRect();
+    _ndc.current.set(
+      ((clientX - rect.left) / rect.width)  *  2 - 1,
+      -((clientY - rect.top) / rect.height) *  2 + 1,
+    );
+    raycaster.setFromCamera(_ndc.current, camera);
+    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
+  }, [gl, raycaster, camera, dragPlane]);
+
+  const startDrag = useCallback((
+    axis: 'width' | 'depth',
+    sign: 1 | -1,
+    clientX: number,
+    clientY: number,
+    pointerId: number,
+  ) => {
+    if (!getHitPoint(clientX, clientY, dragStart.current)) return;
+    baseZoneRef.current  = curZoneRef.current;
+    isDragging.current   = true;
+    dragAxis.current     = axis;
+    dragSign.current     = sign;
+    pointerIdRef.current = pointerId;
+  }, [getHitPoint]);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseZoneRef.current;
+        const bW   = base.width  * CM_TO_UNIT;
+        const bD   = base.depth  * CM_TO_UNIT;
+
+        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
+        const sign  = dragSign.current;
+
+        let newWidth = base.width;
+        let newDepth = base.depth;
+        let newX     = base.x;
+        let newZ     = base.z;
+
+        if (dragAxis.current === 'width') {
+          const move = delta.x * sign;
+          const nW   = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
+          const dW   = nW - bW;
+          newWidth   = nW / CM_TO_UNIT;
+          if (sign === -1) newX = base.x - dW / CM_TO_UNIT;
+        } else {
+          const move = delta.z * sign;
+          const nD   = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
+          const dD   = nD - bD;
+          newDepth   = nD / CM_TO_UNIT;
+          if (sign === -1) newZ = base.z - dD / CM_TO_UNIT;
+        }
+
+        updateZone({ ...base, x: newX, z: newZ, width: newWidth, depth: newDepth });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+
+      if (pointerIdRef.current >= 0) {
+        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        pointerIdRef.current = -1;
+      }
+
+      const cur      = curZoneRef.current;
+      const snapDim  = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
+      updateZone({
+        ...cur,
+        x:     snapToCm(cur.x),
+        z:     snapToCm(cur.z),
+        width: snapDim(cur.width),
+        depth: snapDim(cur.depth),
+      });
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, getHitPoint, updateZone]);
+
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  const cx = px + W / 2;
+  const cz = pz + D / 2;
+
+  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
+    { axis: 'width',  sign:  1, hx: cx + W / 2, hz: cz,         cursor: 'ew-resize' },
+    { axis: 'width',  sign: -1, hx: cx - W / 2, hz: cz,         cursor: 'ew-resize' },
+    { axis: 'depth',  sign:  1, hx: cx,          hz: cz + D / 2, cursor: 'ns-resize' },
+    { axis: 'depth',  sign: -1, hx: cx,          hz: cz - D / 2, cursor: 'ns-resize' },
+  ];
+
+  return (
+    <group>
+      {handles.map(({ axis, sign, hx, hz, cursor }) => (
+        <HandleMesh
+          key={`${axis}${sign}`}
+          position={[hx, ZONE_HANDLE_Y, hz]}
+          axis={axis}
+          sign={sign}
+          cursor={cursor}
+          onStartDrag={startDrag}
+        />
+      ))}
+    </group>
+  );
+}
+
+// ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
+function FloorZoneLayer() {
+  const { zones, selectedZoneId } = useZoneStore();
+  const { activeTool } = useUIStore();
+
+  const selectedZone = selectedZoneId
+    ? zones.find((z) => z.id === selectedZoneId) ?? null
+    : null;
+
+  return (
+    <>
+      {zones.map((zone) => (
+        <FloorZoneMesh key={zone.id} zone={zone} />
+      ))}
+      {selectedZone && activeTool === 'scale' && (
+        <FloorZoneResizeHandles zone={selectedZone} />
+      )}
+    </>
   );
 }
 
@@ -859,6 +1229,7 @@ function MeasureTool({ store }: { store: StoreConfig }) {
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId } = useSceneStore();
   const { activeTool } = useUIStore();
+  const { selectedZoneId, removeZone } = useZoneStore();
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
   const [transformTarget, setTransformTarget] = useState<THREE.Group | null>(null);
@@ -878,6 +1249,19 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     const grp = selectedFurnitureId ? (meshGroupsRef.current.get(selectedFurnitureId) ?? null) : null;
     setTransformTarget(grp);
   }, [selectedFurnitureId]);
+
+  // Delete selected zone with the Delete/Backspace key
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedZoneId && !selectedFurnitureId) {
+        removeZone(selectedZoneId);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedZoneId, selectedFurnitureId, removeZone]);
 
   if (!scene) return null;
 
@@ -901,6 +1285,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
       <pointLight position={[0,  8, 0]}  intensity={0.2}  color="#fff8e7" />
 
       <StoreFloor store={scene.store} />
+      <StoreBoundary store={scene.store} />
+      <FloorZoneLayer />
       <MeasureTool store={scene.store} />
 
       {scene.furniture.map((f) => (

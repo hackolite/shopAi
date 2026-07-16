@@ -3,7 +3,10 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.cad_projects import router as cad_router
+from api.furniture_library import router as furniture_library_router
 from api.projects import router as projects_router
+from services.demo_initializer import init_retail_cad_demo
 
 app = FastAPI(
     title="Retail Digital Twin API",
@@ -19,7 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+init_retail_cad_demo()
+
 app.include_router(projects_router)
+app.include_router(cad_router)
+app.include_router(furniture_library_router)
 
 
 @app.get("/")

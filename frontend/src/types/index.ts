@@ -105,3 +105,6 @@ export interface InstanceAnalytics {
     attention_seconds: number;
   };
 }
+
+// Re-export CAD types
+export * from './cad';

@@ -17,6 +17,13 @@ _ALLOWED_FILES = frozenset({
     "planogram.json",
     "analytics.json",
     "ean_index.json",
+    "project.json",
+    "scene.json",
+    "catalog.json",
+    "planograms.json",
+    "materials.json",
+    "settings.json",
+    "textures.json",
 })
 
 
@@ -107,6 +114,5 @@ def build_ean_index(project_id: str) -> dict:
 
     save_json(project_id, "ean_index.json", index)
     return index
-
 
 

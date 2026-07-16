@@ -1314,7 +1314,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
       <OrbitControls
         makeDefault
         target={[25, 0, 15]}
-        enableRotate={!selectedFurnitureId}
+        enableRotate={!selectedFurnitureId && !selectedZoneId}
       />
     </MeshRegistryCtx.Provider>
   );

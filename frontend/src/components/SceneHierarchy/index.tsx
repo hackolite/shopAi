@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
+import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
-import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram } from '../../types/cad';
+import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram, PlanogramCell } from '../../types/cad';
 
 const FURNITURE_EMOJI: Record<string, string> = {
   gondola_single:    '📦',
@@ -23,6 +24,11 @@ const FACE_LABELS: Record<FaceId, string> = {
   top:    'Face haute',
   bottom: 'Face basse',
 };
+
+/** Default number of shelf rows when auto-creating a planogram. */
+const DEFAULT_PLANOGRAM_ROWS = 3;
+/** Default planogram column width in cm (used to compute column count from furniture width). */
+const DEFAULT_COLUMN_WIDTH_CM = 40;
 
 function getEmoji(type: string): string {
   return FURNITURE_EMOJI[type] ?? '📦';
@@ -134,6 +140,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
   const { scene, selectedFurnitureId, selectFurniture, updateFurniture, addFurniture, removeFurniture } =
     useSceneStore();
   const { planograms, setPlanograms, setPlanogramDetail } = usePlanogramStore();
+  const catalogProducts = useCatalogStore((s) => s.products);
 
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [library, setLibrary] = useState<FurnitureDefinition[]>([]);
@@ -203,16 +210,29 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
               const heightCm = faceId === 'top' || faceId === 'bottom'
                 ? created.dimensions.depth
                 : created.dimensions.height;
+              const rows = DEFAULT_PLANOGRAM_ROWS;
+              const cols = Math.max(1, Math.floor(widthCm / DEFAULT_COLUMN_WIDTH_CM));
+
+              const cells: PlanogramCell[] = catalogProducts.length > 0
+                ? Array.from({ length: rows * cols }, (_, idx) => ({
+                    id: crypto.randomUUID(),
+                    ean: catalogProducts[idx % catalogProducts.length].ean,
+                    row: Math.floor(idx / cols),
+                    col: idx % cols,
+                    rotation: 0 as const,
+                  }))
+                : [];
+
               const planogram: Planogram = {
                 id: crypto.randomUUID(),
                 name: `${def.name} - ${FACE_LABELS[faceId]}`,
                 furnitureId: created.id,
                 face: faceId,
-                rows: 3,
-                cols: Math.max(1, Math.floor(widthCm / 40)),
+                rows,
+                cols,
                 widthCm,
                 heightCm,
-                cells: [],
+                cells,
               };
               const createdPlanogram = await cadApi.createPlanogram(projectId, planogram);
               setPlanogramDetail(createdPlanogram);

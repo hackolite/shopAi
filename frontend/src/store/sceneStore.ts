@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { FurnitureInstance, Scene, Selection, StoreConfig } from '../types/cad';
+import type { Vec3 } from '../types/cad';
 
 /** Maximum number of undo steps to keep in memory. */
 const MAX_HISTORY = 50;
@@ -24,6 +25,18 @@ interface SceneState {
   setSelection: (selection: Selection) => void;
   updateFurniture: (furniture: FurnitureInstance) => void;
   updateStore: (store: StoreConfig) => void;
+  /**
+   * Atomically updates the store config AND shifts all furniture whose id appears
+   * in `baseFurniture` by (shiftXCm, shiftZCm) centimetres.  Used when resizing
+   * the store from the left or near edge, where the origin is fixed at (0,0) so
+   * all furniture must translate to preserve their layout relative to that edge.
+   */
+  updateStoreAndShiftFurniture: (
+    store: StoreConfig,
+    baseFurniture: FurnitureInstance[],
+    shiftXCm: number,
+    shiftZCm: number,
+  ) => void;
   addFurniture: (furniture: FurnitureInstance) => void;
   removeFurniture: (id: string) => void;
   toggleNodeExpanded: (id: string) => void;
@@ -72,6 +85,33 @@ export const useSceneStore = create<SceneState>((set) => ({
       return {
         history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
         scene: { ...state.scene, store },
+      };
+    }),
+  updateStoreAndShiftFurniture: (store, baseFurniture, shiftXCm, shiftZCm) =>
+    set((state) => {
+      if (!state.scene) return {};
+      const newHistory = [...state.history.slice(-MAX_HISTORY + 1), state.scene];
+      if (shiftXCm === 0 && shiftZCm === 0) {
+        return { history: newHistory, scene: { ...state.scene, store } };
+      }
+      const baseById = new Map<string, FurnitureInstance>(baseFurniture.map((f) => [f.id, f]));
+      return {
+        history: newHistory,
+        scene: {
+          store,
+          furniture: state.scene.furniture.map((f) => {
+            const base = baseById.get(f.id);
+            if (!base) return f;
+            return {
+              ...f,
+              position: [
+                base.position[0] + shiftXCm,
+                base.position[1],
+                base.position[2] + shiftZCm,
+              ] as Vec3,
+            };
+          }),
+        },
       };
     }),
   addFurniture: (furniture) =>

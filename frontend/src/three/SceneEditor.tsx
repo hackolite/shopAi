@@ -56,6 +56,9 @@ const ANGLE_135_DEG = 3 * Math.PI / 4;
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
 const MeshRegistryCtx = createContext<RegisterFn>(() => {});
 
+// ─── Resize-drag context (disables OrbitControls while a resize is in progress)
+const ResizeDragCtx = createContext<(dragging: boolean) => void>(() => {});
+
 // ─── Color map ────────────────────────────────────────────────────────────────
 const FURNITURE_COLORS: Record<string, string> = {
   gondola_single:    '#dde2e8',
@@ -695,6 +698,7 @@ const BOUNDARY_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; projectId: string | null }) {
   const { updateStore } = useSceneStore();
   const { gl, raycaster, camera } = useThree();
+  const setResizeDragging = useContext(ResizeDragCtx);
 
   const W  = store.dimensions.width  * CM_TO_UNIT;
   const D  = store.dimensions.depth  * CM_TO_UNIT;
@@ -736,7 +740,8 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
-  }, [getHitPoint]);
+    setResizeDragging(true);
+  }, [getHitPoint, setResizeDragging]);
 
   useEffect(() => {
     let rafId = 0;
@@ -772,6 +777,7 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       if (!isDragging.current) return;
       cancelAnimationFrame(rafId);
       isDragging.current = false;
+      setResizeDragging(false);
 
       if (pointerIdRef.current >= 0) {
         try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
@@ -799,7 +805,7 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateStore, projectId]);
+  }, [gl, getHitPoint, updateStore, projectId, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -988,6 +994,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
 function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
   const { updateZone } = useZoneStore();
   const { gl, raycaster, camera } = useThree();
+  const setResizeDragging = useContext(ResizeDragCtx);
 
   const W  = zone.width  * CM_TO_UNIT;
   const D  = zone.depth  * CM_TO_UNIT;
@@ -1031,7 +1038,8 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
-  }, [getHitPoint]);
+    setResizeDragging(true);
+  }, [getHitPoint, setResizeDragging]);
 
   useEffect(() => {
     let rafId = 0;
@@ -1076,6 +1084,7 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
       if (!isDragging.current) return;
       cancelAnimationFrame(rafId);
       isDragging.current = false;
+      setResizeDragging(false);
 
       if (pointerIdRef.current >= 0) {
         try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
@@ -1100,7 +1109,7 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateZone]);
+  }, [gl, getHitPoint, updateZone, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -1133,7 +1142,6 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
 // ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
 function FloorZoneLayer() {
   const { zones, selectedZoneId } = useZoneStore();
-  const { activeTool } = useUIStore();
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
@@ -1144,7 +1152,7 @@ function FloorZoneLayer() {
       {zones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
-      {selectedZone && activeTool === 'scale' && (
+      {selectedZone && (
         <FloorZoneResizeHandles zone={selectedZone} />
       )}
     </>
@@ -1372,6 +1380,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
   const [transformTarget, setTransformTarget] = useState<THREE.Group | null>(null);
+  const [isResizeDragging, setIsResizeDragging] = useState(false);
 
   const registerGroup = useCallback<RegisterFn>((id, group) => {
     if (group) {
@@ -1418,49 +1427,52 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
   return (
-    <MeshRegistryCtx.Provider value={registerGroup}>
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[15, 25, 15]} intensity={0.9} castShadow shadow-mapSize={[2048, 2048]} />
-      <pointLight position={[25, 8, 15]} intensity={0.35} color="#cce8ff" />
-      <pointLight position={[0,  8, 0]}  intensity={0.2}  color="#fff8e7" />
+    <ResizeDragCtx.Provider value={setIsResizeDragging}>
+      <MeshRegistryCtx.Provider value={registerGroup}>
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[15, 25, 15]} intensity={0.9} castShadow shadow-mapSize={[2048, 2048]} />
+        <pointLight position={[25, 8, 15]} intensity={0.35} color="#cce8ff" />
+        <pointLight position={[0,  8, 0]}  intensity={0.2}  color="#fff8e7" />
 
-      <StoreFloor store={scene.store} />
-      <StoreBoundary store={scene.store} />
-      <FloorZoneLayer />
-      <MeasureTool store={scene.store} />
+        <StoreFloor store={scene.store} />
+        <StoreBoundary store={scene.store} />
+        <FloorZoneLayer />
+        <MeasureTool store={scene.store} />
 
-      {scene.furniture.map((f) => (
-        <FurnitureMesh key={f.id} furniture={f} />
-      ))}
+        {scene.furniture.map((f) => (
+          <FurnitureMesh key={f.id} furniture={f} />
+        ))}
 
-      {showTransform && (
-        <TransformProxy
-          furniture={selectedFurniture}
-          transformTarget={transformTarget}
-          mode={tMode}
-          projectId={projectId}
+        {showTransform && (
+          <TransformProxy
+            furniture={selectedFurniture}
+            transformTarget={transformTarget}
+            mode={tMode}
+            projectId={projectId}
+          />
+        )}
+
+        {showResizeHandles && (
+          <ResizeHandles furniture={selectedFurniture} projectId={projectId} />
+        )}
+
+        {showBoundaryHandles && (
+          <StoreBoundaryResizeHandles store={scene.store} projectId={projectId} />
+        )}
+
+        {/*
+          Orbit controls: fully disabled while any resize drag is in progress so
+          that the camera does not spin / pan at the same time.  Rotation is also
+          disabled whenever furniture or a zone is selected.
+        */}
+        <OrbitControls
+          makeDefault
+          target={[25, 0, 15]}
+          enabled={!isResizeDragging}
+          enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId}
         />
-      )}
-
-      {showResizeHandles && (
-        <ResizeHandles furniture={selectedFurniture} projectId={projectId} />
-      )}
-
-      {showBoundaryHandles && (
-        <StoreBoundaryResizeHandles store={scene.store} projectId={projectId} />
-      )}
-
-      {/*
-        Orbit controls: rotation is disabled when furniture is selected so that
-        dragging in the scene moves/transforms the selected object instead of
-        spinning the camera.  Zoom and pan remain available at all times.
-      */}
-      <OrbitControls
-        makeDefault
-        target={[25, 0, 15]}
-        enableRotate={!selectedFurnitureId && !selectedZoneId}
-      />
-    </MeshRegistryCtx.Provider>
+      </MeshRegistryCtx.Provider>
+    </ResizeDragCtx.Provider>
   );
 }
 

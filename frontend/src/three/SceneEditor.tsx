@@ -44,6 +44,9 @@ const HANDLE_COLOR   = '#ffcc00';
 const HANDLE_HOVER   = '#ffffff';
 const HANDLE_EMISSIVE = '#664400';
 
+/** Debounce delay (ms) before persisting zone changes to the backend. */
+const ZONE_AUTOSAVE_DEBOUNCE_MS = 800;
+
 /**
  * Angle thresholds (radians) used to decide whether a handle's drag axis
  * appears more horizontal (EW) or vertical (NS) on screen.
@@ -1576,7 +1579,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     const timer = setTimeout(() => {
       const s = sceneRef.current;
       if (s) cadApi.updateStore(projectId, { ...s.store, zones }).catch(console.error);
-    }, 800);
+    }, ZONE_AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [zones, zonesLoaded, projectId]);
 

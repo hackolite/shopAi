@@ -42,6 +42,11 @@ const PLANO_CATEGORY_COLORS: Record<string, string> = {
   'Promotion': '#F44336',
 };
 
+/** Small Z offset to prevent z-fighting between the overlay plane and the box face. */
+const OVERLAY_Z_OFFSET = 0.002;
+/** Opacity of the planogram face overlay. */
+const OVERLAY_OPACITY  = 0.85;
+
 // ─── Planogram face overlay ───────────────────────────────────────────────────
 /** Renders a canvas-based texture showing product category colors on a gondola face. */
 function PlanogramFaceOverlay({
@@ -91,13 +96,13 @@ function PlanogramFaceOverlay({
 
   if (!texture) return null;
 
-  const zOffset = (D / 2 + 0.002) * side;
+  const zOffset = (D / 2 + OVERLAY_Z_OFFSET) * side;
   const rotY    = side === -1 ? Math.PI : 0;
 
   return (
     <mesh position={[0, 0, zOffset]} rotation={[0, rotY, 0]}>
       <planeGeometry args={[W * 0.97, H * 0.97]} />
-      <meshBasicMaterial map={texture} transparent opacity={0.85} depthWrite={false} />
+      <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
     </mesh>
   );
 }

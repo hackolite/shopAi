@@ -101,6 +101,7 @@ function FurnitureRow({
           <button
             className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 shrink-0 transition-opacity text-xs leading-none px-0.5"
             title="Supprimer le meuble"
+            aria-label="Supprimer le meuble"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
           >
             🗑

@@ -46,8 +46,8 @@ export default function App() {
             try {
               const detail = await cadApi.getPlanogram(projectId, summary.id);
               setPlanogramDetail(detail);
-            } catch {
-              // ignore individual failures
+            } catch (err) {
+              console.warn(`Failed to load planogram detail for ${summary.id}:`, err);
             }
           }),
         );

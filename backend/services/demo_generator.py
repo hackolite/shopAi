@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from itertools import cycle
 from uuid import uuid4
 
@@ -92,7 +93,7 @@ def _build_catalog() -> list[dict]:
     return Catalog(products=products).model_dump(mode="json")["products"]
 
 
-def _make_planogram(name: str, furniture_id: str, face: Face, rows: int, cols: int, width_cm: float, height_cm: float, product_iter) -> dict:
+def _make_planogram(name: str, furniture_id: str, face: Face, rows: int, cols: int, width_cm: float, height_cm: float, product_iter: Iterator[dict]) -> dict:
     cells = []
     for row in range(rows):
         for col in range(cols):

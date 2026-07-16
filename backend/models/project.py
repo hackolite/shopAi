@@ -191,7 +191,7 @@ class Catalog(CADBaseModel):
 class Material(CADBaseModel):
     id: str
     name: str
-    type: Literal["wood", "metal", "glass", "plastic", "solid_color"]
+    type: Literal["wood", "metal", "glass", "plastic", "solid_color", "texture"]
     color: str
     roughness: float = 0.5
     metalness: float = 0.0

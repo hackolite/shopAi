@@ -13,6 +13,8 @@ const FURNITURE_EMOJI: Record<string, string> = {
   wall:           '🧱',
 };
 
+// Face display names — centralised here so they can be replaced with a
+// translations map (i18n) without touching component logic.
 const FACE_LABELS: Record<FaceId, string> = {
   front:  'Face avant',
   back:   'Face arrière',

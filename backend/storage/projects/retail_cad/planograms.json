@@ -294,7 +294,7 @@
     },
     {
       "id": "2f761bce-25ca-4917-aada-22de5b75839e",
-      "name": "Gondole A - Face arrière",
+      "name": "Gondole A - Face arri\u00e8re",
       "furnitureId": "f074d21e-89aa-46ed-9a8c-0b7909ee8017",
       "face": "back",
       "rows": 5,
@@ -878,7 +878,7 @@
     },
     {
       "id": "6c3fc892-ca8d-48d4-bbff-47c5bd1eb07b",
-      "name": "Gondole B - Face arrière",
+      "name": "Gondole B - Face arri\u00e8re",
       "furnitureId": "6ec1a65a-1617-44f2-8e9a-88734bd72134",
       "face": "back",
       "rows": 5,
@@ -1462,7 +1462,7 @@
     },
     {
       "id": "3be3fbd9-7822-4a31-9719-f795e8e65ccd",
-      "name": "Gondole C - Face arrière",
+      "name": "Gondole C - Face arri\u00e8re",
       "furnitureId": "47dd51bc-9c1f-421b-9df4-9799824c6381",
       "face": "back",
       "rows": 5,
@@ -2046,7 +2046,7 @@
     },
     {
       "id": "3ac5c374-f858-412a-9665-79a2d05bc61a",
-      "name": "Gondole D - Face arrière",
+      "name": "Gondole D - Face arri\u00e8re",
       "furnitureId": "53b82978-a253-4927-b995-262b79be9e78",
       "face": "back",
       "rows": 5,
@@ -2630,7 +2630,7 @@
     },
     {
       "id": "dfa49268-0ae8-4f8d-b14d-51711fd669a7",
-      "name": "Gondole E - Face arrière",
+      "name": "Gondole E - Face arri\u00e8re",
       "furnitureId": "47b69842-1511-485b-bbf3-c7ba23acf768",
       "face": "back",
       "rows": 5,
@@ -3214,7 +3214,7 @@
     },
     {
       "id": "07fe4dce-ed42-4198-93f0-e2e926d241a0",
-      "name": "Gondole F - Face arrière",
+      "name": "Gondole F - Face arri\u00e8re",
       "furnitureId": "7c2d9d06-1949-43f5-bbab-4e72f7e13b4b",
       "face": "back",
       "rows": 5,
@@ -3798,7 +3798,7 @@
     },
     {
       "id": "e9cfd2db-1d34-48b3-9533-7113181efb76",
-      "name": "Gondole G - Face arrière",
+      "name": "Gondole G - Face arri\u00e8re",
       "furnitureId": "c6b186f2-e559-41db-89aa-a62c84046684",
       "face": "back",
       "rows": 5,
@@ -4382,7 +4382,7 @@
     },
     {
       "id": "2d5ad97f-b232-4376-9623-fff6e3611398",
-      "name": "Gondole H - Face arrière",
+      "name": "Gondole H - Face arri\u00e8re",
       "furnitureId": "28646d51-9e3d-414e-a847-0e0c59b434f7",
       "face": "back",
       "rows": 5,
@@ -4966,7 +4966,7 @@
     },
     {
       "id": "7c244c1c-09bb-4ef8-8358-fb3071e9bd8e",
-      "name": "Gondole I - Face arrière",
+      "name": "Gondole I - Face arri\u00e8re",
       "furnitureId": "5b02e4fd-d63b-482d-998e-5e8925b5dbe1",
       "face": "back",
       "rows": 5,
@@ -5550,7 +5550,7 @@
     },
     {
       "id": "649ee3df-d44b-4eac-8d33-95d95248b8ab",
-      "name": "Gondole J - Face arrière",
+      "name": "Gondole J - Face arri\u00e8re",
       "furnitureId": "46cdac7c-e9b8-4a80-a5de-7ea3e872af81",
       "face": "back",
       "rows": 5,
@@ -6281,6 +6281,142 @@
           "row": 5,
           "col": 4,
           "rotation": 90
+        }
+      ]
+    },
+    {
+      "id": "cee96c46-ede0-4e23-9075-10b752aa09d1",
+      "name": "T\u00eate de gondole 1 - Face avant",
+      "furnitureId": "101d8ba9-08bf-44c8-b198-96a130d25b70",
+      "face": "front",
+      "rows": 4,
+      "cols": 2,
+      "widthCm": 80.0,
+      "heightCm": 180.0,
+      "cells": [
+        {
+          "id": "0ab899fa-09de-42ba-a323-0912334e4f14",
+          "ean": "3700000000001",
+          "row": 0,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "beb1b9d9-8e19-4dd3-aabb-15de852ac0ae",
+          "ean": "3700000000002",
+          "row": 0,
+          "col": 1,
+          "rotation": 90
+        },
+        {
+          "id": "2651f4fb-2763-4c72-9ff5-0c4d90bc75aa",
+          "ean": "3700000000003",
+          "row": 1,
+          "col": 0,
+          "rotation": 90
+        },
+        {
+          "id": "9992df4e-9155-4d40-a987-65c3309cc13f",
+          "ean": "3700000000004",
+          "row": 1,
+          "col": 1,
+          "rotation": 180
+        },
+        {
+          "id": "6b7f49b4-a137-4eaa-9d89-dd0b5b51437e",
+          "ean": "3700000000005",
+          "row": 2,
+          "col": 0,
+          "rotation": 180
+        },
+        {
+          "id": "35154ac9-7548-4c95-9acc-11b5b14536b5",
+          "ean": "3700000000006",
+          "row": 2,
+          "col": 1,
+          "rotation": 270
+        },
+        {
+          "id": "b4718828-b1da-4e25-b49a-6df0a8584ed3",
+          "ean": "3700000000007",
+          "row": 3,
+          "col": 0,
+          "rotation": 270
+        },
+        {
+          "id": "77107fa8-52d8-4118-bd12-e4507d7fd29d",
+          "ean": "3700000000008",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "cc2d0b74-2ada-4daf-9eae-545b50dcd5d1",
+      "name": "T\u00eate de gondole 2 - Face avant",
+      "furnitureId": "a5e96ad0-d8e5-487c-a2e2-7162cf223662",
+      "face": "front",
+      "rows": 4,
+      "cols": 2,
+      "widthCm": 80.0,
+      "heightCm": 180.0,
+      "cells": [
+        {
+          "id": "42b8f1c2-0821-4b69-9d60-a7dff3236634",
+          "ean": "3700000000005",
+          "row": 0,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "cb5cb5d5-ef83-4d3f-8a3c-45be7afed7cc",
+          "ean": "3700000000006",
+          "row": 0,
+          "col": 1,
+          "rotation": 90
+        },
+        {
+          "id": "3d29f9d7-aa9b-4042-8a29-1246b1cd6697",
+          "ean": "3700000000007",
+          "row": 1,
+          "col": 0,
+          "rotation": 90
+        },
+        {
+          "id": "d78ed489-f720-423b-9344-45885fd6aa7f",
+          "ean": "3700000000008",
+          "row": 1,
+          "col": 1,
+          "rotation": 180
+        },
+        {
+          "id": "9c77ecd7-6e34-4235-8036-aaa931b63951",
+          "ean": "3700000000001",
+          "row": 2,
+          "col": 0,
+          "rotation": 180
+        },
+        {
+          "id": "20947189-d236-45c2-b363-244e4bf34c62",
+          "ean": "3700000000002",
+          "row": 2,
+          "col": 1,
+          "rotation": 270
+        },
+        {
+          "id": "2fd5b944-d948-4ffb-91b3-9d7c9df83192",
+          "ean": "3700000000003",
+          "row": 3,
+          "col": 0,
+          "rotation": 270
+        },
+        {
+          "id": "6f30bfe4-e215-4abe-bae2-f0a3ef9e026d",
+          "ean": "3700000000004",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
         }
       ]
     }

@@ -1,4 +1,5 @@
 import { Suspense, useState, useRef, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
+import type React from 'react';
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -309,6 +310,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       object={transformTarget}
       mode={mode}
       translationSnap={SNAP_UNIT}
+      rotationSnap={Math.PI / 2}
       onMouseUp={handleMouseUp}
     />
   );
@@ -580,60 +582,214 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   );
 }
 
+// ─── Measure tool types ────────────────────────────────────────────────────────
+interface MeasureLine {
+  id: string;
+  start: THREE.Vector3;
+  end: THREE.Vector3;
+}
+
+// ─── Clickable line hit area (invisible box along the line) ───────────────────
+function MeasureLineHit({
+  line,
+  isSelected,
+  onSelect,
+}: {
+  line: MeasureLine;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const dx = line.end.x - line.start.x;
+  const dz = line.end.z - line.start.z;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  if (length < 0.001) return null;
+
+  const center = line.start.clone().add(line.end).multiplyScalar(0.5);
+  // Rotate box X-axis to point along the line direction in the XZ plane.
+  const angle = Math.atan2(dz, dx);
+
+  return (
+    <mesh
+      position={center}
+      rotation={[0, -angle, 0]}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        document.body.style.cursor = 'auto';
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+    >
+      {/* Invisible wide hit area */}
+      <boxGeometry args={[length, 0.08, 0.18]} />
+      <meshBasicMaterial transparent opacity={hovered ? 0.15 : 0} color={isSelected ? '#ff4444' : '#facc15'} depthWrite={false} />
+    </mesh>
+  );
+}
+
+// ─── Multi-line SketchUp-style measure tool ────────────────────────────────────
 function MeasureTool({ store }: { store: StoreConfig }) {
   const { activeTool } = useUIStore();
-  const [points, setPoints] = useState<THREE.Vector3[]>([]);
+  const [lines, setLines] = useState<MeasureLine[]>([]);
+  const [drawStart, setDrawStart] = useState<THREE.Vector3 | null>(null);
+  const [previewEnd, setPreviewEnd] = useState<THREE.Vector3 | null>(null);
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
+  // Reset all state when leaving measure tool
   useEffect(() => {
-    if (activeTool !== 'measure') setPoints([]);
+    if (activeTool !== 'measure') {
+      setLines([]);
+      setDrawStart(null);
+      setPreviewEnd(null);
+      setSelectedLineId(null);
+    }
   }, [activeTool]);
+
+  // Keyboard: Delete removes selected line; Escape cancels drawing or deselects
+  useEffect(() => {
+    if (activeTool !== 'measure') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedLineId) {
+          setLines((prev) => prev.filter((l) => l.id !== selectedLineId));
+          setSelectedLineId(null);
+        }
+      } else if (e.key === 'Escape') {
+        if (drawStart) {
+          setDrawStart(null);
+          setPreviewEnd(null);
+        } else {
+          setSelectedLineId(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeTool, selectedLineId, drawStart]);
 
   if (activeTool !== 'measure') return null;
 
   const w = store.dimensions.width * CM_TO_UNIT;
   const d = store.dimensions.depth * CM_TO_UNIT;
-  const distance = points.length === 2 ? points[0].distanceTo(points[1]) : 0;
-  const midpoint = points.length === 2
-    ? points[0].clone().add(points[1]).multiplyScalar(0.5)
-    : null;
 
-  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+  const snapToGrid = (v: THREE.Vector3) => {
+    const snapped = v.clone();
+    snapped.x = Math.round(snapped.x / SNAP_UNIT) * SNAP_UNIT;
+    snapped.z = Math.round(snapped.z / SNAP_UNIT) * SNAP_UNIT;
+    snapped.y = GRID_Y_OFFSET + 0.03;
+    return snapped;
+  };
+
+  const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
-    const point = event.point.clone();
-    point.y = GRID_Y_OFFSET + 0.03;
-    setPoints((prev) => (prev.length >= 2 ? [point] : [...prev, point]));
+    const point = snapToGrid(event.point.clone());
+
+    if (!drawStart) {
+      // First click: start a new line
+      setDrawStart(point);
+      setSelectedLineId(null);
+    } else {
+      // Second click: finalise the line
+      if (drawStart.distanceTo(point) > 0.001) {
+        setLines((prev) => [...prev, { id: crypto.randomUUID(), start: drawStart, end: point }]);
+      }
+      setDrawStart(null);
+      setPreviewEnd(null);
+    }
+  };
+
+  const handleFloorPointerMove = (event: ThreeEvent<PointerEvent>) => {
+    if (!drawStart) return;
+    const point = snapToGrid(event.point.clone());
+    setPreviewEnd(point);
+  };
+
+  const LABEL_STYLE: React.CSSProperties = {
+    background: 'rgba(0,0,0,0.75)',
+    padding: '2px 6px',
+    borderRadius: '3px',
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+    pointerEvents: 'none',
   };
 
   return (
     <>
+      {/* Invisible floor plane — receives all floor interactions */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[w / 2, GRID_Y_OFFSET + 0.02, d / 2]}
-        onClick={handleClick}
+        onClick={handleFloorClick}
+        onPointerMove={handleFloorPointerMove}
       >
         <planeGeometry args={[w, d]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {points.length === 2 && midpoint && (
-        <>
-          <Line points={points} color="#facc15" lineWidth={2} />
-          <Html position={midpoint} center>
-            <div
-              style={{
-                color: '#facc15',
-                background: 'rgba(0,0,0,0.75)',
-                padding: '2px 6px',
-                borderRadius: '3px',
-                fontSize: '12px',
-                whiteSpace: 'nowrap',
-                border: '1px solid rgba(250,204,21,0.35)',
-              }}
-            >
-              {distance.toFixed(2)} m
-            </div>
-          </Html>
-        </>
+      {/* Finished measurement lines */}
+      {lines.map((line) => {
+        const isSelected = line.id === selectedLineId;
+        const dist = line.start.distanceTo(line.end);
+        const mid = line.start.clone().add(line.end).multiplyScalar(0.5);
+        const lineColor = isSelected ? '#ff4444' : '#facc15';
+        return (
+          <group key={line.id}>
+            <Line points={[line.start, line.end]} color={lineColor} lineWidth={isSelected ? 3 : 2} />
+            <MeasureLineHit
+              line={line}
+              isSelected={isSelected}
+              onSelect={() => setSelectedLineId(isSelected ? null : line.id)}
+            />
+            {/* Start / end endpoint dots */}
+            <mesh position={line.start}>
+              <sphereGeometry args={[0.04, 8, 8]} />
+              <meshBasicMaterial color={lineColor} />
+            </mesh>
+            <mesh position={line.end}>
+              <sphereGeometry args={[0.04, 8, 8]} />
+              <meshBasicMaterial color={lineColor} />
+            </mesh>
+            <Html position={mid} center>
+              <div style={{ ...LABEL_STYLE, color: lineColor, border: `1px solid ${isSelected ? 'rgba(255,68,68,0.33)' : 'rgba(250,204,21,0.33)'}`, cursor: 'default' }}>
+                {dist.toFixed(2)} m
+                {isSelected && <span style={{ marginLeft: 4, opacity: 0.7 }}>[Del]</span>}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
+
+      {/* Preview line while drawing (from drawStart to mouse position) */}
+      {drawStart && previewEnd && (() => {
+        const dist = drawStart.distanceTo(previewEnd);
+        const mid = drawStart.clone().add(previewEnd).multiplyScalar(0.5);
+        return (
+          <>
+            <Line points={[drawStart, previewEnd]} color="#facc15" lineWidth={2} dashed dashSize={0.2} gapSize={0.1} />
+            <Html position={mid} center>
+              <div style={{ ...LABEL_STYLE, color: '#facc15', border: '1px solid rgba(250,204,21,0.35)' }}>
+                {dist.toFixed(2)} m
+              </div>
+            </Html>
+          </>
+        );
+      })()}
+
+      {/* Start-point dot while drawing */}
+      {drawStart && (
+        <mesh position={drawStart}>
+          <sphereGeometry args={[0.06, 8, 8]} />
+          <meshBasicMaterial color="#facc15" />
+        </mesh>
       )}
     </>
   );

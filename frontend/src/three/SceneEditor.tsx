@@ -106,6 +106,7 @@ function PlanogramFaceOverlay({
   const { planogramDetails } = usePlanogramStore();
   const setSelection = useSceneStore((state) => state.setSelection);
   const selection    = useSceneStore((state) => state.selection);
+  const setRequestOpenPlanogramId = usePlanogramStore((state) => state.setRequestOpenPlanogramId);
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
 
@@ -157,7 +158,16 @@ function PlanogramFaceOverlay({
   }, [texture]);
 
   const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
-    if (!planogram || !event.uv) return;
+    if (!planogram) return;
+
+    // Ctrl+click (or Cmd+click on Mac) → open the planogram in the editor
+    if (event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) {
+      event.stopPropagation();
+      setRequestOpenPlanogramId(planogram.id);
+      return;
+    }
+
+    if (!event.uv) return;
     const col = Math.min(planogram.cols - 1, Math.max(0, Math.floor(event.uv.x * planogram.cols)));
     const row = Math.min(planogram.rows - 1, Math.max(0, Math.floor((1 - event.uv.y) * planogram.rows)));
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);
@@ -170,7 +180,7 @@ function PlanogramFaceOverlay({
       planogramId: planogram.id,
       cellIds: [cell.id],
     });
-  }, [planogram, setSelection]);
+  }, [planogram, setSelection, setRequestOpenPlanogramId]);
 
   if (!texture) return null;
 
@@ -953,6 +963,12 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           </GizmoHelper>
         </Suspense>
       </Canvas>
+      {/* Hint overlay */}
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none">
+        <span className="px-2 py-1 rounded text-xs text-gray-500 bg-black/40">
+          Clic → sélectionner une cellule &nbsp;·&nbsp; <kbd className="font-mono">Ctrl</kbd>+Clic → ouvrir le planogramme
+        </span>
+      </div>
     </div>
   );
 }

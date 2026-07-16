@@ -24,7 +24,7 @@ export default function App() {
 
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail, planogramDetails } = usePlanogramStore();
+  const { setPlanograms, setPlanogramDetail, planogramDetails, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool } = useUIStore();
 
   // ── Boot: load all project data ───────────────────────────────────────────
@@ -63,6 +63,14 @@ export default function App() {
     setActivePlanogramId(planogramId);
     setViewMode(viewMode === 'split' ? 'split' : 'planogram');
   };
+
+  // ── React to Ctrl+click open-planogram requests from the 3D overlay ─────────
+  useEffect(() => {
+    if (!requestOpenPlanogramId) return;
+    setRequestOpenPlanogramId(null);
+    openPlanogram(requestOpenPlanogramId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestOpenPlanogramId]);
 
   const closePlanogram = () => {
     setActivePlanogramId(null);

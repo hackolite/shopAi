@@ -1,8 +1,0 @@
-{
-  "gridSize": 100.0,
-  "snapEnabled": true,
-  "showGrid": true,
-  "unit": "cm",
-  "cameraMode": "perspective",
-  "ambientLight": 0.8
-}

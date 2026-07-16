@@ -186,12 +186,17 @@ def generate_retail_cad_demo() -> dict:
             childIds=[],
             faces=_default_faces(),
         )
-        front_planogram = _make_planogram(f"Gondole {label} - Face avant", furniture_id, Face.front, 5, 8, 120.0, 200.0, product_iter)
-        back_planogram = _make_planogram(f"Gondole {label} - Face arrière", furniture_id, Face.back, 5, 8, 120.0, 200.0, product_iter)
+        front_planogram = _make_planogram(f"Gondole {label} - Face avant",   furniture_id, Face.front, 5, 8, 120.0, 200.0, product_iter)
+        back_planogram  = _make_planogram(f"Gondole {label} - Face arrière", furniture_id, Face.back,  5, 8, 120.0, 200.0, product_iter)
+        # End-cap (left/right) faces are 60 cm wide (= gondola depth) × 200 cm tall
+        left_planogram  = _make_planogram(f"Gondole {label} - Face gauche",  furniture_id, Face.left,  5, 4,  60.0, 200.0, product_iter)
+        right_planogram = _make_planogram(f"Gondole {label} - Face droite",  furniture_id, Face.right, 5, 4,  60.0, 200.0, product_iter)
         gondola.faces["front"] = front_planogram["id"]
-        gondola.faces["back"] = back_planogram["id"]
+        gondola.faces["back"]  = back_planogram["id"]
+        gondola.faces["left"]  = left_planogram["id"]
+        gondola.faces["right"] = right_planogram["id"]
         furniture.append(gondola.model_dump(mode="json"))
-        planograms.extend([front_planogram, back_planogram])
+        planograms.extend([front_planogram, back_planogram, left_planogram, right_planogram])
 
     # End gondolas (tête de gondole) at each end of the main aisle
     end_gondola_specs = [
@@ -226,9 +231,42 @@ def generate_retail_cad_demo() -> dict:
             height_cm=180.0,
             product_iter=product_iter,
         )
+        back_planogram = _make_planogram(
+            f"{eg_name} - Face arrière",
+            furniture_id,
+            Face.back,
+            rows=4,
+            cols=2,
+            width_cm=80.0,
+            height_cm=180.0,
+            product_iter=product_iter,
+        )
+        left_planogram = _make_planogram(
+            f"{eg_name} - Face gauche",
+            furniture_id,
+            Face.left,
+            rows=4,
+            cols=2,
+            width_cm=60.0,
+            height_cm=180.0,
+            product_iter=product_iter,
+        )
+        right_planogram = _make_planogram(
+            f"{eg_name} - Face droite",
+            furniture_id,
+            Face.right,
+            rows=4,
+            cols=2,
+            width_cm=60.0,
+            height_cm=180.0,
+            product_iter=product_iter,
+        )
         end_gondola.faces["front"] = front_planogram["id"]
+        end_gondola.faces["back"]  = back_planogram["id"]
+        end_gondola.faces["left"]  = left_planogram["id"]
+        end_gondola.faces["right"] = right_planogram["id"]
         furniture.append(end_gondola.model_dump(mode="json"))
-        planograms.append(front_planogram)
+        planograms.extend([front_planogram, back_planogram, left_planogram, right_planogram])
 
     fridge_positions = ([1600.0, 0.0, 2550.0], [2900.0, 0.0, 2550.0])
     for index, position in enumerate(fridge_positions, start=1):

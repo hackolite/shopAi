@@ -46,6 +46,8 @@ const HANDLE_EMISSIVE = '#664400';
 
 /** Debounce delay (ms) before persisting zone changes to the backend. */
 const ZONE_AUTOSAVE_DEBOUNCE_MS = 800;
+/** Video bitrate (bps) used when recording the 3D scene. */
+const RECORDING_BITRATE = 8_000_000;
 
 /**
  * Angle thresholds (radians) used to decide whether a handle's drag axis
@@ -338,39 +340,41 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         .find(([, pid]) => pid === selection.planogramId)?.[0] ?? 'front'
     : 'front';
 
-  // Compute the horizontal offset of the selected cell within its face so the
-  // semi-circle is centred under the product, not the whole gondola.
-  // Default to 0 (gondola centre) when planogram data is unavailable.
-  let semiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
+  // Fallback semi-circle config (gondola centre) used when planogram data is unavailable.
+  const defaultSemiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
     front: { pos: [0,      -H / 2 + 0.02,  D / 2], yRot: 0            },
     back:  { pos: [0,      -H / 2 + 0.02, -D / 2], yRot: Math.PI      },
     right: { pos: [ W / 2, -H / 2 + 0.02, 0     ], yRot:  Math.PI / 2 },
     left:  { pos: [-W / 2, -H / 2 + 0.02, 0     ], yRot: -Math.PI / 2 },
   };
 
-  if (isProductSelected && selection.planogramId && selection.cellIds?.length) {
+  // Compute per-cell semi-circle config when a product cell is selected.
+  // The cell lookup is O(n) but only runs when isProductSelected is true and
+  // planogram cells are typically small (<200 items), so no memoisation needed.
+  type SemiConfig = Record<string, { pos: [number, number, number]; yRot: number }>;
+
+  const computedSemiCircleConfig: SemiConfig | null = (() => {
+    if (!isProductSelected || !selection.planogramId || !selection.cellIds?.length) return null;
     const planogram = planogramDetails.get(selection.planogramId);
     const cell = planogram?.cells.find((c) => c.id === selection.cellIds![0]);
-    if (planogram && cell) {
-      // t ∈ [0,1]: normalised column position from the left edge viewed from outside.
-      const t = (cell.col + 0.5) / planogram.cols;
-      // Front face: col=0 → left → local -X direction.
-      const cellXf =  t * W - W / 2;
-      // Back face is mirrored in X compared with the front face.
-      const cellXb = W / 2 - t * W;
-      // Right face: col=0 → local +Z side (viewed from +X, left = +Z).
-      const cellZr = D / 2 - t * D;
-      // Left face is mirrored in Z compared with the right face.
-      const cellZl = t * D - D / 2;
-      semiCircleConfig = {
-        front: { pos: [cellXf,  -H / 2 + 0.02,  D / 2], yRot: 0            },
-        back:  { pos: [cellXb,  -H / 2 + 0.02, -D / 2], yRot: Math.PI      },
-        right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr], yRot:  Math.PI / 2 },
-        left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl], yRot: -Math.PI / 2 },
-      };
-    }
-  }
+    if (!planogram || !cell) return null;
 
+    // t ∈ [0,1]: normalised centre of the cell column from the left edge when
+    // the face is viewed from outside (+ 0.5 centres within the column).
+    const t = (cell.col + 0.5) / planogram.cols;
+    const cellXf =  t * W - W / 2;  // front: col=0 → local -X
+    const cellXb = W / 2 - t * W;   // back: mirrored in X relative to front
+    const cellZr = D / 2 - t * D;   // right: col=0 → local +Z
+    const cellZl = t * D - D / 2;   // left: mirrored in Z relative to right
+    return {
+      front: { pos: [cellXf,  -H / 2 + 0.02,  D / 2] as [number, number, number], yRot: 0            },
+      back:  { pos: [cellXb,  -H / 2 + 0.02, -D / 2] as [number, number, number], yRot: Math.PI      },
+      right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr] as [number, number, number], yRot:  Math.PI / 2 },
+      left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl] as [number, number, number], yRot: -Math.PI / 2 },
+    };
+  })();
+
+  const semiCircleConfig: SemiConfig = computedSemiCircleConfig ?? defaultSemiCircleConfig;
   const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
 
   const handleClick = (e: { stopPropagation: () => void }) => {
@@ -1679,7 +1683,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
       .find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
     const mr = new MediaRecorder(stream, {
       ...(mimeType ? { mimeType } : {}),
-      videoBitsPerSecond: 8_000_000,
+      videoBitsPerSecond: RECORDING_BITRATE,
     });
     recordChunksRef.current = [];
     mr.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };

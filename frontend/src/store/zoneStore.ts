@@ -1,25 +1,13 @@
 import { create } from 'zustand';
+import type { FloorZone, ZoneType } from '../types/cad';
 
-export type ZoneType = 'entrance' | 'exit';
-
-export interface FloorZone {
-  id: string;
-  type: ZoneType;
-  /** Display label (e.g. "Entrée" or "Sortie sans achat"). */
-  label: string;
-  /** X position of the zone's bottom-left corner, in centimetres. */
-  x: number;
-  /** Z position of the zone's bottom-left corner, in centimetres. */
-  z: number;
-  /** Zone width in centimetres. */
-  width: number;
-  /** Zone depth in centimetres. */
-  depth: number;
-}
+export type { FloorZone, ZoneType };
 
 interface ZoneState {
   zones: FloorZone[];
   selectedZoneId: string | null;
+  /** True once zones have been initialised from the backend scene. */
+  zonesLoaded: boolean;
   /**
    * Add a zone of the given type.  If a zone of that type already exists it is
    * selected instead of creating a duplicate.
@@ -32,6 +20,8 @@ interface ZoneState {
   removeZone: (id: string) => void;
   updateZone: (zone: FloorZone) => void;
   selectZone: (id: string | null) => void;
+  /** Bulk-set zones when loading from the backend (marks zonesLoaded = true). */
+  setZones: (zones: FloorZone[]) => void;
 }
 
 const DEFAULT_ZONE_WIDTH_CM = 200;
@@ -46,6 +36,7 @@ function snapToCm(v: number) {
 export const useZoneStore = create<ZoneState>((set, get) => ({
   zones: [],
   selectedZoneId: null,
+  zonesLoaded: false,
 
   addZone: (type, storeWidth, storeDepth) => {
     // If a zone of this type already exists, just select it.
@@ -87,4 +78,6 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
     })),
 
   selectZone: (id) => set({ selectedZoneId: id }),
+
+  setZones: (zones) => set({ zones, zonesLoaded: true }),
 }));

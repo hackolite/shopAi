@@ -42,6 +42,19 @@ export interface FurnitureDefinition {
   description: string;
 }
 
+// ─── Floor zones ──────────────────────────────────────────────────────────────
+export type ZoneType = 'entrance' | 'exit';
+
+export interface FloorZone {
+  id: string;
+  type: ZoneType;
+  label: string;
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+}
+
 // ─── Store / Scene ────────────────────────────────────────────────────────────
 export interface StoreConfig {
   id: string;
@@ -49,6 +62,7 @@ export interface StoreConfig {
   dimensions: { width: number; depth: number; height: number };
   floorColor: string;
   wallColor: string;
+  zones?: FloorZone[];
 }
 
 export interface Scene {

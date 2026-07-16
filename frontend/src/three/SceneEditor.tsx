@@ -92,7 +92,6 @@ function GondolaGeometry({ W, H, D, color }: { W: number; H: number; D: number; 
 // ─── Furniture Mesh ───────────────────────────────────────────────────────────
 interface FurnitureMeshProps {
   furniture: FurnitureInstance;
-  projectId: string | null;
 }
 
 function FurnitureMesh({ furniture }: FurnitureMeshProps) {
@@ -308,7 +307,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
       <StoreFloor store={scene.store} />
 
       {scene.furniture.map((f) => (
-        <FurnitureMesh key={f.id} furniture={f} projectId={projectId} />
+        <FurnitureMesh key={f.id} furniture={f} />
       ))}
 
       {showTransform && (

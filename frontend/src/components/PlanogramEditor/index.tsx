@@ -459,7 +459,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <span>Sélectionnez un produit dans le catalogue, puis cliquez une cellule</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z undo · 📷 uploader une vignette</span>
+        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 uploader une vignette</span>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
@@ -13,6 +13,8 @@ import PlanogramEditor from './components/PlanogramEditor';
 import type { FurnitureInstance } from './types/cad';
 
 const DEFAULT_PROJECT = 'retail_cad';
+/** Offset in cm applied to X and Z when pasting a copied gondola. */
+const PASTE_OFFSET_CM = 150;
 
 export default function App() {
   const [projectId]           = useState<string>(DEFAULT_PROJECT);
@@ -56,7 +58,7 @@ export default function App() {
   };
 
   // ── Copy-paste helpers ────────────────────────────────────────────────────
-  const copySelected = () => {
+  const copySelected = useCallback(() => {
     if (!selectedFurnitureId || !scene) return;
     const furniture = scene.furniture.find(f => f.id === selectedFurnitureId);
     if (!furniture) return;
@@ -65,20 +67,18 @@ export default function App() {
       if (pid) planogramIds[face] = pid;
     }
     setClipboard({ furniture, planogramIds });
-  };
+  }, [selectedFurnitureId, scene, setClipboard]);
 
-  const pasteClipboard = async () => {
+  const pasteClipboard = useCallback(async () => {
     if (!clipboard) return;
     const { furniture: src } = clipboard;
     const newId = crypto.randomUUID();
-    const offset = 150; // 150 cm offset
 
-    // Build new furniture with no face links yet
     const newFurniture: FurnitureInstance = {
       ...src,
       id: newId,
       name: `${src.name} (copie)`,
-      position: [src.position[0] + offset, src.position[1], src.position[2] + offset] as [number, number, number],
+      position: [src.position[0] + PASTE_OFFSET_CM, src.position[1], src.position[2] + PASTE_OFFSET_CM] as [number, number, number],
       faces: Object.fromEntries(Object.keys(src.faces).map(face => [face, null])),
       childIds: [],
       parentId: null,
@@ -87,7 +87,6 @@ export default function App() {
     try {
       const created = await cadApi.addFurniture(projectId, newFurniture);
 
-      // Clone each associated planogram
       for (const [faceId, planogramId] of Object.entries(clipboard.planogramIds)) {
         try {
           const srcPlanogram = await cadApi.getPlanogram(projectId, planogramId);
@@ -105,23 +104,20 @@ export default function App() {
         }
       }
 
-      // Persist face links on the furniture
       await cadApi.updateFurniture(projectId, created.id, created);
       addFurniture(created);
       selectFurniture(created.id);
 
-      // Refresh planogram list
       const planoData = await cadApi.listPlanograms(projectId);
       setPlanograms(planoData.planograms);
     } catch (err) {
       console.error('Paste failed:', err);
     }
-  };
+  }, [clipboard, projectId, addFurniture, selectFurniture, setPlanograms]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore when inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
@@ -144,8 +140,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFurnitureId, scene, clipboard]);
+  }, [selectFurniture, copySelected, pasteClipboard]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

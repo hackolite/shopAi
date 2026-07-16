@@ -3,6 +3,7 @@ import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useSceneStore } from '../../store/sceneStore';
 import { cadApi } from '../../api/cad';
+import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { CADProduct, Planogram, PlanogramCell } from '../../types/cad';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -14,6 +15,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Bébé':      '#FF9800',
   'Promotion': '#F44336',
 };
+
+/** Min / max cell pixel widths and height ratios for the planogram grid. */
+const CELL_MIN_PX     = 48;
+const CELL_MAX_PX     = 120;
+/** Width scale: multiply physical cm-per-col by this to get pixel width. */
+const CELL_WIDTH_SCALE  = 1.2;
+/** Height scale: multiply physical cm-per-row by this to get pixel height. */
+const CELL_HEIGHT_SCALE = 0.6;
 
 function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] ?? '#9E9E9E';
@@ -46,13 +55,14 @@ function DefaultThumb({ color }: { color: string }) {
 /** Product thumbnail: shows imageUrl if available, otherwise a colored SVG. */
 function ProductThumb({ product }: { product: CADProduct }) {
   const color = getCategoryColor(product.category);
-  if (product.imageUrl) {
+  const [imgError, setImgError] = useState(false);
+  if (product.imageUrl && !imgError) {
     return (
       <img
         src={product.imageUrl}
         alt={product.name}
         className="w-full h-full object-contain"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        onError={() => setImgError(true)}
       />
     );
   }
@@ -74,8 +84,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [dragOver,  setDragOver]  = useState<string | null>(null);
   const [uploadingEan, setUploadingEan] = useState<string | null>(null);
 
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uploadInputRef  = useRef<HTMLInputElement>(null);
+  /** Stores the EAN to upload for when the file input fires. */
+  const pendingUploadEan = useRef<string | null>(null);
 
   const { setActivePlanogram } = usePlanogramStore();
   const { products, selectedEan, addRecentlyUsed, setProducts } = useCatalogStore();
@@ -89,8 +101,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     : null;
 
   const isOverflowing = planogram && furniture
-    ? planogram.widthCm  > furniture.dimensions.width  + 0.5 ||
-      planogram.heightCm > furniture.dimensions.height + 0.5
+    ? planogram.widthCm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
+      planogram.heightCm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
     : false;
 
   // ── Load planogram ───────────────────────────────────────────────────────
@@ -235,13 +247,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const rows = planogram.rows;
   const cols = planogram.cols;
-  // Cell pixel size proportional to physical dimensions (min 56px, max 120px per cell)
+  // Cell pixel size proportional to physical dimensions
   const physCellW = planogram.widthCm  / cols;
   const physCellH = planogram.heightCm / rows;
-  const maxCellPx = 120;
-  const minCellPx = 48;
-  const cellW = Math.max(minCellPx, Math.min(maxCellPx, Math.round(physCellW * 1.2)));
-  const cellH = Math.max(minCellPx, Math.min(maxCellPx, Math.round(physCellH * 0.6)));
+  const cellW = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX, Math.round(physCellW * CELL_WIDTH_SCALE)));
+  const cellH = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX, Math.round(physCellH * CELL_HEIGHT_SCALE)));
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -266,9 +276,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            const ean = uploadInputRef.current?.dataset.ean;
+            const ean = pendingUploadEan.current;
             if (file && ean) void handleImageUpload(ean, file);
             e.target.value = '';
+            pendingUploadEan.current = null;
           }}
         />
 
@@ -399,10 +410,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             title="Uploader une vignette"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (uploadInputRef.current) {
-                                uploadInputRef.current.dataset.ean = prod.ean;
-                                uploadInputRef.current.click();
-                              }
+                              pendingUploadEan.current = prod.ean;
+                              uploadInputRef.current?.click();
                             }}
                           >
                             📷

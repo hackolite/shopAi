@@ -21,13 +21,14 @@ function getCategoryColor(category: string): string {
 /** Small product thumbnail in catalog list. */
 function CatalogThumb({ product }: { product: CADProduct }) {
   const color = getCategoryColor(product.category);
-  if (product.imageUrl) {
+  const [imgError, setImgError] = useState(false);
+  if (product.imageUrl && !imgError) {
     return (
       <img
         src={product.imageUrl}
         alt={product.name}
         className="w-8 h-8 object-contain rounded shrink-0"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        onError={() => setImgError(true)}
       />
     );
   }

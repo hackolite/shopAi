@@ -1,6 +1,10 @@
 // ─── Geometry primitives ─────────────────────────────────────────────────────
 export type Vec3 = [number, number, number];
 
+/** Tolerance (cm) used when comparing planogram dims against gondola face dims.
+ *  Avoids false-positive overflow warnings from floating-point rounding. */
+export const OVERFLOW_TOLERANCE_CM = 0.5;
+
 export interface Dimensions {
   width: number; // cm
   depth: number; // cm

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { cadApi } from '../../api/cad';
+import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId } from '../../types/cad';
 
 const FACE_LABELS: Record<FaceId, string> = {
@@ -97,8 +98,8 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
     const summary = planograms.find(p => p.id === planogramId);
     if (!summary) return false;
     return (
-      summary.widthCm  > furniture.dimensions.width  + 0.5 ||
-      summary.heightCm > furniture.dimensions.height + 0.5
+      summary.widthCm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
+      summary.heightCm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
     );
   };
 

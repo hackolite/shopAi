@@ -6,6 +6,7 @@ import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
+import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig, Dimensions } from '../types/cad';
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
@@ -27,6 +28,11 @@ function getFurnitureColor(type: string): string {
 }
 
 // ─── Gondola shelf geometry ───────────────────────────────────────────────────
+/** Typical vertical spacing between shelves in metres (42 cm). */
+const GONDOLA_SHELF_SPACING_M = 0.42;
+/** Tools that allow selecting furniture by clicking on it. */
+const SELECTABLE_TOOLS = new Set<ActiveTool>(['select', 'translate', 'rotate', 'scale']);
+
 /** Renders a realistic double-sided gondola shelving unit (dimensions in Three.js metres). */
 function GondolaGeometry({ W, H, D, color }: { W: number; H: number; D: number; color: string }) {
   const BACK_T    = Math.max(0.018, Math.min(0.04, D * 0.05));
@@ -34,7 +40,7 @@ function GondolaGeometry({ W, H, D, color }: { W: number; H: number; D: number; 
   const UPRIGHT_T = Math.max(0.02,  Math.min(0.05, W * 0.02));
   const SHELF_D   = (D - BACK_T) / 2 - UPRIGHT_T * 0.5;
 
-  const numShelves = Math.max(2, Math.min(12, Math.round(H / 0.42)));
+  const numShelves = Math.max(2, Math.min(12, Math.round(H / GONDOLA_SHELF_SPACING_M)));
   const shelfLevels: number[] = [];
   for (let i = 0; i < numShelves; i++) {
     shelfLevels.push(0.03 + (i * (H - 0.08)) / Math.max(numShelves - 1, 1));
@@ -112,27 +118,21 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const baseColor = getFurnitureColor(furniture.type);
   const color = isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
 
-  // Register group ref with parent registry
-  useEffect(() => {
-    if (groupRef.current) registerGroup(furniture.id, groupRef.current);
-    return () => registerGroup(furniture.id, null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [furniture.id]);
-
-  // Keep registered ref fresh on every render
-  useEffect(() => {
-    if (groupRef.current) registerGroup(furniture.id, groupRef.current);
-  });
-
   const handleClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
-    if (activeTool !== 'select' && activeTool !== 'translate' && activeTool !== 'rotate' && activeTool !== 'scale') return;
+    if (!SELECTABLE_TOOLS.has(activeTool)) return;
     selectFurniture(furniture.id);
   };
 
+  // Callback ref keeps the registry entry fresh on every re-render and handles unmount
+  const setGroupRef = useCallback((node: THREE.Group | null) => {
+    groupRef.current = node!;
+    registerGroup(furniture.id, node);
+  }, [furniture.id, registerGroup]);
+
   return (
     <group
-      ref={groupRef}
+      ref={setGroupRef}
       position={[px + W / 2, py + H / 2, pz + D / 2]}
       rotation={[0, ry, 0]}
       onClick={handleClick}

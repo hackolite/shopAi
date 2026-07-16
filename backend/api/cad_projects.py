@@ -18,6 +18,11 @@ from services.project_manager import (
     save_project_file,
 )
 
+_MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+_ALLOWED_IMAGE_TYPES = frozenset({
+    "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"
+})
+
 router = APIRouter(prefix="/api/cad/projects", tags=["cad-projects"])
 
 
@@ -218,13 +223,12 @@ def remove_product(project_id: str, ean: str):
 @router.post("/{project_id}/catalog/products/{ean}/image")
 async def upload_product_image(project_id: str, ean: str, file: UploadFile = File(...)):
     """Accept an image upload and store it as a base64 data-URL in the product's imageUrl field."""
-    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"}
     content_type = file.content_type or "image/png"
-    if content_type not in allowed_types:
+    if content_type not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=415, detail=f"Unsupported image type: {content_type}")
     contents = await file.read()
-    if len(contents) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Image too large (max 5 MB)")
+    if len(contents) > _MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail=f"Image too large (max {_MAX_IMAGE_SIZE_BYTES // (1024 * 1024)} MB)")
     b64 = base64.b64encode(contents).decode("ascii")
     data_url = f"data:{content_type};base64,{b64}"
     catalog = _load_catalog(project_id)

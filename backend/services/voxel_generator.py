@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-SCALE = 0.1  # 1 unit = 10 cm
+SCALE = 0.01  # 1 unit = 1 metre  (product cm × 0.01 → metres)
 
 
 def cm_to_units(cm: float) -> float:
-    return round(cm * SCALE, 3)
+    return round(cm * SCALE, 4)
 
 
 CATEGORY_COLORS: dict[str, str] = {
@@ -25,12 +25,20 @@ def generate_voxels(planogram: dict, products: list[dict]) -> list[dict]:
     """
     Convert planogram instances into a flat list of voxel descriptors.
 
+    Scale: 1 unit = 1 metre (positions and sizes in metres).
+    Product dimensions come from products.json (dimensions_cm × 0.01).
+
     Each voxel represents one facing of one instance:
       {
-        instance_id, ean, category, color,
-        position: [x, y, z],          # world units (1 unit = 10 cm)
-        size:     [width, depth, height]
+        instance_id, facing_index, ean, category, color,
+        position: [x, y, z],          # world units (metres)
+        size:     [depth_x, height_y, width_z]
       }
+
+    Facings are stacked along the Z axis (along the gondola face).
+    size[0] = depth_x  : product depth going into the shelf (X direction)
+    size[1] = height_y : product height (Y direction, up)
+    size[2] = width_z  : product width / facing width (Z direction, along gondola)
     """
     product_map = {p["ean"]: p for p in products}
     voxels: list[dict] = []
@@ -45,16 +53,10 @@ def generate_voxels(planogram: dict, products: list[dict]) -> list[dict]:
         color = category_color(category)
         dims = product.get("dimensions_cm", {"width": 10, "depth": 10, "height": 20})
 
-        w = cm_to_units(dims.get("width", 10))
-        d = cm_to_units(dims.get("depth", 10))
-        h = cm_to_units(dims.get("height", 20))
-
-        # Use pre-computed units if present (from planogram generator)
-        if "dimensions_units" in inst:
-            du = inst["dimensions_units"]
-            w = du.get("width", w)
-            d = du.get("depth", d)
-            h = du.get("height", h)
+        # Always derive sizes from real product dimensions (cm → metres)
+        width_z  = cm_to_units(dims.get("width",  10))   # along gondola (Z)
+        depth_x  = cm_to_units(dims.get("depth",  10))   # into shelf (X)
+        height_y = cm_to_units(dims.get("height", 20))   # vertical (Y)
 
         loc = inst["location"]
         base_x = loc["x"]
@@ -62,15 +64,16 @@ def generate_voxels(planogram: dict, products: list[dict]) -> list[dict]:
         base_z = loc["z"]
         facings = inst.get("facings", 1)
 
+        # Facings are placed side-by-side along the Z axis (gondola length)
         for f in range(facings):
             voxels.append({
-                "instance_id": inst["instance_id"],
+                "instance_id":  inst["instance_id"],
                 "facing_index": f,
-                "ean": ean,
-                "category": category,
-                "color": color,
-                "position": [round(base_x + f * w, 3), base_y, base_z],
-                "size": [w, h, d],
+                "ean":          ean,
+                "category":     category,
+                "color":        color,
+                "position": [base_x, base_y, round(base_z + f * width_z, 4)],
+                "size":     [depth_x, height_y, width_z],
             })
 
     return voxels

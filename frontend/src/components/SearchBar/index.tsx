@@ -58,7 +58,8 @@ export function SearchBar({ onSearch, loading, suggestions = [] }: SearchBarProp
                   <li
                     key={s}
                     className="px-3 py-1.5 text-xs font-mono text-gray-300 hover:bg-gray-700 cursor-pointer"
-                    onMouseDown={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // keep input focused
                       setValue(s);
                       onSearch(s);
                     }}

@@ -1,0 +1,6266 @@
+{
+  "3017620422003": [
+    {
+      "instance_id": "3017620422003_A01_z2_l1",
+      "position": [
+        2,
+        0,
+        2
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A01_z2_l2",
+      "position": [
+        2,
+        2,
+        2
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A01_z2_l3",
+      "position": [
+        2,
+        4,
+        2
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A01_z2_l4",
+      "position": [
+        2,
+        6,
+        2
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l1",
+      "position": [
+        8,
+        0,
+        2
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l2",
+      "position": [
+        8,
+        2,
+        2
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l3",
+      "position": [
+        8,
+        4,
+        2
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l4",
+      "position": [
+        8,
+        6,
+        2
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3017620422003_PROMO_0_l1",
+      "position": [
+        15,
+        0,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 1,
+      "zone": "promotion",
+      "facings": 10
+    },
+    {
+      "instance_id": "3017620422003_PROMO_0_l2",
+      "position": [
+        15,
+        2,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 2,
+      "zone": "promotion",
+      "facings": 10
+    }
+  ],
+  "3000000000001": [
+    {
+      "instance_id": "3000000000001_A01_z4.5_l1",
+      "position": [
+        2,
+        0,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l2",
+      "position": [
+        2,
+        2,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l3",
+      "position": [
+        2,
+        4,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l4",
+      "position": [
+        2,
+        6,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l1",
+      "position": [
+        8,
+        0,
+        4.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l2",
+      "position": [
+        8,
+        2,
+        4.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l3",
+      "position": [
+        8,
+        4,
+        4.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l4",
+      "position": [
+        8,
+        6,
+        4.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 4
+    }
+  ],
+  "3000000000002": [
+    {
+      "instance_id": "3000000000002_A01_z7.0_l1",
+      "position": [
+        2,
+        0,
+        7.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l2",
+      "position": [
+        2,
+        2,
+        7.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l3",
+      "position": [
+        2,
+        4,
+        7.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l4",
+      "position": [
+        2,
+        6,
+        7.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l1",
+      "position": [
+        8,
+        0,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l2",
+      "position": [
+        8,
+        2,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l3",
+      "position": [
+        8,
+        4,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l4",
+      "position": [
+        8,
+        6,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000002_PROMO_1_l1",
+      "position": [
+        19,
+        0,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 1,
+      "zone": "promotion",
+      "facings": 11
+    },
+    {
+      "instance_id": "3000000000002_PROMO_1_l2",
+      "position": [
+        19,
+        2,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 2,
+      "zone": "promotion",
+      "facings": 11
+    }
+  ],
+  "3000000000003": [
+    {
+      "instance_id": "3000000000003_A01_z10.5_l1",
+      "position": [
+        2,
+        0,
+        10.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l2",
+      "position": [
+        2,
+        2,
+        10.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l3",
+      "position": [
+        2,
+        4,
+        10.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l4",
+      "position": [
+        2,
+        6,
+        10.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l1",
+      "position": [
+        8,
+        0,
+        12.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l2",
+      "position": [
+        8,
+        2,
+        12.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l3",
+      "position": [
+        8,
+        4,
+        12.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l4",
+      "position": [
+        8,
+        6,
+        12.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    }
+  ],
+  "3000000000004": [
+    {
+      "instance_id": "3000000000004_A01_z17.0_l1",
+      "position": [
+        2,
+        0,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l2",
+      "position": [
+        2,
+        2,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l3",
+      "position": [
+        2,
+        4,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l4",
+      "position": [
+        2,
+        6,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l1",
+      "position": [
+        8,
+        0,
+        19.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l2",
+      "position": [
+        8,
+        2,
+        19.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l3",
+      "position": [
+        8,
+        4,
+        19.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l4",
+      "position": [
+        8,
+        6,
+        19.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    }
+  ],
+  "3000000000005": [
+    {
+      "instance_id": "3000000000005_A01_z19.5_l1",
+      "position": [
+        2,
+        0,
+        19.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l2",
+      "position": [
+        2,
+        3,
+        19.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l3",
+      "position": [
+        2,
+        6,
+        19.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l4",
+      "position": [
+        2,
+        9,
+        19.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l1",
+      "position": [
+        8,
+        0,
+        25.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l2",
+      "position": [
+        8,
+        3,
+        25.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l3",
+      "position": [
+        8,
+        6,
+        25.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l4",
+      "position": [
+        8,
+        9,
+        25.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000005_PROMO_2_l1",
+      "position": [
+        23,
+        0,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 1,
+      "zone": "promotion",
+      "facings": 8
+    },
+    {
+      "instance_id": "3000000000005_PROMO_2_l2",
+      "position": [
+        23,
+        3,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 2,
+      "zone": "promotion",
+      "facings": 8
+    }
+  ],
+  "3000000000006": [
+    {
+      "instance_id": "3000000000006_A01_z24.0_l1",
+      "position": [
+        2,
+        0,
+        24.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l2",
+      "position": [
+        2,
+        2,
+        24.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l3",
+      "position": [
+        2,
+        4,
+        24.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l4",
+      "position": [
+        2,
+        6,
+        24.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    }
+  ],
+  "3000000000008": [
+    {
+      "instance_id": "3000000000008_A01_z2_l1",
+      "position": [
+        2,
+        0,
+        2
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l2",
+      "position": [
+        2,
+        2,
+        2
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l3",
+      "position": [
+        2,
+        4,
+        2
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l4",
+      "position": [
+        2,
+        6,
+        2
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l1",
+      "position": [
+        8,
+        0,
+        8.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l2",
+      "position": [
+        8,
+        2,
+        8.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l3",
+      "position": [
+        8,
+        4,
+        8.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l4",
+      "position": [
+        8,
+        6,
+        8.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    }
+  ],
+  "3000000000009": [
+    {
+      "instance_id": "3000000000009_A01_z2.5_l1",
+      "position": [
+        2,
+        0,
+        2.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l2",
+      "position": [
+        2,
+        2,
+        2.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l3",
+      "position": [
+        2,
+        4,
+        2.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l4",
+      "position": [
+        2,
+        6,
+        2.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l1",
+      "position": [
+        8,
+        0,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l2",
+      "position": [
+        8,
+        2,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l3",
+      "position": [
+        8,
+        4,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l4",
+      "position": [
+        8,
+        6,
+        9.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    }
+  ],
+  "3000000000010": [
+    {
+      "instance_id": "3000000000010_A01_z8.0_l1",
+      "position": [
+        2,
+        0,
+        8.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l2",
+      "position": [
+        2,
+        3,
+        8.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l3",
+      "position": [
+        2,
+        6,
+        8.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l4",
+      "position": [
+        2,
+        9,
+        8.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l1",
+      "position": [
+        8,
+        0,
+        14.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l2",
+      "position": [
+        8,
+        3,
+        14.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l3",
+      "position": [
+        8,
+        6,
+        14.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l4",
+      "position": [
+        8,
+        9,
+        14.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    }
+  ],
+  "3000000000011": [
+    {
+      "instance_id": "3000000000011_A01_z14.5_l1",
+      "position": [
+        2,
+        0,
+        14.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l2",
+      "position": [
+        2,
+        1,
+        14.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l3",
+      "position": [
+        2,
+        2,
+        14.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l4",
+      "position": [
+        2,
+        3,
+        14.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l1",
+      "position": [
+        8,
+        0,
+        18.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l2",
+      "position": [
+        8,
+        1,
+        18.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l3",
+      "position": [
+        8,
+        2,
+        18.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l4",
+      "position": [
+        8,
+        3,
+        18.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    }
+  ],
+  "3000000000012": [
+    {
+      "instance_id": "3000000000012_A01_z15.0_l1",
+      "position": [
+        2,
+        0,
+        15.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l2",
+      "position": [
+        2,
+        2,
+        15.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l3",
+      "position": [
+        2,
+        4,
+        15.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l4",
+      "position": [
+        2,
+        6,
+        15.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l1",
+      "position": [
+        8,
+        0,
+        18.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l2",
+      "position": [
+        8,
+        2,
+        18.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l3",
+      "position": [
+        8,
+        4,
+        18.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l4",
+      "position": [
+        8,
+        6,
+        18.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    }
+  ],
+  "3000000000013": [
+    {
+      "instance_id": "3000000000013_A01_z18.5_l1",
+      "position": [
+        2,
+        0,
+        18.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l2",
+      "position": [
+        2,
+        1,
+        18.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l3",
+      "position": [
+        2,
+        2,
+        18.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l4",
+      "position": [
+        2,
+        3,
+        18.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l1",
+      "position": [
+        8,
+        0,
+        24.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l2",
+      "position": [
+        8,
+        1,
+        24.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l3",
+      "position": [
+        8,
+        2,
+        24.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l4",
+      "position": [
+        8,
+        3,
+        24.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    }
+  ],
+  "3000000000014": [
+    {
+      "instance_id": "3000000000014_A01_z19.0_l1",
+      "position": [
+        2,
+        0,
+        19.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l2",
+      "position": [
+        2,
+        1,
+        19.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l3",
+      "position": [
+        2,
+        2,
+        19.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l4",
+      "position": [
+        2,
+        3,
+        19.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l1",
+      "position": [
+        8,
+        0,
+        24.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l2",
+      "position": [
+        8,
+        1,
+        24.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l3",
+      "position": [
+        8,
+        2,
+        24.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l4",
+      "position": [
+        8,
+        3,
+        24.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 4
+    }
+  ],
+  "3000000000015": [
+    {
+      "instance_id": "3000000000015_A01_z22.5_l1",
+      "position": [
+        2,
+        0,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l2",
+      "position": [
+        2,
+        1,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l3",
+      "position": [
+        2,
+        2,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l4",
+      "position": [
+        2,
+        3,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    }
+  ],
+  "3000000000017": [
+    {
+      "instance_id": "3000000000017_A01_z2_l1",
+      "position": [
+        2,
+        0,
+        2
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l2",
+      "position": [
+        2,
+        2,
+        2
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l3",
+      "position": [
+        2,
+        4,
+        2
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l4",
+      "position": [
+        2,
+        6,
+        2
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l1",
+      "position": [
+        8,
+        0,
+        5.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l2",
+      "position": [
+        8,
+        2,
+        5.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l3",
+      "position": [
+        8,
+        4,
+        5.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l4",
+      "position": [
+        8,
+        6,
+        5.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    }
+  ],
+  "3000000000018": [
+    {
+      "instance_id": "3000000000018_A01_z4.5_l1",
+      "position": [
+        2,
+        0,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l2",
+      "position": [
+        2,
+        2,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l3",
+      "position": [
+        2,
+        4,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l4",
+      "position": [
+        2,
+        6,
+        4.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l1",
+      "position": [
+        8,
+        0,
+        8.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l2",
+      "position": [
+        8,
+        2,
+        8.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l3",
+      "position": [
+        8,
+        4,
+        8.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l4",
+      "position": [
+        8,
+        6,
+        8.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    }
+  ],
+  "3000000000019": [
+    {
+      "instance_id": "3000000000019_A01_z10.0_l1",
+      "position": [
+        2,
+        0,
+        10.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l2",
+      "position": [
+        2,
+        2,
+        10.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l3",
+      "position": [
+        2,
+        4,
+        10.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l4",
+      "position": [
+        2,
+        6,
+        10.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l1",
+      "position": [
+        8,
+        0,
+        11.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l2",
+      "position": [
+        8,
+        2,
+        11.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l3",
+      "position": [
+        8,
+        4,
+        11.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l4",
+      "position": [
+        8,
+        6,
+        11.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 2
+    }
+  ],
+  "3000000000020": [
+    {
+      "instance_id": "3000000000020_A01_z12.5_l1",
+      "position": [
+        2,
+        0,
+        12.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l2",
+      "position": [
+        2,
+        3,
+        12.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l3",
+      "position": [
+        2,
+        6,
+        12.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l4",
+      "position": [
+        2,
+        9,
+        12.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l1",
+      "position": [
+        8,
+        0,
+        14.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l2",
+      "position": [
+        8,
+        3,
+        14.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l3",
+      "position": [
+        8,
+        6,
+        14.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l4",
+      "position": [
+        8,
+        9,
+        14.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    }
+  ],
+  "3000000000021": [
+    {
+      "instance_id": "3000000000021_A01_z17.0_l1",
+      "position": [
+        2,
+        0,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l2",
+      "position": [
+        2,
+        2,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l3",
+      "position": [
+        2,
+        4,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l4",
+      "position": [
+        2,
+        6,
+        17.0
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l1",
+      "position": [
+        8,
+        0,
+        19.5
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l2",
+      "position": [
+        8,
+        2,
+        19.5
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l3",
+      "position": [
+        8,
+        4,
+        19.5
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l4",
+      "position": [
+        8,
+        6,
+        19.5
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    }
+  ],
+  "3000000000022": [
+    {
+      "instance_id": "3000000000022_A01_z22.5_l1",
+      "position": [
+        2,
+        0,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l2",
+      "position": [
+        2,
+        3,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l3",
+      "position": [
+        2,
+        6,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l4",
+      "position": [
+        2,
+        9,
+        22.5
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l1",
+      "position": [
+        8,
+        0,
+        25.0
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l2",
+      "position": [
+        8,
+        3,
+        25.0
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l3",
+      "position": [
+        8,
+        6,
+        25.0
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l4",
+      "position": [
+        8,
+        9,
+        25.0
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 4
+    }
+  ],
+  "3000000000024": [
+    {
+      "instance_id": "3000000000024_A01_z2_l1",
+      "position": [
+        2,
+        0,
+        2
+      ],
+      "shelf": "R01",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l2",
+      "position": [
+        2,
+        1,
+        2
+      ],
+      "shelf": "R01",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l3",
+      "position": [
+        2,
+        2,
+        2
+      ],
+      "shelf": "R01",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l4",
+      "position": [
+        2,
+        3,
+        2
+      ],
+      "shelf": "R01",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l1",
+      "position": [
+        8,
+        0,
+        2
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l2",
+      "position": [
+        8,
+        1,
+        2
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l3",
+      "position": [
+        8,
+        2,
+        2
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l4",
+      "position": [
+        8,
+        3,
+        2
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000024_PROMO_3_l1",
+      "position": [
+        27,
+        0,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 1,
+      "zone": "promotion",
+      "facings": 10
+    },
+    {
+      "instance_id": "3000000000024_PROMO_3_l2",
+      "position": [
+        27,
+        1,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 2,
+      "zone": "promotion",
+      "facings": 10
+    }
+  ],
+  "3000000000007": [
+    {
+      "instance_id": "3000000000007_A02_z2_l1",
+      "position": [
+        8,
+        0,
+        2
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l2",
+      "position": [
+        8,
+        1,
+        2
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l3",
+      "position": [
+        8,
+        2,
+        2
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l4",
+      "position": [
+        8,
+        3,
+        2
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 6
+    }
+  ],
+  "3000000000016": [
+    {
+      "instance_id": "3000000000016_A02_z2_l1",
+      "position": [
+        8,
+        0,
+        2
+      ],
+      "shelf": "R02",
+      "level": 1,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l2",
+      "position": [
+        8,
+        2,
+        2
+      ],
+      "shelf": "R02",
+      "level": 2,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l3",
+      "position": [
+        8,
+        4,
+        2
+      ],
+      "shelf": "R02",
+      "level": 3,
+      "zone": "epicerie",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l4",
+      "position": [
+        8,
+        6,
+        2
+      ],
+      "shelf": "R02",
+      "level": 4,
+      "zone": "epicerie",
+      "facings": 3
+    }
+  ],
+  "3000000000025": [
+    {
+      "instance_id": "3000000000025_A03_z2_l1",
+      "position": [
+        14,
+        0,
+        2
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000025_A03_z2_l2",
+      "position": [
+        14,
+        4,
+        2
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000025_A03_z2_l3",
+      "position": [
+        14,
+        8,
+        2
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000025_A04_z2_l1",
+      "position": [
+        20,
+        0,
+        2
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000025_A04_z2_l2",
+      "position": [
+        20,
+        4,
+        2
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000025_A04_z2_l3",
+      "position": [
+        20,
+        8,
+        2
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 4
+    }
+  ],
+  "3000000000026": [
+    {
+      "instance_id": "3000000000026_A03_z7.5_l1",
+      "position": [
+        14,
+        0,
+        7.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000026_A03_z7.5_l2",
+      "position": [
+        14,
+        4,
+        7.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000026_A03_z7.5_l3",
+      "position": [
+        14,
+        8,
+        7.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000026_A04_z6.5_l1",
+      "position": [
+        20,
+        0,
+        6.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000026_A04_z6.5_l2",
+      "position": [
+        20,
+        4,
+        6.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000026_A04_z6.5_l3",
+      "position": [
+        20,
+        8,
+        6.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 2
+    }
+  ],
+  "3000000000027": [
+    {
+      "instance_id": "3000000000027_A03_z11.0_l1",
+      "position": [
+        14,
+        0,
+        11.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000027_A03_z11.0_l2",
+      "position": [
+        14,
+        3,
+        11.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000027_A03_z11.0_l3",
+      "position": [
+        14,
+        6,
+        11.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000027_A04_z9.0_l1",
+      "position": [
+        20,
+        0,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000027_A04_z9.0_l2",
+      "position": [
+        20,
+        3,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000027_A04_z9.0_l3",
+      "position": [
+        20,
+        6,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 5
+    }
+  ],
+  "3000000000028": [
+    {
+      "instance_id": "3000000000028_A03_z14.5_l1",
+      "position": [
+        14,
+        0,
+        14.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000028_A03_z14.5_l2",
+      "position": [
+        14,
+        3,
+        14.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000028_A03_z14.5_l3",
+      "position": [
+        14,
+        6,
+        14.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000028_A04_z14.5_l1",
+      "position": [
+        20,
+        0,
+        14.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000028_A04_z14.5_l2",
+      "position": [
+        20,
+        3,
+        14.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000028_A04_z14.5_l3",
+      "position": [
+        20,
+        6,
+        14.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 2
+    }
+  ],
+  "3000000000029": [
+    {
+      "instance_id": "3000000000029_A03_z18.0_l1",
+      "position": [
+        14,
+        0,
+        18.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000029_A03_z18.0_l2",
+      "position": [
+        14,
+        3,
+        18.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000029_A03_z18.0_l3",
+      "position": [
+        14,
+        6,
+        18.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000029_A04_z17.0_l1",
+      "position": [
+        20,
+        0,
+        17.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000029_A04_z17.0_l2",
+      "position": [
+        20,
+        3,
+        17.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000029_A04_z17.0_l3",
+      "position": [
+        20,
+        6,
+        17.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 2
+    }
+  ],
+  "3000000000030": [
+    {
+      "instance_id": "3000000000030_A03_z22.5_l1",
+      "position": [
+        14,
+        0,
+        22.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000030_A03_z22.5_l2",
+      "position": [
+        14,
+        3,
+        22.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000030_A03_z22.5_l3",
+      "position": [
+        14,
+        6,
+        22.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000030_A04_z19.5_l1",
+      "position": [
+        20,
+        0,
+        19.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000030_A04_z19.5_l2",
+      "position": [
+        20,
+        3,
+        19.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000030_A04_z19.5_l3",
+      "position": [
+        20,
+        6,
+        19.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000030_PROMO_4_l1",
+      "position": [
+        31,
+        0,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 1,
+      "zone": "promotion",
+      "facings": 10
+    },
+    {
+      "instance_id": "3000000000030_PROMO_4_l2",
+      "position": [
+        31,
+        3,
+        1
+      ],
+      "shelf": "PROMO01",
+      "level": 2,
+      "zone": "promotion",
+      "facings": 10
+    }
+  ],
+  "3000000000031": [
+    {
+      "instance_id": "3000000000031_A03_z25.0_l1",
+      "position": [
+        14,
+        0,
+        25.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000031_A03_z25.0_l2",
+      "position": [
+        14,
+        3,
+        25.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000031_A03_z25.0_l3",
+      "position": [
+        14,
+        6,
+        25.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000031_A04_z26.0_l1",
+      "position": [
+        20,
+        0,
+        26.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000031_A04_z26.0_l2",
+      "position": [
+        20,
+        3,
+        26.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000031_A04_z26.0_l3",
+      "position": [
+        20,
+        6,
+        26.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    }
+  ],
+  "3000000000033": [
+    {
+      "instance_id": "3000000000033_A03_z2_l1",
+      "position": [
+        14,
+        0,
+        2
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000033_A03_z2_l2",
+      "position": [
+        14,
+        2,
+        2
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000033_A03_z2_l3",
+      "position": [
+        14,
+        4,
+        2
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000033_A04_z2_l1",
+      "position": [
+        20,
+        0,
+        2
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000033_A04_z2_l2",
+      "position": [
+        20,
+        2,
+        2
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000033_A04_z2_l3",
+      "position": [
+        20,
+        4,
+        2
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    }
+  ],
+  "3000000000034": [
+    {
+      "instance_id": "3000000000034_A03_z6.5_l1",
+      "position": [
+        14,
+        0,
+        6.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000034_A03_z6.5_l2",
+      "position": [
+        14,
+        2,
+        6.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000034_A03_z6.5_l3",
+      "position": [
+        14,
+        4,
+        6.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000034_A04_z5.5_l1",
+      "position": [
+        20,
+        0,
+        5.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000034_A04_z5.5_l2",
+      "position": [
+        20,
+        2,
+        5.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000034_A04_z5.5_l3",
+      "position": [
+        20,
+        4,
+        5.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    }
+  ],
+  "3000000000035": [
+    {
+      "instance_id": "3000000000035_A03_z13.0_l1",
+      "position": [
+        14,
+        0,
+        13.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000035_A03_z13.0_l2",
+      "position": [
+        14,
+        1,
+        13.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000035_A03_z13.0_l3",
+      "position": [
+        14,
+        2,
+        13.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000035_A04_z9.0_l1",
+      "position": [
+        20,
+        0,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000035_A04_z9.0_l2",
+      "position": [
+        20,
+        1,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000035_A04_z9.0_l3",
+      "position": [
+        20,
+        2,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    }
+  ],
+  "3000000000036": [
+    {
+      "instance_id": "3000000000036_A03_z17.5_l1",
+      "position": [
+        14,
+        0,
+        17.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000036_A03_z17.5_l2",
+      "position": [
+        14,
+        1,
+        17.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000036_A03_z17.5_l3",
+      "position": [
+        14,
+        2,
+        17.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000036_A04_z15.5_l1",
+      "position": [
+        20,
+        0,
+        15.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000036_A04_z15.5_l2",
+      "position": [
+        20,
+        1,
+        15.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000036_A04_z15.5_l3",
+      "position": [
+        20,
+        2,
+        15.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    }
+  ],
+  "3000000000037": [
+    {
+      "instance_id": "3000000000037_A03_z22.0_l1",
+      "position": [
+        14,
+        0,
+        22.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000037_A03_z22.0_l2",
+      "position": [
+        14,
+        3,
+        22.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000037_A03_z22.0_l3",
+      "position": [
+        14,
+        6,
+        22.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000037_A04_z22.0_l1",
+      "position": [
+        20,
+        0,
+        22.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000037_A04_z22.0_l2",
+      "position": [
+        20,
+        3,
+        22.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000037_A04_z22.0_l3",
+      "position": [
+        20,
+        6,
+        22.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 5
+    }
+  ],
+  "3000000000039": [
+    {
+      "instance_id": "3000000000039_A03_z2_l1",
+      "position": [
+        14,
+        0,
+        2
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000039_A03_z2_l2",
+      "position": [
+        14,
+        3,
+        2
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000039_A03_z2_l3",
+      "position": [
+        14,
+        6,
+        2
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000039_A04_z2_l1",
+      "position": [
+        20,
+        0,
+        2
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000039_A04_z2_l2",
+      "position": [
+        20,
+        3,
+        2
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000039_A04_z2_l3",
+      "position": [
+        20,
+        6,
+        2
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    }
+  ],
+  "3000000000040": [
+    {
+      "instance_id": "3000000000040_A03_z8.5_l1",
+      "position": [
+        14,
+        0,
+        8.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000040_A03_z8.5_l2",
+      "position": [
+        14,
+        2,
+        8.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000040_A03_z8.5_l3",
+      "position": [
+        14,
+        4,
+        8.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000040_A04_z5.5_l1",
+      "position": [
+        20,
+        0,
+        5.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000040_A04_z5.5_l2",
+      "position": [
+        20,
+        2,
+        5.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000040_A04_z5.5_l3",
+      "position": [
+        20,
+        4,
+        5.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    }
+  ],
+  "3000000000041": [
+    {
+      "instance_id": "3000000000041_A03_z13.0_l1",
+      "position": [
+        14,
+        0,
+        13.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000041_A03_z13.0_l2",
+      "position": [
+        14,
+        2,
+        13.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000041_A03_z13.0_l3",
+      "position": [
+        14,
+        4,
+        13.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000041_A04_z9.0_l1",
+      "position": [
+        20,
+        0,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000041_A04_z9.0_l2",
+      "position": [
+        20,
+        2,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000041_A04_z9.0_l3",
+      "position": [
+        20,
+        4,
+        9.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 2
+    }
+  ],
+  "3000000000042": [
+    {
+      "instance_id": "3000000000042_A03_z16.5_l1",
+      "position": [
+        14,
+        0,
+        16.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000042_A03_z16.5_l2",
+      "position": [
+        14,
+        3,
+        16.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000042_A03_z16.5_l3",
+      "position": [
+        14,
+        6,
+        16.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000042_A04_z11.5_l1",
+      "position": [
+        20,
+        0,
+        11.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000042_A04_z11.5_l2",
+      "position": [
+        20,
+        3,
+        11.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000042_A04_z11.5_l3",
+      "position": [
+        20,
+        6,
+        11.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 5
+    }
+  ],
+  "3000000000043": [
+    {
+      "instance_id": "3000000000043_A03_z19.0_l1",
+      "position": [
+        14,
+        0,
+        19.0
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000043_A03_z19.0_l2",
+      "position": [
+        14,
+        2,
+        19.0
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000043_A03_z19.0_l3",
+      "position": [
+        14,
+        4,
+        19.0
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000043_A04_z17.0_l1",
+      "position": [
+        20,
+        0,
+        17.0
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000043_A04_z17.0_l2",
+      "position": [
+        20,
+        2,
+        17.0
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000043_A04_z17.0_l3",
+      "position": [
+        20,
+        4,
+        17.0
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 6
+    }
+  ],
+  "3000000000044": [
+    {
+      "instance_id": "3000000000044_A03_z25.5_l1",
+      "position": [
+        14,
+        0,
+        25.5
+      ],
+      "shelf": "R03",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000044_A03_z25.5_l2",
+      "position": [
+        14,
+        3,
+        25.5
+      ],
+      "shelf": "R03",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000044_A03_z25.5_l3",
+      "position": [
+        14,
+        6,
+        25.5
+      ],
+      "shelf": "R03",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000044_A04_z23.5_l1",
+      "position": [
+        20,
+        0,
+        23.5
+      ],
+      "shelf": "R04",
+      "level": 1,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000044_A04_z23.5_l2",
+      "position": [
+        20,
+        3,
+        23.5
+      ],
+      "shelf": "R04",
+      "level": 2,
+      "zone": "boisson",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000044_A04_z23.5_l3",
+      "position": [
+        20,
+        6,
+        23.5
+      ],
+      "shelf": "R04",
+      "level": 3,
+      "zone": "boisson",
+      "facings": 3
+    }
+  ],
+  "3000000000045": [
+    {
+      "instance_id": "3000000000045_A05_z2_l1",
+      "position": [
+        26,
+        0,
+        2
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l2",
+      "position": [
+        26,
+        1,
+        2
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l3",
+      "position": [
+        26,
+        2,
+        2
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l4",
+      "position": [
+        26,
+        3,
+        2
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l1",
+      "position": [
+        32,
+        0,
+        2
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l2",
+      "position": [
+        32,
+        1,
+        2
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l3",
+      "position": [
+        32,
+        2,
+        2
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l4",
+      "position": [
+        32,
+        3,
+        2
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    }
+  ],
+  "3000000000046": [
+    {
+      "instance_id": "3000000000046_A05_z2.5_l1",
+      "position": [
+        26,
+        0,
+        2.5
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l2",
+      "position": [
+        26,
+        1,
+        2.5
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l3",
+      "position": [
+        26,
+        2,
+        2.5
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l4",
+      "position": [
+        26,
+        3,
+        2.5
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l1",
+      "position": [
+        32,
+        0,
+        2.5
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l2",
+      "position": [
+        32,
+        1,
+        2.5
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l3",
+      "position": [
+        32,
+        2,
+        2.5
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l4",
+      "position": [
+        32,
+        3,
+        2.5
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 2
+    }
+  ],
+  "3000000000047": [
+    {
+      "instance_id": "3000000000047_A05_z6.0_l1",
+      "position": [
+        26,
+        0,
+        6.0
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l2",
+      "position": [
+        26,
+        1,
+        6.0
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l3",
+      "position": [
+        26,
+        2,
+        6.0
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l4",
+      "position": [
+        26,
+        3,
+        6.0
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l1",
+      "position": [
+        32,
+        0,
+        5.0
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l2",
+      "position": [
+        32,
+        1,
+        5.0
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l3",
+      "position": [
+        32,
+        2,
+        5.0
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l4",
+      "position": [
+        32,
+        3,
+        5.0
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 6
+    }
+  ],
+  "3000000000048": [
+    {
+      "instance_id": "3000000000048_A05_z12.5_l1",
+      "position": [
+        26,
+        0,
+        12.5
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l2",
+      "position": [
+        26,
+        1,
+        12.5
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l3",
+      "position": [
+        26,
+        2,
+        12.5
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l4",
+      "position": [
+        26,
+        3,
+        12.5
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l1",
+      "position": [
+        32,
+        0,
+        11.5
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l2",
+      "position": [
+        32,
+        1,
+        11.5
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l3",
+      "position": [
+        32,
+        2,
+        11.5
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l4",
+      "position": [
+        32,
+        3,
+        11.5
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 6
+    }
+  ],
+  "3000000000049": [
+    {
+      "instance_id": "3000000000049_A05_z19.0_l1",
+      "position": [
+        26,
+        0,
+        19.0
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l2",
+      "position": [
+        26,
+        1,
+        19.0
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l3",
+      "position": [
+        26,
+        2,
+        19.0
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l4",
+      "position": [
+        26,
+        3,
+        19.0
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l1",
+      "position": [
+        32,
+        0,
+        18.0
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l2",
+      "position": [
+        32,
+        1,
+        18.0
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l3",
+      "position": [
+        32,
+        2,
+        18.0
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l4",
+      "position": [
+        32,
+        3,
+        18.0
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 4
+    }
+  ],
+  "3000000000050": [
+    {
+      "instance_id": "3000000000050_A05_z22.5_l1",
+      "position": [
+        26,
+        0,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l2",
+      "position": [
+        26,
+        1,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l3",
+      "position": [
+        26,
+        2,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l4",
+      "position": [
+        26,
+        3,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l1",
+      "position": [
+        32,
+        0,
+        22.5
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l2",
+      "position": [
+        32,
+        1,
+        22.5
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l3",
+      "position": [
+        32,
+        2,
+        22.5
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l4",
+      "position": [
+        32,
+        3,
+        22.5
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 5
+    }
+  ],
+  "3000000000051": [
+    {
+      "instance_id": "3000000000051_A05_z25.0_l1",
+      "position": [
+        26,
+        0,
+        25.0
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l2",
+      "position": [
+        26,
+        1,
+        25.0
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l3",
+      "position": [
+        26,
+        2,
+        25.0
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l4",
+      "position": [
+        26,
+        3,
+        25.0
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    }
+  ],
+  "3000000000053": [
+    {
+      "instance_id": "3000000000053_A05_z2_l1",
+      "position": [
+        26,
+        0,
+        2
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l2",
+      "position": [
+        26,
+        1,
+        2
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l3",
+      "position": [
+        26,
+        2,
+        2
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l4",
+      "position": [
+        26,
+        3,
+        2
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l1",
+      "position": [
+        32,
+        0,
+        7.5
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l2",
+      "position": [
+        32,
+        1,
+        7.5
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l3",
+      "position": [
+        32,
+        2,
+        7.5
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l4",
+      "position": [
+        32,
+        3,
+        7.5
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 4
+    }
+  ],
+  "3000000000054": [
+    {
+      "instance_id": "3000000000054_A05_z7.5_l1",
+      "position": [
+        26,
+        0,
+        7.5
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l2",
+      "position": [
+        26,
+        1,
+        7.5
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l3",
+      "position": [
+        26,
+        2,
+        7.5
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l4",
+      "position": [
+        26,
+        3,
+        7.5
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l1",
+      "position": [
+        32,
+        0,
+        12.0
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l2",
+      "position": [
+        32,
+        1,
+        12.0
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l3",
+      "position": [
+        32,
+        2,
+        12.0
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l4",
+      "position": [
+        32,
+        3,
+        12.0
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 4
+    }
+  ],
+  "3000000000055": [
+    {
+      "instance_id": "3000000000055_A05_z10.0_l1",
+      "position": [
+        26,
+        0,
+        10.0
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l2",
+      "position": [
+        26,
+        1,
+        10.0
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l3",
+      "position": [
+        26,
+        2,
+        10.0
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l4",
+      "position": [
+        26,
+        3,
+        10.0
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l1",
+      "position": [
+        32,
+        0,
+        16.5
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l2",
+      "position": [
+        32,
+        1,
+        16.5
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l3",
+      "position": [
+        32,
+        2,
+        16.5
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l4",
+      "position": [
+        32,
+        3,
+        16.5
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    }
+  ],
+  "3000000000056": [
+    {
+      "instance_id": "3000000000056_A05_z13.5_l1",
+      "position": [
+        26,
+        0,
+        13.5
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l2",
+      "position": [
+        26,
+        1,
+        13.5
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l3",
+      "position": [
+        26,
+        2,
+        13.5
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l4",
+      "position": [
+        26,
+        3,
+        13.5
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l1",
+      "position": [
+        32,
+        0,
+        20.0
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l2",
+      "position": [
+        32,
+        1,
+        20.0
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l3",
+      "position": [
+        32,
+        2,
+        20.0
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l4",
+      "position": [
+        32,
+        3,
+        20.0
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 4
+    }
+  ],
+  "3000000000057": [
+    {
+      "instance_id": "3000000000057_A05_z17.0_l1",
+      "position": [
+        26,
+        0,
+        17.0
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l2",
+      "position": [
+        26,
+        1,
+        17.0
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l3",
+      "position": [
+        26,
+        2,
+        17.0
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l4",
+      "position": [
+        26,
+        3,
+        17.0
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l1",
+      "position": [
+        32,
+        0,
+        24.5
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l2",
+      "position": [
+        32,
+        1,
+        24.5
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l3",
+      "position": [
+        32,
+        2,
+        24.5
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l4",
+      "position": [
+        32,
+        3,
+        24.5
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 4
+    }
+  ],
+  "3000000000058": [
+    {
+      "instance_id": "3000000000058_A05_z22.5_l1",
+      "position": [
+        26,
+        0,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 1,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l2",
+      "position": [
+        26,
+        1,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 2,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l3",
+      "position": [
+        26,
+        2,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 3,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l4",
+      "position": [
+        26,
+        3,
+        22.5
+      ],
+      "shelf": "R05",
+      "level": 4,
+      "zone": "frais",
+      "facings": 5
+    }
+  ],
+  "3000000000052": [
+    {
+      "instance_id": "3000000000052_A06_z2_l1",
+      "position": [
+        32,
+        0,
+        2
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l2",
+      "position": [
+        32,
+        1,
+        2
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l3",
+      "position": [
+        32,
+        2,
+        2
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l4",
+      "position": [
+        32,
+        3,
+        2
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 5
+    }
+  ],
+  "3000000000059": [
+    {
+      "instance_id": "3000000000059_A06_z2_l1",
+      "position": [
+        32,
+        0,
+        2
+      ],
+      "shelf": "R06",
+      "level": 1,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l2",
+      "position": [
+        32,
+        1,
+        2
+      ],
+      "shelf": "R06",
+      "level": 2,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l3",
+      "position": [
+        32,
+        2,
+        2
+      ],
+      "shelf": "R06",
+      "level": 3,
+      "zone": "frais",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l4",
+      "position": [
+        32,
+        3,
+        2
+      ],
+      "shelf": "R06",
+      "level": 4,
+      "zone": "frais",
+      "facings": 6
+    }
+  ],
+  "3000000000060": [
+    {
+      "instance_id": "3000000000060_A07_z2_l1",
+      "position": [
+        38,
+        0,
+        2
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l2",
+      "position": [
+        38,
+        2,
+        2
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l3",
+      "position": [
+        38,
+        4,
+        2
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l4",
+      "position": [
+        38,
+        6,
+        2
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l1",
+      "position": [
+        44,
+        0,
+        2
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l2",
+      "position": [
+        44,
+        2,
+        2
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l3",
+      "position": [
+        44,
+        4,
+        2
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l4",
+      "position": [
+        44,
+        6,
+        2
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 2
+    }
+  ],
+  "3000000000061": [
+    {
+      "instance_id": "3000000000061_A07_z7.5_l1",
+      "position": [
+        38,
+        0,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l2",
+      "position": [
+        38,
+        2,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l3",
+      "position": [
+        38,
+        4,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l4",
+      "position": [
+        38,
+        6,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l1",
+      "position": [
+        44,
+        0,
+        4.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l2",
+      "position": [
+        44,
+        2,
+        4.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l3",
+      "position": [
+        44,
+        4,
+        4.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l4",
+      "position": [
+        44,
+        6,
+        4.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 3
+    }
+  ],
+  "3000000000062": [
+    {
+      "instance_id": "3000000000062_A07_z14.0_l1",
+      "position": [
+        38,
+        0,
+        14.0
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l2",
+      "position": [
+        38,
+        2,
+        14.0
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l3",
+      "position": [
+        38,
+        4,
+        14.0
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l4",
+      "position": [
+        38,
+        6,
+        14.0
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l1",
+      "position": [
+        44,
+        0,
+        8.0
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l2",
+      "position": [
+        44,
+        2,
+        8.0
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l3",
+      "position": [
+        44,
+        4,
+        8.0
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l4",
+      "position": [
+        44,
+        6,
+        8.0
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 2
+    }
+  ],
+  "3000000000063": [
+    {
+      "instance_id": "3000000000063_A07_z14.5_l1",
+      "position": [
+        38,
+        0,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l2",
+      "position": [
+        38,
+        2,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l3",
+      "position": [
+        38,
+        4,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l4",
+      "position": [
+        38,
+        6,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l1",
+      "position": [
+        44,
+        0,
+        8.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l2",
+      "position": [
+        44,
+        2,
+        8.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l3",
+      "position": [
+        44,
+        4,
+        8.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l4",
+      "position": [
+        44,
+        6,
+        8.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    }
+  ],
+  "3000000000064": [
+    {
+      "instance_id": "3000000000064_A07_z15.0_l1",
+      "position": [
+        38,
+        0,
+        15.0
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l2",
+      "position": [
+        38,
+        2,
+        15.0
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l3",
+      "position": [
+        38,
+        4,
+        15.0
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l4",
+      "position": [
+        38,
+        6,
+        15.0
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l1",
+      "position": [
+        44,
+        0,
+        9.0
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l2",
+      "position": [
+        44,
+        2,
+        9.0
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l3",
+      "position": [
+        44,
+        4,
+        9.0
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l4",
+      "position": [
+        44,
+        6,
+        9.0
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 4
+    }
+  ],
+  "3000000000065": [
+    {
+      "instance_id": "3000000000065_A07_z15.5_l1",
+      "position": [
+        38,
+        0,
+        15.5
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l2",
+      "position": [
+        38,
+        2,
+        15.5
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l3",
+      "position": [
+        38,
+        4,
+        15.5
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l4",
+      "position": [
+        38,
+        6,
+        15.5
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l1",
+      "position": [
+        44,
+        0,
+        9.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l2",
+      "position": [
+        44,
+        2,
+        9.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l3",
+      "position": [
+        44,
+        4,
+        9.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l4",
+      "position": [
+        44,
+        6,
+        9.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 3
+    }
+  ],
+  "3000000000066": [
+    {
+      "instance_id": "3000000000066_A07_z16.0_l1",
+      "position": [
+        38,
+        0,
+        16.0
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l2",
+      "position": [
+        38,
+        2,
+        16.0
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l3",
+      "position": [
+        38,
+        4,
+        16.0
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l4",
+      "position": [
+        38,
+        6,
+        16.0
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l1",
+      "position": [
+        44,
+        0,
+        10.0
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l2",
+      "position": [
+        44,
+        2,
+        10.0
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l3",
+      "position": [
+        44,
+        4,
+        10.0
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l4",
+      "position": [
+        44,
+        6,
+        10.0
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 3
+    }
+  ],
+  "3000000000067": [
+    {
+      "instance_id": "3000000000067_A07_z19.5_l1",
+      "position": [
+        38,
+        0,
+        19.5
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l2",
+      "position": [
+        38,
+        1,
+        19.5
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l3",
+      "position": [
+        38,
+        2,
+        19.5
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l4",
+      "position": [
+        38,
+        3,
+        19.5
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l1",
+      "position": [
+        44,
+        0,
+        13.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l2",
+      "position": [
+        44,
+        1,
+        13.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l3",
+      "position": [
+        44,
+        2,
+        13.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l4",
+      "position": [
+        44,
+        3,
+        13.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 2
+    }
+  ],
+  "3000000000068": [
+    {
+      "instance_id": "3000000000068_A07_z22.0_l1",
+      "position": [
+        38,
+        0,
+        22.0
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l2",
+      "position": [
+        38,
+        1,
+        22.0
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l3",
+      "position": [
+        38,
+        2,
+        22.0
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l4",
+      "position": [
+        38,
+        3,
+        22.0
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l1",
+      "position": [
+        44,
+        0,
+        16.0
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l2",
+      "position": [
+        44,
+        1,
+        16.0
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l3",
+      "position": [
+        44,
+        2,
+        16.0
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l4",
+      "position": [
+        44,
+        3,
+        16.0
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 6
+    }
+  ],
+  "3000000000070": [
+    {
+      "instance_id": "3000000000070_A07_z2_l1",
+      "position": [
+        38,
+        0,
+        2
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l2",
+      "position": [
+        38,
+        2,
+        2
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l3",
+      "position": [
+        38,
+        4,
+        2
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l4",
+      "position": [
+        38,
+        6,
+        2
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    }
+  ],
+  "3000000000071": [
+    {
+      "instance_id": "3000000000071_A07_z7.5_l1",
+      "position": [
+        38,
+        0,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l2",
+      "position": [
+        38,
+        2,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l3",
+      "position": [
+        38,
+        4,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l4",
+      "position": [
+        38,
+        6,
+        7.5
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 4
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l1",
+      "position": [
+        44,
+        0,
+        2
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l2",
+      "position": [
+        44,
+        2,
+        2
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l3",
+      "position": [
+        44,
+        4,
+        2
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l4",
+      "position": [
+        44,
+        6,
+        2
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 3
+    }
+  ],
+  "3000000000072": [
+    {
+      "instance_id": "3000000000072_A07_z12.0_l1",
+      "position": [
+        38,
+        0,
+        12.0
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l2",
+      "position": [
+        38,
+        2,
+        12.0
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l3",
+      "position": [
+        38,
+        4,
+        12.0
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l4",
+      "position": [
+        38,
+        6,
+        12.0
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l1",
+      "position": [
+        44,
+        0,
+        5.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l2",
+      "position": [
+        44,
+        2,
+        5.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l3",
+      "position": [
+        44,
+        4,
+        5.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l4",
+      "position": [
+        44,
+        6,
+        5.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    }
+  ],
+  "3000000000073": [
+    {
+      "instance_id": "3000000000073_A07_z14.5_l1",
+      "position": [
+        38,
+        0,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l2",
+      "position": [
+        38,
+        1,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l3",
+      "position": [
+        38,
+        2,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l4",
+      "position": [
+        38,
+        3,
+        14.5
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 2
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l1",
+      "position": [
+        44,
+        0,
+        11.0
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l2",
+      "position": [
+        44,
+        1,
+        11.0
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l3",
+      "position": [
+        44,
+        2,
+        11.0
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 3
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l4",
+      "position": [
+        44,
+        3,
+        11.0
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 3
+    }
+  ],
+  "3000000000074": [
+    {
+      "instance_id": "3000000000074_A07_z17.0_l1",
+      "position": [
+        38,
+        0,
+        17.0
+      ],
+      "shelf": "R07",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l2",
+      "position": [
+        38,
+        2,
+        17.0
+      ],
+      "shelf": "R07",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l3",
+      "position": [
+        38,
+        4,
+        17.0
+      ],
+      "shelf": "R07",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l4",
+      "position": [
+        38,
+        6,
+        17.0
+      ],
+      "shelf": "R07",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l1",
+      "position": [
+        44,
+        0,
+        14.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l2",
+      "position": [
+        44,
+        2,
+        14.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l3",
+      "position": [
+        44,
+        4,
+        14.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 5
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l4",
+      "position": [
+        44,
+        6,
+        14.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 5
+    }
+  ],
+  "3000000000069": [
+    {
+      "instance_id": "3000000000069_A08_z22.5_l1",
+      "position": [
+        44,
+        0,
+        22.5
+      ],
+      "shelf": "R08",
+      "level": 1,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l2",
+      "position": [
+        44,
+        2,
+        22.5
+      ],
+      "shelf": "R08",
+      "level": 2,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l3",
+      "position": [
+        44,
+        4,
+        22.5
+      ],
+      "shelf": "R08",
+      "level": 3,
+      "zone": "hygiene",
+      "facings": 6
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l4",
+      "position": [
+        44,
+        6,
+        22.5
+      ],
+      "shelf": "R08",
+      "level": 4,
+      "zone": "hygiene",
+      "facings": 6
+    }
+  ]
+}

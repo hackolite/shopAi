@@ -1,0 +1,9184 @@
+{
+  "instances": [
+    {
+      "instance_id": "3017620422003_A01_z2_l1",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_A01_z2_l2",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_A01_z2_l3",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_A01_z2_l4",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l1",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 4.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l2",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 4.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l3",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 4.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A01_z4.5_l4",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 4.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l1",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 7.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l2",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 7.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l3",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 7.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A01_z7.0_l4",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 7.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l1",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 10.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l2",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 10.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l3",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 10.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A01_z10.5_l4",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 10.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l1",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l2",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l3",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A01_z17.0_l4",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l1",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 19.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l2",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 3,
+        "z": 19.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l3",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 6,
+        "z": 19.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_A01_z19.5_l4",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 9,
+        "z": 19.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l1",
+      "ean": "3000000000006",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 24.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l2",
+      "ean": "3000000000006",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 24.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l3",
+      "ean": "3000000000006",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 24.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000006_A01_z24.0_l4",
+      "ean": "3000000000006",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 24.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l1",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l2",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l3",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A01_z2_l4",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l1",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 2.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l2",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 2.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l3",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 2.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A01_z2.5_l4",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 2.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l1",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 8.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l2",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 3,
+        "z": 8.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l3",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 6,
+        "z": 8.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000010_A01_z8.0_l4",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 9,
+        "z": 8.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l1",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l2",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 1,
+        "z": 14.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l3",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 2,
+        "z": 14.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000011_A01_z14.5_l4",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 3,
+        "z": 14.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l1",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 15.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l2",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 15.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l3",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 15.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000012_A01_z15.0_l4",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 15.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l1",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 18.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l2",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 1,
+        "z": 18.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l3",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 2,
+        "z": 18.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000013_A01_z18.5_l4",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 3,
+        "z": 18.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l1",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l2",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 1,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l3",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 2,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A01_z19.0_l4",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 3,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l1",
+      "ean": "3000000000015",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l2",
+      "ean": "3000000000015",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 1,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l3",
+      "ean": "3000000000015",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 2,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000015_A01_z22.5_l4",
+      "ean": "3000000000015",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 3,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l1",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l2",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l3",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A01_z2_l4",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l1",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 4.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l2",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 4.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l3",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 4.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A01_z4.5_l4",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 4.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l1",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 10.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l2",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 10.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l3",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 10.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A01_z10.0_l4",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 10.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l1",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 12.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l2",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 3,
+        "z": 12.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l3",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 6,
+        "z": 12.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000020_A01_z12.5_l4",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 9,
+        "z": 12.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l1",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l2",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 2,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l3",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 4,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000021_A01_z17.0_l4",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 6,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l1",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l2",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 3,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l3",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 6,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000022_A01_z22.5_l4",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 9,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l1",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 1,
+        "x": 2,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l2",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 2,
+        "x": 2,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l3",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 3,
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_A01_z2_l4",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R01",
+        "level": 4,
+        "x": 2,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l1",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l2",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l3",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_A02_z2_l4",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l1",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 4.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l2",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 4.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l3",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 4.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000001_A02_z4.5_l4",
+      "ean": "3000000000001",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 4.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l1",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 9.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l2",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 9.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l3",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 9.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_A02_z9.0_l4",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 9.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l1",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l2",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l3",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000003_A02_z12.5_l4",
+      "ean": "3000000000003",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l1",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l2",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l3",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000004_A02_z19.0_l4",
+      "ean": "3000000000004",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l1",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 25.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l2",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 3,
+        "z": 25.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l3",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 6,
+        "z": 25.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_A02_z25.5_l4",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 9,
+        "z": 25.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l1",
+      "ean": "3000000000007",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l2",
+      "ean": "3000000000007",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l3",
+      "ean": "3000000000007",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000007_A02_z2_l4",
+      "ean": "3000000000007",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l1",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 8.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l2",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 8.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l3",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 8.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000008_A02_z8.5_l4",
+      "ean": "3000000000008",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 8.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l1",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l2",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l3",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000009_A02_z9.0_l4",
+      "ean": "3000000000009",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l1",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l2",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 3,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l3",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 6,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000010_A02_z14.5_l4",
+      "ean": "3000000000010",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 9,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l1",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 18.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l2",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 1,
+        "z": 18.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l3",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 2,
+        "z": 18.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000011_A02_z18.0_l4",
+      "ean": "3000000000011",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 3,
+        "z": 18.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l1",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 18.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l2",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 18.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l3",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 18.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000012_A02_z18.5_l4",
+      "ean": "3000000000012",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 18.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l1",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 24.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l2",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 1,
+        "z": 24.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l3",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 2,
+        "z": 24.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000013_A02_z24.0_l4",
+      "ean": "3000000000013",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 3,
+        "z": 24.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l1",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l2",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 1,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l3",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 2,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000014_A02_z24.5_l4",
+      "ean": "3000000000014",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 3,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l1",
+      "ean": "3000000000016",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l2",
+      "ean": "3000000000016",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l3",
+      "ean": "3000000000016",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000016_A02_z2_l4",
+      "ean": "3000000000016",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l1",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 5.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l2",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 5.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l3",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 5.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000017_A02_z5.5_l4",
+      "ean": "3000000000017",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 5.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l1",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 8.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l2",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 8.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l3",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 8.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000018_A02_z8.0_l4",
+      "ean": "3000000000018",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 8.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l1",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 11.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l2",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 11.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l3",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 11.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000019_A02_z11.5_l4",
+      "ean": "3000000000019",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 11.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l1",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l2",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 3,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l3",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 6,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000020_A02_z14.0_l4",
+      "ean": "3000000000020",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 9,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l1",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 19.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l2",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 2,
+        "z": 19.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l3",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 4,
+        "z": 19.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000021_A02_z19.5_l4",
+      "ean": "3000000000021",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 6,
+        "z": 19.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l1",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 25.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l2",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 3,
+        "z": 25.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l3",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 6,
+        "z": 25.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000022_A02_z25.0_l4",
+      "ean": "3000000000022",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 9,
+        "z": 25.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l1",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 1,
+        "x": 8,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l2",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 2,
+        "x": 8,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l3",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 3,
+        "x": 8,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_A02_z2_l4",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "epicerie",
+        "shelf": "R02",
+        "level": 4,
+        "x": 8,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000025_A03_z2_l1",
+      "ean": "3000000000025",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000025_A03_z2_l2",
+      "ean": "3000000000025",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000025_A03_z2_l3",
+      "ean": "3000000000025",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 8,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000026_A03_z7.5_l1",
+      "ean": "3000000000026",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 7.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000026_A03_z7.5_l2",
+      "ean": "3000000000026",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 4,
+        "z": 7.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000026_A03_z7.5_l3",
+      "ean": "3000000000026",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 8,
+        "z": 7.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000027_A03_z11.0_l1",
+      "ean": "3000000000027",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000027_A03_z11.0_l2",
+      "ean": "3000000000027",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000027_A03_z11.0_l3",
+      "ean": "3000000000027",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000028_A03_z14.5_l1",
+      "ean": "3000000000028",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000028_A03_z14.5_l2",
+      "ean": "3000000000028",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000028_A03_z14.5_l3",
+      "ean": "3000000000028",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 14.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000029_A03_z18.0_l1",
+      "ean": "3000000000029",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000029_A03_z18.0_l2",
+      "ean": "3000000000029",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000029_A03_z18.0_l3",
+      "ean": "3000000000029",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_A03_z22.5_l1",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_A03_z22.5_l2",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_A03_z22.5_l3",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000031_A03_z25.0_l1",
+      "ean": "3000000000031",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 25.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000031_A03_z25.0_l2",
+      "ean": "3000000000031",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 25.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000031_A03_z25.0_l3",
+      "ean": "3000000000031",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 25.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000033_A03_z2_l1",
+      "ean": "3000000000033",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000033_A03_z2_l2",
+      "ean": "3000000000033",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000033_A03_z2_l3",
+      "ean": "3000000000033",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000034_A03_z6.5_l1",
+      "ean": "3000000000034",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 6.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000034_A03_z6.5_l2",
+      "ean": "3000000000034",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 2,
+        "z": 6.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000034_A03_z6.5_l3",
+      "ean": "3000000000034",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 4,
+        "z": 6.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000035_A03_z13.0_l1",
+      "ean": "3000000000035",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 13.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000035_A03_z13.0_l2",
+      "ean": "3000000000035",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 1,
+        "z": 13.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000035_A03_z13.0_l3",
+      "ean": "3000000000035",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 2,
+        "z": 13.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000036_A03_z17.5_l1",
+      "ean": "3000000000036",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 17.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000036_A03_z17.5_l2",
+      "ean": "3000000000036",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 1,
+        "z": 17.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000036_A03_z17.5_l3",
+      "ean": "3000000000036",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 2,
+        "z": 17.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000037_A03_z22.0_l1",
+      "ean": "3000000000037",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 22.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000037_A03_z22.0_l2",
+      "ean": "3000000000037",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 22.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000037_A03_z22.0_l3",
+      "ean": "3000000000037",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 22.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000039_A03_z2_l1",
+      "ean": "3000000000039",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000039_A03_z2_l2",
+      "ean": "3000000000039",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000039_A03_z2_l3",
+      "ean": "3000000000039",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000040_A03_z8.5_l1",
+      "ean": "3000000000040",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 8.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000040_A03_z8.5_l2",
+      "ean": "3000000000040",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 2,
+        "z": 8.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000040_A03_z8.5_l3",
+      "ean": "3000000000040",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 4,
+        "z": 8.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000041_A03_z13.0_l1",
+      "ean": "3000000000041",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 13.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000041_A03_z13.0_l2",
+      "ean": "3000000000041",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 2,
+        "z": 13.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000041_A03_z13.0_l3",
+      "ean": "3000000000041",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 4,
+        "z": 13.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000042_A03_z16.5_l1",
+      "ean": "3000000000042",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 16.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000042_A03_z16.5_l2",
+      "ean": "3000000000042",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 16.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000042_A03_z16.5_l3",
+      "ean": "3000000000042",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 16.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000043_A03_z19.0_l1",
+      "ean": "3000000000043",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000043_A03_z19.0_l2",
+      "ean": "3000000000043",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 2,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000043_A03_z19.0_l3",
+      "ean": "3000000000043",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 4,
+        "z": 19.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000044_A03_z25.5_l1",
+      "ean": "3000000000044",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 1,
+        "x": 14,
+        "y": 0,
+        "z": 25.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000044_A03_z25.5_l2",
+      "ean": "3000000000044",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 2,
+        "x": 14,
+        "y": 3,
+        "z": 25.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000044_A03_z25.5_l3",
+      "ean": "3000000000044",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R03",
+        "level": 3,
+        "x": 14,
+        "y": 6,
+        "z": 25.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000025_A04_z2_l1",
+      "ean": "3000000000025",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000025_A04_z2_l2",
+      "ean": "3000000000025",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000025_A04_z2_l3",
+      "ean": "3000000000025",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 8,
+        "z": 2
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000026_A04_z6.5_l1",
+      "ean": "3000000000026",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 6.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000026_A04_z6.5_l2",
+      "ean": "3000000000026",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 4,
+        "z": 6.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000026_A04_z6.5_l3",
+      "ean": "3000000000026",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 8,
+        "z": 6.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 4
+      }
+    },
+    {
+      "instance_id": "3000000000027_A04_z9.0_l1",
+      "ean": "3000000000027",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000027_A04_z9.0_l2",
+      "ean": "3000000000027",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000027_A04_z9.0_l3",
+      "ean": "3000000000027",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 9.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000028_A04_z14.5_l1",
+      "ean": "3000000000028",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000028_A04_z14.5_l2",
+      "ean": "3000000000028",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000028_A04_z14.5_l3",
+      "ean": "3000000000028",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000029_A04_z17.0_l1",
+      "ean": "3000000000029",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000029_A04_z17.0_l2",
+      "ean": "3000000000029",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000029_A04_z17.0_l3",
+      "ean": "3000000000029",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 17.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_A04_z19.5_l1",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 19.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_A04_z19.5_l2",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 19.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_A04_z19.5_l3",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 19.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000031_A04_z26.0_l1",
+      "ean": "3000000000031",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 26.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000031_A04_z26.0_l2",
+      "ean": "3000000000031",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 26.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000031_A04_z26.0_l3",
+      "ean": "3000000000031",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 26.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000033_A04_z2_l1",
+      "ean": "3000000000033",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000033_A04_z2_l2",
+      "ean": "3000000000033",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000033_A04_z2_l3",
+      "ean": "3000000000033",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000034_A04_z5.5_l1",
+      "ean": "3000000000034",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 5.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000034_A04_z5.5_l2",
+      "ean": "3000000000034",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 2,
+        "z": 5.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000034_A04_z5.5_l3",
+      "ean": "3000000000034",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 4,
+        "z": 5.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000035_A04_z9.0_l1",
+      "ean": "3000000000035",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 9.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000035_A04_z9.0_l2",
+      "ean": "3000000000035",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 1,
+        "z": 9.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000035_A04_z9.0_l3",
+      "ean": "3000000000035",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 2,
+        "z": 9.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000036_A04_z15.5_l1",
+      "ean": "3000000000036",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 15.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000036_A04_z15.5_l2",
+      "ean": "3000000000036",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 1,
+        "z": 15.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000036_A04_z15.5_l3",
+      "ean": "3000000000036",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 2,
+        "z": 15.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000037_A04_z22.0_l1",
+      "ean": "3000000000037",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 22.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000037_A04_z22.0_l2",
+      "ean": "3000000000037",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 22.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000037_A04_z22.0_l3",
+      "ean": "3000000000037",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 22.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000039_A04_z2_l1",
+      "ean": "3000000000039",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000039_A04_z2_l2",
+      "ean": "3000000000039",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000039_A04_z2_l3",
+      "ean": "3000000000039",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000040_A04_z5.5_l1",
+      "ean": "3000000000040",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 5.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000040_A04_z5.5_l2",
+      "ean": "3000000000040",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 2,
+        "z": 5.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000040_A04_z5.5_l3",
+      "ean": "3000000000040",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 4,
+        "z": 5.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000041_A04_z9.0_l1",
+      "ean": "3000000000041",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 9.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000041_A04_z9.0_l2",
+      "ean": "3000000000041",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 2,
+        "z": 9.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000041_A04_z9.0_l3",
+      "ean": "3000000000041",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 4,
+        "z": 9.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000042_A04_z11.5_l1",
+      "ean": "3000000000042",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 11.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000042_A04_z11.5_l2",
+      "ean": "3000000000042",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 11.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000042_A04_z11.5_l3",
+      "ean": "3000000000042",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 11.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000043_A04_z17.0_l1",
+      "ean": "3000000000043",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 17.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000043_A04_z17.0_l2",
+      "ean": "3000000000043",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 2,
+        "z": 17.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000043_A04_z17.0_l3",
+      "ean": "3000000000043",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 4,
+        "z": 17.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000044_A04_z23.5_l1",
+      "ean": "3000000000044",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 1,
+        "x": 20,
+        "y": 0,
+        "z": 23.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000044_A04_z23.5_l2",
+      "ean": "3000000000044",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 2,
+        "x": 20,
+        "y": 3,
+        "z": 23.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000044_A04_z23.5_l3",
+      "ean": "3000000000044",
+      "location": {
+        "zone": "boisson",
+        "shelf": "R04",
+        "level": 3,
+        "x": 20,
+        "y": 6,
+        "z": 23.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l1",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l2",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l3",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A05_z2_l4",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l1",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 2.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l2",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 2.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l3",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 2.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A05_z2.5_l4",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 2.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l1",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 6.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l2",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 6.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l3",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 6.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A05_z6.0_l4",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 6.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l1",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l2",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l3",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A05_z12.5_l4",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 12.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l1",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l2",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l3",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A05_z19.0_l4",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 19.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l1",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l2",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l3",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A05_z22.5_l4",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 22.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l1",
+      "ean": "3000000000051",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 25.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l2",
+      "ean": "3000000000051",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 25.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l3",
+      "ean": "3000000000051",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 25.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000051_A05_z25.0_l4",
+      "ean": "3000000000051",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 25.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l1",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l2",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l3",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A05_z2_l4",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l1",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 7.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l2",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 7.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l3",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 7.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A05_z7.5_l4",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 7.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l1",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l2",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l3",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A05_z10.0_l4",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l1",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 13.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l2",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 13.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l3",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 13.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A05_z13.5_l4",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 13.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l1",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l2",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l3",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A05_z17.0_l4",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l1",
+      "ean": "3000000000058",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 1,
+        "x": 26,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l2",
+      "ean": "3000000000058",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 2,
+        "x": 26,
+        "y": 1,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l3",
+      "ean": "3000000000058",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 3,
+        "x": 26,
+        "y": 2,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000058_A05_z22.5_l4",
+      "ean": "3000000000058",
+      "location": {
+        "zone": "frais",
+        "shelf": "R05",
+        "level": 4,
+        "x": 26,
+        "y": 3,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l1",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l2",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l3",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000045_A06_z2_l4",
+      "ean": "3000000000045",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l1",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 2.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l2",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 2.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l3",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 2.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000046_A06_z2.5_l4",
+      "ean": "3000000000046",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 2.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l1",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 5.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l2",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 5.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l3",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 5.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000047_A06_z5.0_l4",
+      "ean": "3000000000047",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 5.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l1",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 11.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l2",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 11.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l3",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 11.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000048_A06_z11.5_l4",
+      "ean": "3000000000048",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 11.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l1",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l2",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l3",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000049_A06_z18.0_l4",
+      "ean": "3000000000049",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 18.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l1",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l2",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l3",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000050_A06_z22.5_l4",
+      "ean": "3000000000050",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 22.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l1",
+      "ean": "3000000000052",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l2",
+      "ean": "3000000000052",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l3",
+      "ean": "3000000000052",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000052_A06_z2_l4",
+      "ean": "3000000000052",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l1",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l2",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l3",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000053_A06_z7.5_l4",
+      "ean": "3000000000053",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l1",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 12.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l2",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 12.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l3",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 12.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000054_A06_z12.0_l4",
+      "ean": "3000000000054",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 12.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l1",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 16.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l2",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 16.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l3",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 16.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000055_A06_z16.5_l4",
+      "ean": "3000000000055",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 16.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l1",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 20.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l2",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 20.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l3",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 20.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000056_A06_z20.0_l4",
+      "ean": "3000000000056",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 20.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l1",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l2",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l3",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000057_A06_z24.5_l4",
+      "ean": "3000000000057",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 24.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l1",
+      "ean": "3000000000059",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 1,
+        "x": 32,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l2",
+      "ean": "3000000000059",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 2,
+        "x": 32,
+        "y": 1,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l3",
+      "ean": "3000000000059",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 3,
+        "x": 32,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000059_A06_z2_l4",
+      "ean": "3000000000059",
+      "location": {
+        "zone": "frais",
+        "shelf": "R06",
+        "level": 4,
+        "x": 32,
+        "y": 3,
+        "z": 2
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 2,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l1",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l2",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l3",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A07_z2_l4",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l1",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 7.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l2",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 7.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l3",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 7.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A07_z7.5_l4",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 7.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l1",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l2",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l3",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A07_z14.0_l4",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 14.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l1",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l2",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l3",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A07_z14.5_l4",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l1",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 15.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l2",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 15.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l3",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 15.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A07_z15.0_l4",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 15.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l1",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 15.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l2",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 15.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l3",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 15.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A07_z15.5_l4",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 15.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l1",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 16.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l2",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 16.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l3",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 16.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A07_z16.0_l4",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 16.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l1",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 19.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l2",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 1,
+        "z": 19.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l3",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 2,
+        "z": 19.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000067_A07_z19.5_l4",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 3,
+        "z": 19.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l1",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 22.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l2",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 1,
+        "z": 22.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l3",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 2,
+        "z": 22.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A07_z22.0_l4",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 3,
+        "z": 22.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l1",
+      "ean": "3000000000070",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l2",
+      "ean": "3000000000070",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l3",
+      "ean": "3000000000070",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000070_A07_z2_l4",
+      "ean": "3000000000070",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l1",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l2",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l3",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A07_z7.5_l4",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 7.5
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l1",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 12.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l2",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 12.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l3",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 12.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A07_z12.0_l4",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 12.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l1",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l2",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 1,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l3",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 2,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000073_A07_z14.5_l4",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 3,
+        "z": 14.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l1",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 1,
+        "x": 38,
+        "y": 0,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l2",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 2,
+        "x": 38,
+        "y": 2,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l3",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 3,
+        "x": 38,
+        "y": 4,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000074_A07_z17.0_l4",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R07",
+        "level": 4,
+        "x": 38,
+        "y": 6,
+        "z": 17.0
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l1",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l2",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l3",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000060_A08_z2_l4",
+      "ean": "3000000000060",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l1",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 4.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l2",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 4.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l3",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 4.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000061_A08_z4.5_l4",
+      "ean": "3000000000061",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 4.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l1",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 8.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l2",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 8.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l3",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 8.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000062_A08_z8.0_l4",
+      "ean": "3000000000062",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 8.0
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l1",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 8.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l2",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 8.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l3",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 8.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000063_A08_z8.5_l4",
+      "ean": "3000000000063",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 8.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l1",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 9.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l2",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 9.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l3",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 9.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000064_A08_z9.0_l4",
+      "ean": "3000000000064",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 9.0
+      },
+      "facings": 4,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l1",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 9.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l2",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 9.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l3",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 9.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000065_A08_z9.5_l4",
+      "ean": "3000000000065",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 9.5
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l1",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l2",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l3",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000066_A08_z10.0_l4",
+      "ean": "3000000000066",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 10.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l1",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 13.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l2",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 1,
+        "z": 13.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l3",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 2,
+        "z": 13.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000067_A08_z13.5_l4",
+      "ean": "3000000000067",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 3,
+        "z": 13.5
+      },
+      "facings": 2,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l1",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 16.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l2",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 1,
+        "z": 16.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l3",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 2,
+        "z": 16.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000068_A08_z16.0_l4",
+      "ean": "3000000000068",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 3,
+        "z": 16.0
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l1",
+      "ean": "3000000000069",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 22.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l2",
+      "ean": "3000000000069",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 22.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l3",
+      "ean": "3000000000069",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 22.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000069_A08_z22.5_l4",
+      "ean": "3000000000069",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 22.5
+      },
+      "facings": 6,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l1",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l2",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l3",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000071_A08_z2_l4",
+      "ean": "3000000000071",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 2
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l1",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 5.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l2",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 5.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l3",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 5.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000072_A08_z5.5_l4",
+      "ean": "3000000000072",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 5.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l1",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l2",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 1,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l3",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 2,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000073_A08_z11.0_l4",
+      "ean": "3000000000073",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 3,
+        "z": 11.0
+      },
+      "facings": 3,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l1",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 1,
+        "x": 44,
+        "y": 0,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l2",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 2,
+        "x": 44,
+        "y": 2,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l3",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 3,
+        "x": 44,
+        "y": 4,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000074_A08_z14.5_l4",
+      "ean": "3000000000074",
+      "location": {
+        "zone": "hygiene",
+        "shelf": "R08",
+        "level": 4,
+        "x": 44,
+        "y": 6,
+        "z": 14.5
+      },
+      "facings": 5,
+      "dimensions_units": {
+        "width": 3,
+        "depth": 3,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_PROMO_0_l1",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 1,
+        "x": 15,
+        "y": 0,
+        "z": 1
+      },
+      "facings": 10,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3017620422003_PROMO_0_l2",
+      "ean": "3017620422003",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 2,
+        "x": 15,
+        "y": 2,
+        "z": 1
+      },
+      "facings": 10,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_PROMO_1_l1",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 1,
+        "x": 19,
+        "y": 0,
+        "z": 1
+      },
+      "facings": 11,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000002_PROMO_1_l2",
+      "ean": "3000000000002",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 2,
+        "x": 19,
+        "y": 2,
+        "z": 1
+      },
+      "facings": 11,
+      "dimensions_units": {
+        "width": 2,
+        "depth": 1,
+        "height": 2
+      }
+    },
+    {
+      "instance_id": "3000000000005_PROMO_2_l1",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 1,
+        "x": 23,
+        "y": 0,
+        "z": 1
+      },
+      "facings": 8,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000005_PROMO_2_l2",
+      "ean": "3000000000005",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 2,
+        "x": 23,
+        "y": 3,
+        "z": 1
+      },
+      "facings": 8,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000024_PROMO_3_l1",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 1,
+        "x": 27,
+        "y": 0,
+        "z": 1
+      },
+      "facings": 10,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000024_PROMO_3_l2",
+      "ean": "3000000000024",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 2,
+        "x": 27,
+        "y": 1,
+        "z": 1
+      },
+      "facings": 10,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 1
+      }
+    },
+    {
+      "instance_id": "3000000000030_PROMO_4_l1",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 1,
+        "x": 31,
+        "y": 0,
+        "z": 1
+      },
+      "facings": 10,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    },
+    {
+      "instance_id": "3000000000030_PROMO_4_l2",
+      "ean": "3000000000030",
+      "location": {
+        "zone": "promotion",
+        "shelf": "PROMO01",
+        "level": 2,
+        "x": 31,
+        "y": 3,
+        "z": 1
+      },
+      "facings": 10,
+      "dimensions_units": {
+        "width": 1,
+        "depth": 1,
+        "height": 3
+      }
+    }
+  ]
+}

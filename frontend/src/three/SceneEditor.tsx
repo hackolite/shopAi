@@ -20,6 +20,18 @@ const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 const MIN_DIM_CM = 20;
 /** Round a centimetre value to the nearest snap grid step. */
 const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
+/**
+ * How much larger (multiplier) the grid plane is than the store footprint,
+ * so it visually extends past the walls on all sides.
+ */
+const GRID_SIZE_MULTIPLIER = 1.4;
+/**
+ * Fade-out distance multiplier for the Grid component relative to the store's
+ * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
+ */
+const GRID_FADE_MULTIPLIER = 1.8;
+/** Shared up-vector reused across components to avoid per-render allocations. */
+const UP_VEC3 = new THREE.Vector3(0, 1, 0);
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -300,18 +312,26 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
   const currentFurRef = useRef<FurnitureInstance>(furniture);
   currentFurRef.current = furniture;
 
-  /** Horizontal Y=0 plane used for raycasting during a drag. */
-  const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  // Pre-allocated vectors reused every pointermove to reduce GC pressure.
+  const _lx    = useRef(new THREE.Vector3());
+  const _lz    = useRef(new THREE.Vector3());
+  const _hit   = useRef(new THREE.Vector3());
+  const _delta = useRef(new THREE.Vector3());
+  const _ndc   = useRef(new THREE.Vector2());
 
-  /** Convert pointer screen coords → world-space point on the drag plane. */
-  const getHitPoint = useCallback((clientX: number, clientY: number): THREE.Vector3 => {
+  /** Horizontal Y=0 plane used for raycasting during a drag. */
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  /** Write the world-space hit point on the drag plane into `out` and return it. */
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): THREE.Vector3 => {
     const rect = gl.domElement.getBoundingClientRect();
-    const nx = ((clientX - rect.left) / rect.width)  *  2 - 1;
-    const ny = -((clientY - rect.top)  / rect.height) *  2 + 1;
-    raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
-    const hit = new THREE.Vector3();
-    raycaster.ray.intersectPlane(dragPlane, hit);
-    return hit;
+    _ndc.current.set(
+      ((clientX - rect.left) / rect.width)  *  2 - 1,
+      -((clientY - rect.top)  / rect.height) *  2 + 1,
+    );
+    raycaster.setFromCamera(_ndc.current, camera);
+    raycaster.ray.intersectPlane(dragPlane, out);
+    return out;
   }, [gl, raycaster, camera, dragPlane]);
 
   /** Called from each handle's pointerDown handler. */
@@ -327,7 +347,7 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
-    dragStart.current.copy(getHitPoint(clientX, clientY));
+    getHitPoint(clientX, clientY, dragStart.current);
   }, [getHitPoint]);
 
   useEffect(() => {
@@ -339,19 +359,19 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
       const bD  = base.dimensions.depth  * CM_TO_UNIT;
       const bRy = base.rotation[1] * (Math.PI / 180);
 
-      // Local axes of the furniture in world space.
-      const lx = new THREE.Vector3( Math.cos(bRy), 0, Math.sin(bRy));
-      const lz = new THREE.Vector3(-Math.sin(bRy), 0, Math.cos(bRy));
+      // Local axes of the furniture in world space (reused vectors).
+      const lx = _lx.current.set( Math.cos(bRy), 0, Math.sin(bRy));
+      const lz = _lz.current.set(-Math.sin(bRy), 0, Math.cos(bRy));
 
       const bCx = base.position[0] * CM_TO_UNIT + bW / 2;
       const bCz = base.position[2] * CM_TO_UNIT + bD / 2;
 
-      const hit   = getHitPoint(e.clientX, e.clientY);
-      const delta = hit.clone().sub(dragStart.current);
+      const hit   = getHitPoint(e.clientX, e.clientY, _hit.current);
+      const delta = _delta.current.copy(hit).sub(dragStart.current);
       const sign  = dragSign.current;
 
-      let newDims = { ...base.dimensions };
-      let newPos  = [...base.position] as [number, number, number];
+      const newDims = { ...base.dimensions };
+      const newPos  = [...base.position] as [number, number, number];
 
       if (dragAxis.current === 'width') {
         // How much the dragged face moved (positive = outward).
@@ -384,7 +404,11 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
 
       // Release pointer capture explicitly.
       if (pointerIdRef.current >= 0) {
-        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        try {
+          gl.domElement.releasePointerCapture(pointerIdRef.current);
+        } catch (err) {
+          console.warn('releasePointerCapture failed:', err);
+        }
         pointerIdRef.current = -1;
       }
 
@@ -479,7 +503,7 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
-  const size = Math.ceil(Math.max(w, d) * 1.4);
+  const size = Math.ceil(Math.max(w, d) * GRID_SIZE_MULTIPLIER);
 
   return (
     <group>
@@ -499,7 +523,7 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         sectionSize={1.0}
         sectionThickness={0.9}
         sectionColor="#2a4a6a"
-        fadeDistance={Math.max(w, d) * 1.8}
+        fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
         fadeStrength={1.2}
         infiniteGrid={false}
       />

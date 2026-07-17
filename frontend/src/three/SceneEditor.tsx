@@ -96,6 +96,26 @@ const OVERLAY_Z_OFFSET = 0.002;
 /** Opacity of the planogram face overlay. */
 const OVERLAY_OPACITY  = 0.85;
 
+/**
+ * Per-face Euler rotation [rx, ry, rz] (XYZ order) that places the proximity
+ * half-disc flat on the floor with the curved arc extending away from the gondola
+ * face toward the customer.
+ *
+ * Derivation: circleGeometry lies in the XY plane (normal = +Z, arc midpoint = +Y).
+ * The Euler XYZ matrix Rx(rx)·Ry(ry)·Rz(rz) was solved analytically so that:
+ *  - the circle's normal (+Z) maps to ±Y  → disc is horizontal
+ *  - the arc midpoint (+Y) maps to the outward aisle direction per face
+ *
+ *  front → arc in local +Z  |  back → arc in local -Z
+ *  right → arc in local +X  |  left → arc in local -X
+ */
+const SEMI_ROT: Record<string, [number, number, number]> = {
+  front: [ Math.PI / 2, 0,             0           ],
+  back:  [ Math.PI / 2, 0,             Math.PI     ],
+  right: [-Math.PI / 2, 0,            -Math.PI / 2 ],
+  left:  [-Math.PI / 2, 0,             Math.PI / 2 ],
+};
+
 // ─── 3D text sprite (captured by canvas.captureStream unlike Html overlays) ───
 function makeTextTexture(text: string, isSelected = false): THREE.CanvasTexture {
   const fontSize = 16;
@@ -242,6 +262,17 @@ function PlanogramFaceOverlay({
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);
     if (!cell) return;
     event.stopPropagation();
+
+    // Second click on the same cell → deselect and hide the proximity disc
+    if (
+      selection.type === 'planogram_cell' &&
+      selection.planogramId === planogram.id &&
+      selection.cellIds?.includes(cell.id)
+    ) {
+      setSelection({ type: null });
+      return;
+    }
+
     setSelection({
       type: 'planogram_cell',
       ean: cell.ean,
@@ -249,7 +280,7 @@ function PlanogramFaceOverlay({
       planogramId: planogram.id,
       cellIds: [cell.id],
     });
-  }, [planogram, setSelection, setRequestOpenPlanogramId]);
+  }, [planogram, selection, setSelection, setRequestOpenPlanogramId]);
 
   if (!texture) return null;
 
@@ -340,18 +371,19 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         .find(([, pid]) => pid === selection.planogramId)?.[0] ?? 'front'
     : 'front';
 
+  // Per-face Euler rotation is defined at module level as SEMI_ROT.
   // Fallback semi-circle config (gondola centre) used when planogram data is unavailable.
-  const defaultSemiCircleConfig: Record<string, { pos: [number, number, number]; yRot: number }> = {
-    front: { pos: [0,      -H / 2 + 0.02,  D / 2], yRot: 0            },
-    back:  { pos: [0,      -H / 2 + 0.02, -D / 2], yRot: Math.PI      },
-    right: { pos: [ W / 2, -H / 2 + 0.02, 0     ], yRot:  Math.PI / 2 },
-    left:  { pos: [-W / 2, -H / 2 + 0.02, 0     ], yRot: -Math.PI / 2 },
+  const defaultSemiCircleConfig: Record<string, { pos: [number, number, number]; rot: [number, number, number] }> = {
+    front: { pos: [0,      -H / 2 + 0.02,  D / 2], rot: SEMI_ROT.front },
+    back:  { pos: [0,      -H / 2 + 0.02, -D / 2], rot: SEMI_ROT.back  },
+    right: { pos: [ W / 2, -H / 2 + 0.02, 0     ], rot: SEMI_ROT.right },
+    left:  { pos: [-W / 2, -H / 2 + 0.02, 0     ], rot: SEMI_ROT.left  },
   };
 
   // Compute per-cell semi-circle config when a product cell is selected.
   // The cell lookup is O(n) but only runs when isProductSelected is true and
   // planogram cells are typically small (<200 items), so no memoisation needed.
-  type SemiConfig = Record<string, { pos: [number, number, number]; yRot: number }>;
+  type SemiConfig = Record<string, { pos: [number, number, number]; rot: [number, number, number] }>;
 
   const computedSemiCircleConfig: SemiConfig | null = (() => {
     if (!isProductSelected || !selection.planogramId || !selection.cellIds?.length) return null;
@@ -367,10 +399,10 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     const cellZr = D / 2 - t * D;   // right: col=0 → local +Z
     const cellZl = t * D - D / 2;   // left: mirrored in Z relative to right
     return {
-      front: { pos: [cellXf,  -H / 2 + 0.02,  D / 2] as [number, number, number], yRot: 0            },
-      back:  { pos: [cellXb,  -H / 2 + 0.02, -D / 2] as [number, number, number], yRot: Math.PI      },
-      right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr] as [number, number, number], yRot:  Math.PI / 2 },
-      left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl] as [number, number, number], yRot: -Math.PI / 2 },
+      front: { pos: [cellXf,  -H / 2 + 0.02,  D / 2]  as [number, number, number], rot: SEMI_ROT.front },
+      back:  { pos: [cellXb,  -H / 2 + 0.02, -D / 2]  as [number, number, number], rot: SEMI_ROT.back  },
+      right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr] as [number, number, number], rot: SEMI_ROT.right },
+      left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl] as [number, number, number], rot: SEMI_ROT.left  },
     };
   })();
 
@@ -432,7 +464,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
       {/* Customer proximity semi-circle — 2 m radius, shown when a product cell on this
           gondola is selected. Flat edge = gondola face; arc extends into the aisle. */}
       {isProductSelected && (
-        <mesh position={scc.pos} rotation={[Math.PI / 2, scc.yRot, 0]}>
+        <mesh position={scc.pos} rotation={scc.rot}>
           <circleGeometry args={[2, 64, 0, Math.PI]} />
           <meshBasicMaterial color="#ff69b4" transparent opacity={0.28} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>

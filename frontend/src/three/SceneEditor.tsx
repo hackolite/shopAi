@@ -1461,6 +1461,8 @@ function MeasureTool({ store }: { store: StoreConfig }) {
 
   if (activeTool !== 'measure') return null;
 
+  const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width * CM_TO_UNIT;
   const d = store.dimensions.depth * CM_TO_UNIT;
 
@@ -1510,7 +1512,7 @@ function MeasureTool({ store }: { store: StoreConfig }) {
       {/* Invisible floor plane — receives all floor interactions */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[w / 2, GRID_Y_OFFSET + 0.02, d / 2]}
+        position={[storeOriginX + w / 2, GRID_Y_OFFSET + 0.02, storeOriginZ + d / 2]}
         onClick={handleFloorClick}
         onPointerMove={handleFloorPointerMove}
       >

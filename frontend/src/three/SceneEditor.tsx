@@ -109,7 +109,7 @@ const OVERLAY_OPACITY  = 0.85;
  *  front → arc in local +Z  |  back → arc in local -Z
  *  right → arc in local +X  |  left → arc in local -X
  */
-const SEMI_ROT: Record<string, [number, number, number]> = {
+const SEMI_ROT: Record<'front' | 'back' | 'right' | 'left', [number, number, number]> = {
   front: [ Math.PI / 2, 0,             0           ],
   back:  [ Math.PI / 2, 0,             Math.PI     ],
   right: [-Math.PI / 2, 0,            -Math.PI / 2 ],
@@ -193,19 +193,16 @@ function PlanogramFaceOverlay({
   face: OverlayFace;
 }) {
   const { planogramDetails } = usePlanogramStore();
-  const setSelection = useSceneStore((state) => state.setSelection);
-  const selection    = useSceneStore((state) => state.selection);
+  const setSelection    = useSceneStore((state) => state.setSelection);
+  const selType         = useSceneStore((state) => state.selection.type);
+  const selPlanogramId  = useSceneStore((state) => state.selection.planogramId);
+  const selCellIds      = useSceneStore((state) => state.selection.cellIds);
+  const selectedCellId  = selType === 'planogram_cell' && selPlanogramId === planogramId && selCellIds?.length === 1
+    ? selCellIds[0]
+    : null;
   const setRequestOpenPlanogramId = usePlanogramStore((state) => state.setRequestOpenPlanogramId);
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
-
-  // ID of the selected cell within THIS planogram (null if selection is elsewhere)
-  const selectedCellId =
-    selection.type === 'planogram_cell' &&
-    selection.planogramId === planogramId &&
-    selection.cellIds?.length === 1
-      ? selection.cellIds[0]
-      : null;
 
   const texture = useMemo(() => {
     if (!planogram) return null;
@@ -265,9 +262,9 @@ function PlanogramFaceOverlay({
 
     // Second click on the same cell → deselect and hide the proximity disc
     if (
-      selection.type === 'planogram_cell' &&
-      selection.planogramId === planogram.id &&
-      selection.cellIds?.includes(cell.id)
+      selType === 'planogram_cell' &&
+      selPlanogramId === planogram.id &&
+      selCellIds?.includes(cell.id)
     ) {
       setSelection({ type: null });
       return;
@@ -280,7 +277,7 @@ function PlanogramFaceOverlay({
       planogramId: planogram.id,
       cellIds: [cell.id],
     });
-  }, [planogram, selection, setSelection, setRequestOpenPlanogramId]);
+  }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId]);
 
   if (!texture) return null;
 

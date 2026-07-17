@@ -4,7 +4,21 @@ import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
-import type { FurnitureInstance, FaceId } from '../../types/cad';
+import type { Dimensions, FurnitureInstance, FaceId } from '../../types/cad';
+
+/** Returns the physical canvas dimensions (cm) available on a given face. */
+function getFaceAllowedDims(faceId: FaceId, dims: Dimensions): { widthCm: number; heightCm: number } {
+  switch (faceId) {
+    case 'left':
+    case 'right':
+      return { widthCm: dims.depth, heightCm: dims.height };
+    case 'top':
+    case 'bottom':
+      return { widthCm: dims.width, heightCm: dims.depth };
+    default: // front / back
+      return { widthCm: dims.width, heightCm: dims.height };
+  }
+}
 
 const FACE_LABELS: Record<FaceId, string> = {
   front:  'Face avant',
@@ -62,8 +76,9 @@ interface FurnitureInspectorProps {
 
 function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: FurnitureInspectorProps) {
   const { updateFurniture } = useSceneStore();
-  const { planograms }      = usePlanogramStore();
+  const { planograms, updatePlanogramDimensions } = usePlanogramStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dimsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const save = (updated: FurnitureInstance) => {
     updateFurniture(updated);
@@ -75,6 +90,27 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
     }, 500);
   };
 
+  /** After a dimension change, sync all face planograms to the new face size. */
+  const syncFacePlanograms = (newDims: FurnitureInstance['dimensions']) => {
+    if (!projectId) return;
+    if (dimsTimer.current) clearTimeout(dimsTimer.current);
+    dimsTimer.current = setTimeout(() => {
+      const faceEntries = Object.entries(furniture.faces) as [FaceId, string | null][];
+      for (const [faceId, planogramId] of faceEntries) {
+        if (!planogramId) continue;
+        const { widthCm, heightCm } = getFaceAllowedDims(faceId, newDims);
+        updatePlanogramDimensions(planogramId, widthCm, heightCm);
+        cadApi
+          .getPlanogram(projectId, planogramId)
+          .then((p) => {
+            const updated = { ...p, widthCm, heightCm };
+            return cadApi.updatePlanogram(projectId, planogramId, updated);
+          })
+          .catch(console.error);
+      }
+    }, 500);
+  };
+
   const setPos = (axis: 0 | 1 | 2, v: number) => {
     const p = [...furniture.position] as [number, number, number];
     p[axis] = v;
@@ -82,7 +118,9 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   };
 
   const setDim = (key: 'width' | 'depth' | 'height', v: number) => {
-    save({ ...furniture, dimensions: { ...furniture.dimensions, [key]: v } });
+    const newDims = { ...furniture.dimensions, [key]: v };
+    save({ ...furniture, dimensions: newDims });
+    syncFacePlanograms(newDims);
   };
 
   const setRotY = (v: number) => {

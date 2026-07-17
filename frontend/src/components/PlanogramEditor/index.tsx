@@ -102,6 +102,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const productByEan = new Map(products.map((p) => [p.ean, p] as const));
 
+  // ── Physical cell dimensions (cm) ────────────────────────────────────────
+  const physCellW = planogram ? planogram.widthCm  / planogram.cols : 0;
+  const physCellH = planogram ? planogram.heightCm / planogram.rows : 0;
+
   // ── Overflow detection ───────────────────────────────────────────────────
   const furniture = planogram
     ? scene?.furniture.find(f => f.id === planogram.furnitureId)
@@ -110,6 +114,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const isOverflowing = planogram && furniture
     ? planogram.widthCm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
       planogram.heightCm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
+    : false;
+
+  // ── Add-row / add-col guards (stay within 3D furniture bounds) ───────────
+  const canAddRow = planogram
+    ? !furniture || (planogram.heightCm + physCellH <= furniture.dimensions.height + OVERFLOW_TOLERANCE_CM)
+    : false;
+  const canAddCol = planogram
+    ? !furniture || (planogram.widthCm  + physCellW <= furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM)
     : false;
 
   // ── Load planogram ───────────────────────────────────────────────────────
@@ -177,6 +189,45 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       scheduleSave(last);
       return prev.slice(0, -1);
     });
+  };
+
+  // ── Row / column management ──────────────────────────────────────────────
+  const addRow = () => {
+    if (!planogram || !canAddRow) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    applyUpdate({ ...planogram, rows: planogram.rows + 1, heightCm: planogram.heightCm + physCellH });
+  };
+
+  const removeRow = () => {
+    if (!planogram || planogram.rows <= 1) return;
+    const lastRow = planogram.rows - 1;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    applyUpdate({
+      ...planogram,
+      rows: planogram.rows - 1,
+      heightCm: planogram.heightCm - physCellH,
+      cells: planogram.cells.filter((c) => c.row !== lastRow),
+    });
+    if (selectedKey?.startsWith(`${lastRow}-`)) setSelectedKey(null);
+  };
+
+  const addCol = () => {
+    if (!planogram || !canAddCol) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    applyUpdate({ ...planogram, cols: planogram.cols + 1, widthCm: planogram.widthCm + physCellW });
+  };
+
+  const removeCol = () => {
+    if (!planogram || planogram.cols <= 1) return;
+    const lastCol = planogram.cols - 1;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    applyUpdate({
+      ...planogram,
+      cols: planogram.cols - 1,
+      widthCm: planogram.widthCm - physCellW,
+      cells: planogram.cells.filter((c) => c.col !== lastCol),
+    });
+    if (selectedKey?.endsWith(`-${lastCol}`)) setSelectedKey(null);
   };
 
   // ── Image upload ─────────────────────────────────────────────────────────
@@ -255,8 +306,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const rows = planogram.rows;
   const cols = planogram.cols;
   // Cell pixel size proportional to physical dimensions, scaled by zoom
-  const physCellW = planogram.widthCm  / cols;
-  const physCellH = planogram.heightCm / rows;
   const cellW = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX * ZOOM_MAX, Math.round(physCellW * CELL_WIDTH_SCALE  * zoom)));
   const cellH = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX * ZOOM_MAX, Math.round(physCellH * CELL_HEIGHT_SCALE * zoom)));
 
@@ -269,9 +318,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <p className="text-xs text-gray-500">
             {rows} lignes × {cols} colonnes
             &nbsp;·&nbsp;
-            {planogram.widthCm} × {planogram.heightCm} cm
+            {planogram.widthCm.toFixed(1)} × {planogram.heightCm.toFixed(1)} cm
             &nbsp;·&nbsp;
             {planogram.cells.length} / {rows * cols} remplis
+            &nbsp;·&nbsp;
+            <span className="text-gray-600">{physCellW.toFixed(1)} × {physCellH.toFixed(1)} cm/cellule</span>
           </p>
         </div>
 
@@ -291,6 +342,45 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         />
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Row / column management */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-600 mr-0.5">Lignes</span>
+            <button
+              onClick={removeRow}
+              disabled={rows <= 1}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
+              title="Supprimer dernière ligne"
+            >−</button>
+            <span className="text-xs text-gray-400 w-5 text-center">{rows}</span>
+            <button
+              onClick={addRow}
+              disabled={!canAddRow}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
+              title={canAddRow ? "Ajouter une ligne" : `Limite atteinte (${furniture?.dimensions.height ?? '?'} cm)`}
+            >+</button>
+          </div>
+
+          <div className="h-4 w-px bg-gray-700" />
+
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-600 mr-0.5">Colonnes</span>
+            <button
+              onClick={removeCol}
+              disabled={cols <= 1}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
+              title="Supprimer dernière colonne"
+            >−</button>
+            <span className="text-xs text-gray-400 w-5 text-center">{cols}</span>
+            <button
+              onClick={addCol}
+              disabled={!canAddCol}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
+              title={canAddCol ? "Ajouter une colonne" : `Limite atteinte (${furniture?.dimensions.width ?? '?'} cm)`}
+            >+</button>
+          </div>
+
+          <div className="h-4 w-px bg-gray-700" />
+
           {/* Zoom controls */}
           <div className="flex items-center gap-1">
             <button
@@ -383,6 +473,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 const isDragOver = dragOver === key;
                 const isUploading = prod && uploadingEan === prod.ean;
 
+                // Per-cell overflow: product physical dims exceed cell physical dims
+                const prodOverflow = prod
+                  ? prod.widthCm  > physCellW + OVERFLOW_TOLERANCE_CM ||
+                    prod.heightCm > physCellH + OVERFLOW_TOLERANCE_CM
+                  : false;
+
                 return (
                   <div
                     key={key}
@@ -393,23 +489,32 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     onDrop={(e) => handleDrop(e, row, col)}
                     className={[
                       'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all overflow-hidden select-none border group',
-                      cell
+                      prodOverflow
+                        ? 'border-red-500 border-solid'
+                        : cell
                         ? 'border-transparent'
                         : isDragOver
                         ? 'border-blue-400 bg-blue-900/20 border-solid'
                         : 'border-dashed border-gray-700 hover:border-gray-500',
                       isSelected ? 'ring-2 ring-blue-500' : '',
+                      prodOverflow ? 'bg-red-900/20' : '',
                     ].join(' ')}
-                    style={{ background: cell && catColor ? catColor + '18' : undefined }}
+                    style={{ background: !prodOverflow && cell && catColor ? catColor + '18' : undefined }}
+                    title={prodOverflow && prod
+                      ? `⚠ ${prod.name} (${prod.widthCm}×${prod.heightCm} cm) dépasse la cellule (${physCellW.toFixed(1)}×${physCellH.toFixed(1)} cm)`
+                      : undefined}
                   >
                     {cell && prod ? (
                       <>
-                        {/* Category stripe */}
-                        <div className="absolute inset-x-0 top-0 h-1 rounded-t" style={{ background: catColor }} />
+                        {/* Category stripe or overflow indicator */}
+                        <div
+                          className="absolute inset-x-0 top-0 h-1 rounded-t"
+                          style={{ background: prodOverflow ? '#ef4444' : catColor }}
+                        />
 
                         {/* Thumbnail */}
                         <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
-                          <div className="w-full" style={{ height: `${Math.max(28, cellH - 24)}px` }}>
+                          <div className="w-full" style={{ height: `${Math.max(28, cellH - 32)}px` }}>
                             {isUploading ? (
                               <div className="w-full h-full flex items-center justify-center">
                                 <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -420,11 +525,22 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           </div>
                           <div
                             className="text-xs font-medium leading-tight truncate w-full text-center"
-                            style={{ color: catColor, fontSize: '10px' }}
+                            style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}
                           >
                             {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
                           </div>
+                          {/* Product dimensions */}
+                          <div className="text-center leading-none" style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280' }}>
+                            {prod.widthCm}×{prod.heightCm} cm
+                          </div>
                         </div>
+
+                        {/* Overflow badge */}
+                        {prodOverflow && (
+                          <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
+                            ⚠ débordement
+                          </div>
+                        )}
 
                         {/* Hover actions */}
                         <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -483,7 +599,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <span>Sélectionnez un produit dans le catalogue, puis cliquez une cellule</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 uploader une vignette</span>
+        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · 🔴 produit trop grand</span>
       </div>
     </div>
   );

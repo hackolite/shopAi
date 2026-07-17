@@ -26,6 +26,8 @@ interface PlanogramState {
   removeCell: (cellId: string) => void;
   setLoading: (loading: boolean) => void;
   setRequestOpenPlanogramId: (id: string | null) => void;
+  /** Sync a planogram's physical canvas dimensions (e.g. after furniture resize). */
+  updatePlanogramDimensions: (id: string, widthCm: number, heightCm: number) => void;
 }
 
 export const usePlanogramStore = create<PlanogramState>((set) => ({
@@ -100,4 +102,20 @@ export const usePlanogramStore = create<PlanogramState>((set) => ({
     }),
   setLoading: (loading) => set({ loading }),
   setRequestOpenPlanogramId: (id) => set({ requestOpenPlanogramId: id }),
+  updatePlanogramDimensions: (id, widthCm, heightCm) =>
+    set((state) => {
+      const planogramDetails = new Map(state.planogramDetails);
+      const existing = planogramDetails.get(id);
+      if (existing) {
+        planogramDetails.set(id, { ...existing, widthCm, heightCm });
+      }
+      const planograms = state.planograms.map((p) =>
+        p.id === id ? { ...p, widthCm, heightCm } : p,
+      );
+      const activePlanogram =
+        state.activePlanogram?.id === id
+          ? { ...state.activePlanogram, widthCm, heightCm }
+          : state.activePlanogram;
+      return { planogramDetails, planograms, activePlanogram };
+    }),
 }));

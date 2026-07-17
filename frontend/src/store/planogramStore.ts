@@ -46,7 +46,12 @@ export const usePlanogramStore = create<PlanogramState>((set) => ({
       return { planogramDetails };
     }),
   setActivePlanogram: (planogram) =>
-    set({ activePlanogram: planogram, selectedCellIds: new Set<string>() }),
+    set((state) => {
+      if (!planogram) return { activePlanogram: null, selectedCellIds: new Set<string>() };
+      const planogramDetails = new Map(state.planogramDetails);
+      planogramDetails.set(planogram.id, planogram);
+      return { activePlanogram: planogram, selectedCellIds: new Set<string>(), planogramDetails };
+    }),
   openPlanogramForFurniture: (_furnitureId, _face) => {
     // Implemented by the component that coordinates API calls.
   },

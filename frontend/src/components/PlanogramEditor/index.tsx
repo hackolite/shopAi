@@ -116,6 +116,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       planogram.heightCm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
     : false;
 
+  // ── Add-row / add-col guards (stay within 3D furniture bounds) ───────────
+  const canAddRow = planogram
+    ? !furniture || (planogram.heightCm + physCellH <= furniture.dimensions.height + OVERFLOW_TOLERANCE_CM)
+    : false;
+  const canAddCol = planogram
+    ? !furniture || (planogram.widthCm  + physCellW <= furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM)
+    : false;
+
   // ── Load planogram ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!projectId) return;
@@ -185,7 +193,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   // ── Row / column management ──────────────────────────────────────────────
   const addRow = () => {
-    if (!planogram) return;
+    if (!planogram || !canAddRow) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     applyUpdate({ ...planogram, rows: planogram.rows + 1, heightCm: planogram.heightCm + physCellH });
   };
@@ -204,7 +212,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   const addCol = () => {
-    if (!planogram) return;
+    if (!planogram || !canAddCol) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     applyUpdate({ ...planogram, cols: planogram.cols + 1, widthCm: planogram.widthCm + physCellW });
   };
@@ -346,8 +354,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             <span className="text-xs text-gray-400 w-5 text-center">{rows}</span>
             <button
               onClick={addRow}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors"
-              title="Ajouter une ligne"
+              disabled={!canAddRow}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
+              title={canAddRow ? "Ajouter une ligne" : `Limite atteinte (${furniture?.dimensions.height ?? '?'} cm)`}
             >+</button>
           </div>
 
@@ -364,8 +373,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             <span className="text-xs text-gray-400 w-5 text-center">{cols}</span>
             <button
               onClick={addCol}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors"
-              title="Ajouter une colonne"
+              disabled={!canAddCol}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
+              title={canAddCol ? "Ajouter une colonne" : `Limite atteinte (${furniture?.dimensions.width ?? '?'} cm)`}
             >+</button>
           </div>
 

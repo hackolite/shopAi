@@ -354,7 +354,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <div className="h-4 w-px bg-gray-700" />
 
           <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-600 mr-0.5">Cols</span>
+            <span className="text-xs text-gray-600 mr-0.5">Colonnes</span>
             <button
               onClick={removeCol}
               disabled={cols <= 1}
@@ -528,7 +528,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                         {/* Overflow badge */}
                         {prodOverflow && (
                           <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
-                            ⚠ débord
+                            ⚠ débordement
                           </div>
                         )}
 

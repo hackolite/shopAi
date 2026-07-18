@@ -434,6 +434,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const colWidthsPx = effectiveColWidths.map(w => Math.max(CELL_MIN_PX, Math.round(w * CELL_WIDTH_SCALE * zoom)));
   const rowHeightsPx = effectiveRowHeights.map(h => Math.max(CELL_MIN_PX, Math.round(h * CELL_HEIGHT_SCALE * zoom)));
 
+  // Derived row/col of the currently selected cell, used to highlight adjacent resize handles
+  const [selectedRow, selectedCol] = selectedKey
+    ? selectedKey.split('-').map(Number) as [number, number]
+    : [null, null] as [null, null];
+
   return (
     <div className="flex flex-col h-full bg-gray-900">
       {/* Header */}
@@ -742,10 +747,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           )}
                         </div>
 
-                        {/* Column resize handle */}
+                        {/* Column resize handle — highlighted when the adjacent cell is selected */}
                         <div
                           style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
-                          className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
+                          className={[
+                            'transition-colors',
+                            selectedCol === col
+                              ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                              : 'bg-gray-800 hover:bg-blue-500/50',
+                          ].join(' ')}
                           onMouseDown={(e) => startColResize(e, col)}
                         />
                       </Fragment>
@@ -753,10 +763,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                   })}
                 </div>
 
-                {/* Row resize handle */}
+                {/* Row resize handle — highlighted when the selected cell is in this row */}
                 <div
                   style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
-                  className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
+                  className={[
+                    'transition-colors',
+                    selectedRow === row
+                      ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                      : 'bg-gray-800 hover:bg-blue-500/50',
+                  ].join(' ')}
                   onMouseDown={(e) => startRowResize(e, row)}
                 />
               </Fragment>

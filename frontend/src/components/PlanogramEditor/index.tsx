@@ -129,6 +129,23 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   /** Index of the row selected by clicking its header label (null = none). */
   const [selectedHeaderRow, setSelectedHeaderRow] = useState<number | null>(null);
 
+  // ── Redo stack (cleared on every new action) ─────────────────────────────
+  const [future, setFuture] = useState<Planogram[]>([]);
+  // ── Multi-selection (Ctrl+click / Shift+click) ───────────────────────────
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
+  // ── Internal drag (cell → cell move/swap) ────────────────────────────────
+  const internalDragSrcRef = useRef<{ row: number; col: number; ean: string } | null>(null);
+  const [internalDragOver, setInternalDragOver] = useState<string | null>(null);
+  // ── Crush navigation ─────────────────────────────────────────────────────
+  const [crushNavIdx, setCrushNavIdx] = useState(0);
+  // ── AddRow dialog (suggest auto-shrink top row) ──────────────────────────
+  const [addRowDialog, setAddRowDialog] = useState<{
+    canAutoFix: boolean;
+    topRowH: number;
+    needed: number;
+  } | null>(null);
+
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
   /** Stores the EAN to upload for when the file input fires. */
@@ -198,6 +215,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     setPlanogram(updated);
     setCellMap(buildCellMap(updated.cells));
     setActivePlanogram(updated);
+    setFuture([]); // every new action clears the redo stack
     scheduleSave(updated);
   };
 
@@ -223,12 +241,67 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const newCells = planogram.cells.filter((c) => !(c.row === row && c.col === col));
     applyUpdate({ ...planogram, cells: newCells });
     setSelectedKey(null);
+    setSelectedKeys(new Set());
+  };
+
+  /** Move a product from src cell to dst cell; swap if dst is occupied. */
+  const moveCell = (srcRow: number, srcCol: number, dstRow: number, dstCol: number) => {
+    if (!planogram) return;
+    if (srcRow === dstRow && srcCol === dstCol) return;
+    const srcCell = cellMap.get(`${srcRow}-${srcCol}`);
+    if (!srcCell) return;
+    const dstCell = cellMap.get(`${dstRow}-${dstCol}`);
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    let newCells = planogram.cells.filter(
+      (c) => !(c.row === srcRow && c.col === srcCol) && !(c.row === dstRow && c.col === dstCol),
+    );
+    newCells = [
+      ...newCells,
+      { ...srcCell, row: dstRow, col: dstCol },
+      ...(dstCell ? [{ ...dstCell, row: srcRow, col: srcCol }] : []),
+    ];
+    applyUpdate({ ...planogram, cells: newCells });
+  };
+
+  /** Remove products from all selected cells in a single undo-able transaction. */
+  const clearSelectedCells = () => {
+    if (!planogram || selectedKeys.size === 0) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    const keysToRemove = selectedKeys;
+    const newCells = planogram.cells.filter(
+      (c) => !keysToRemove.has(`${c.row}-${c.col}`),
+    );
+    applyUpdate({ ...planogram, cells: newCells });
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
+  };
+
+  /** Fill all selected cells with a given EAN in a single undo-able transaction. */
+  const fillSelectedCells = (ean: string) => {
+    if (!planogram || selectedKeys.size === 0) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    const keys = [...selectedKeys];
+    let newCells = [...planogram.cells];
+    for (const key of keys) {
+      const [r, c] = key.split('-').map(Number);
+      const existing = cellMap.get(key);
+      const newCell: PlanogramCell = { id: existing?.id ?? crypto.randomUUID(), ean, row: r, col: c, rotation: 0 };
+      if (existing) {
+        newCells = newCells.map((cell) => (cell.row === r && cell.col === c ? newCell : cell));
+      } else {
+        newCells = [...newCells, newCell];
+      }
+    }
+    applyUpdate({ ...planogram, cells: newCells });
+    addRecentlyUsed(ean);
   };
 
   const undo = () => {
     setHistory((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
+      // Snapshot current state into the redo stack before restoring
+      if (planogram) setFuture((f) => [...f.slice(-20), planogram]);
       setPlanogram(last);
       setCellMap(buildCellMap(last.cells));
       setActivePlanogram(last);
@@ -237,15 +310,34 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     });
   };
 
+  const redo = () => {
+    setFuture((prev) => {
+      if (prev.length === 0) return prev;
+      const next = prev[prev.length - 1];
+      // Snapshot current state into the undo stack before restoring
+      if (planogram) setHistory((h) => [...h.slice(-20), planogram]);
+      setPlanogram(next);
+      setCellMap(buildCellMap(next.cells));
+      setActivePlanogram(next);
+      scheduleSave(next);
+      return prev.slice(0, -1);
+    });
+  };
+
   // ── Row / column management ──────────────────────────────────────────────
-  const addRow = () => {
-    if (!planogram || !canAddRow) return;
+  /** Internal implementation: actually inserts the row after optional top-row shrink. */
+  const _doAddRow = (shrinkTopRowBy = 0) => {
+    if (!planogram) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curHeights = getEffectiveRowHeights(planogram);
+    // If we auto-shrank the top row, update its height
+    const baseHeights = shrinkTopRowBy > 0
+      ? curHeights.map((h, i) => (i === 0 ? h - shrinkTopRowBy : h))
+      : curHeights;
     // Insert after the selected row header (or append at end if none selected).
     const insertAfter = selectedHeaderRow ?? planogram.rows - 1;
     const insertIdx = insertAfter + 1;
-    const newHeights = [...curHeights.slice(0, insertIdx), newRowHeightCm, ...curHeights.slice(insertIdx)];
+    const newHeights = [...baseHeights.slice(0, insertIdx), newRowHeightCm, ...baseHeights.slice(insertIdx)];
     // Shift cells and height overrides at rows >= insertIdx.
     const newCells = planogram.cells.map((c) =>
       c.row >= insertIdx ? { ...c, row: c.row + 1 } : c,
@@ -288,6 +380,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       rowColCounts: newRowColCounts,
     });
     setSelectedHeaderRow(insertIdx);
+  };
+
+  const addRow = () => {
+    if (!planogram || !canAddRow) return;
+    const curHeights = getEffectiveRowHeights(planogram);
+    const topRowH = curHeights[0];
+    const MIN_TOP_AFTER = 1; // leave at least 1 cm for top row
+    // Warn if top row would become very thin after auto-shrink (future: fixed-height model)
+    if (topRowH <= newRowHeightCm + MIN_TOP_AFTER) {
+      const canAutoFix = topRowH - newRowHeightCm >= MIN_TOP_AFTER;
+      setAddRowDialog({ canAutoFix, topRowH, needed: newRowHeightCm });
+      return;
+    }
+    _doAddRow();
   };
 
   const removeRow = () => {
@@ -830,14 +936,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   const keyHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   keyHandlerRef.current = (e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
       undo();
       return;
     }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedKey) {
-      const [r, c] = selectedKey.split('-').map(Number);
-      clearCell(r, c);
+    if (
+      ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') ||
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')
+    ) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selectedKeys.size > 1) {
+        clearSelectedCells();
+      } else if (selectedKey) {
+        const [r, c] = selectedKey.split('-').map(Number);
+        clearCell(r, c);
+      }
     }
   };
 
@@ -848,11 +967,41 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   }, []);
 
   // ── Cell click ───────────────────────────────────────────────────────────
-  const handleCellClick = (row: number, col: number) => {
+  const handleCellClick = (row: number, col: number, e: React.MouseEvent) => {
     // Clicking a cell clears any header selection
     setSelectedHeaderCol(null);
     setSelectedHeaderRow(null);
     const key  = `${row}-${col}`;
+
+    // Ctrl+click: toggle cell in/out of multi-selection
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key); else next.add(key);
+        return next;
+      });
+      setSelectedKey(key);
+      setLastSelectedKey(key);
+      return;
+    }
+
+    // Shift+click: range select from lastSelectedKey to this key
+    if (e.shiftKey && lastSelectedKey && planogram) {
+      const [r0, c0] = lastSelectedKey.split('-').map(Number);
+      const rowMin = Math.min(r0, row); const rowMax = Math.max(r0, row);
+      const colMin = Math.min(c0, col); const colMax = Math.max(c0, col);
+      const rangeKeys = new Set<string>();
+      for (let r = rowMin; r <= rowMax; r++) {
+        for (let c = colMin; c <= colMax; c++) rangeKeys.add(`${r}-${c}`);
+      }
+      setSelectedKeys(rangeKeys);
+      setSelectedKey(key);
+      return;
+    }
+
+    // Plain click: clear multi-selection, handle single select/place
+    setSelectedKeys(new Set());
+    setLastSelectedKey(key);
     const cell = cellMap.get(key);
     if (!cell && selectedEan) {
       fillCellWithEan(row, col, selectedEan);
@@ -877,6 +1026,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const handleDrop = (e: React.DragEvent, row: number, col: number) => {
     e.preventDefault();
     setDragOver(null);
+    setInternalDragOver(null);
+    // Internal cell-to-cell drag takes priority
+    const src = internalDragSrcRef.current;
+    if (src) {
+      internalDragSrcRef.current = null;
+      moveCell(src.row, src.col, row, col);
+      return;
+    }
+    // Catalogue drag: EAN in dataTransfer
     const ean = e.dataTransfer.getData('text/plain').trim();
     if (ean) fillCellWithEan(row, col, ean);
   };
@@ -948,6 +1106,50 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const extraGondolaHeightCm = furniture ? Math.max(0, gondolaRemainingH) : 0;
   const greyExtWidthPx  = Math.round(extraGondolaWidthCm  * CELL_WIDTH_SCALE  * zoom);
   const greyExtHeightPx = Math.round(extraGondolaHeightCm * CELL_HEIGHT_SCALE * zoom);
+
+  // ── Crush detection (list of all cells where product exceeds cell dimensions) ──
+  const crushedCells: { key: string; row: number; col: number; prod: CADProduct }[] = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < getRowColCount(r); c++) {
+      const key = `${r}-${c}`;
+      const cell = cellMap.get(key);
+      if (!cell) continue;
+      const prod = productByEan.get(cell.ean);
+      if (!prod) continue;
+      const cellCmW = getCellWidthCm(r, c);
+      const cellCmH = getCellHeightCm(r, c);
+      if (prod.widthCm > cellCmW + OVERFLOW_TOLERANCE_CM || prod.heightCm > cellCmH + OVERFLOW_TOLERANCE_CM) {
+        crushedCells.push({ key, row: r, col: c, prod });
+      }
+    }
+  }
+
+  // ── Row fill ratios (cm used / planogram widthCm per row) ────────────────
+  const rowFillCm = Array.from({ length: rows }, (_, r) => {
+    let total = 0;
+    for (let c = 0; c < getRowColCount(r); c++) total += getCellWidthCm(r, c);
+    return total;
+  });
+
+  // ── Navigate to a crushed cell ───────────────────────────────────────────
+  const scrollToCrushed = (idx: number) => {
+    if (crushedCells.length === 0) return;
+    const target = crushedCells[idx % crushedCells.length];
+    setSelectedKey(target.key);
+    setSelectedKeys(new Set());
+    // Use data attribute to scroll to the cell
+    setTimeout(() => {
+      document.querySelector<HTMLElement>(`[data-cell-key="${target.key}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }, 0);
+  };
+
+  const handleCrushBadgeClick = () => {
+    if (crushedCells.length === 0) return;
+    const nextIdx = (crushNavIdx) % crushedCells.length;
+    scrollToCrushed(nextIdx);
+    setCrushNavIdx(nextIdx + 1);
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -1050,18 +1252,54 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
           <div className="h-4 w-px bg-gray-700" />
 
+          {/* Undo / Redo */}
           <button
             onClick={undo}
             disabled={history.length === 0}
             className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors"
-            title="Undo (Ctrl+Z)"
-          >
-            ↩ Undo
-          </button>
+            title="Annuler (Ctrl+Z)"
+          >↩ Annuler</button>
+          <button
+            onClick={redo}
+            disabled={future.length === 0}
+            className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors"
+            title="Rétablir (Ctrl+Y)"
+          >↪ Rétablir</button>
+
+          {/* Crush badge — click to navigate between conflicts */}
+          {crushedCells.length > 0 && (
+            <button
+              onClick={handleCrushBadgeClick}
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-800/60 hover:bg-red-700/80 text-red-300 text-xs transition-colors"
+              title={`${crushedCells.length} conflit(s) — cliquer pour naviguer`}
+            >
+              ⚠ {crushedCells.length} conflit{crushedCells.length > 1 ? 's' : ''}
+            </button>
+          )}
+
+          {/* Multi-selection bulk actions */}
+          {selectedKeys.size > 1 && (
+            <>
+              <div className="h-4 w-px bg-gray-700" />
+              <button
+                onClick={clearSelectedCells}
+                className="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-red-800/50 text-gray-300 hover:text-red-200 transition-colors"
+                title={`Vider les ${selectedKeys.size} cellules sélectionnées`}
+              >Vider ({selectedKeys.size})</button>
+              {selectedEan && (
+                <button
+                  onClick={() => fillSelectedCells(selectedEan)}
+                  className="px-2 py-0.5 text-xs rounded bg-blue-800/50 hover:bg-blue-700/70 text-blue-200 transition-colors"
+                  title={`Appliquer ${selectedEan} à ${selectedKeys.size} cellules`}
+                >Appliquer ({selectedKeys.size})</button>
+              )}
+            </>
+          )}
+
           <button
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-700 text-gray-400 hover:text-white text-base transition-colors"
-            title="Close"
+            title="Fermer"
           >
             ×
           </button>
@@ -1077,6 +1315,32 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             ({furniture?.dimensions.width ?? '?'} × {furniture?.dimensions.height ?? '?'} cm).
             Les produits en dehors des limites ne seront pas affichés correctement.
           </span>
+        </div>
+      )}
+
+      {/* AddRow dialog — shown when top row height check triggers */}
+      {addRowDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-xl p-5 max-w-sm w-full mx-4">
+            <h3 className="text-sm font-semibold text-gray-100 mb-2">Espace insuffisant</h3>
+            <p className="text-xs text-gray-300 mb-4">
+              {addRowDialog.canAutoFix
+                ? `La rangée supérieure fait ${addRowDialog.topRowH.toFixed(1)} cm. Il faut ${addRowDialog.needed.toFixed(1)} cm pour la nouvelle rangée. Réduire automatiquement la rangée du haut ?`
+                : `La rangée supérieure fait déjà ${addRowDialog.topRowH.toFixed(1)} cm, trop peu pour absorber une nouvelle rangée (${addRowDialog.needed.toFixed(1)} cm). Supprimez une rangée existante pour libérer de l'espace.`}
+            </p>
+            <div className="flex gap-2 justify-end">
+              {addRowDialog.canAutoFix && (
+                <button
+                  onClick={() => { setAddRowDialog(null); _doAddRow(addRowDialog.needed); }}
+                  className="px-3 py-1.5 text-xs rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors"
+                >Réduire et ajouter</button>
+              )}
+              <button
+                onClick={() => setAddRowDialog(null)}
+                className="px-3 py-1.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+              >Annuler</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1108,8 +1372,19 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           </div>
         )}
 
-        {/* Column numbers */}
-        <div className="flex mb-1" style={{ marginLeft: '24px' }}>
+        {/* Column numbers — sticky top so they stay visible on vertical scroll */}
+        <div
+          className="flex mb-1"
+          style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#111827' }}
+        >
+          {/* Corner spacer (sticky top+left) */}
+          <div
+            style={{
+              width: '24px', flexShrink: 0,
+              position: 'sticky', left: 0, zIndex: 20,
+              backgroundColor: '#111827',
+            }}
+          />
           {Array.from({ length: cols }, (_, c) => (
             <Fragment key={c}>
               <div
@@ -1148,22 +1423,42 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         </div>
 
         <div className="flex">
-          {/* Row numbers */}
-          <div className="flex flex-col" style={{ width: '20px', marginRight: '4px' }}>
-            {Array.from({ length: rows }, (_, r) => (
+          {/* Row numbers — sticky left so they stay visible on horizontal scroll */}
+          <div
+            className="flex flex-col"
+            style={{ width: '20px', marginRight: '4px', position: 'sticky', left: 0, zIndex: 5, backgroundColor: '#111827' }}
+          >
+            {Array.from({ length: rows }, (_, r) => {
+              const fillCm = rowFillCm[r];
+              const fillRatio = planogram.widthCm > 0 ? fillCm / planogram.widthCm : 0;
+              const fillColor = fillRatio > 1 ? '#ef4444' : fillRatio > 0.95 ? '#f59e0b' : '#22c55e';
+              return (
               <Fragment key={r}>
                 <div
                   className={[
-                    'text-xs flex items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l',
+                    'text-xs flex flex-col items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l',
                     selectedHeaderRow === r
                       ? 'text-blue-400 bg-blue-900/40'
                       : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60',
                   ].join(' ')}
-                  style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px' }}
+                  style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px', position: 'relative', overflow: 'hidden' }}
                   onClick={() => handleRowHeaderClick(r)}
-                  title={`Ligne ${r + 1} — cliquer pour sélectionner`}
+                  title={`Ligne ${r + 1} — ${fillCm.toFixed(1)} cm / ${planogram.widthCm.toFixed(1)} cm (${(fillRatio * 100).toFixed(0)}% utilisé)`}
                 >
                   {r + 1}
+                  {/* Fill bar */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      height: '3px',
+                      width: `${Math.min(fillRatio * 100, 100)}%`,
+                      backgroundColor: fillColor,
+                      borderRadius: '0 0 0 3px',
+                      transition: 'width 0.2s',
+                    }}
+                  />
                 </div>
                 {r < rows - 1 && (
                   <div
@@ -1174,7 +1469,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                   />
                 )}
               </Fragment>
-            ))}
+              );
+            })}
           </div>
 
           {/* Main grid */}
@@ -1189,6 +1485,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     const prod     = cell ? productByEan.get(cell.ean) : undefined;
                     const catColor = prod ? getCategoryColor(prod.category) : undefined;
                     const isSelected = selectedKey === key;
+                    const isMultiSelected = selectedKeys.has(key);
+                    const isInternalDragOver = internalDragOver === key;
                     const isDragOver = dragOver === key;
                     const isUploading = prod && uploadingEan === prod.ean;
                     const isHeaderHighlighted = selectedHeaderCol === col || selectedHeaderRow === row;
@@ -1205,26 +1503,59 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                         prod.heightCm > cellCmH + OVERFLOW_TOLERANCE_CM
                       : false;
 
+                    // Zoom-aware dimension badge visibility
+                    const showDimBadge = zoom >= 1 && prod;
+
                     return (
                       <Fragment key={col}>
                         <div
-                          onClick={() => handleCellClick(row, col)}
+                          data-cell-key={key}
+                          draggable={!!cell}
+                          onClick={(e) => handleCellClick(row, col, e)}
                           onContextMenu={(e) => { e.preventDefault(); if (cell) clearCell(row, col); }}
-                          onDragOver={(e) => { e.preventDefault(); setDragOver(key); }}
-                          onDragLeave={() => setDragOver(null)}
+                          onDragStart={(e) => {
+                            if (!cell || !prod) return;
+                            internalDragSrcRef.current = { row, col, ean: cell.ean };
+                            e.dataTransfer.effectAllowed = 'move';
+                            // Remove default drag image to avoid browser ghost
+                            const ghost = document.createElement('div');
+                            ghost.style.position = 'absolute'; ghost.style.top = '-9999px';
+                            document.body.appendChild(ghost);
+                            e.dataTransfer.setDragImage(ghost, 0, 0);
+                            setTimeout(() => document.body.removeChild(ghost), 0);
+                          }}
+                          onDragEnd={() => {
+                            internalDragSrcRef.current = null;
+                            setInternalDragOver(null);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            if (internalDragSrcRef.current) {
+                              setInternalDragOver(key);
+                              setDragOver(null);
+                            } else {
+                              setDragOver(key);
+                              setInternalDragOver(null);
+                            }
+                          }}
+                          onDragLeave={() => { setDragOver(null); setInternalDragOver(null); }}
                           onDrop={(e) => handleDrop(e, row, col)}
                           className={[
                             'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all overflow-hidden select-none border group flex-none',
                             prodOverflow
                               ? 'border-red-500 border-solid'
+                              : isInternalDragOver
+                              ? 'border-blue-400 border-dashed bg-blue-900/20'
+                              : isDragOver
+                              ? 'border-green-400 bg-green-900/20 border-solid'
                               : cell
                               ? 'border-transparent'
-                              : isDragOver
-                              ? 'border-blue-400 bg-blue-900/20 border-solid'
                               : 'border-dashed border-gray-700 hover:border-gray-500',
                             isSelected ? 'ring-2 ring-blue-500' : '',
-                            isHeaderHighlighted && !isSelected ? 'ring-1 ring-blue-400/60 bg-blue-900/15' : '',
+                            isMultiSelected && !isSelected ? 'ring-2 ring-blue-400/70 bg-blue-900/20' : '',
+                            isHeaderHighlighted && !isSelected && !isMultiSelected ? 'ring-1 ring-blue-400/60 bg-blue-900/15' : '',
                             prodOverflow ? 'bg-red-900/20' : '',
+                            cell ? 'cursor-grab active:cursor-grabbing' : '',
                           ].join(' ')}
                           style={{
                             width:  `${cellPxW}px`,
@@ -1233,6 +1564,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           }}
                           title={prodOverflow && prod
                             ? `⚠ ${prod.name} (${prod.widthCm}×${prod.heightCm} cm) dépasse la cellule (${cellCmW.toFixed(1)}×${cellCmH.toFixed(1)} cm)`
+                            : cell ? `${prod?.name ?? cell.ean} — glisser pour déplacer`
                             : undefined}
                         >
                           {cell && prod ? (
@@ -1260,10 +1592,24 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                                >
                                  {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
                                </div>
-                               {/* Product dimensions */}
-                               <div className="text-center leading-none" style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280' }}>
-                                 {prod.widthCm}×{prod.heightCm} cm
-                               </div>
+                               {/* Product dimensions — zoom-aware */}
+                               {showDimBadge && (
+                                 <div
+                                   className="text-center leading-none px-0.5 rounded"
+                                   style={{
+                                     fontSize: '9px',
+                                     color: prodOverflow ? '#f87171' : '#6b7280',
+                                     background: prodOverflow ? 'rgba(239,68,68,0.15)' : undefined,
+                                   }}
+                                 >
+                                   {prod.widthCm}×{prod.heightCm} cm
+                                   {zoom > 2 && (
+                                     <span style={{ color: '#4b5563' }}>
+                                       {' '}/ {cellCmW.toFixed(1)} cm
+                                     </span>
+                                   )}
+                                 </div>
+                               )}
                               </div>
 
                               {/* Overflow badge */}
@@ -1420,21 +1766,24 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
       {/* Bottom hint */}
       <div className="border-t border-gray-800 px-4 py-2 flex items-center gap-3 shrink-0 text-xs text-gray-500">
-        {selectedEan ? (
+        {selectedKeys.size > 1 ? (
+          <>
+            <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+            <span className="text-blue-300">{selectedKeys.size} cellules sélectionnées</span>
+            <span className="text-gray-600">· Suppr pour vider · Ctrl+clic pour toggle · Shift+clic pour étendre</span>
+          </>
+        ) : selectedEan ? (
           <>
             <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
             <span>Sélectionné: <span className="font-mono text-gray-300">{selectedEan}</span></span>
-            <span className="text-gray-600">· Cliquer une cellule vide pour placer · Glisser depuis le catalogue</span>
+            <span className="text-gray-600">· Cliquer cellule vide pour placer · Glisser depuis catalogue · Ctrl+clic multi-sélection</span>
           </>
         ) : (
-          <span>Sélectionnez un produit dans le catalogue, puis cliquez une cellule</span>
+          <span>Sélectionnez un produit dans le catalogue · Ctrl+clic multi-sélection · Shift+clic plage · Glisser cellule occupée pour déplacer</span>
         )}
         <div className="flex-1" />
-        <span
-          className="text-gray-600"
-        aria-label="Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · photo pour uploader une vignette · glisser les séparateurs pour redimensionner colonne/ligne entière · sélectionner une cellule puis glisser ses bords (◀▶▲▼) pour redimensionner uniquement ce segment · produit trop grand si débordement"
-        >
-        Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ séparateurs (colonne/ligne entière) · cellule sélectionnée : glisser ◀▶▲▼ (segment seulement) · 🔴 débordement
+        <span className="text-gray-600">
+          Clic droit/× vider · Suppr retirer · Ctrl+Z annuler · Ctrl+Y rétablir · 📷 vignette · ⟺ séparateurs · ◀▶▲▼ segment · 🔴 débordement
         </span>
       </div>
     </div>

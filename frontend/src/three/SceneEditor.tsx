@@ -347,7 +347,7 @@ function PlanogramFaceOverlay({
     });
   }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId]);
 
-  if (!texture) return null;
+  if (!texture || !planogram) return null;
 
   // Overlay plane is sized to the planogram's physical dimensions (not the gondola face),
   // so that products always render at the same scale regardless of gondola size changes.

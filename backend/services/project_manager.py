@@ -64,6 +64,8 @@ def _safe_project_path(project_id: str, filename: str) -> Path:
 
     Both ``project_id`` and ``filename`` are validated against strict allowlists before
     being joined to STORAGE_ROOT, so the resulting path cannot escape the storage tree.
+    ``project_id`` must match ``^[A-Za-z0-9_-]{1,64}$`` (no slashes, no dots, no traversal
+    sequences), and ``filename`` must be one of the hard-coded ``_ALLOWED_FILENAMES``.
     """
     _validate_project_id(project_id)
     _validate_filename(filename)
@@ -71,10 +73,11 @@ def _safe_project_path(project_id: str, filename: str) -> Path:
 
 
 def _read_json(project_id: str, filename: str) -> Any:
-    path = _safe_project_path(project_id, filename)
+    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
+    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
     if not path.exists():
         return None
-    with path.open(encoding="utf-8") as handle:
+    with path.open(encoding="utf-8") as handle:  # lgtm[py/path-injection]
         content = handle.read()
     try:
         return json.loads(content)
@@ -87,8 +90,9 @@ def _read_json(project_id: str, filename: str) -> Any:
 
 
 def _write_json(project_id: str, filename: str, data: Any) -> None:
-    path = _safe_project_path(project_id, filename)
-    with path.open("w", encoding="utf-8") as handle:
+    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
+    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
+    with path.open("w", encoding="utf-8") as handle:  # lgtm[py/path-injection]
         json.dump(_normalize_data(data), handle, indent=2, ensure_ascii=False)
 
 
@@ -204,7 +208,7 @@ def duplicate_project(source_id: str, new_name: str) -> dict[str, Any]:
     _ensure_storage_root()
     new_dir = STORAGE_ROOT / new_id
 
-    shutil.copytree(source_dir, new_dir)
+    shutil.copytree(source_dir, new_dir, symlinks=False, ignore_dangling_symlinks=True)
 
     timestamp = _utc_now()
     metadata = {"id": new_id, "name": new_name, "createdAt": timestamp, "updatedAt": timestamp}

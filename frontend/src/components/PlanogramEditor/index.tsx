@@ -1258,13 +1258,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             disabled={history.length === 0}
             className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors"
             title="Annuler (Ctrl+Z)"
-          >↩ Undo</button>
+          >↩ Annuler</button>
           <button
             onClick={redo}
             disabled={future.length === 0}
             className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors"
             title="Rétablir (Ctrl+Y)"
-          >↪ Redo</button>
+          >↪ Rétablir</button>
 
           {/* Crush badge — click to navigate between conflicts */}
           {crushedCells.length > 0 && (
@@ -1331,7 +1331,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             <div className="flex gap-2 justify-end">
               {addRowDialog.canAutoFix && (
                 <button
-                  onClick={() => { setAddRowDialog(null); _doAddRow(); }}
+                  onClick={() => { setAddRowDialog(null); _doAddRow(addRowDialog.needed); }}
                   className="px-3 py-1.5 text-xs rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors"
                 >Réduire et ajouter</button>
               )}
@@ -1436,12 +1436,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               <Fragment key={r}>
                 <div
                   className={[
-                    'text-xs flex flex-col items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l overflow-hidden',
+                    'text-xs flex flex-col items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l',
                     selectedHeaderRow === r
                       ? 'text-blue-400 bg-blue-900/40'
                       : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60',
                   ].join(' ')}
-                  style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px' }}
+                  style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px', position: 'relative', overflow: 'hidden' }}
                   onClick={() => handleRowHeaderClick(r)}
                   title={`Ligne ${r + 1} — ${fillCm.toFixed(1)} cm / ${planogram.widthCm.toFixed(1)} cm (${(fillRatio * 100).toFixed(0)}% utilisé)`}
                 >

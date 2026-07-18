@@ -73,7 +73,11 @@ def _read_json(path: Path) -> Any:
 
 
 def _write_json(path: Path, data: Any) -> None:
-    with path.open("w", encoding="utf-8") as handle:
+    resolved = path.resolve()
+    resolved_root = STORAGE_ROOT.resolve()
+    if not str(resolved).startswith(str(resolved_root) + "/"):
+        raise HTTPException(status_code=400, detail="Invalid write path")
+    with resolved.open("w", encoding="utf-8") as handle:
         json.dump(_normalize_data(data), handle, indent=2, ensure_ascii=False)
 
 

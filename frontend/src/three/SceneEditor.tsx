@@ -1681,7 +1681,43 @@ function MeasureTool({ store }: { store: StoreConfig }) {
   );
 }
 
-// ─── Scene Content ────────────────────────────────────────────────────────────
+// ─── Camera fly-to furniture (triggered when switching from planogram → 3D) ─────
+function CameraFlyToFurniture() {
+  const { camera, controls } = useThree();
+  const flyToFurnitureId    = useUIStore((s) => s.flyToFurnitureId);
+  const setFlyToFurnitureId = useUIStore((s) => s.setFlyToFurnitureId);
+  const scene               = useSceneStore((s) => s.scene);
+
+  useEffect(() => {
+    if (!flyToFurnitureId || !scene || !controls) return;
+    const furniture = scene.furniture.find((f) => f.id === flyToFurnitureId);
+    if (!furniture) return;
+
+    const W  = furniture.dimensions.width  * CM_TO_UNIT;
+    const H  = furniture.dimensions.height * CM_TO_UNIT;
+    const D  = furniture.dimensions.depth  * CM_TO_UNIT;
+    const cx = furniture.position[0] * CM_TO_UNIT + W / 2;
+    const cy = furniture.position[1] * CM_TO_UNIT + H / 2;
+    const cz = furniture.position[2] * CM_TO_UNIT + D / 2;
+
+    const target = new THREE.Vector3(cx, cy, cz);
+    const dist   = Math.max(W, H, D) * 1.5 + 5;
+    const offset = new THREE.Vector3(cx + dist * 0.7, cy + dist * 0.5, cz + dist * 0.7);
+
+    camera.position.copy(offset);
+    camera.lookAt(target);
+    // @ts-expect-error drei controls
+    controls?.target?.copy(target);
+    // @ts-expect-error drei controls
+    controls?.update?.();
+
+    setFlyToFurnitureId(null);
+  }, [flyToFurnitureId, scene, camera, controls, setFlyToFurnitureId]);
+
+  return null;
+}
+
+
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool } = useUIStore();
@@ -1802,6 +1838,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           enabled={!isResizeDragging}
           enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId}
         />
+        <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>
     </ResizeDragCtx.Provider>
   );

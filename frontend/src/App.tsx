@@ -42,8 +42,8 @@ export default function App() {
 
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
-  const { viewMode, setViewMode, setActiveTool } = useUIStore();
+  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId, planogramDetails } = usePlanogramStore();
+  const { viewMode, setViewMode, setActiveTool, setFlyToFurnitureId } = useUIStore();
   const { setZones } = useZoneStore();
 
   // ── Load project list ─────────────────────────────────────────────────────
@@ -171,6 +171,13 @@ export default function App() {
   }, [requestOpenPlanogramId]);
 
   const closePlanogram = () => {
+    // When returning to 3D, request the camera to fly to the gondola that was being edited
+    if (activePlanogramId) {
+      const planogram = planogramDetails.get(activePlanogramId);
+      if (planogram?.furnitureId) {
+        setFlyToFurnitureId(planogram.furnitureId);
+      }
+    }
     setActivePlanogramId(null);
     setViewMode('3d');
   };

@@ -416,12 +416,32 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   /**
    * Parses a cell override key ("row-col") into [row, col].
-   * Returns null if the key is malformed or contains non-finite numbers.
+   * Returns null if the key is malformed, or if either coordinate is not a
+   * non-negative integer (cell coordinates must be >= 0 and whole numbers).
    */
   const parseOverrideKey = (key: string): [number, number] | null => {
     const parts = key.split('-').map(Number);
-    if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return null;
+    if (
+      parts.length !== 2 ||
+      !Number.isInteger(parts[0]) || parts[0] < 0 ||
+      !Number.isInteger(parts[1]) || parts[1] < 0
+    ) return null;
     return [parts[0], parts[1]];
+  };
+
+  /**
+   * After removing column `removeIdx`, updates `selectedKey` to reflect the
+   * new column indices: clears the key if the removed column was selected,
+   * or decrements the column index for keys beyond the removed column.
+   */
+  const updateSelectedKeyAfterColRemoval = (key: string | null, removeIdx: number): string | null => {
+    if (!key) return key;
+    const parsed = parseOverrideKey(key);
+    if (!parsed) return key;
+    const [r, c] = parsed;
+    if (c === removeIdx) return null;
+    if (c > removeIdx) return `${r}-${c - 1}`;
+    return key;
   };
 
   const removeCol = () => {
@@ -497,17 +517,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
 
     // Update cell selection if it pointed to the removed or shifted column
-    if (selectedKey) {
-      const parsed = parseOverrideKey(selectedKey);
-      if (parsed) {
-        const [r, c] = parsed;
-        if (c === removeIdx) {
-          setSelectedKey(null);
-        } else if (c > removeIdx) {
-          setSelectedKey(`${r}-${c - 1}`);
-        }
-      }
-    }
+    setSelectedKey((prev) => updateSelectedKeyAfterColRemoval(prev, removeIdx));
   };
 
   // ── Image upload ─────────────────────────────────────────────────────────

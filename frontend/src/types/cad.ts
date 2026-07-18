@@ -112,6 +112,16 @@ export interface Planogram {
   colWidthsCm?: number[];
   /** Per-row heights in cm. When present and length === rows, used instead of heightCm/rows. */
   rowHeightsCm?: number[];
+  /**
+   * Per-cell width overrides in cm, keyed by "row-col".
+   * When set, overrides colWidthsCm[col] for that specific cell only.
+   */
+  cellWidthOverrides?: Record<string, number>;
+  /**
+   * Per-cell height overrides in cm, keyed by "row-col".
+   * When set, overrides rowHeightsCm[row] for that specific cell only.
+   */
+  cellHeightOverrides?: Record<string, number>;
 }
 
 export interface PlanogramSummary {

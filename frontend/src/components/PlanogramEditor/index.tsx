@@ -32,6 +32,8 @@ const MAX_CELL_CM_H = 300;
 const RESIZE_HANDLE_PX = 4;
 /** Snap threshold (cm): per-cell resize snaps to column/row default within this distance. */
 const CELL_SNAP_THRESHOLD_CM = 0.5;
+/** Epsilon (cm) used to detect when a per-cell override has returned exactly to its column/row default. */
+const OVERRIDE_CLEANUP_EPSILON_CM = 0.001;
 
 /** Returns per-column widths in cm, falling back to equal distribution. */
 function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
@@ -428,8 +430,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (!didMove) return;
       setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
       const newOverrides = { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 };
-      if (Math.abs(finalW0 - colWidths[col]) < 0.001) delete newOverrides[key0];
-      if (Math.abs(finalW1 - colWidths[col + 1]) < 0.001) delete newOverrides[key1];
+      if (Math.abs(finalW0 - colWidths[col]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalW1 - colWidths[col + 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
       applyUpdate({ ...capturedPlanogram, cellWidthOverrides: newOverrides });
     };
 
@@ -481,8 +483,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (!didMove) return;
       setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
       const newOverrides = { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 };
-      if (Math.abs(finalW0 - colWidths[col - 1]) < 0.001) delete newOverrides[key0];
-      if (Math.abs(finalW1 - colWidths[col]) < 0.001) delete newOverrides[key1];
+      if (Math.abs(finalW0 - colWidths[col - 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalW1 - colWidths[col]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
       applyUpdate({ ...capturedPlanogram, cellWidthOverrides: newOverrides });
     };
 
@@ -533,8 +535,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (!didMove) return;
       setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
       const newOverrides = { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 };
-      if (Math.abs(finalH0 - rowHeights[row]) < 0.001) delete newOverrides[key0];
-      if (Math.abs(finalH1 - rowHeights[row + 1]) < 0.001) delete newOverrides[key1];
+      if (Math.abs(finalH0 - rowHeights[row]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalH1 - rowHeights[row + 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
       applyUpdate({ ...capturedPlanogram, cellHeightOverrides: newOverrides });
     };
 
@@ -586,8 +588,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (!didMove) return;
       setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
       const newOverrides = { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 };
-      if (Math.abs(finalH0 - rowHeights[row - 1]) < 0.001) delete newOverrides[key0];
-      if (Math.abs(finalH1 - rowHeights[row]) < 0.001) delete newOverrides[key1];
+      if (Math.abs(finalH0 - rowHeights[row - 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalH1 - rowHeights[row]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
       applyUpdate({ ...capturedPlanogram, cellHeightOverrides: newOverrides });
     };
 

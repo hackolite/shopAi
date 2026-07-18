@@ -242,12 +242,40 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!planogram || !canAddRow) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curHeights = getEffectiveRowHeights(planogram);
+    // Insert after the selected row header (or append at end if none selected).
+    const insertAfter = selectedHeaderRow ?? planogram.rows - 1;
+    const insertIdx = insertAfter + 1;
+    const newHeights = [...curHeights.slice(0, insertIdx), newRowHeightCm, ...curHeights.slice(insertIdx)];
+    // Shift cells and height overrides at rows >= insertIdx.
+    const newCells = planogram.cells.map((c) =>
+      c.row >= insertIdx ? { ...c, row: c.row + 1 } : c,
+    );
+    const oldOverrides = planogram.cellHeightOverrides ?? {};
+    const newHeightOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldOverrides)) {
+      const parts = key.split('-').map(Number);
+      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+      const [r, c] = parts;
+      newHeightOverrides[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
+    }
+    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
+    const newWidthOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldWidthOverrides)) {
+      const parts = key.split('-').map(Number);
+      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+      const [r, c] = parts;
+      newWidthOverrides[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
+    }
     applyUpdate({
       ...planogram,
       rows: planogram.rows + 1,
       heightCm: planogram.heightCm + newRowHeightCm,
-      rowHeightsCm: [...curHeights, newRowHeightCm],
+      rowHeightsCm: newHeights,
+      cells: newCells,
+      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
+      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
     });
+    setSelectedHeaderRow(insertIdx);
   };
 
   const removeRow = () => {
@@ -270,12 +298,40 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!planogram || !canAddCol) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curWidths = getEffectiveColWidths(planogram);
+    // Insert after the selected column header (or append at end if none selected).
+    const insertAfter = selectedHeaderCol ?? planogram.cols - 1;
+    const insertIdx = insertAfter + 1;
+    const newWidths = [...curWidths.slice(0, insertIdx), newColWidthCm, ...curWidths.slice(insertIdx)];
+    // Shift cells and width overrides at cols >= insertIdx.
+    const newCells = planogram.cells.map((c) =>
+      c.col >= insertIdx ? { ...c, col: c.col + 1 } : c,
+    );
+    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
+    const newWidthOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldWidthOverrides)) {
+      const parts = key.split('-').map(Number);
+      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+      const [r, c] = parts;
+      newWidthOverrides[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
+    }
+    const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
+    const newHeightOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldHeightOverrides)) {
+      const parts = key.split('-').map(Number);
+      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+      const [r, c] = parts;
+      newHeightOverrides[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
+    }
     applyUpdate({
       ...planogram,
       cols: planogram.cols + 1,
       widthCm: planogram.widthCm + newColWidthCm,
-      colWidthsCm: [...curWidths, newColWidthCm],
+      colWidthsCm: newWidths,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
+      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
     });
+    setSelectedHeaderCol(insertIdx);
   };
 
   const removeCol = () => {

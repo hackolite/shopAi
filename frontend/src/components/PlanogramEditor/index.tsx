@@ -382,20 +382,114 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     setSelectedHeaderCol(insertIdx);
   };
 
+  // ── Remove a single cell from one row (counterpart to addCellToRow) ───────────
+  const removeCellFromRow = (r: number) => {
+    if (!planogram) return;
+    const currentRowCols = planogram.rowColCounts?.[r] ?? planogram.cols;
+    if (currentRowCols <= 1) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    const removeColIdx = currentRowCols - 1;
+    const newCells = planogram.cells.filter((c) => !(c.row === r && c.col === removeColIdx));
+    const newCellWidthOverrides = { ...(planogram.cellWidthOverrides ?? {}) };
+    delete newCellWidthOverrides[`${r}-${removeColIdx}`];
+    const newRowColCounts: number[] = Array.from(
+      { length: planogram.rows },
+      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
+    );
+    newRowColCounts[r] = currentRowCols - 1;
+    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
+      ? undefined
+      : newRowColCounts;
+    applyUpdate({
+      ...planogram,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
+      rowColCounts: normalizedRowColCounts,
+    });
+    if (selectedKey === `${r}-${removeColIdx}`) setSelectedKey(null);
+  };
+
   const removeCol = () => {
     if (!planogram || planogram.cols <= 1) return;
-    const lastCol = planogram.cols - 1;
+    // If a row header is selected, remove the last extra cell from that row only.
+    if (selectedHeaderRow !== null) {
+      removeCellFromRow(selectedHeaderRow);
+      return;
+    }
+    const removeIdx = selectedHeaderCol ?? planogram.cols - 1;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curWidths = getEffectiveColWidths(planogram);
-    const removedW = curWidths[lastCol];
+    const removedW = curWidths[removeIdx];
+
+    // Remove column at removeIdx from colWidthsCm
+    const newWidths = [...curWidths.slice(0, removeIdx), ...curWidths.slice(removeIdx + 1)];
+
+    // Remove cells at removeIdx, shift cells at col > removeIdx down by 1
+    const newCells = planogram.cells
+      .filter((c) => c.col !== removeIdx)
+      .map((c) => (c.col > removeIdx ? { ...c, col: c.col - 1 } : c));
+
+    // Update cellWidthOverrides: drop removed col, shift col > removeIdx
+    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
+    const newWidthOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldWidthOverrides)) {
+      const parts = key.split('-').map(Number);
+      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+      const [r, c] = parts;
+      if (c === removeIdx) continue;
+      newWidthOverrides[c > removeIdx ? `${r}-${c - 1}` : key] = val;
+    }
+
+    // Update cellHeightOverrides: drop removed col, shift col > removeIdx
+    const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
+    const newHeightOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldHeightOverrides)) {
+      const parts = key.split('-').map(Number);
+      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+      const [r, c] = parts;
+      if (c === removeIdx) continue;
+      newHeightOverrides[c > removeIdx ? `${r}-${c - 1}` : key] = val;
+    }
+
+    // Update rowColCounts: rows that had more columns than removeIdx lose one
+    const oldRowColCounts = planogram.rowColCounts;
+    let newRowColCounts: number[] | undefined;
+    if (oldRowColCounts) {
+      const newCols = planogram.cols - 1;
+      const updated = Array.from({ length: planogram.rows }, (_, r) => {
+        const effective = oldRowColCounts[r] ?? planogram.cols;
+        return effective > removeIdx ? effective - 1 : effective;
+      });
+      newRowColCounts = updated.every((c) => c === newCols) ? undefined : updated;
+    }
+
     applyUpdate({
       ...planogram,
       cols: planogram.cols - 1,
       widthCm: planogram.widthCm - removedW,
-      colWidthsCm: curWidths.slice(0, -1),
-      cells: planogram.cells.filter((c) => c.col !== lastCol),
+      colWidthsCm: newWidths,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
+      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
+      rowColCounts: newRowColCounts,
     });
-    if (selectedKey?.endsWith(`-${lastCol}`)) setSelectedKey(null);
+
+    // Update header selection
+    if (selectedHeaderCol === removeIdx) {
+      setSelectedHeaderCol(null);
+    } else if (selectedHeaderCol !== null && selectedHeaderCol > removeIdx) {
+      setSelectedHeaderCol(selectedHeaderCol - 1);
+    }
+
+    // Update cell selection if it pointed to the removed or shifted column
+    if (selectedKey) {
+      const [r, c] = selectedKey.split('-').map(Number);
+      if (c === removeIdx) {
+        setSelectedKey(null);
+      } else if (c > removeIdx) {
+        setSelectedKey(`${r}-${c - 1}`);
+      }
+    }
   };
 
   // ── Image upload ─────────────────────────────────────────────────────────
@@ -842,7 +936,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               onClick={removeCol}
               disabled={cols <= 1}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title="Supprimer dernière colonne"
+              title={
+                selectedHeaderRow !== null
+                  ? `Supprimer la dernière cellule de la ligne ${selectedHeaderRow + 1}`
+                  : selectedHeaderCol !== null
+                  ? `Supprimer la colonne ${selectedHeaderCol + 1}`
+                  : 'Supprimer la dernière colonne'
+              }
             >−</button>
             <span className="text-xs text-gray-400 w-5 text-center">{cols}</span>
             <button

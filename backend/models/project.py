@@ -192,6 +192,7 @@ class Planogram(CADBaseModel):
     rowHeightsCm: list[float] | None = None
     cellWidthOverrides: dict[str, float] | None = None
     cellHeightOverrides: dict[str, float] | None = None
+    rowColCounts: list[int] | None = None
 
 
 class Product(CADBaseModel):

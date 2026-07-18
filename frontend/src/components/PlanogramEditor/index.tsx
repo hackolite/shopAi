@@ -30,6 +30,10 @@ const MAX_CELL_CM_W = 300;
 const MAX_CELL_CM_H = 300;
 /** Width/height (px) of resize handle strips between columns and rows. */
 const RESIZE_HANDLE_PX = 4;
+/** Snap threshold (cm): per-cell resize snaps to column/row default within this distance. */
+const CELL_SNAP_THRESHOLD_CM = 0.5;
+/** Epsilon (cm) used to detect when a per-cell override has returned exactly to its column/row default. */
+const OVERRIDE_CLEANUP_EPSILON_CM = 0.001;
 
 /** Returns per-column widths in cm, falling back to equal distribution. */
 function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
@@ -307,9 +311,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const startWidths = getEffectiveColWidths(planogram);
     const capturedPlanogram = planogram;
     let finalWidths = startWidths;
+    let didMove = false;
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
+      didMove = true;
       const deltaPx = ev.clientX - startX;
       const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
       const newW = Math.min(MAX_CELL_CM_W, Math.max(MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
@@ -324,6 +330,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalColWidths(null);
       setResizeTooltip(null);
+      if (!didMove) return;
+      setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
       const newWidthCm = finalWidths.reduce((a, b) => a + b, 0);
       applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths, widthCm: newWidthCm });
     };
@@ -339,9 +347,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const startHeights = getEffectiveRowHeights(planogram);
     const capturedPlanogram = planogram;
     let finalHeights = startHeights;
+    let didMove = false;
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
+      didMove = true;
       const deltaPx = ev.clientY - startY;
       const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
       const newH = Math.min(MAX_CELL_CM_H, Math.max(MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
@@ -356,6 +366,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalRowHeights(null);
       setResizeTooltip(null);
+      if (!didMove) return;
+      setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
       const newHeightCm = finalHeights.reduce((a, b) => a + b, 0);
       applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights, heightCm: newHeightCm });
     };
@@ -386,17 +398,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const startW0 = getCellStartWidthCm(planogram, row, col);
     const startW1 = getCellStartWidthCm(planogram, row, col + 1);
     const capturedPlanogram = planogram;
+    const colWidths = getEffectiveColWidths(capturedPlanogram);
+    const defaultDelta = colWidths[col] - startW0;
     let finalW0 = startW0;
     let finalW1 = startW1;
+    let didMove = false;
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
+      didMove = true;
       const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
       const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), Math.min(startW1 - MIN_CELL_CM_W, deltaCm));
-      finalW0 = startW0 + clamped;
-      finalW1 = startW1 - clamped;
+      if (Math.abs(clamped - defaultDelta) < CELL_SNAP_THRESHOLD_CM) {
+        finalW0 = colWidths[col];
+        finalW1 = startW0 + startW1 - finalW0;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `🧲 ${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      } else {
+        finalW0 = startW0 + clamped;
+        finalW1 = startW1 - clamped;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      }
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -405,7 +427,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellWidthOverrides(null);
       setResizeTooltip(null);
-      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
+      if (!didMove) return;
+      setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
+      const newOverrides = { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 };
+      if (Math.abs(finalW0 - colWidths[col]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalW1 - colWidths[col + 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
+      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: newOverrides });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -423,18 +450,28 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const startW0 = getCellStartWidthCm(planogram, row, col - 1);
     const startW1 = getCellStartWidthCm(planogram, row, col);
     const capturedPlanogram = planogram;
+    const colWidths = getEffectiveColWidths(capturedPlanogram);
+    const defaultDelta = colWidths[col - 1] - startW0;
     let finalW0 = startW0;
     let finalW1 = startW1;
+    let didMove = false;
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
+      didMove = true;
       // Dragging left (negative delta) shrinks the left neighbour, grows current
       const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
       const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), Math.min(startW1 - MIN_CELL_CM_W, deltaCm));
-      finalW0 = startW0 + clamped;
-      finalW1 = startW1 - clamped;
+      if (Math.abs(clamped - defaultDelta) < CELL_SNAP_THRESHOLD_CM) {
+        finalW0 = colWidths[col - 1];
+        finalW1 = startW0 + startW1 - finalW0;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `🧲 ${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      } else {
+        finalW0 = startW0 + clamped;
+        finalW1 = startW1 - clamped;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      }
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -443,7 +480,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellWidthOverrides(null);
       setResizeTooltip(null);
-      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
+      if (!didMove) return;
+      setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
+      const newOverrides = { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 };
+      if (Math.abs(finalW0 - colWidths[col - 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalW1 - colWidths[col]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
+      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: newOverrides });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -461,17 +503,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const startH0 = getCellStartHeightCm(planogram, row, col);
     const startH1 = getCellStartHeightCm(planogram, row + 1, col);
     const capturedPlanogram = planogram;
+    const rowHeights = getEffectiveRowHeights(capturedPlanogram);
+    const defaultDelta = rowHeights[row] - startH0;
     let finalH0 = startH0;
     let finalH1 = startH1;
+    let didMove = false;
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
+      didMove = true;
       const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
       const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, deltaCm));
-      finalH0 = startH0 + clamped;
-      finalH1 = startH1 - clamped;
+      if (Math.abs(clamped - defaultDelta) < CELL_SNAP_THRESHOLD_CM) {
+        finalH0 = rowHeights[row];
+        finalH1 = startH0 + startH1 - finalH0;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `🧲 ${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+      } else {
+        finalH0 = startH0 + clamped;
+        finalH1 = startH1 - clamped;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+      }
       setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -480,7 +532,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellHeightOverrides(null);
       setResizeTooltip(null);
-      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
+      if (!didMove) return;
+      setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
+      const newOverrides = { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 };
+      if (Math.abs(finalH0 - rowHeights[row]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalH1 - rowHeights[row + 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
+      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: newOverrides });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -498,18 +555,28 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const startH0 = getCellStartHeightCm(planogram, row - 1, col);
     const startH1 = getCellStartHeightCm(planogram, row, col);
     const capturedPlanogram = planogram;
+    const rowHeights = getEffectiveRowHeights(capturedPlanogram);
+    const defaultDelta = rowHeights[row - 1] - startH0;
     let finalH0 = startH0;
     let finalH1 = startH1;
+    let didMove = false;
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
+      didMove = true;
       // Dragging up (negative delta) shrinks the top neighbour, grows current
       const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
       const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, deltaCm));
-      finalH0 = startH0 + clamped;
-      finalH1 = startH1 - clamped;
+      if (Math.abs(clamped - defaultDelta) < CELL_SNAP_THRESHOLD_CM) {
+        finalH0 = rowHeights[row - 1];
+        finalH1 = startH0 + startH1 - finalH0;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `🧲 ${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+      } else {
+        finalH0 = startH0 + clamped;
+        finalH1 = startH1 - clamped;
+        setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+      }
       setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -518,7 +585,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellHeightOverrides(null);
       setResizeTooltip(null);
-      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
+      if (!didMove) return;
+      setHistory((prev) => [...prev.slice(-20), capturedPlanogram]);
+      const newOverrides = { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 };
+      if (Math.abs(finalH0 - rowHeights[row - 1]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key0];
+      if (Math.abs(finalH1 - rowHeights[row]) < OVERRIDE_CLEANUP_EPSILON_CM) delete newOverrides[key1];
+      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: newOverrides });
     };
 
     window.addEventListener('mousemove', onMove);

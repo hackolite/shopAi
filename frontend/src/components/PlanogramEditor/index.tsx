@@ -418,6 +418,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    * Parses a cell override key ("row-col") into [row, col].
    * Returns null if the key is malformed, or if either coordinate is not a
    * non-negative integer (cell coordinates must be >= 0 and whole numbers).
+   * Note: Number.isInteger() returns false for NaN and floats, so no separate
+   * NaN check is needed.
    */
   const parseOverrideKey = (key: string): [number, number] | null => {
     const parts = key.split('-').map(Number);

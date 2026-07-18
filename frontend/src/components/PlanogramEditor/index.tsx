@@ -124,6 +124,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [localCellWidthOverrides,  setLocalCellWidthOverrides]  = useState<Record<string, number> | null>(null);
   /** Per-cell height overrides (live preview during cell-specific drag). Key: "row-col". */
   const [localCellHeightOverrides, setLocalCellHeightOverrides] = useState<Record<string, number> | null>(null);
+  /** Index of the column selected by clicking its header label (null = none). */
+  const [selectedHeaderCol, setSelectedHeaderCol] = useState<number | null>(null);
+  /** Index of the row selected by clicking its header label (null = none). */
+  const [selectedHeaderRow, setSelectedHeaderRow] = useState<number | null>(null);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -575,6 +579,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   // ── Cell click ───────────────────────────────────────────────────────────
   const handleCellClick = (row: number, col: number) => {
+    // Clicking a cell clears any header selection
+    setSelectedHeaderCol(null);
+    setSelectedHeaderRow(null);
     const key  = `${row}-${col}`;
     const cell = cellMap.get(key);
     if (!cell && selectedEan) {
@@ -582,6 +589,19 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       return;
     }
     setSelectedKey(key === selectedKey ? null : key);
+  };
+
+  // ── Header click (select entire column / row) ────────────────────────────
+  const handleColHeaderClick = (c: number) => {
+    setSelectedKey(null);
+    setSelectedHeaderRow(null);
+    setSelectedHeaderCol(prev => (prev === c ? null : c));
+  };
+
+  const handleRowHeaderClick = (r: number) => {
+    setSelectedKey(null);
+    setSelectedHeaderCol(null);
+    setSelectedHeaderRow(prev => (prev === r ? null : r));
   };
 
   const handleDrop = (e: React.DragEvent, row: number, col: number) => {
@@ -807,12 +827,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           {Array.from({ length: cols }, (_, c) => (
             <Fragment key={c}>
               <div
-                className="text-center text-xs text-gray-600 pb-0.5 flex-none"
+                className={[
+                  'text-center text-xs pb-0.5 flex-none cursor-pointer select-none transition-colors rounded-t',
+                  selectedHeaderCol === c
+                    ? 'text-blue-400 bg-blue-900/40'
+                    : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60',
+                ].join(' ')}
                 style={{ width: `${colWidthsPx[c]}px` }}
+                onClick={() => handleColHeaderClick(c)}
+                title={`Colonne ${c + 1} — cliquer pour sélectionner`}
               >
                 {c + 1}
               </div>
-              {c < cols - 1 && <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />}
+              {c < cols - 1 && (
+                <div
+                  style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0, cursor: 'col-resize' }}
+                  className="hover:bg-blue-500/60 transition-colors"
+                  onMouseDown={(e) => startColResize(e, c)}
+                  title="Redimensionner colonne"
+                />
+              )}
             </Fragment>
           ))}
           {/* Grey extension header */}
@@ -833,12 +867,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             {Array.from({ length: rows }, (_, r) => (
               <Fragment key={r}>
                 <div
-                  className="text-xs text-gray-600 flex items-center justify-center flex-none"
+                  className={[
+                    'text-xs flex items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l',
+                    selectedHeaderRow === r
+                      ? 'text-blue-400 bg-blue-900/40'
+                      : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60',
+                  ].join(' ')}
                   style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px' }}
+                  onClick={() => handleRowHeaderClick(r)}
+                  title={`Ligne ${r + 1} — cliquer pour sélectionner`}
                 >
                   {r + 1}
                 </div>
-                {r < rows - 1 && <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />}
+                {r < rows - 1 && (
+                  <div
+                    style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
+                    className="hover:bg-blue-500/60 transition-colors"
+                    onMouseDown={(e) => startRowResize(e, r)}
+                    title="Redimensionner ligne"
+                  />
+                )}
               </Fragment>
             ))}
           </div>
@@ -857,6 +905,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     const isSelected = selectedKey === key;
                     const isDragOver = dragOver === key;
                     const isUploading = prod && uploadingEan === prod.ean;
+                    const isHeaderHighlighted = selectedHeaderCol === col || selectedHeaderRow === row;
                     const cellCmW = getCellWidthCm(row, col);
                     const cellCmH = getCellHeightCm(row, col);
                     const cellPxW = getCellWidthPx(row, col);
@@ -886,6 +935,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                               ? 'border-blue-400 bg-blue-900/20 border-solid'
                               : 'border-dashed border-gray-700 hover:border-gray-500',
                             isSelected ? 'ring-2 ring-blue-500' : '',
+                            isHeaderHighlighted && !isSelected ? 'ring-1 ring-blue-400/60 bg-blue-900/15' : '',
                             prodOverflow ? 'bg-red-900/20' : '',
                           ].join(' ')}
                           style={{

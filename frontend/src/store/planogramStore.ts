@@ -28,6 +28,13 @@ interface PlanogramState {
   setRequestOpenPlanogramId: (id: string | null) => void;
   /** Sync a planogram's physical canvas dimensions (e.g. after furniture resize). */
   updatePlanogramDimensions: (id: string, widthCm: number, heightCm: number) => void;
+  /**
+   * Atomically replace a planogram in planogramDetails, planograms summaries,
+   * and activePlanogram in a single state update.  Use instead of calling
+   * setPlanogramDetail + updatePlanogramDimensions separately to avoid stale-
+   * state issues with Zustand batching.
+   */
+  syncPlanogram: (planogram: Planogram) => void;
 }
 
 export const usePlanogramStore = create<PlanogramState>((set) => ({
@@ -120,6 +127,21 @@ export const usePlanogramStore = create<PlanogramState>((set) => ({
       const activePlanogram =
         state.activePlanogram?.id === id
           ? { ...state.activePlanogram, widthCm, heightCm }
+          : state.activePlanogram;
+      return { planogramDetails, planograms, activePlanogram };
+    }),
+  syncPlanogram: (planogram) =>
+    set((state) => {
+      const planogramDetails = new Map(state.planogramDetails);
+      planogramDetails.set(planogram.id, planogram);
+      const planograms = state.planograms.map((p) =>
+        p.id === planogram.id
+          ? { ...p, widthCm: planogram.widthCm, heightCm: planogram.heightCm }
+          : p,
+      );
+      const activePlanogram =
+        state.activePlanogram?.id === planogram.id
+          ? planogram
           : state.activePlanogram;
       return { planogramDetails, planograms, activePlanogram };
     }),

@@ -62,7 +62,7 @@ interface FurnitureInspectorProps {
 
 function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: FurnitureInspectorProps) {
   const { updateFurniture } = useSceneStore();
-  const { planograms } = usePlanogramStore();
+  const { planograms, planogramDetails, syncPlanogram } = usePlanogramStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const save = (updated: FurnitureInstance) => {
@@ -81,9 +81,79 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
     save({ ...furniture, position: p });
   };
 
+  /**
+   * Returns the face's allowed width and height (cm) given a set of furniture dimensions.
+   * - front/back/top/bottom faces use furniture width for their planogram width.
+   * - left/right faces use furniture depth for their planogram width.
+   * - top/bottom faces use furniture depth for their planogram height.
+   * - All other faces use furniture height for their planogram height.
+   */
+  const getFaceDims = (
+    faceId: string,
+    dims: { width: number; depth: number; height: number },
+  ): { faceWidth: number; faceHeight: number } => {
+    const isLeftRight = faceId === 'left' || faceId === 'right';
+    const isTopBottom = faceId === 'top' || faceId === 'bottom';
+    return {
+      faceWidth: isLeftRight ? dims.depth : dims.width,
+      faceHeight: isTopBottom ? dims.depth : dims.height,
+    };
+  };
+
+  /**
+   * Scale a record of cm values by a given factor.
+   */
+  const scaleRecord = (
+    rec: Record<string, number> | undefined,
+    factor: number,
+  ): Record<string, number> | undefined => {
+    if (!rec) return undefined;
+    return Object.fromEntries(Object.entries(rec).map(([k, v]) => [k, v * factor]));
+  };
+
   const setDim = (key: 'width' | 'depth' | 'height', v: number) => {
     const newDims = { ...furniture.dimensions, [key]: v };
     save({ ...furniture, dimensions: newDims });
+
+    // Proportionally scale any linked planogram whose declared dimensions would
+    // exceed the new gondola face dimensions.  Only affects planograms where the
+    // changed dimension maps to a face width/height that actually shrank.
+    if (!projectId) return;
+    const faceEntries = Object.entries(furniture.faces) as [string, string | null][];
+    for (const [faceId, planogramId] of faceEntries) {
+      if (!planogramId) continue;
+      const detail = planogramDetails.get(planogramId);
+      if (!detail) continue;
+
+      const { faceWidth, faceHeight } = getFaceDims(faceId, newDims);
+
+      let updated = detail;
+
+      if (detail.widthCm > faceWidth) {
+        const wScale = faceWidth / detail.widthCm;
+        updated = {
+          ...updated,
+          widthCm: faceWidth,
+          ...(detail.colWidthsCm && { colWidthsCm: detail.colWidthsCm.map(w => w * wScale) }),
+          cellWidthOverrides: scaleRecord(detail.cellWidthOverrides, wScale),
+        };
+      }
+
+      if (detail.heightCm > faceHeight) {
+        const hScale = faceHeight / detail.heightCm;
+        updated = {
+          ...updated,
+          heightCm: faceHeight,
+          ...(detail.rowHeightsCm && { rowHeightsCm: detail.rowHeightsCm.map(h => h * hScale) }),
+          cellHeightOverrides: scaleRecord(detail.cellHeightOverrides, hScale),
+        };
+      }
+
+      if (updated !== detail) {
+        cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);
+        syncPlanogram(updated);
+      }
+    }
   };
 
   const setRotY = (v: number) => {

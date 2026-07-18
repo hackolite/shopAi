@@ -50,7 +50,7 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
       {/* ── Left: Logo + Project Name + File menu ── */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-lg leading-none">🏪</span>
-        <span className="text-sm font-semibold text-gray-200 truncate max-w-32">
+        <span className="text-sm font-semibold text-gray-200 truncate max-w-32" title={projectName}>
           {projectName}
         </span>
 

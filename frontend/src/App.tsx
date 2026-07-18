@@ -229,9 +229,16 @@ export default function App() {
 
   // ── Import from JSON file ─────────────────────────────────────────────────
   const handleImportFile = useCallback(async (file: File) => {
+    let text: string;
+    let snapshot: object;
     try {
-      const text = await file.text();
-      const snapshot = JSON.parse(text) as object;
+      text = await file.text();
+      snapshot = JSON.parse(text) as object;
+    } catch {
+      alert('Fichier invalide : ce fichier n\'est pas un JSON valide.');
+      return;
+    }
+    try {
       const defaultName = file.name.replace(/\.[^.]+$/, '').replace(/_export$/, '').replace(/_/g, ' ');
       const name = window.prompt('Nom du projet importé :', defaultName);
       if (!name?.trim()) return;

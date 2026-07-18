@@ -59,8 +59,18 @@ def _normalize_data(data: Any) -> Any:
     return data
 
 
+def _assert_within_storage(path: Path) -> Path:
+    """Resolve path and verify it is within STORAGE_ROOT to prevent path traversal."""
+    resolved = path.resolve()
+    storage_root = STORAGE_ROOT.resolve()
+    if not resolved.is_relative_to(storage_root):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    return resolved
+
+
 def _read_json(path: Path) -> Any:
-    with path.open(encoding="utf-8") as handle:
+    safe_path = _assert_within_storage(path)
+    with safe_path.open(encoding="utf-8") as handle:
         content = handle.read()
     try:
         return json.loads(content)
@@ -73,11 +83,8 @@ def _read_json(path: Path) -> Any:
 
 
 def _write_json(path: Path, data: Any) -> None:
-    resolved = path.resolve()
-    resolved_root = STORAGE_ROOT.resolve()
-    if not str(resolved).startswith(str(resolved_root) + "/"):
-        raise HTTPException(status_code=400, detail="Invalid write path")
-    with resolved.open("w", encoding="utf-8") as handle:
+    safe_path = _assert_within_storage(path)
+    with safe_path.open("w", encoding="utf-8") as handle:
         json.dump(_normalize_data(data), handle, indent=2, ensure_ascii=False)
 
 

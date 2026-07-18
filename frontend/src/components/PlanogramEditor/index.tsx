@@ -43,6 +43,14 @@ function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsC
     : Array(p.rows).fill(p.heightCm / p.rows);
 }
 
+/**
+ * Clamps a resize delta so that the resized part stays within [min, total−min].
+ * Returns the new size for the leading part; the trailing part = total − result.
+ */
+function clampSplit(start: number, delta: number, total: number, min: number): number {
+  return Math.max(min, Math.min(total - min, start + delta));
+}
+
 /** Zoom control bounds and step for the planogram view. */
 const ZOOM_MIN  = 0.5;
 const ZOOM_MAX  = 4;
@@ -305,7 +313,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const deltaPx = ev.clientX - startX;
       const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
       const total = startWidths[colIdx] + startWidths[colIdx + 1];
-      const newW = Math.max(MIN_CELL_CM_W, Math.min(total - MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
+      const newW = clampSplit(startWidths[colIdx], deltaCm, total, MIN_CELL_CM_W);
       finalWidths = startWidths.map((w, i) =>
         i === colIdx ? newW : i === colIdx + 1 ? total - newW : w
       );
@@ -337,7 +345,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const deltaPx = ev.clientY - startY;
       const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
       const total = startHeights[rowIdx] + startHeights[rowIdx + 1];
-      const newH = Math.max(MIN_CELL_CM_H, Math.min(total - MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
+      const newH = clampSplit(startHeights[rowIdx], deltaCm, total, MIN_CELL_CM_H);
       finalHeights = startHeights.map((h, i) =>
         i === rowIdx ? newH : i === rowIdx + 1 ? total - newH : h
       );
@@ -356,14 +364,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     window.addEventListener('mouseup', onUp);
   };
 
-  // ── Cursor during resize ─────────────────────────────────────────────────
+  // ── Prevent text selection during resize ────────────────────────────────
   useEffect(() => {
     if (isResizing) {
-      document.body.style.cursor     = isResizing === 'col' ? 'col-resize' : 'row-resize';
       document.body.style.userSelect = 'none';
     }
     return () => {
-      document.body.style.cursor     = '';
       document.body.style.userSelect = '';
     };
   }, [isResizing]);

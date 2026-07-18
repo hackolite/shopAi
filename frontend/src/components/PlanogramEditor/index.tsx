@@ -295,23 +295,34 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
   };
 
-  // ── Column / row resize via drag ─────────────────────────────────────────
+  // ── Column / row resize via drag (Excel-like: neighbour absorbs the delta) ──
   const startColResize = (e: React.MouseEvent, colIdx: number) => {
     if (!planogram) return;
+    // The handle sits between colIdx and colIdx+1 — skip if there is no right neighbour.
+    if (colIdx + 1 >= planogram.cols) return;
     e.preventDefault();
     const startX = e.clientX;
     const startWidths = getEffectiveColWidths(planogram);
     const capturedPlanogram = planogram;
-    let finalWidths = startWidths;
+    let finalWidths = [...startWidths];
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientX - startX;
       const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
-      const newW = Math.min(MAX_CELL_CM_W, Math.max(MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
-      finalWidths = startWidths.map((w, i) => (i === colIdx ? newW : w));
-      setLocalColWidths(finalWidths);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newW.toFixed(1)} cm` });
+      // Clamp so neither column goes below MIN_CELL_CM_W.
+      const maxGrow  =  startWidths[colIdx + 1] - MIN_CELL_CM_W;
+      const maxShrink = startWidths[colIdx]     - MIN_CELL_CM_W;
+      const clamped  = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
+      const newLeft  = startWidths[colIdx]     + clamped;
+      const newRight = startWidths[colIdx + 1] - clamped;
+      finalWidths = startWidths.map((w, i) =>
+        i === colIdx     ? newLeft  :
+        i === colIdx + 1 ? newRight :
+        w,
+      );
+      setLocalColWidths([...finalWidths]);
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newLeft.toFixed(1)} / ${newRight.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -320,8 +331,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalColWidths(null);
       setResizeTooltip(null);
-      const newWidthCm = finalWidths.reduce((a, b) => a + b, 0);
-      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths, widthCm: newWidthCm });
+      // Total width is unchanged — do not update widthCm.
+      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -330,20 +341,31 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const startRowResize = (e: React.MouseEvent, rowIdx: number) => {
     if (!planogram) return;
+    // The handle sits between rowIdx and rowIdx+1 — skip if there is no bottom neighbour.
+    if (rowIdx + 1 >= planogram.rows) return;
     e.preventDefault();
     const startY = e.clientY;
     const startHeights = getEffectiveRowHeights(planogram);
     const capturedPlanogram = planogram;
-    let finalHeights = startHeights;
+    let finalHeights = [...startHeights];
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientY - startY;
       const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
-      const newH = Math.min(MAX_CELL_CM_H, Math.max(MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
-      finalHeights = startHeights.map((h, i) => (i === rowIdx ? newH : h));
-      setLocalRowHeights(finalHeights);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newH.toFixed(1)} cm` });
+      // Clamp so neither row goes below MIN_CELL_CM_H.
+      const maxGrow  =  startHeights[rowIdx + 1] - MIN_CELL_CM_H;
+      const maxShrink = startHeights[rowIdx]     - MIN_CELL_CM_H;
+      const clamped  = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
+      const newTop    = startHeights[rowIdx]     + clamped;
+      const newBottom = startHeights[rowIdx + 1] - clamped;
+      finalHeights = startHeights.map((h, i) =>
+        i === rowIdx     ? newTop    :
+        i === rowIdx + 1 ? newBottom :
+        h,
+      );
+      setLocalRowHeights([...finalHeights]);
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newTop.toFixed(1)} / ${newBottom.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -352,8 +374,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalRowHeights(null);
       setResizeTooltip(null);
-      const newHeightCm = finalHeights.reduce((a, b) => a + b, 0);
-      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights, heightCm: newHeightCm });
+      // Total height is unchanged — do not update heightCm.
+      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -596,7 +618,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               >
                 {c + 1}
               </div>
-              <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />
+              {c < cols - 1 && <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />}
             </Fragment>
           ))}
         </div>
@@ -612,7 +634,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 >
                   {r + 1}
                 </div>
-                <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />
+                {r < rows - 1 && <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />}
               </Fragment>
             ))}
           </div>
@@ -747,33 +769,37 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           )}
                         </div>
 
-                        {/* Column resize handle — highlighted when the adjacent cell is selected */}
-                        <div
-                          style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
-                          className={[
-                            'transition-colors',
-                            selectedCol === col
-                              ? 'bg-blue-500/40 hover:bg-blue-400/70'
-                              : 'bg-gray-800 hover:bg-blue-500/50',
-                          ].join(' ')}
-                          onMouseDown={(e) => startColResize(e, col)}
-                        />
+                        {/* Column resize handle — only between columns (not after the last one) */}
+                        {col < cols - 1 && (
+                          <div
+                            style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
+                            className={[
+                              'transition-colors',
+                              selectedCol === col || selectedCol === col + 1
+                                ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                                : 'bg-gray-800 hover:bg-blue-500/50',
+                            ].join(' ')}
+                            onMouseDown={(e) => startColResize(e, col)}
+                          />
+                        )}
                       </Fragment>
                     );
                   })}
                 </div>
 
-                {/* Row resize handle — highlighted when the selected cell is in this row */}
-                <div
-                  style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
-                  className={[
-                    'transition-colors',
-                    selectedRow === row
-                      ? 'bg-blue-500/40 hover:bg-blue-400/70'
-                      : 'bg-gray-800 hover:bg-blue-500/50',
-                  ].join(' ')}
-                  onMouseDown={(e) => startRowResize(e, row)}
-                />
+                {/* Row resize handle — only between rows (not after the last one) */}
+                {row < rows - 1 && (
+                  <div
+                    style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
+                    className={[
+                      'transition-colors',
+                      selectedRow === row || selectedRow === row + 1
+                        ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                        : 'bg-gray-800 hover:bg-blue-500/50',
+                    ].join(' ')}
+                    onMouseDown={(e) => startRowResize(e, row)}
+                  />
+                )}
               </Fragment>
             ))}
           </div>

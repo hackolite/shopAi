@@ -96,6 +96,23 @@ const OVERLAY_Z_OFFSET = 0.002;
 /** Opacity of the planogram face overlay. */
 const OVERLAY_OPACITY  = 0.85;
 
+/** Canvas pixel resolution (along the longer axis) for planogram face textures. */
+const OVERLAY_CANVAS_PX = 320;
+
+/** Returns per-column widths in cm, falling back to equal distribution. */
+function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
+  return p.colWidthsCm?.length === p.cols
+    ? p.colWidthsCm
+    : Array(p.cols).fill(p.widthCm / p.cols);
+}
+
+/** Returns per-row heights in cm, falling back to equal distribution. */
+function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsCm?: number[] }): number[] {
+  return p.rowHeightsCm?.length === p.rows
+    ? p.rowHeightsCm
+    : Array(p.rows).fill(p.heightCm / p.rows);
+}
+
 /**
  * Per-face Euler rotation [rx, ry, rz] (XYZ order) that places the proximity
  * half-disc flat on the floor with the curved arc extending away from the gondola
@@ -207,10 +224,35 @@ function PlanogramFaceOverlay({
   const texture = useMemo(() => {
     if (!planogram) return null;
     const productByEan = new Map(products.map((p) => [p.ean, p]));
-    const cellPx = 10;
+
+    // Use proportional canvas dimensions based on physical cm sizes
+    const colWidths  = getEffectiveColWidths(planogram);
+    const rowHeights = getEffectiveRowHeights(planogram);
+    const aspect = planogram.heightCm / planogram.widthCm;
+    const canvasW = OVERLAY_CANVAS_PX;
+    const canvasH = Math.max(1, Math.round(OVERLAY_CANVAS_PX * aspect));
+
+    // Compute cumulative pixel x-positions for each column boundary (0 … cols)
+    const colXPx: number[] = [];
+    let xAcc = 0;
+    for (let c = 0; c < planogram.cols; c++) {
+      colXPx.push(xAcc);
+      xAcc += (colWidths[c] / planogram.widthCm) * canvasW;
+    }
+    colXPx.push(canvasW); // sentinel: right edge of last column
+
+    // Compute cumulative pixel y-positions for each row boundary (0 … rows)
+    const rowYPx: number[] = [];
+    let yAcc = 0;
+    for (let r = 0; r < planogram.rows; r++) {
+      rowYPx.push(yAcc);
+      yAcc += (rowHeights[r] / planogram.heightCm) * canvasH;
+    }
+    rowYPx.push(canvasH); // sentinel: bottom edge of last row
+
     const canvas = document.createElement('canvas');
-    canvas.width  = Math.max(1, planogram.cols * cellPx);
-    canvas.height = Math.max(1, planogram.rows * cellPx);
+    canvas.width  = Math.max(1, canvasW);
+    canvas.height = Math.max(1, canvasH);
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
@@ -221,18 +263,26 @@ function PlanogramFaceOverlay({
       const prod  = productByEan.get(cell.ean);
       const color = prod ? (PLANO_CATEGORY_COLORS[prod.category] ?? '#888888') : '#444455';
       ctx.fillStyle = color;
-      ctx.fillRect(cell.col * cellPx + 1, cell.row * cellPx + 1, cellPx - 2, cellPx - 2);
+      const cx = Math.round(colXPx[cell.col]);
+      const cy = Math.round(rowYPx[cell.row]);
+      const cw = Math.max(1, Math.round(colXPx[cell.col + 1] - colXPx[cell.col]) - 2);
+      const ch = Math.max(1, Math.round(rowYPx[cell.row + 1] - rowYPx[cell.row]) - 2);
+      ctx.fillRect(cx + 1, cy + 1, cw, ch);
     }
 
     // Highlight the selected cell with a bright yellow outline + tint
     if (selectedCellId) {
       const selCell = planogram.cells.find((c) => c.id === selectedCellId);
       if (selCell) {
+        const cx = Math.round(colXPx[selCell.col]);
+        const cy = Math.round(rowYPx[selCell.row]);
+        const cw = Math.max(1, Math.round(colXPx[selCell.col + 1] - colXPx[selCell.col]) - 2);
+        const ch = Math.max(1, Math.round(rowYPx[selCell.row + 1] - rowYPx[selCell.row]) - 2);
         ctx.fillStyle = 'rgba(255,230,0,0.35)';
-        ctx.fillRect(selCell.col * cellPx + 1, selCell.row * cellPx + 1, cellPx - 2, cellPx - 2);
+        ctx.fillRect(cx + 1, cy + 1, cw, ch);
         ctx.strokeStyle = '#ffe000';
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(selCell.col * cellPx + 1, selCell.row * cellPx + 1, cellPx - 2, cellPx - 2);
+        ctx.strokeRect(cx + 1, cy + 1, cw, ch);
       }
     }
 
@@ -254,8 +304,28 @@ function PlanogramFaceOverlay({
     }
 
     if (!event.uv) return;
-    const col = Math.min(planogram.cols - 1, Math.max(0, Math.floor(event.uv.x * planogram.cols)));
-    const row = Math.min(planogram.rows - 1, Math.max(0, Math.floor((1 - event.uv.y) * planogram.rows)));
+
+    // Map UV coordinates to column/row using proportional physical sizes so that
+    // clicking on a resized (wider/narrower) column correctly identifies it.
+    const colWidths  = getEffectiveColWidths(planogram);
+    const rowHeights = getEffectiveRowHeights(planogram);
+
+    const uvX = Math.min(1, Math.max(0, event.uv.x));
+    let col = planogram.cols - 1;
+    let cumW = 0;
+    for (let i = 0; i < colWidths.length; i++) {
+      cumW += colWidths[i] / planogram.widthCm;
+      if (uvX <= cumW) { col = i; break; }
+    }
+
+    const uvY = Math.min(1, Math.max(0, 1 - event.uv.y)); // flip: UV.y=1 is top, row 0 is top
+    let row = planogram.rows - 1;
+    let cumH = 0;
+    for (let i = 0; i < rowHeights.length; i++) {
+      cumH += rowHeights[i] / planogram.heightCm;
+      if (uvY <= cumH) { row = i; break; }
+    }
+
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);
     if (!cell) return;
     event.stopPropagation();
@@ -388,9 +458,13 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     const cell = planogram?.cells.find((c) => c.id === selection.cellIds![0]);
     if (!planogram || !cell) return null;
 
-    // t ∈ [0,1]: normalised centre of the cell column from the left edge when
-    // the face is viewed from outside (+ 0.5 centres within the column).
-    const t = (cell.col + 0.5) / planogram.cols;
+    // t ∈ [0,1]: normalised centre of the cell column using actual physical widths
+    // so that resized columns place the proximity disc at the correct position.
+    const colWidths = getEffectiveColWidths(planogram);
+    let cumW = 0;
+    for (let i = 0; i < cell.col; i++) cumW += colWidths[i];
+    const t = (cumW + colWidths[cell.col] / 2) / planogram.widthCm;
+
     const cellXf =  t * W - W / 2;  // front: col=0 → local -X
     const cellXb = W / 2 - t * W;   // back: mirrored in X relative to front
     const cellZr = D / 2 - t * D;   // right: col=0 → local +Z

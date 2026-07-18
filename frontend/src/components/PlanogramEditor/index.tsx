@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useSceneStore } from '../../store/sceneStore';
@@ -18,11 +18,30 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 /** Min / max cell pixel widths and height ratios for the planogram grid. */
 const CELL_MIN_PX     = 48;
-const CELL_MAX_PX     = 120;
 /** Width scale: multiply physical cm-per-col by this to get pixel width. */
 const CELL_WIDTH_SCALE  = 1.2;
 /** Height scale: multiply physical cm-per-row by this to get pixel height. */
 const CELL_HEIGHT_SCALE = 0.6;
+
+/** Minimum cell physical size (cm) enforced during drag-resize. */
+const MIN_CELL_CM_W = 2;
+const MIN_CELL_CM_H = 2;
+/** Width/height (px) of resize handle strips between columns and rows. */
+const RESIZE_HANDLE_PX = 4;
+
+/** Returns per-column widths in cm, falling back to equal distribution. */
+function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
+  return p.colWidthsCm?.length === p.cols
+    ? p.colWidthsCm
+    : Array(p.cols).fill(p.widthCm / p.cols);
+}
+
+/** Returns per-row heights in cm, falling back to equal distribution. */
+function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsCm?: number[] }): number[] {
+  return p.rowHeightsCm?.length === p.rows
+    ? p.rowHeightsCm
+    : Array(p.rows).fill(p.heightCm / p.rows);
+}
 
 /** Zoom control bounds and step for the planogram view. */
 const ZOOM_MIN  = 0.5;
@@ -90,6 +109,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [uploadingEan, setUploadingEan] = useState<string | null>(null);
   /** Zoom multiplier: 1 = default, max 3. */
   const [zoom, setZoom] = useState(1.5);
+  /** Local per-column widths (cm) while a column resize drag is in progress. */
+  const [localColWidths,  setLocalColWidths]  = useState<number[] | null>(null);
+  /** Local per-row heights (cm) while a row resize drag is in progress. */
+  const [localRowHeights, setLocalRowHeights] = useState<number[] | null>(null);
+  /** Which axis is currently being resized (used for cursor management). */
+  const [isResizing, setIsResizing] = useState<'col' | 'row' | null>(null);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -195,17 +220,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const addRow = () => {
     if (!planogram || !canAddRow) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
-    applyUpdate({ ...planogram, rows: planogram.rows + 1, heightCm: planogram.heightCm + physCellH });
+    const curHeights = getEffectiveRowHeights(planogram);
+    applyUpdate({
+      ...planogram,
+      rows: planogram.rows + 1,
+      heightCm: planogram.heightCm + physCellH,
+      rowHeightsCm: [...curHeights, physCellH],
+    });
   };
 
   const removeRow = () => {
     if (!planogram || planogram.rows <= 1) return;
     const lastRow = planogram.rows - 1;
     setHistory((prev) => [...prev.slice(-20), planogram]);
+    const curHeights = getEffectiveRowHeights(planogram);
+    const removedH = curHeights[lastRow];
     applyUpdate({
       ...planogram,
       rows: planogram.rows - 1,
-      heightCm: planogram.heightCm - physCellH,
+      heightCm: planogram.heightCm - removedH,
+      rowHeightsCm: curHeights.slice(0, -1),
       cells: planogram.cells.filter((c) => c.row !== lastRow),
     });
     if (selectedKey?.startsWith(`${lastRow}-`)) setSelectedKey(null);
@@ -214,17 +248,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const addCol = () => {
     if (!planogram || !canAddCol) return;
     setHistory((prev) => [...prev.slice(-20), planogram]);
-    applyUpdate({ ...planogram, cols: planogram.cols + 1, widthCm: planogram.widthCm + physCellW });
+    const curWidths = getEffectiveColWidths(planogram);
+    applyUpdate({
+      ...planogram,
+      cols: planogram.cols + 1,
+      widthCm: planogram.widthCm + physCellW,
+      colWidthsCm: [...curWidths, physCellW],
+    });
   };
 
   const removeCol = () => {
     if (!planogram || planogram.cols <= 1) return;
     const lastCol = planogram.cols - 1;
     setHistory((prev) => [...prev.slice(-20), planogram]);
+    const curWidths = getEffectiveColWidths(planogram);
+    const removedW = curWidths[lastCol];
     applyUpdate({
       ...planogram,
       cols: planogram.cols - 1,
-      widthCm: planogram.widthCm - physCellW,
+      widthCm: planogram.widthCm - removedW,
+      colWidthsCm: curWidths.slice(0, -1),
       cells: planogram.cells.filter((c) => c.col !== lastCol),
     });
     if (selectedKey?.endsWith(`-${lastCol}`)) setSelectedKey(null);
@@ -247,6 +290,83 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setUploadingEan(null);
     }
   };
+
+  // ── Column / row resize via drag ─────────────────────────────────────────
+  const startColResize = (e: React.MouseEvent, colIdx: number) => {
+    if (!planogram) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidths = getEffectiveColWidths(planogram);
+    const capturedPlanogram = planogram;
+    let finalWidths = startWidths;
+    setIsResizing('col');
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaPx = ev.clientX - startX;
+      const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
+      const total = startWidths[colIdx] + startWidths[colIdx + 1];
+      const newW = Math.max(MIN_CELL_CM_W, Math.min(total - MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
+      finalWidths = startWidths.map((w, i) =>
+        i === colIdx ? newW : i === colIdx + 1 ? total - newW : w
+      );
+      setLocalColWidths(finalWidths);
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(null);
+      setLocalColWidths(null);
+      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const startRowResize = (e: React.MouseEvent, rowIdx: number) => {
+    if (!planogram) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeights = getEffectiveRowHeights(planogram);
+    const capturedPlanogram = planogram;
+    let finalHeights = startHeights;
+    setIsResizing('row');
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaPx = ev.clientY - startY;
+      const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
+      const total = startHeights[rowIdx] + startHeights[rowIdx + 1];
+      const newH = Math.max(MIN_CELL_CM_H, Math.min(total - MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
+      finalHeights = startHeights.map((h, i) =>
+        i === rowIdx ? newH : i === rowIdx + 1 ? total - newH : h
+      );
+      setLocalRowHeights(finalHeights);
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(null);
+      setLocalRowHeights(null);
+      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // ── Cursor during resize ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (isResizing) {
+      document.body.style.cursor     = isResizing === 'col' ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+    }
+    return () => {
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   const keyHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
@@ -305,9 +425,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const rows = planogram.rows;
   const cols = planogram.cols;
-  // Cell pixel size proportional to physical dimensions, scaled by zoom
-  const cellW = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX * ZOOM_MAX, Math.round(physCellW * CELL_WIDTH_SCALE  * zoom)));
-  const cellH = Math.max(CELL_MIN_PX, Math.min(CELL_MAX_PX * ZOOM_MAX, Math.round(physCellH * CELL_HEIGHT_SCALE * zoom)));
+  // Per-column and per-row cm sizes, using local drag state when resizing
+  const effectiveColWidths  = localColWidths  ?? getEffectiveColWidths(planogram);
+  const effectiveRowHeights = localRowHeights ?? getEffectiveRowHeights(planogram);
+  // Per-column and per-row pixel sizes, proportional to physical dimensions and scaled by zoom
+  const colWidthsPx  = effectiveColWidths.map(w  => Math.max(CELL_MIN_PX, Math.round(w  * CELL_WIDTH_SCALE  * zoom)));
+  const rowHeightsPx = effectiveRowHeights.map(h => Math.max(CELL_MIN_PX, Math.round(h * CELL_HEIGHT_SCALE * zoom)));
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -430,159 +553,204 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
       {/* Grid area */}
       <div className="flex-1 overflow-auto p-4">
+        {/* Full-screen overlay to hold cursor during resize */}
+        {isResizing && (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              cursor: isResizing === 'col' ? 'col-resize' : 'row-resize',
+            }}
+          />
+        )}
+
         {/* Column numbers */}
-        <div
-          className="grid mb-1"
-          style={{ gridTemplateColumns: `repeat(${cols}, ${cellW}px)`, gap: '2px', marginLeft: '24px' }}
-        >
+        <div className="flex mb-1" style={{ marginLeft: '24px' }}>
           {Array.from({ length: cols }, (_, c) => (
-            <div key={c} className="text-center text-xs text-gray-600 pb-0.5">{c + 1}</div>
+            <Fragment key={c}>
+              <div
+                className="text-center text-xs text-gray-600 pb-0.5 flex-none"
+                style={{ width: `${colWidthsPx[c]}px` }}
+              >
+                {c + 1}
+              </div>
+              {c < cols - 1 && (
+                <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />
+              )}
+            </Fragment>
           ))}
         </div>
 
-        <div className="flex gap-1">
+        <div className="flex">
           {/* Row numbers */}
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col" style={{ width: '20px', marginRight: '4px' }}>
             {Array.from({ length: rows }, (_, r) => (
-              <div
-                key={r}
-                className="text-xs text-gray-600 w-5 flex items-center justify-center"
-                style={{ height: `${cellH}px` }}
-              >
-                {r + 1}
-              </div>
+              <Fragment key={r}>
+                <div
+                  className="text-xs text-gray-600 flex items-center justify-center flex-none"
+                  style={{ height: `${rowHeightsPx[r]}px`, width: '20px' }}
+                >
+                  {r + 1}
+                </div>
+                {r < rows - 1 && (
+                  <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />
+                )}
+              </Fragment>
             ))}
           </div>
 
           {/* Main grid */}
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, ${cellW}px)`,
-              gridTemplateRows:    `repeat(${rows}, ${cellH}px)`,
-              gap: '2px',
-            }}
-          >
-            {Array.from({ length: rows }, (_, row) =>
-              Array.from({ length: cols }, (_, col) => {
-                const key      = `${row}-${col}`;
-                const cell     = cellMap.get(key);
-                const prod     = cell ? productByEan.get(cell.ean) : undefined;
-                const catColor = prod ? getCategoryColor(prod.category) : undefined;
-                const isSelected = selectedKey === key;
-                const isDragOver = dragOver === key;
-                const isUploading = prod && uploadingEan === prod.ean;
+          <div className="flex flex-col">
+            {Array.from({ length: rows }, (_, row) => (
+              <Fragment key={row}>
+                {/* Data row */}
+                <div className="flex">
+                  {Array.from({ length: cols }, (_, col) => {
+                    const key      = `${row}-${col}`;
+                    const cell     = cellMap.get(key);
+                    const prod     = cell ? productByEan.get(cell.ean) : undefined;
+                    const catColor = prod ? getCategoryColor(prod.category) : undefined;
+                    const isSelected = selectedKey === key;
+                    const isDragOver = dragOver === key;
+                    const isUploading = prod && uploadingEan === prod.ean;
+                    const cellCmW = effectiveColWidths[col];
+                    const cellCmH = effectiveRowHeights[row];
+                    const cellPxH = rowHeightsPx[row];
 
-                // Per-cell overflow: product physical dims exceed cell physical dims
-                const prodOverflow = prod
-                  ? prod.widthCm  > physCellW + OVERFLOW_TOLERANCE_CM ||
-                    prod.heightCm > physCellH + OVERFLOW_TOLERANCE_CM
-                  : false;
+                    // Per-cell overflow: product physical dims exceed this cell's physical dims
+                    const prodOverflow = prod
+                      ? prod.widthCm  > cellCmW + OVERFLOW_TOLERANCE_CM ||
+                        prod.heightCm > cellCmH + OVERFLOW_TOLERANCE_CM
+                      : false;
 
-                return (
-                  <div
-                    key={key}
-                    onClick={() => handleCellClick(row, col)}
-                    onContextMenu={(e) => { e.preventDefault(); if (cell) clearCell(row, col); }}
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(key); }}
-                    onDragLeave={() => setDragOver(null)}
-                    onDrop={(e) => handleDrop(e, row, col)}
-                    className={[
-                      'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all overflow-hidden select-none border group',
-                      prodOverflow
-                        ? 'border-red-500 border-solid'
-                        : cell
-                        ? 'border-transparent'
-                        : isDragOver
-                        ? 'border-blue-400 bg-blue-900/20 border-solid'
-                        : 'border-dashed border-gray-700 hover:border-gray-500',
-                      isSelected ? 'ring-2 ring-blue-500' : '',
-                      prodOverflow ? 'bg-red-900/20' : '',
-                    ].join(' ')}
-                    style={{ background: !prodOverflow && cell && catColor ? catColor + '18' : undefined }}
-                    title={prodOverflow && prod
-                      ? `⚠ ${prod.name} (${prod.widthCm}×${prod.heightCm} cm) dépasse la cellule (${physCellW.toFixed(1)}×${physCellH.toFixed(1)} cm)`
-                      : undefined}
-                  >
-                    {cell && prod ? (
-                      <>
-                        {/* Category stripe or overflow indicator */}
+                    return (
+                      <Fragment key={col}>
                         <div
-                          className="absolute inset-x-0 top-0 h-1 rounded-t"
-                          style={{ background: prodOverflow ? '#ef4444' : catColor }}
-                        />
+                          onClick={() => handleCellClick(row, col)}
+                          onContextMenu={(e) => { e.preventDefault(); if (cell) clearCell(row, col); }}
+                          onDragOver={(e) => { e.preventDefault(); setDragOver(key); }}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={(e) => handleDrop(e, row, col)}
+                          className={[
+                            'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all overflow-hidden select-none border group flex-none',
+                            prodOverflow
+                              ? 'border-red-500 border-solid'
+                              : cell
+                              ? 'border-transparent'
+                              : isDragOver
+                              ? 'border-blue-400 bg-blue-900/20 border-solid'
+                              : 'border-dashed border-gray-700 hover:border-gray-500',
+                            isSelected ? 'ring-2 ring-blue-500' : '',
+                            prodOverflow ? 'bg-red-900/20' : '',
+                          ].join(' ')}
+                          style={{
+                            width:  `${colWidthsPx[col]}px`,
+                            height: `${cellPxH}px`,
+                            background: !prodOverflow && cell && catColor ? catColor + '18' : undefined,
+                          }}
+                          title={prodOverflow && prod
+                            ? `⚠ ${prod.name} (${prod.widthCm}×${prod.heightCm} cm) dépasse la cellule (${cellCmW.toFixed(1)}×${cellCmH.toFixed(1)} cm)`
+                            : undefined}
+                        >
+                          {cell && prod ? (
+                            <>
+                              {/* Category stripe or overflow indicator */}
+                              <div
+                                className="absolute inset-x-0 top-0 h-1 rounded-t"
+                                style={{ background: prodOverflow ? '#ef4444' : catColor }}
+                              />
 
-                        {/* Thumbnail */}
-                        <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
-                          <div className="w-full" style={{ height: `${Math.max(28, cellH - 32)}px` }}>
-                            {isUploading ? (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                              {/* Thumbnail */}
+                              <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
+                                <div className="w-full" style={{ height: `${Math.max(28, cellPxH - 32)}px` }}>
+                                  {isUploading ? (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                  ) : (
+                                    <ProductThumb product={prod} />
+                                  )}
+                                </div>
+                                <div
+                                  className="text-xs font-medium leading-tight truncate w-full text-center"
+                                  style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}
+                                >
+                                  {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
+                                </div>
+                                {/* Product dimensions */}
+                                <div className="text-center leading-none" style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280' }}>
+                                  {prod.widthCm}×{prod.heightCm} cm
+                                </div>
                               </div>
-                            ) : (
-                              <ProductThumb product={prod} />
-                            )}
-                          </div>
+
+                              {/* Overflow badge */}
+                              {prodOverflow && (
+                                <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
+                                  ⚠ débordement
+                                </div>
+                              )}
+
+                              {/* Hover actions */}
+                              <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {/* Upload image */}
+                                <button
+                                  className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
+                                  title="Uploader une vignette"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    pendingUploadEan.current = prod.ean;
+                                    uploadInputRef.current?.click();
+                                  }}
+                                >
+                                  📷
+                                </button>
+                                {/* Remove */}
+                                <button
+                                  className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
+                                  onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
+                                  title="Retirer"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </>
+                          ) : cell ? (
+                            // Cell with EAN but no catalog match
+                            <>
+                              <div className="text-xs text-gray-400 font-mono text-center px-1">{cell.ean.slice(-6)}</div>
+                              <button
+                                className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
+                                onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
+                              >×</button>
+                            </>
+                          ) : (
+                            // Empty cell
+                            <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity">+</span>
+                          )}
+                        </div>
+
+                        {/* Column resize handle */}
+                        {col < cols - 1 && (
                           <div
-                            className="text-xs font-medium leading-tight truncate w-full text-center"
-                            style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}
-                          >
-                            {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
-                          </div>
-                          {/* Product dimensions */}
-                          <div className="text-center leading-none" style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280' }}>
-                            {prod.widthCm}×{prod.heightCm} cm
-                          </div>
-                        </div>
-
-                        {/* Overflow badge */}
-                        {prodOverflow && (
-                          <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
-                            ⚠ débordement
-                          </div>
+                            style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
+                            className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
+                            onMouseDown={(e) => startColResize(e, col)}
+                          />
                         )}
+                      </Fragment>
+                    );
+                  })}
+                </div>
 
-                        {/* Hover actions */}
-                        <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {/* Upload image */}
-                          <button
-                            className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
-                            title="Uploader une vignette"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              pendingUploadEan.current = prod.ean;
-                              uploadInputRef.current?.click();
-                            }}
-                          >
-                            📷
-                          </button>
-                          {/* Remove */}
-                          <button
-                            className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
-                            onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                            title="Retirer"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </>
-                    ) : cell ? (
-                      // Cell with EAN but no catalog match
-                      <>
-                        <div className="text-xs text-gray-400 font-mono text-center px-1">{cell.ean.slice(-6)}</div>
-                        <button
-                          className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
-                          onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                        >×</button>
-                      </>
-                    ) : (
-                      // Empty cell
-                      <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity">+</span>
-                    )}
-                  </div>
-                );
-              }),
-            )}
+                {/* Row resize handle */}
+                {row < rows - 1 && (
+                  <div
+                    style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
+                    className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
+                    onMouseDown={(e) => startRowResize(e, row)}
+                  />
+                )}
+              </Fragment>
+            ))}
           </div>
         </div>
       </div>
@@ -599,7 +767,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <span>Sélectionnez un produit dans le catalogue, puis cliquez une cellule</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · 🔴 produit trop grand</span>
+        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ glisser séparateurs · 🔴 produit trop grand</span>
       </div>
     </div>
   );

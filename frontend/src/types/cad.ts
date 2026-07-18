@@ -108,6 +108,10 @@ export interface Planogram {
   widthCm: number;
   heightCm: number;
   cells: PlanogramCell[];
+  /** Per-column widths in cm. When present and length === cols, used instead of widthCm/cols. */
+  colWidthsCm?: number[];
+  /** Per-row heights in cm. When present and length === rows, used instead of heightCm/rows. */
+  rowHeightsCm?: number[];
 }
 
 export interface PlanogramSummary {

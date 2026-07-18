@@ -58,6 +58,12 @@ function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] ?? '#9E9E9E';
 }
 
+/** Format a cm dimension for the ruler: blank when < 2 cm, 1 decimal when < 10 cm, integer otherwise. */
+function fmtRulerCm(cm: number): string {
+  if (cm < 2) return '';
+  return cm < 10 ? cm.toFixed(1) : cm.toFixed(0);
+}
+
 type CellMap = Map<string, PlanogramCell>;
 
 function buildCellMap(cells: PlanogramCell[]): CellMap {
@@ -911,7 +917,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                   style={{ width: `${colWidthsPx[c]}px`, fontSize: '9px', color: '#6b7280', lineHeight: 1.2 }}
                   title={`Colonne ${c + 1}: ${effectiveColWidths[c].toFixed(1)} cm`}
                 >
-                  {effectiveColWidths[c] >= 2 ? `${effectiveColWidths[c].toFixed(effectiveColWidths[c] < 10 ? 1 : 0)}` : ''}
+                  {fmtRulerCm(effectiveColWidths[c])}
                 </div>
                 {c < cols - 1 && <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />}
               </Fragment>
@@ -932,7 +938,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     style={{ height: `${rowContainerHeightsPx[r]}px`, width: `${RULER_SIZE_PX}px`, fontSize: '9px', color: '#6b7280' }}
                     title={`Rangée ${r + 1}: ${effectiveRowHeights[r].toFixed(1)} cm`}
                   >
-                    {effectiveRowHeights[r] >= 2 ? `${effectiveRowHeights[r].toFixed(effectiveRowHeights[r] < 10 ? 1 : 0)}` : ''}
+                    {fmtRulerCm(effectiveRowHeights[r])}
                   </div>
                   {r < rows - 1 && <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />}
                 </Fragment>
@@ -1001,8 +1007,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             style={{
                               width:  `${cellPxW}px`,
                               height: `${cellPxH}px`,
-                              borderRight:  col < cols - 1 ? '1px solid #1f2937' : 'none',
-                              borderBottom: row < rows - 1 ? 'none' : 'none',
+                              borderRight: col < cols - 1 ? '1px solid #1f2937' : 'none',
                               boxSizing: 'border-box',
                               outline: prodOverflow ? '1px solid #ef4444' : undefined,
                             }}

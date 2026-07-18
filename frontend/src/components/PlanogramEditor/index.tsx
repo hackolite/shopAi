@@ -75,11 +75,11 @@ function snapCmToBoundary(
   thresholdCm: number,
 ): { snapped: number; idx: number } {
   let best = valueCm;
-  let minDist = thresholdCm;
+  let minDist = Infinity;
   let snapIdx = -1;
   for (let i = 0; i < boundaries.length; i++) {
     const dist = Math.abs(valueCm - boundaries[i]);
-    if (dist < minDist) {
+    if (dist < thresholdCm && dist < minDist) {
       minDist = dist;
       best = boundaries[i];
       snapIdx = i;

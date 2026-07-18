@@ -117,6 +117,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [localRowHeights, setLocalRowHeights] = useState<number[] | null>(null);
   /** Which axis is currently being resized (used for cursor management). */
   const [isResizing, setIsResizing] = useState<'col' | 'row' | null>(null);
+  /** Floating tooltip shown near cursor during resize (dimension in cm). */
+  const [resizeTooltip, setResizeTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -309,6 +311,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const newW = Math.min(MAX_CELL_CM_W, Math.max(MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
       finalWidths = startWidths.map((w, i) => (i === colIdx ? newW : w));
       setLocalColWidths(finalWidths);
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newW.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -316,6 +319,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
       setLocalColWidths(null);
+      setResizeTooltip(null);
       const newWidthCm = finalWidths.reduce((a, b) => a + b, 0);
       applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths, widthCm: newWidthCm });
     };
@@ -339,6 +343,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const newH = Math.min(MAX_CELL_CM_H, Math.max(MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
       finalHeights = startHeights.map((h, i) => (i === rowIdx ? newH : h));
       setLocalRowHeights(finalHeights);
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newH.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -346,6 +351,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
       setLocalRowHeights(null);
+      setResizeTooltip(null);
       const newHeightCm = finalHeights.reduce((a, b) => a + b, 0);
       applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights, heightCm: newHeightCm });
     };
@@ -559,6 +565,22 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           />
         )}
 
+        {/* Dimension tooltip during resize */}
+        {resizeTooltip && (
+          <div
+            style={{
+              position: 'fixed',
+              left: resizeTooltip.x,
+              top: resizeTooltip.y,
+              zIndex: 10000,
+              pointerEvents: 'none',
+            }}
+            className="bg-gray-950 text-blue-300 text-xs font-mono px-1.5 py-0.5 rounded border border-blue-500/60 shadow-lg whitespace-nowrap"
+          >
+            {resizeTooltip.text}
+          </div>
+        )}
+
         {/* Column numbers */}
         <div className="flex mb-1" style={{ marginLeft: '24px' }}>
           {Array.from({ length: cols }, (_, c) => (
@@ -569,9 +591,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               >
                 {c + 1}
               </div>
-              {c < cols - 1 && (
-                <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />
-              )}
+              <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />
             </Fragment>
           ))}
         </div>
@@ -587,9 +607,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 >
                   {r + 1}
                 </div>
-                {r < rows - 1 && (
-                  <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />
-                )}
+                <div style={{ height: `${RESIZE_HANDLE_PX}px` }} />
               </Fragment>
             ))}
           </div>
@@ -725,26 +743,22 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                         </div>
 
                         {/* Column resize handle */}
-                        {col < cols - 1 && (
-                          <div
-                            style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
-                            className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
-                            onMouseDown={(e) => startColResize(e, col)}
-                          />
-                        )}
+                        <div
+                          style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
+                          className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
+                          onMouseDown={(e) => startColResize(e, col)}
+                        />
                       </Fragment>
                     );
                   })}
                 </div>
 
                 {/* Row resize handle */}
-                {row < rows - 1 && (
-                  <div
-                    style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
-                    className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
-                    onMouseDown={(e) => startRowResize(e, row)}
-                  />
-                )}
+                <div
+                  style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
+                  className="bg-gray-800 hover:bg-blue-500/50 transition-colors"
+                  onMouseDown={(e) => startRowResize(e, row)}
+                />
               </Fragment>
             ))}
           </div>

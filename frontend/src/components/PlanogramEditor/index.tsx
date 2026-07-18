@@ -383,6 +383,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   // ── Remove a single cell from one row (counterpart to addCellToRow) ───────────
+  /**
+   * Removes the last extra cell from row `r`. Only has an effect when that row
+   * has more cells than the planogram's base column count (i.e. extra cells were
+   * previously added via addCellToRow).
+   */
   const removeCellFromRow = (r: number) => {
     if (!planogram) return;
     const currentRowCols = planogram.rowColCounts?.[r] ?? planogram.cols;
@@ -409,6 +414,16 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (selectedKey === `${r}-${removeColIdx}`) setSelectedKey(null);
   };
 
+  /**
+   * Parses a cell override key ("row-col") into [row, col].
+   * Returns null if the key is malformed or contains non-finite numbers.
+   */
+  const parseOverrideKey = (key: string): [number, number] | null => {
+    const parts = key.split('-').map(Number);
+    if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return null;
+    return [parts[0], parts[1]];
+  };
+
   const removeCol = () => {
     if (!planogram || planogram.cols <= 1) return;
     // If a row header is selected, remove the last extra cell from that row only.
@@ -433,9 +448,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
     const newWidthOverrides: Record<string, number> = {};
     for (const [key, val] of Object.entries(oldWidthOverrides)) {
-      const parts = key.split('-').map(Number);
-      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-      const [r, c] = parts;
+      const parsed = parseOverrideKey(key);
+      if (!parsed) continue;
+      const [r, c] = parsed;
       if (c === removeIdx) continue;
       newWidthOverrides[c > removeIdx ? `${r}-${c - 1}` : key] = val;
     }
@@ -444,9 +459,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
     const newHeightOverrides: Record<string, number> = {};
     for (const [key, val] of Object.entries(oldHeightOverrides)) {
-      const parts = key.split('-').map(Number);
-      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-      const [r, c] = parts;
+      const parsed = parseOverrideKey(key);
+      if (!parsed) continue;
+      const [r, c] = parsed;
       if (c === removeIdx) continue;
       newHeightOverrides[c > removeIdx ? `${r}-${c - 1}` : key] = val;
     }
@@ -483,11 +498,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
     // Update cell selection if it pointed to the removed or shifted column
     if (selectedKey) {
-      const [r, c] = selectedKey.split('-').map(Number);
-      if (c === removeIdx) {
-        setSelectedKey(null);
-      } else if (c > removeIdx) {
-        setSelectedKey(`${r}-${c - 1}`);
+      const parsed = parseOverrideKey(selectedKey);
+      if (parsed) {
+        const [r, c] = parsed;
+        if (c === removeIdx) {
+          setSelectedKey(null);
+        } else if (c > removeIdx) {
+          setSelectedKey(`${r}-${c - 1}`);
+        }
       }
     }
   };

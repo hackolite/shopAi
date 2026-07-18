@@ -23,11 +23,9 @@ const CELL_WIDTH_SCALE  = 1.2;
 /** Height scale: multiply physical cm-per-row by this to get pixel height. */
 const CELL_HEIGHT_SCALE = 0.6;
 
-/** Minimum/maximum cell physical size (cm) enforced during drag-resize. */
+/** Minimum cell physical size (cm) enforced during drag-resize. */
 const MIN_CELL_CM_W = 2;
 const MIN_CELL_CM_H = 2;
-const MAX_CELL_CM_W = 300;
-const MAX_CELL_CM_H = 300;
 /** Width/height (px) of resize handle strips between columns and rows. */
 const RESIZE_HANDLE_PX = 4;
 
@@ -150,12 +148,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     : false;
 
   // ── Add-row / add-col guards (stay within 3D furniture bounds) ───────────
-  const canAddRow = planogram
-    ? !furniture || (planogram.heightCm + physCellH <= furniture.dimensions.height + OVERFLOW_TOLERANCE_CM)
-    : false;
-  const canAddCol = planogram
-    ? !furniture || (planogram.widthCm  + physCellW <= furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM)
-    : false;
+  // How much gondola space is still available beyond the current planogram size
+  const gondolaRemainingW: number = (planogram && furniture)
+    ? furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM - planogram.widthCm
+    : Infinity;
+  const gondolaRemainingH: number = (planogram && furniture)
+    ? furniture.dimensions.height + OVERFLOW_TOLERANCE_CM - planogram.heightCm
+    : Infinity;
+
+  // Default width/height for a new column/row: average cell size capped at remaining gondola space
+  const newColWidthCm  = planogram ? Math.max(MIN_CELL_CM_W, Math.min(physCellW, gondolaRemainingW))  : 0;
+  const newRowHeightCm = planogram ? Math.max(MIN_CELL_CM_H, Math.min(physCellH, gondolaRemainingH)) : 0;
+
+  const canAddCol = planogram ? gondolaRemainingW >= MIN_CELL_CM_W : false;
+  const canAddRow = planogram ? gondolaRemainingH >= MIN_CELL_CM_H : false;
 
   // ── Load planogram ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -232,8 +238,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     applyUpdate({
       ...planogram,
       rows: planogram.rows + 1,
-      heightCm: planogram.heightCm + physCellH,
-      rowHeightsCm: [...curHeights, physCellH],
+      heightCm: planogram.heightCm + newRowHeightCm,
+      rowHeightsCm: [...curHeights, newRowHeightCm],
     });
   };
 
@@ -260,8 +266,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     applyUpdate({
       ...planogram,
       cols: planogram.cols + 1,
-      widthCm: planogram.widthCm + physCellW,
-      colWidthsCm: [...curWidths, physCellW],
+      widthCm: planogram.widthCm + newColWidthCm,
+      colWidthsCm: [...curWidths, newColWidthCm],
     });
   };
 
@@ -299,23 +305,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
   };
 
-  // ── Column / row resize via drag (free resize — total size updates) ────────
+  // ── Column / row resize via drag (fixed total — redistributes between neighbours) ──
   const startColResize = (e: React.MouseEvent, colIdx: number) => {
-    if (!planogram) return;
+    if (!planogram || colIdx + 1 >= planogram.cols) return;
     e.preventDefault();
     const startX = e.clientX;
     const startWidths = getEffectiveColWidths(planogram);
     const capturedPlanogram = planogram;
-    let finalWidths = startWidths;
+    const w0 = startWidths[colIdx];
+    const w1 = startWidths[colIdx + 1];
+    let finalWidths = [...startWidths];
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
-      const deltaPx = ev.clientX - startX;
-      const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
-      const newW = Math.min(MAX_CELL_CM_W, Math.max(MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
-      finalWidths = startWidths.map((w, i) => (i === colIdx ? newW : w));
+      const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
+      // Clamp so neither column goes below the minimum size
+      const clamped = Math.max(-(w0 - MIN_CELL_CM_W), Math.min(w1 - MIN_CELL_CM_W, deltaCm));
+      const newW0 = w0 + clamped;
+      const newW1 = w1 - clamped;
+      finalWidths = startWidths.map((w, i) => i === colIdx ? newW0 : i === colIdx + 1 ? newW1 : w);
       setLocalColWidths(finalWidths);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newW.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newW0.toFixed(1)} / ${newW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -324,8 +334,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalColWidths(null);
       setResizeTooltip(null);
-      const newWidthCm = finalWidths.reduce((a, b) => a + b, 0);
-      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths, widthCm: newWidthCm });
+      // Total planogram width stays fixed — only colWidthsCm changes
+      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -333,21 +343,25 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   const startRowResize = (e: React.MouseEvent, rowIdx: number) => {
-    if (!planogram) return;
+    if (!planogram || rowIdx + 1 >= planogram.rows) return;
     e.preventDefault();
     const startY = e.clientY;
     const startHeights = getEffectiveRowHeights(planogram);
     const capturedPlanogram = planogram;
-    let finalHeights = startHeights;
+    const h0 = startHeights[rowIdx];
+    const h1 = startHeights[rowIdx + 1];
+    let finalHeights = [...startHeights];
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
-      const deltaPx = ev.clientY - startY;
-      const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
-      const newH = Math.min(MAX_CELL_CM_H, Math.max(MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
-      finalHeights = startHeights.map((h, i) => (i === rowIdx ? newH : h));
+      const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
+      // Clamp so neither row goes below the minimum size
+      const clamped = Math.max(-(h0 - MIN_CELL_CM_H), Math.min(h1 - MIN_CELL_CM_H, deltaCm));
+      const newH0 = h0 + clamped;
+      const newH1 = h1 - clamped;
+      finalHeights = startHeights.map((h, i) => i === rowIdx ? newH0 : i === rowIdx + 1 ? newH1 : h);
       setLocalRowHeights(finalHeights);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newH.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newH0.toFixed(1)} / ${newH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -356,8 +370,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalRowHeights(null);
       setResizeTooltip(null);
-      const newHeightCm = finalHeights.reduce((a, b) => a + b, 0);
-      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights, heightCm: newHeightCm });
+      // Total planogram height stays fixed — only rowHeightsCm changes
+      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -631,6 +645,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     ? selectedKey.split('-').map(Number) as [number, number]
     : [null, null] as [null, null];
 
+  // ── Grey extension: extra gondola space beyond current planogram dimensions ──
+  const extraGondolaWidthCm  = furniture ? Math.max(0, furniture.dimensions.width  - planogram.widthCm)  : 0;
+  const extraGondolaHeightCm = furniture ? Math.max(0, furniture.dimensions.height - planogram.heightCm) : 0;
+  const greyExtWidthPx  = Math.round(extraGondolaWidthCm  * CELL_WIDTH_SCALE  * zoom);
+  const greyExtHeightPx = Math.round(extraGondolaHeightCm * CELL_HEIGHT_SCALE * zoom);
+
   return (
     <div className="flex flex-col h-full bg-gray-900">
       {/* Header */}
@@ -791,6 +811,16 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               {c < cols - 1 && <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }} />}
             </Fragment>
           ))}
+          {/* Grey extension header */}
+          {greyExtWidthPx > 0 && (
+            <div
+              style={{ width: `${greyExtWidthPx}px`, marginLeft: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }}
+              className="text-center text-xs text-gray-500 pb-0.5 italic"
+              title={`${extraGondolaWidthCm.toFixed(0)} cm disponibles sur la gondole`}
+            >
+              +{extraGondolaWidthCm.toFixed(0)} cm
+            </div>
+          )}
         </div>
 
         <div className="flex">
@@ -1006,6 +1036,18 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                       </Fragment>
                     );
                   })}
+                  {/* Grey extension area to the right — extra gondola width not yet used by columns */}
+                  {greyExtWidthPx > 0 && (
+                    <div
+                      style={{
+                        width:     `${greyExtWidthPx}px`,
+                        height:    `${rowContainerHeightsPx[row]}px`,
+                        flexShrink: 0,
+                        marginLeft: `${RESIZE_HANDLE_PX}px`,
+                      }}
+                      className="bg-gray-700/25 border border-dashed border-gray-600/50"
+                    />
+                  )}
                 </div>
 
                 {/* Row resize handle — only between rows (not after the last one) */}
@@ -1023,6 +1065,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 )}
               </Fragment>
             ))}
+            {/* Grey extension below — extra gondola height not yet used by rows */}
+            {greyExtHeightPx > 0 && (
+              <div
+                style={{ height: `${greyExtHeightPx}px`, flexShrink: 0, marginTop: `${RESIZE_HANDLE_PX}px` }}
+                className="bg-gray-700/25 border border-dashed border-gray-600/50"
+              />
+            )}
           </div>
         </div>
       </div>

@@ -10,11 +10,14 @@ interface UIState {
   viewMode: ViewMode;
   sidebarLeft: boolean;
   sidebarRight: boolean;
+  /** When set, the 3D view will fly the camera to this furniture's world position. */
+  flyToFurnitureId: string | null;
   setActivePanel: (panel: ActivePanel) => void;
   setActiveTool: (tool: ActiveTool) => void;
   setViewMode: (mode: ViewMode) => void;
   toggleSidebarLeft: () => void;
   toggleSidebarRight: () => void;
+  setFlyToFurnitureId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -23,10 +26,12 @@ export const useUIStore = create<UIState>((set) => ({
   viewMode: '3d',
   sidebarLeft: true,
   sidebarRight: true,
+  flyToFurnitureId: null,
   setActivePanel: (panel) => set({ activePanel: panel }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleSidebarLeft: () => set((state) => ({ sidebarLeft: !state.sidebarLeft })),
   toggleSidebarRight: () =>
     set((state) => ({ sidebarRight: !state.sidebarRight })),
+  setFlyToFurnitureId: (id) => set({ flyToFurnitureId: id }),
 }));

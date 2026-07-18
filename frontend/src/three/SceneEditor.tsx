@@ -232,23 +232,27 @@ function PlanogramFaceOverlay({
     const canvasW = OVERLAY_CANVAS_PX;
     const canvasH = Math.max(1, Math.round(OVERLAY_CANVAS_PX * aspect));
 
-    // Compute cumulative pixel x-positions for each column boundary (0 … cols)
-    const colXPx: number[] = [];
-    let xAcc = 0;
-    for (let c = 0; c < planogram.cols; c++) {
-      colXPx.push(xAcc);
-      xAcc += (colWidths[c] / planogram.widthCm) * canvasW;
-    }
-    colXPx.push(canvasW); // sentinel: right edge of last column
-
-    // Compute cumulative pixel y-positions for each row boundary (0 … rows)
-    const rowYPx: number[] = [];
-    let yAcc = 0;
-    for (let r = 0; r < planogram.rows; r++) {
-      rowYPx.push(yAcc);
-      yAcc += (rowHeights[r] / planogram.heightCm) * canvasH;
-    }
-    rowYPx.push(canvasH); // sentinel: bottom edge of last row
+    // Compute canvas pixel bounds for a cell, respecting per-cell width/height overrides.
+    // x is determined by the widths of cells to the left in the same row;
+    // y is determined by the heights of cells above in the same column.
+    const getCellRectPx = (row: number, col: number) => {
+      const cellWCm = planogram.cellWidthOverrides?.[`${row}-${col}`] ?? colWidths[col];
+      const cellHCm = planogram.cellHeightOverrides?.[`${row}-${col}`] ?? rowHeights[row];
+      let xCm = 0;
+      for (let c = 0; c < col; c++) {
+        xCm += planogram.cellWidthOverrides?.[`${row}-${c}`] ?? colWidths[c];
+      }
+      let yCm = 0;
+      for (let r = 0; r < row; r++) {
+        yCm += planogram.cellHeightOverrides?.[`${r}-${col}`] ?? rowHeights[r];
+      }
+      return {
+        x: Math.round((xCm / planogram.widthCm) * canvasW),
+        y: Math.round((yCm / planogram.heightCm) * canvasH),
+        w: Math.max(1, Math.round((cellWCm / planogram.widthCm) * canvasW) - 2),
+        h: Math.max(1, Math.round((cellHCm / planogram.heightCm) * canvasH) - 2),
+      };
+    };
 
     const canvas = document.createElement('canvas');
     canvas.width  = Math.max(1, canvasW);
@@ -263,10 +267,7 @@ function PlanogramFaceOverlay({
       const prod  = productByEan.get(cell.ean);
       const color = prod ? (PLANO_CATEGORY_COLORS[prod.category] ?? '#888888') : '#444455';
       ctx.fillStyle = color;
-      const cx = Math.round(colXPx[cell.col]);
-      const cy = Math.round(rowYPx[cell.row]);
-      const cw = Math.max(1, Math.round(colXPx[cell.col + 1] - colXPx[cell.col]) - 2);
-      const ch = Math.max(1, Math.round(rowYPx[cell.row + 1] - rowYPx[cell.row]) - 2);
+      const { x: cx, y: cy, w: cw, h: ch } = getCellRectPx(cell.row, cell.col);
       ctx.fillRect(cx + 1, cy + 1, cw, ch);
     }
 
@@ -274,10 +275,7 @@ function PlanogramFaceOverlay({
     if (selectedCellId) {
       const selCell = planogram.cells.find((c) => c.id === selectedCellId);
       if (selCell) {
-        const cx = Math.round(colXPx[selCell.col]);
-        const cy = Math.round(rowYPx[selCell.row]);
-        const cw = Math.max(1, Math.round(colXPx[selCell.col + 1] - colXPx[selCell.col]) - 2);
-        const ch = Math.max(1, Math.round(rowYPx[selCell.row + 1] - rowYPx[selCell.row]) - 2);
+        const { x: cx, y: cy, w: cw, h: ch } = getCellRectPx(selCell.row, selCell.col);
         ctx.fillStyle = 'rgba(255,230,0,0.35)';
         ctx.fillRect(cx + 1, cy + 1, cw, ch);
         ctx.strokeStyle = '#ffe000';

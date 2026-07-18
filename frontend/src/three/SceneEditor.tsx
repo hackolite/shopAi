@@ -1704,7 +1704,7 @@ function CameraFlyToFurniture() {
     const dist   = Math.max(W, H, D) * 1.5 + 5;
     const offset = new THREE.Vector3(cx + dist * 0.7, cy + dist * 0.5, cz + dist * 0.7);
 
-    camera.position.lerp(offset, 0.8);
+    camera.position.copy(offset);
     camera.lookAt(target);
     // @ts-expect-error drei controls
     controls?.target?.copy(target);

@@ -28,6 +28,9 @@ const MIN_CELL_CM_W = 2;
 const MIN_CELL_CM_H = 2;
 /** Width/height (px) of resize handle strips between columns and rows. */
 const RESIZE_HANDLE_PX = 4;
+/** Tooltip position offset from the cursor (px) during resize. */
+const RESIZE_TOOLTIP_DX = 14;
+const RESIZE_TOOLTIP_DY = -28;
 
 /** Returns per-column widths in cm, falling back to equal distribution. */
 function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
@@ -325,7 +328,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const newW1 = w1 - clamped;
       finalWidths = startWidths.map((w, i) => i === colIdx ? newW0 : i === colIdx + 1 ? newW1 : w);
       setLocalColWidths(finalWidths);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newW0.toFixed(1)} / ${newW1.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${newW0.toFixed(1)} / ${newW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -361,7 +364,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const newH1 = h1 - clamped;
       finalHeights = startHeights.map((h, i) => i === rowIdx ? newH0 : i === rowIdx + 1 ? newH1 : h);
       setLocalRowHeights(finalHeights);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newH0.toFixed(1)} / ${newH1.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${newH0.toFixed(1)} / ${newH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -410,7 +413,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       finalW0 = startW0 + clamped;
       finalW1 = startW1 - clamped;
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -448,7 +451,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       finalW0 = startW0 + clamped;
       finalW1 = startW1 - clamped;
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -485,7 +488,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       finalH0 = startH0 + clamped;
       finalH1 = startH1 - clamped;
       setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -523,7 +526,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       finalH0 = startH0 + clamped;
       finalH1 = startH1 - clamped;
       setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -646,8 +649,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     : [null, null] as [null, null];
 
   // ── Grey extension: extra gondola space beyond current planogram dimensions ──
-  const extraGondolaWidthCm  = furniture ? Math.max(0, furniture.dimensions.width  - planogram.widthCm)  : 0;
-  const extraGondolaHeightCm = furniture ? Math.max(0, furniture.dimensions.height - planogram.heightCm) : 0;
+  // Use the same remaining-space formula as canAddCol/canAddRow (includes OVERFLOW_TOLERANCE_CM)
+  const extraGondolaWidthCm  = furniture ? Math.max(0, gondolaRemainingW)  : 0;
+  const extraGondolaHeightCm = furniture ? Math.max(0, gondolaRemainingH) : 0;
   const greyExtWidthPx  = Math.round(extraGondolaWidthCm  * CELL_WIDTH_SCALE  * zoom);
   const greyExtHeightPx = Math.round(extraGondolaHeightCm * CELL_HEIGHT_SCALE * zoom);
 

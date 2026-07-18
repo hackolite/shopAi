@@ -295,34 +295,23 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
   };
 
-  // ── Column / row resize via drag (Excel-like: neighbour absorbs the delta) ──
+  // ── Column / row resize via drag (free resize — total size updates) ────────
   const startColResize = (e: React.MouseEvent, colIdx: number) => {
     if (!planogram) return;
-    // The handle sits between colIdx and colIdx+1 — skip if there is no right neighbour.
-    if (colIdx + 1 >= planogram.cols) return;
     e.preventDefault();
     const startX = e.clientX;
     const startWidths = getEffectiveColWidths(planogram);
     const capturedPlanogram = planogram;
-    let finalWidths = [...startWidths];
+    let finalWidths = startWidths;
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientX - startX;
       const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
-      // Clamp so neither column goes below MIN_CELL_CM_W.
-      const maxGrow  =  startWidths[colIdx + 1] - MIN_CELL_CM_W;
-      const maxShrink = startWidths[colIdx]     - MIN_CELL_CM_W;
-      const clamped  = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
-      const newLeft  = startWidths[colIdx]     + clamped;
-      const newRight = startWidths[colIdx + 1] - clamped;
-      finalWidths = startWidths.map((w, i) =>
-        i === colIdx     ? newLeft  :
-        i === colIdx + 1 ? newRight :
-        w,
-      );
-      setLocalColWidths([...finalWidths]);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newLeft.toFixed(1)} / ${newRight.toFixed(1)} cm` });
+      const newW = Math.min(MAX_CELL_CM_W, Math.max(MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
+      finalWidths = startWidths.map((w, i) => (i === colIdx ? newW : w));
+      setLocalColWidths(finalWidths);
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newW.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -331,8 +320,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalColWidths(null);
       setResizeTooltip(null);
-      // Total width is unchanged — do not update widthCm.
-      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
+      const newWidthCm = finalWidths.reduce((a, b) => a + b, 0);
+      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths, widthCm: newWidthCm });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -341,31 +330,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const startRowResize = (e: React.MouseEvent, rowIdx: number) => {
     if (!planogram) return;
-    // The handle sits between rowIdx and rowIdx+1 — skip if there is no bottom neighbour.
-    if (rowIdx + 1 >= planogram.rows) return;
     e.preventDefault();
     const startY = e.clientY;
     const startHeights = getEffectiveRowHeights(planogram);
     const capturedPlanogram = planogram;
-    let finalHeights = [...startHeights];
+    let finalHeights = startHeights;
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientY - startY;
       const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
-      // Clamp so neither row goes below MIN_CELL_CM_H.
-      const maxGrow  =  startHeights[rowIdx + 1] - MIN_CELL_CM_H;
-      const maxShrink = startHeights[rowIdx]     - MIN_CELL_CM_H;
-      const clamped  = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
-      const newTop    = startHeights[rowIdx]     + clamped;
-      const newBottom = startHeights[rowIdx + 1] - clamped;
-      finalHeights = startHeights.map((h, i) =>
-        i === rowIdx     ? newTop    :
-        i === rowIdx + 1 ? newBottom :
-        h,
-      );
-      setLocalRowHeights([...finalHeights]);
-      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newTop.toFixed(1)} / ${newBottom.toFixed(1)} cm` });
+      const newH = Math.min(MAX_CELL_CM_H, Math.max(MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
+      finalHeights = startHeights.map((h, i) => (i === rowIdx ? newH : h));
+      setLocalRowHeights(finalHeights);
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${newH.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -374,7 +352,91 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalRowHeights(null);
       setResizeTooltip(null);
-      // Total height is unchanged — do not update heightCm.
+      const newHeightCm = finalHeights.reduce((a, b) => a + b, 0);
+      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights, heightCm: newHeightCm });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // ── Selected-cell resize: neighbour absorbs the delta ────────────────────
+  // Dragging right edge of selected cell: cell grows, right neighbour shrinks.
+  // Dragging left: cell shrinks, right neighbour grows.
+  const startCellRightResize = (e: React.MouseEvent, col: number) => {
+    if (!planogram || col + 1 >= planogram.cols) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidths = getEffectiveColWidths(planogram);
+    const capturedPlanogram = planogram;
+    let finalWidths = [...startWidths];
+    setIsResizing('col');
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
+      const maxGrow   = startWidths[col + 1] - MIN_CELL_CM_W;
+      const maxShrink = startWidths[col]     - MIN_CELL_CM_W;
+      const clamped   = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
+      finalWidths = startWidths.map((w, i) =>
+        i === col     ? w + clamped :
+        i === col + 1 ? w - clamped :
+        w,
+      );
+      setLocalColWidths([...finalWidths]);
+      setResizeTooltip({
+        x: ev.clientX + 14, y: ev.clientY - 28,
+        text: `${finalWidths[col].toFixed(1)} / ${finalWidths[col + 1].toFixed(1)} cm`,
+      });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(null);
+      setLocalColWidths(null);
+      setResizeTooltip(null);
+      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // Dragging bottom edge of selected cell: cell grows, bottom neighbour shrinks.
+  const startCellBottomResize = (e: React.MouseEvent, row: number) => {
+    if (!planogram || row + 1 >= planogram.rows) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startHeights = getEffectiveRowHeights(planogram);
+    const capturedPlanogram = planogram;
+    let finalHeights = [...startHeights];
+    setIsResizing('row');
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
+      const maxGrow   = startHeights[row + 1] - MIN_CELL_CM_H;
+      const maxShrink = startHeights[row]     - MIN_CELL_CM_H;
+      const clamped   = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
+      finalHeights = startHeights.map((h, i) =>
+        i === row     ? h + clamped :
+        i === row + 1 ? h - clamped :
+        h,
+      );
+      setLocalRowHeights([...finalHeights]);
+      setResizeTooltip({
+        x: ev.clientX + 14, y: ev.clientY - 28,
+        text: `${finalHeights[row].toFixed(1)} / ${finalHeights[row + 1].toFixed(1)} cm`,
+      });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(null);
+      setLocalRowHeights(null);
+      setResizeTooltip(null);
       applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
     };
 
@@ -767,6 +829,34 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             // Empty cell
                             <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity">+</span>
                           )}
+
+                          {/* Selected-cell right resize handle (steals/gives to right neighbour) */}
+                          {isSelected && col + 1 < cols && (
+                            <div
+                              onMouseDown={(e) => startCellRightResize(e, col)}
+                              style={{
+                                position: 'absolute', right: 0, top: 0,
+                                width: '6px', height: '100%',
+                                cursor: 'col-resize', zIndex: 10,
+                                background: 'rgba(59,130,246,0.55)',
+                              }}
+                              title="Redimensionner cette colonne (mange sur la voisine)"
+                            />
+                          )}
+
+                          {/* Selected-cell bottom resize handle (steals/gives to bottom neighbour) */}
+                          {isSelected && row + 1 < rows && (
+                            <div
+                              onMouseDown={(e) => startCellBottomResize(e, row)}
+                              style={{
+                                position: 'absolute', bottom: 0, left: 0,
+                                width: '100%', height: '6px',
+                                cursor: 'row-resize', zIndex: 10,
+                                background: 'rgba(59,130,246,0.55)',
+                              }}
+                              title="Redimensionner cette ligne (mange sur la voisine)"
+                            />
+                          )}
                         </div>
 
                         {/* Column resize handle — only between columns (not after the last one) */}
@@ -820,9 +910,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         <div className="flex-1" />
         <span
           className="text-gray-600"
-          aria-label="Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · photo pour uploader une vignette · glisser les séparateurs pour redimensionner · produit trop grand si débordement"
+        aria-label="Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · photo pour uploader une vignette · glisser les séparateurs pour redimensionner une colonne/ligne · sélectionner une cellule puis glisser son bord droit/bas pour la redimensionner sur la voisine · produit trop grand si débordement"
         >
-          Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ glisser séparateurs · 🔴 produit trop grand
+        Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ séparateurs (libre) · cellule sélectionnée : glisser ▶/▼ (voisine) · 🔴 débordement
         </span>
       </div>
     </div>

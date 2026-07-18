@@ -372,7 +372,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     applyUpdate({
       ...planogram,
       rows: planogram.rows + 1,
-      heightCm: planogram.heightCm + newRowHeightCm,
+      heightCm: planogram.heightCm + newRowHeightCm - shrinkTopRowBy,
       rowHeightsCm: newHeights,
       cells: newCells,
       cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,

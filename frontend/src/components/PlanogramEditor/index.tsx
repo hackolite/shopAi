@@ -432,10 +432,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const rows = planogram.rows;
   const cols = planogram.cols;
   // Per-column and per-row cm sizes, using local drag state when resizing
-  const effectiveColWidths  = localColWidths  ?? getEffectiveColWidths(planogram);
+  const effectiveColWidths = localColWidths ?? getEffectiveColWidths(planogram);
   const effectiveRowHeights = localRowHeights ?? getEffectiveRowHeights(planogram);
   // Per-column and per-row pixel sizes, proportional to physical dimensions and scaled by zoom
-  const colWidthsPx  = effectiveColWidths.map(w  => Math.max(CELL_MIN_PX, Math.round(w  * CELL_WIDTH_SCALE  * zoom)));
+  const colWidthsPx = effectiveColWidths.map(w => Math.max(CELL_MIN_PX, Math.round(w * CELL_WIDTH_SCALE * zoom)));
   const rowHeightsPx = effectiveRowHeights.map(h => Math.max(CELL_MIN_PX, Math.round(h * CELL_HEIGHT_SCALE * zoom)));
 
   return (
@@ -773,7 +773,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <span>Sélectionnez un produit dans le catalogue, puis cliquez une cellule</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ glisser séparateurs · 🔴 produit trop grand</span>
+        <span
+          className="text-gray-600"
+          aria-label="Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · photo pour uploader une vignette · glisser les séparateurs pour redimensionner · produit trop grand si débordement"
+        >
+          Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ glisser séparateurs · 🔴 produit trop grand
+        </span>
       </div>
     </div>
   );

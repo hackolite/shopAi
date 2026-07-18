@@ -60,6 +60,31 @@ export const cadApi = {
       body: JSON.stringify({ name, snapshot }),
     }),
 
+  importProjectZip: (name: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', name);
+    return request<CreateProjectResponse>(`${BASE}/import/zip`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  exportProjectZip: async (id: string, projectName: string): Promise<void> => {
+    const response = await fetch(`${BASE}/${id}/export`);
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'Unknown error');
+      throw new Error(`[${response.status}] ${text}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, '_')}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
   getScene: (id: string) => request<Scene>(`${BASE}/${id}/scene`),
   updateStore: (id: string, store: StoreConfig) =>
     request<void>(`${BASE}/${id}/scene/store`, {

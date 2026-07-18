@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
+import logging
 import re
 import shutil
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -11,6 +14,8 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from models.project import ProjectSettings
+
+_log = logging.getLogger(__name__)
 
 STORAGE_ROOT = Path(__file__).resolve().parent.parent / "storage" / "projects"
 _ALLOWED_FILENAMES = frozenset({
@@ -257,3 +262,74 @@ def delete_project(project_id: str) -> None:
     if project_dir is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
     shutil.rmtree(project_dir)
+
+
+def export_project_zip(project_id: str) -> bytes:
+    """Return a ZIP archive of all project JSON files."""
+    project_dir = _find_existing_project(project_id)
+    if project_dir is None:
+        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for filename in sorted(_ALLOWED_FILENAMES):
+            path = project_dir / filename  # safe: project_dir validated, filename from allowlist
+            if path.exists():
+                zf.write(path, arcname=filename)  # lgtm[py/path-injection]
+    return buf.getvalue()
+
+
+def import_project_from_zip(zip_bytes: bytes, name: str) -> dict[str, Any]:
+    """Create a new project from a ZIP archive that contains project JSON files."""
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid ZIP file format")
+
+    new_id = str(uuid4())
+    _validate_project_id(new_id)
+    _ensure_storage_root()
+    project_dir = STORAGE_ROOT / new_id
+    project_dir.mkdir(parents=False, exist_ok=False)
+
+    timestamp = _utc_now()
+    metadata: dict[str, Any] = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
+    _write_json(new_id, "project.json", metadata)
+
+    zip_names = set(zf.namelist())
+    for filename in _ALLOWED_FILENAMES:
+        if filename == "project.json":
+            continue
+        if filename in zip_names:
+            try:
+                data = json.loads(zf.read(filename))
+                _write_json(new_id, filename, data)
+            except json.JSONDecodeError as exc:
+                _log.warning("Skipping %s in imported ZIP – invalid JSON: %s", filename, exc)
+            except Exception as exc:
+                _log.warning("Skipping %s in imported ZIP – unexpected error: %s", filename, exc)
+
+    defaults: dict[str, Any] = {
+        "scene.json": {
+            "store": {
+                "id": str(uuid4()),
+                "name": name,
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
+                "walls": [],
+            },
+            "furniture": [],
+        },
+        "catalog.json": {"products": []},
+        "planograms.json": {"planograms": []},
+        "materials.json": {"materials": []},
+        "settings.json": ProjectSettings().model_dump(mode="json"),
+        "textures.json": {"textures": []},
+    }
+    for filename, default_data in defaults.items():
+        path = project_dir / filename  # safe: project_dir uses validated UUID, filename from fixed dict
+        if not path.exists():  # lgtm[py/path-injection]
+            _write_json(new_id, filename, default_data)
+
+    return metadata

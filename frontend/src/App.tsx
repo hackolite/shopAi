@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
@@ -10,6 +10,10 @@ import SceneHierarchy from './components/SceneHierarchy';
 import CatalogPanel from './components/CatalogPanel';
 import Inspector from './components/Inspector';
 import PlanogramEditor from './components/PlanogramEditor';
+import NameDialog from './components/NameDialog';
+import ExportDialog from './components/ExportDialog';
+import ImportDialog from './components/ImportDialog';
+import type { ImportFormat } from './components/ImportDialog';
 import { useZoneStore } from './store/zoneStore';
 import type { FurnitureInstance } from './types/cad';
 
@@ -24,11 +28,21 @@ export default function App() {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
   const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
-  const importInputRef = useRef<HTMLInputElement>(null);
+
+  // Dialog states
+  const [nameDialog, setNameDialog] = useState<{
+    title: string;
+    label: string;
+    defaultValue?: string;
+    confirmLabel?: string;
+    onConfirm: (name: string) => void;
+  } | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail, planogramDetails, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
+  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool } = useUIStore();
   const { setZones } = useZoneStore();
 
@@ -86,31 +100,45 @@ export default function App() {
   }, []);
 
   // ── New project ───────────────────────────────────────────────────────────
-  const newProject = useCallback(async () => {
-    const name = window.prompt('Nom du nouveau projet :');
-    if (!name?.trim()) return;
-    try {
-      const created = await cadApi.createProject(name.trim());
-      await refreshProjectList();
-      switchProject(created.id);
-    } catch (err) {
-      console.error('Failed to create project:', err);
-      alert('Erreur lors de la création du projet.');
-    }
+  const newProject = useCallback(() => {
+    setNameDialog({
+      title: 'Nouveau projet',
+      label: 'Nom du projet',
+      defaultValue: '',
+      confirmLabel: 'Créer',
+      onConfirm: async (name) => {
+        setNameDialog(null);
+        try {
+          const created = await cadApi.createProject(name);
+          await refreshProjectList();
+          switchProject(created.id);
+        } catch (err) {
+          console.error('Failed to create project:', err);
+          alert('Erreur lors de la création du projet.');
+        }
+      },
+    });
   }, [refreshProjectList, switchProject]);
 
   // ── Save As (duplicate) ───────────────────────────────────────────────────
-  const saveAsProject = useCallback(async () => {
-    const name = window.prompt('Nom de la copie :', `${projectName} (copie)`);
-    if (!name?.trim()) return;
-    try {
-      const created = await cadApi.duplicateProject(projectId, name.trim());
-      await refreshProjectList();
-      switchProject(created.id);
-    } catch (err) {
-      console.error('Failed to duplicate project:', err);
-      alert('Erreur lors de la duplication du projet.');
-    }
+  const saveAsProject = useCallback(() => {
+    setNameDialog({
+      title: 'Enregistrer sous…',
+      label: 'Nom du projet',
+      defaultValue: `${projectName} (copie)`,
+      confirmLabel: 'Enregistrer',
+      onConfirm: async (name) => {
+        setNameDialog(null);
+        try {
+          const created = await cadApi.duplicateProject(projectId, name);
+          await refreshProjectList();
+          switchProject(created.id);
+        } catch (err) {
+          console.error('Failed to duplicate project:', err);
+          alert('Erreur lors de la duplication du projet.');
+        }
+      },
+    });
   }, [projectId, projectName, refreshProjectList, switchProject]);
 
   // ── Manual save (show feedback) ───────────────────────────────────────────
@@ -213,41 +241,32 @@ export default function App() {
     cadApi.deleteFurniture(projectId, selectedFurnitureId).catch(console.error);
   }, [selectedFurnitureId, removeFurniture, projectId]);
 
-  // ── Export complete implementation ───────────────────────────────────────
+  // ── Export ───────────────────────────────────────────────────────────────
   const exportProject = useCallback(() => {
-    if (!scene) return;
-    const planogramsArr = Array.from(planogramDetails.values());
-    const payload = { scene, planograms: planogramsArr };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `${projectName.replace(/\s+/g, '_')}_export.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [scene, planogramDetails, projectName]);
+    setShowExportDialog(true);
+  }, []);
 
-  // ── Import from JSON file ─────────────────────────────────────────────────
-  const handleImportFile = useCallback(async (file: File) => {
-    let text: string;
-    let snapshot: object;
+  const handleExportConfirm = useCallback(async (_format: 'zip') => {
+    setShowExportDialog(false);
     try {
-      text = await file.text();
-      snapshot = JSON.parse(text) as object;
-    } catch {
-      alert('Fichier invalide : ce fichier n\'est pas un JSON valide.');
-      return;
+      await cadApi.exportProjectZip(projectId, projectName);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Erreur lors de l\'exportation du projet.');
     }
+  }, [projectId, projectName]);
+
+  // ── Import ────────────────────────────────────────────────────────────────
+  const handleImportFile = useCallback(async (file: File, name: string, _format: ImportFormat) => {
+    setShowImportDialog(false);
     try {
-      const defaultName = file.name.replace(/\.[^.]+$/, '').replace(/_export$/, '').replace(/_/g, ' ');
-      const name = window.prompt('Nom du projet importé :', defaultName);
-      if (!name?.trim()) return;
-      const created = await cadApi.importProject(name.trim(), snapshot);
+      const created = await cadApi.importProjectZip(name, file);
       await refreshProjectList();
       switchProject(created.id);
     } catch (err) {
       console.error('Import failed:', err);
-      alert('Erreur lors de l\'importation. Vérifiez que le fichier est un export valide.');
+      const detail = err instanceof Error ? err.message : String(err);
+      alert(`Erreur lors de l'importation : ${detail}`);
     }
   }, [refreshProjectList, switchProject]);
 
@@ -310,18 +329,30 @@ export default function App() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
-      {/* Hidden import file input */}
-      <input
-        ref={importInputRef}
-        type="file"
-        accept=".json,application/json"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleImportFile(file);
-          e.target.value = '';
-        }}
-      />
+      {/* Dialogs */}
+      {nameDialog && (
+        <NameDialog
+          title={nameDialog.title}
+          label={nameDialog.label}
+          defaultValue={nameDialog.defaultValue}
+          confirmLabel={nameDialog.confirmLabel}
+          onConfirm={nameDialog.onConfirm}
+          onCancel={() => setNameDialog(null)}
+        />
+      )}
+      {showExportDialog && (
+        <ExportDialog
+          projectName={projectName}
+          onConfirm={(fmt) => void handleExportConfirm(fmt)}
+          onCancel={() => setShowExportDialog(false)}
+        />
+      )}
+      {showImportDialog && (
+        <ImportDialog
+          onImport={(file, name, fmt) => void handleImportFile(file, name, fmt)}
+          onCancel={() => setShowImportDialog(false)}
+        />
+      )}
 
       {/* Top toolbar */}
       <Toolbar
@@ -333,7 +364,7 @@ export default function App() {
         onSave={saveProject}
         onSaveAs={saveAsProject}
         onExport={exportProject}
-        onImport={() => importInputRef.current?.click()}
+        onImport={() => setShowImportDialog(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">

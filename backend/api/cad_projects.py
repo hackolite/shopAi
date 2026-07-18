@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import base64
+import re
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, HTTPException, UploadFile, File
+from fastapi import APIRouter, Body, Form, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from models.project import Catalog, FurnitureInstance, Material, Planogram, Product, ProjectSettings, SceneData, Store
@@ -13,8 +15,10 @@ from services.project_manager import (
     delete_project,
     duplicate_project,
     ensure_project_exists,
+    export_project_zip,
     get_project_metadata,
     import_project,
+    import_project_from_zip,
     list_cad_projects,
     load_project_file,
     save_project_file,
@@ -131,6 +135,19 @@ def get_project(project_id: str):
     return get_project_metadata(project_id)
 
 
+@router.get("/{project_id}/export")
+def export_project_endpoint(project_id: str):
+    """Export the project as a ZIP archive containing all JSON files."""
+    zip_bytes = export_project_zip(project_id)
+    metadata = get_project_metadata(project_id)
+    safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id))
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.zip"'},
+    )
+
+
 @router.delete("/{project_id}")
 def remove_project(project_id: str):
     delete_project(project_id)
@@ -145,6 +162,16 @@ def duplicate_project_endpoint(project_id: str, payload: DuplicateProjectPayload
 @router.post("/import")
 def import_project_endpoint(payload: ImportProjectPayload):
     return import_project(payload.snapshot, payload.name)
+
+
+@router.post("/import/zip")
+async def import_project_zip_endpoint(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+):
+    """Import a project from a ZIP archive (multipart: file + name field)."""
+    zip_bytes = await file.read()
+    return import_project_from_zip(zip_bytes, name.strip())
 
 
 @router.get("/{project_id}/scene")

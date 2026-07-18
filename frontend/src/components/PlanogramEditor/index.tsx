@@ -617,7 +617,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // Width helpers used by cell drag handlers (checked before any live-preview state).
   const getCellStartWidthCm = (p: Planogram, row: number, col: number): number => {
     const key = `${row}-${col}`;
-    return p.cellWidthOverrides?.[key] ?? getEffectiveColWidths(p)[col];
+    // Extra cells (col >= p.cols) have no colWidthsCm entry; fall back to average cell width.
+    return p.cellWidthOverrides?.[key] ?? getEffectiveColWidths(p)[col] ?? Math.max(MIN_CELL_CM_W, p.widthCm / p.cols);
   };
   const getCellStartHeightCm = (p: Planogram, row: number, col: number): number => {
     const key = `${row}-${col}`;
@@ -626,7 +627,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   // Dragging right edge: cell grows, right neighbour shrinks (this row only).
   const startCellRightResize = (e: React.MouseEvent, row: number, col: number) => {
-    if (!planogram || col + 1 >= planogram.cols) return;
+    // Use the row's effective column count so extra-cell rows (rowColCounts) work correctly.
+    const rowColCount = planogram?.rowColCounts?.[row] ?? planogram?.cols ?? 0;
+    if (!planogram || col + 1 >= rowColCount) return;
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
@@ -639,9 +642,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     let finalW1 = startW1;
     setIsResizing('col');
 
+    // Gondola width cap: the growing cell (cell0) must not push the row total beyond gondola width.
+    // Since we redistribute (finalW0 + finalW1 = startW0 + startW1), the total is preserved and
+    // gondola is maintained as long as the initial row total is within bounds. We still add an
+    // explicit clamp for safety (e.g. extra-cell rows where widths may have drifted).
+    const gondolaMaxW = furniture?.dimensions.width ?? Infinity;
+    let otherCellsW = 0;
+    for (let c = 0; c < rowColCount; c++) {
+      if (c !== col && c !== col + 1) {
+        otherCellsW += getCellStartWidthCm(capturedPlanogram, row, c);
+      }
+    }
+    // Maximum delta by which cell0 may grow before hitting the gondola limit.
+    const maxDeltaByGondola = gondolaMaxW - otherCellsW - MIN_CELL_CM_W - startW0;
+
     const onMove = (ev: MouseEvent) => {
       const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-      const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), Math.min(startW1 - MIN_CELL_CM_W, deltaCm));
+      const clamped = Math.max(
+        -(startW0 - MIN_CELL_CM_W),
+        Math.min(Math.min(startW1 - MIN_CELL_CM_W, maxDeltaByGondola), deltaCm),
+      );
       finalW0 = startW0 + clamped;
       finalW1 = startW1 - clamped;
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
@@ -676,10 +696,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     let finalW1 = startW1;
     setIsResizing('col');
 
+    // Gondola width cap: the growing cell (cell1 = current cell, when dragging left) must not
+    // push the row total beyond gondola width. Redistribution preserves total so gondola is
+    // already maintained; explicit clamp guards against extra-cell rows where widths may drift.
+    const gondolaMaxW = furniture?.dimensions.width ?? Infinity;
+    const rowColCount = capturedPlanogram.rowColCounts?.[row] ?? capturedPlanogram.cols;
+    let otherCellsW = 0;
+    for (let c = 0; c < rowColCount; c++) {
+      if (c !== col - 1 && c !== col) {
+        otherCellsW += getCellStartWidthCm(capturedPlanogram, row, c);
+      }
+    }
+    // Minimum clamped value (most negative) that keeps cell1 within the gondola.
+    const minClampedByGondola = startW1 + otherCellsW + MIN_CELL_CM_W - gondolaMaxW;
+
     const onMove = (ev: MouseEvent) => {
       // Dragging left (negative delta) shrinks the left neighbour, grows current
       const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-      const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), Math.min(startW1 - MIN_CELL_CM_W, deltaCm));
+      const clamped = Math.max(
+        Math.max(-(startW0 - MIN_CELL_CM_W), minClampedByGondola),
+        Math.min(startW1 - MIN_CELL_CM_W, deltaCm),
+      );
       finalW0 = startW0 + clamped;
       finalW1 = startW1 - clamped;
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });

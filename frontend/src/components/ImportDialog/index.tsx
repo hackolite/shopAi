@@ -30,10 +30,9 @@ export default function ImportDialog({ onImport, onCancel }: ImportDialogProps) 
     if (!file) return;
     setSelectedFile(file);
     if (!projectName) {
-      // Strip known archive extensions (handle multiple dots like foo.backup.zip)
+      // Strip known archive extension (handles e.g. "project.backup.zip" → "project.backup")
       const derived = file.name
-        .replace(/\.(zip)$/i, '')
-        .replace(/\.[^.]+$/, '')
+        .replace(/\.zip$/i, '')
         .replace(/_/g, ' ')
         .trim();
       setProjectName(derived);

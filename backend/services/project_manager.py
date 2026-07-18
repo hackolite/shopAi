@@ -282,7 +282,7 @@ def export_project_zip(project_id: str) -> bytes:
 def import_project_from_zip(zip_bytes: bytes, name: str) -> dict[str, Any]:
     """Create a new project from a ZIP archive that contains project JSON files."""
     try:
-        zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+        zip_file = zipfile.ZipFile(io.BytesIO(zip_bytes))
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="Invalid ZIP file format")
 
@@ -296,18 +296,19 @@ def import_project_from_zip(zip_bytes: bytes, name: str) -> dict[str, Any]:
     metadata: dict[str, Any] = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
     _write_json(new_id, "project.json", metadata)
 
-    zip_names = set(zf.namelist())
-    for filename in _ALLOWED_FILENAMES:
-        if filename == "project.json":
-            continue
-        if filename in zip_names:
-            try:
-                data = json.loads(zf.read(filename))
-                _write_json(new_id, filename, data)
-            except json.JSONDecodeError as exc:
-                _log.warning("Skipping %s in imported ZIP – invalid JSON: %s", filename, exc)
-            except Exception as exc:
-                _log.warning("Skipping %s in imported ZIP – unexpected error: %s", filename, exc)
+    with zip_file:
+        zip_names = set(zip_file.namelist())
+        for filename in _ALLOWED_FILENAMES:
+            if filename == "project.json":
+                continue
+            if filename in zip_names:
+                try:
+                    data = json.loads(zip_file.read(filename))
+                    _write_json(new_id, filename, data)
+                except json.JSONDecodeError as exc:
+                    _log.warning("Skipping %s in imported ZIP – invalid JSON: %s", filename, exc)
+                except Exception as exc:
+                    _log.warning("Skipping %s in imported ZIP – unexpected error: %s", filename, exc)
 
     defaults: dict[str, Any] = {
         "scene.json": {
@@ -328,7 +329,7 @@ def import_project_from_zip(zip_bytes: bytes, name: str) -> dict[str, Any]:
         "textures.json": {"textures": []},
     }
     for filename, default_data in defaults.items():
-        path = project_dir / filename  # safe: project_dir uses validated UUID, filename from fixed dict
+        path = project_dir / filename  # safe: project_dir uses server-generated UUID, filename from fixed dict
         if not path.exists():  # lgtm[py/path-injection]
             _write_json(new_id, filename, default_data)
 

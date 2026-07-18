@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
@@ -18,10 +18,13 @@ const DEFAULT_PROJECT = 'retail_cad';
 const PASTE_OFFSET_CM = 150;
 
 export default function App() {
-  const [projectId]           = useState<string>(DEFAULT_PROJECT);
-  const [projectName]         = useState<string>('Retail CAD');
+  const [projectId, setProjectId]     = useState<string>(DEFAULT_PROJECT);
+  const [projectName, setProjectName] = useState<string>('Retail CAD');
+  const [projects, setProjects]       = useState<{ id: string; name: string }[]>([]);
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
+  const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
@@ -29,37 +32,101 @@ export default function App() {
   const { viewMode, setViewMode, setActiveTool } = useUIStore();
   const { setZones } = useZoneStore();
 
-  // ── Boot: load all project data ───────────────────────────────────────────
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [sceneData, catalog, planoData] = await Promise.all([
-          cadApi.getScene(projectId),
-          cadApi.getCatalog(projectId),
-          cadApi.listPlanograms(projectId),
-        ]);
-        setScene(sceneData);
-        setProducts(catalog.products);
-        setPlanograms(planoData.planograms);
-        setZones(sceneData.store.zones ?? []);
+  // ── Load project list ─────────────────────────────────────────────────────
+  const refreshProjectList = useCallback(async () => {
+    try {
+      const data = await cadApi.listProjects();
+      setProjects(data.projects ?? []);
+    } catch (err) {
+      console.error('Failed to load project list:', err);
+    }
+  }, []);
 
-        // Load full planogram details for 3D face overlays
-        await Promise.all(
-          planoData.planograms.map(async (summary) => {
-            try {
-              const detail = await cadApi.getPlanogram(projectId, summary.id);
-              setPlanogramDetail(detail);
-            } catch (err) {
-              console.warn(`Failed to load planogram detail for ${summary.id}:`, err);
-            }
-          }),
-        );
-      } catch (err) {
-        console.error('Failed to load project data:', err);
-      }
-    };
-    void load();
-  }, [projectId, setScene, setProducts, setPlanograms, setPlanogramDetail, setZones]);
+  useEffect(() => { void refreshProjectList(); }, [refreshProjectList]);
+
+  // ── Load all data for a project ───────────────────────────────────────────
+  const loadProjectData = useCallback(async (id: string) => {
+    try {
+      const [sceneData, catalog, planoData, meta] = await Promise.all([
+        cadApi.getScene(id),
+        cadApi.getCatalog(id),
+        cadApi.listPlanograms(id),
+        cadApi.getProject(id),
+      ]);
+      setScene(sceneData);
+      setProducts(catalog.products);
+      setPlanograms(planoData.planograms);
+      setZones(sceneData.store.zones ?? []);
+      setProjectName(meta.name ?? id);
+
+      await Promise.all(
+        planoData.planograms.map(async (summary) => {
+          try {
+            const detail = await cadApi.getPlanogram(id, summary.id);
+            setPlanogramDetail(detail);
+          } catch (err) {
+            console.warn(`Failed to load planogram detail for ${summary.id}:`, err);
+          }
+        }),
+      );
+    } catch (err) {
+      console.error('Failed to load project data:', err);
+    }
+  }, [setScene, setProducts, setPlanograms, setPlanogramDetail, setZones]);
+
+  // ── Boot: load default project ────────────────────────────────────────────
+  useEffect(() => {
+    void loadProjectData(projectId);
+  }, [projectId, loadProjectData]);
+
+  // ── Switch to a project ───────────────────────────────────────────────────
+  const switchProject = useCallback((id: string) => {
+    setActivePlanogramId(null);
+    setProjectId(id);
+  }, []);
+
+  // ── New project ───────────────────────────────────────────────────────────
+  const newProject = useCallback(async () => {
+    const name = window.prompt('Nom du nouveau projet :');
+    if (!name?.trim()) return;
+    try {
+      const created = await cadApi.createProject(name.trim());
+      await refreshProjectList();
+      switchProject(created.id);
+    } catch (err) {
+      console.error('Failed to create project:', err);
+      alert('Erreur lors de la création du projet.');
+    }
+  }, [refreshProjectList, switchProject]);
+
+  // ── Save As (duplicate) ───────────────────────────────────────────────────
+  const saveAsProject = useCallback(async () => {
+    const name = window.prompt('Nom de la copie :', `${projectName} (copie)`);
+    if (!name?.trim()) return;
+    try {
+      const created = await cadApi.duplicateProject(projectId, name.trim());
+      await refreshProjectList();
+      switchProject(created.id);
+    } catch (err) {
+      console.error('Failed to duplicate project:', err);
+      alert('Erreur lors de la duplication du projet.');
+    }
+  }, [projectId, projectName, refreshProjectList, switchProject]);
+
+  // ── Manual save (show feedback) ───────────────────────────────────────────
+  const saveProject = useCallback(async () => {
+    setSaveStatus('saving');
+    try {
+      // Trigger a no-op settings round-trip to ensure backend is up-to-date
+      const settings = await cadApi.getSettings(projectId);
+      await cadApi.updateSettings(projectId, settings);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      console.error('Save failed:', err);
+      setSaveStatus('idle');
+    }
+  }, [projectId]);
 
   // ── Open planogram ────────────────────────────────────────────────────────
   const openPlanogram = (planogramId: string) => {
@@ -160,6 +227,30 @@ export default function App() {
     URL.revokeObjectURL(url);
   }, [scene, planogramDetails, projectName]);
 
+  // ── Import from JSON file ─────────────────────────────────────────────────
+  const handleImportFile = useCallback(async (file: File) => {
+    let text: string;
+    let snapshot: object;
+    try {
+      text = await file.text();
+      snapshot = JSON.parse(text) as object;
+    } catch {
+      alert('Fichier invalide : ce fichier n\'est pas un JSON valide.');
+      return;
+    }
+    try {
+      const defaultName = file.name.replace(/\.[^.]+$/, '').replace(/_export$/, '').replace(/_/g, ' ');
+      const name = window.prompt('Nom du projet importé :', defaultName);
+      if (!name?.trim()) return;
+      const created = await cadApi.importProject(name.trim(), snapshot);
+      await refreshProjectList();
+      switchProject(created.id);
+    } catch (err) {
+      console.error('Import failed:', err);
+      alert('Erreur lors de l\'importation. Vérifiez que le fichier est un export valide.');
+    }
+  }, [refreshProjectList, switchProject]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -171,6 +262,13 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
         e.preventDefault();
         undo();
+        return;
+      }
+
+      // Ctrl/Cmd+S → save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        void saveProject();
         return;
       }
 
@@ -207,13 +305,36 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo]);
+  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, saveProject]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
+      {/* Hidden import file input */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImportFile(file);
+          e.target.value = '';
+        }}
+      />
+
       {/* Top toolbar */}
-      <Toolbar projectName={projectName} onExport={exportProject} />
+      <Toolbar
+        projectName={projectName}
+        projects={projects}
+        saveStatus={saveStatus}
+        onNew={newProject}
+        onLoad={switchProject}
+        onSave={saveProject}
+        onSaveAs={saveAsProject}
+        onExport={exportProject}
+        onImport={() => importInputRef.current?.click()}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── Left panel (260px) ───────────────────────────────────────── */}

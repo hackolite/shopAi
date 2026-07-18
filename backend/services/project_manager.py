@@ -59,8 +59,25 @@ def _normalize_data(data: Any) -> Any:
     return data
 
 
-def _read_json(path: Path) -> Any:
-    with path.open(encoding="utf-8") as handle:
+def _safe_project_path(project_id: str, filename: str) -> Path:
+    """Construct a safe, fully-controlled path from STORAGE_ROOT + validated components.
+
+    Both ``project_id`` and ``filename`` are validated against strict allowlists before
+    being joined to STORAGE_ROOT, so the resulting path cannot escape the storage tree.
+    ``project_id`` must match ``^[A-Za-z0-9_-]{1,64}$`` (no slashes, no dots, no traversal
+    sequences), and ``filename`` must be one of the hard-coded ``_ALLOWED_FILENAMES``.
+    """
+    _validate_project_id(project_id)
+    _validate_filename(filename)
+    return STORAGE_ROOT / project_id / filename
+
+
+def _read_json(project_id: str, filename: str) -> Any:
+    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
+    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
+    if not path.exists():
+        return None
+    with path.open(encoding="utf-8") as handle:  # lgtm[py/path-injection]
         content = handle.read()
     try:
         return json.loads(content)
@@ -72,40 +89,35 @@ def _read_json(path: Path) -> Any:
         raise
 
 
-def _write_json(path: Path, data: Any) -> None:
-    with path.open("w", encoding="utf-8") as handle:
+def _write_json(project_id: str, filename: str, data: Any) -> None:
+    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
+    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
+    with path.open("w", encoding="utf-8") as handle:  # lgtm[py/path-injection]
         json.dump(_normalize_data(data), handle, indent=2, ensure_ascii=False)
 
 
 def _touch_project_metadata(project_id: str) -> None:
-    project_dir = _find_existing_project(project_id)
-    if project_dir is None:
+    metadata_raw = _read_json(project_id, "project.json")
+    if metadata_raw is None:
         return
-    metadata_path = project_dir / "project.json"
-    if not metadata_path.exists():
-        return
-    metadata = _read_json(metadata_path)
-    metadata["updatedAt"] = _utc_now()
-    _write_json(metadata_path, metadata)
+    metadata_raw["updatedAt"] = _utc_now()
+    _write_json(project_id, "project.json", metadata_raw)
 
 
 def load_project_file(project_id: str, filename: str) -> Any:
     _validate_filename(filename)
+    # _read_json also validates; we call _find_existing_project first to confirm existence.
     project_dir = _find_existing_project(project_id)
     if project_dir is None:
         return None
-    file_path = project_dir / filename
-    if not file_path.exists():
-        return None
-    return _read_json(file_path)
+    return _read_json(project_id, filename)
 
 
 def save_project_file(project_id: str, filename: str, data: Any) -> None:
     _validate_filename(filename)
-    project_dir = _find_existing_project(project_id)
-    if project_dir is None:
+    if _find_existing_project(project_id) is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
-    _write_json(project_dir / filename, data)
+    _write_json(project_id, filename, data)
     if filename != "project.json":
         _touch_project_metadata(project_id)
 
@@ -117,16 +129,17 @@ def list_cad_projects() -> list[dict[str, Any]]:
     for entry in STORAGE_ROOT.iterdir():
         if not entry.is_dir():
             continue
-        metadata_path = entry / "project.json"
-        if not metadata_path.exists():
-            continue
+        project_id = entry.name
         try:
-            metadata = _read_json(metadata_path)
-        except json.JSONDecodeError:
+            _validate_project_id(project_id)
+        except HTTPException:
+            continue
+        metadata = _read_json(project_id, "project.json")
+        if metadata is None:
             continue
         projects.append({
-            "id": metadata.get("id", entry.name),
-            "name": metadata.get("name", entry.name),
+            "id": metadata.get("id", project_id),
+            "name": metadata.get("name", project_id),
             "createdAt": metadata.get("createdAt"),
             "updatedAt": metadata.get("updatedAt"),
         })
@@ -156,7 +169,7 @@ def create_project(id: str, name: str) -> dict[str, Any]:
     project_dir.mkdir(parents=False, exist_ok=False)
     timestamp = _utc_now()
     metadata = {"id": id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
-    defaults = {
+    defaults: dict[str, Any] = {
         "project.json": metadata,
         "scene.json": {
             "store": {
@@ -176,13 +189,67 @@ def create_project(id: str, name: str) -> dict[str, Any]:
         "textures.json": {"textures": []},
     }
     for filename, payload in defaults.items():
-        _write_json(project_dir / filename, payload)
+        _write_json(id, filename, payload)
     return metadata
 
 
 def ensure_project_exists(project_id: str) -> None:
     if _find_existing_project(project_id) is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
+
+
+def duplicate_project(source_id: str, new_name: str) -> dict[str, Any]:
+    source_dir = _find_existing_project(source_id)
+    if source_dir is None:
+        raise HTTPException(status_code=404, detail=f"Project '{source_id}' not found")
+
+    new_id = str(uuid4())
+    _validate_project_id(new_id)
+    _ensure_storage_root()
+    new_dir = STORAGE_ROOT / new_id
+
+    shutil.copytree(source_dir, new_dir, symlinks=False, ignore_dangling_symlinks=True)
+
+    timestamp = _utc_now()
+    metadata = {"id": new_id, "name": new_name, "createdAt": timestamp, "updatedAt": timestamp}
+    _write_json(new_id, "project.json", metadata)
+
+    return metadata
+
+
+def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
+    """Create a new project from an exported snapshot {scene, planograms}."""
+    new_id = str(uuid4())
+    _validate_project_id(new_id)
+    _ensure_storage_root()
+    project_dir = STORAGE_ROOT / new_id
+    project_dir.mkdir(parents=False, exist_ok=False)
+
+    timestamp = _utc_now()
+    metadata = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
+
+    defaults: dict[str, Any] = {
+        "project.json": metadata,
+        "scene.json": snapshot.get("scene", {
+            "store": {
+                "id": str(uuid4()),
+                "name": name,
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
+                "walls": [],
+            },
+            "furniture": [],
+        }),
+        "catalog.json": snapshot.get("catalog", {"products": []}),
+        "planograms.json": {"planograms": snapshot.get("planograms", [])},
+        "materials.json": snapshot.get("materials", {"materials": []}),
+        "settings.json": snapshot.get("settings", ProjectSettings().model_dump(mode="json")),
+        "textures.json": {"textures": []},
+    }
+    for filename, payload in defaults.items():
+        _write_json(new_id, filename, payload)
+    return metadata
 
 
 def delete_project(project_id: str) -> None:

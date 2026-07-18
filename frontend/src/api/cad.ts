@@ -49,6 +49,16 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+  duplicateProject: (id: string, name: string) =>
+    request<CreateProjectResponse>(`${BASE}/${id}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  importProject: (name: string, snapshot: object) =>
+    request<CreateProjectResponse>(`${BASE}/import`, {
+      method: 'POST',
+      body: JSON.stringify({ name, snapshot }),
+    }),
 
   getScene: (id: string) => request<Scene>(`${BASE}/${id}/scene`),
   updateStore: (id: string, store: StoreConfig) =>

@@ -23,9 +23,11 @@ const CELL_WIDTH_SCALE  = 1.2;
 /** Height scale: multiply physical cm-per-row by this to get pixel height. */
 const CELL_HEIGHT_SCALE = 0.6;
 
-/** Minimum cell physical size (cm) enforced during drag-resize. */
+/** Minimum/maximum cell physical size (cm) enforced during drag-resize. */
 const MIN_CELL_CM_W = 2;
 const MIN_CELL_CM_H = 2;
+const MAX_CELL_CM_W = 300;
+const MAX_CELL_CM_H = 300;
 /** Width/height (px) of resize handle strips between columns and rows. */
 const RESIZE_HANDLE_PX = 4;
 
@@ -41,14 +43,6 @@ function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsC
   return p.rowHeightsCm?.length === p.rows
     ? p.rowHeightsCm
     : Array(p.rows).fill(p.heightCm / p.rows);
-}
-
-/**
- * Clamps a resize delta so that the resized part stays within [min, total−min].
- * Returns the new size for the leading part; the trailing part = total − result.
- */
-function clampSplit(start: number, delta: number, total: number, min: number): number {
-  return Math.max(min, Math.min(total - min, start + delta));
 }
 
 /** Zoom control bounds and step for the planogram view. */
@@ -312,11 +306,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientX - startX;
       const deltaCm = deltaPx / (CELL_WIDTH_SCALE * zoom);
-      const total = startWidths[colIdx] + startWidths[colIdx + 1];
-      const newW = clampSplit(startWidths[colIdx], deltaCm, total, MIN_CELL_CM_W);
-      finalWidths = startWidths.map((w, i) =>
-        i === colIdx ? newW : i === colIdx + 1 ? total - newW : w
-      );
+      const newW = Math.min(MAX_CELL_CM_W, Math.max(MIN_CELL_CM_W, startWidths[colIdx] + deltaCm));
+      finalWidths = startWidths.map((w, i) => (i === colIdx ? newW : w));
       setLocalColWidths(finalWidths);
     };
 
@@ -325,7 +316,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
       setLocalColWidths(null);
-      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
+      const newWidthCm = finalWidths.reduce((a, b) => a + b, 0);
+      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths, widthCm: newWidthCm });
     };
 
     window.addEventListener('mousemove', onMove);
@@ -344,11 +336,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientY - startY;
       const deltaCm = deltaPx / (CELL_HEIGHT_SCALE * zoom);
-      const total = startHeights[rowIdx] + startHeights[rowIdx + 1];
-      const newH = clampSplit(startHeights[rowIdx], deltaCm, total, MIN_CELL_CM_H);
-      finalHeights = startHeights.map((h, i) =>
-        i === rowIdx ? newH : i === rowIdx + 1 ? total - newH : h
-      );
+      const newH = Math.min(MAX_CELL_CM_H, Math.max(MIN_CELL_CM_H, startHeights[rowIdx] + deltaCm));
+      finalHeights = startHeights.map((h, i) => (i === rowIdx ? newH : h));
       setLocalRowHeights(finalHeights);
     };
 
@@ -357,7 +346,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
       setLocalRowHeights(null);
-      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
+      const newHeightCm = finalHeights.reduce((a, b) => a + b, 0);
+      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights, heightCm: newHeightCm });
     };
 
     window.addEventListener('mousemove', onMove);

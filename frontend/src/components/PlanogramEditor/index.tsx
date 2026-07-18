@@ -266,6 +266,17 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const [r, c] = parts;
       newWidthOverrides[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
     }
+    // Shift rowColCounts entries at rows >= insertIdx.
+    const oldRowColCounts = planogram.rowColCounts;
+    let newRowColCounts: number[] | undefined;
+    if (oldRowColCounts) {
+      const normalised = Array.from({ length: planogram.rows }, (_, i) => oldRowColCounts[i] ?? planogram.cols);
+      newRowColCounts = [
+        ...normalised.slice(0, insertIdx),
+        planogram.cols,
+        ...normalised.slice(insertIdx),
+      ];
+    }
     applyUpdate({
       ...planogram,
       rows: planogram.rows + 1,
@@ -274,6 +285,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       cells: newCells,
       cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
       cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
+      rowColCounts: newRowColCounts,
     });
     setSelectedHeaderRow(insertIdx);
   };
@@ -290,12 +302,42 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       heightCm: planogram.heightCm - removedH,
       rowHeightsCm: curHeights.slice(0, -1),
       cells: planogram.cells.filter((c) => c.row !== lastRow),
+      rowColCounts: planogram.rowColCounts?.slice(0, -1),
     });
     if (selectedKey?.startsWith(`${lastRow}-`)) setSelectedKey(null);
   };
 
+  // ── Add a single cell to one row (without affecting other rows) ────────────
+  const addCellToRow = (r: number) => {
+    if (!planogram || !canAddCol) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    const currentRowCols = planogram.rowColCounts?.[r] ?? planogram.cols;
+    const newColIdx = currentRowCols; // append after the last existing cell of this row
+    const newWidthCm = Math.max(MIN_CELL_CM_W, newColWidthCm);
+    // Build updated rowColCounts — initialise all rows to their current effective count
+    const newRowColCounts: number[] = Array.from(
+      { length: planogram.rows },
+      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
+    );
+    newRowColCounts[r] = currentRowCols + 1;
+    // Register a width override for the new extra cell
+    const newCellWidthOverrides = { ...(planogram.cellWidthOverrides ?? {}) };
+    newCellWidthOverrides[`${r}-${newColIdx}`] = newWidthCm;
+    applyUpdate({
+      ...planogram,
+      rowColCounts: newRowColCounts,
+      cellWidthOverrides: newCellWidthOverrides,
+    });
+    setSelectedHeaderRow(r);
+  };
+
   const addCol = () => {
     if (!planogram || !canAddCol) return;
+    // If a row header is selected, add a cell only to that row.
+    if (selectedHeaderRow !== null) {
+      addCellToRow(selectedHeaderRow);
+      return;
+    }
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curWidths = getEffectiveColWidths(planogram);
     // Insert after the selected column header (or append at end if none selected).
@@ -322,6 +364,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const [r, c] = parts;
       newHeightOverrides[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
     }
+    // Keep rowColCounts in sync: every row gains the new global column.
+    const oldRowColCounts = planogram.rowColCounts;
+    const newRowColCounts = oldRowColCounts
+      ? Array.from({ length: planogram.rows }, (_, i) => (oldRowColCounts[i] ?? planogram.cols) + 1)
+      : undefined;
     applyUpdate({
       ...planogram,
       cols: planogram.cols + 1,
@@ -330,6 +377,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       cells: newCells,
       cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
       cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
+      rowColCounts: newRowColCounts,
     });
     setSelectedHeaderCol(insertIdx);
   };
@@ -698,7 +746,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const key = `${row}-${col}`;
     if (localCellWidthOverrides?.[key] != null) return localCellWidthOverrides[key];
     if (planogram.cellWidthOverrides?.[key] != null) return planogram.cellWidthOverrides[key];
-    return effectiveColWidths[col];
+    // Extra cells (col >= cols) have no global colWidthsCm entry; fall back to default cell width.
+    return effectiveColWidths[col] ?? Math.max(MIN_CELL_CM_W, physCellW);
   };
   const getCellWidthPx = (row: number, col: number): number =>
     Math.max(CELL_MIN_PX, Math.round(getCellWidthCm(row, col) * CELL_WIDTH_SCALE * zoom));
@@ -712,10 +761,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const getCellHeightPx = (row: number, col: number): number =>
     Math.max(CELL_MIN_PX, Math.round(getCellHeightCm(row, col) * CELL_HEIGHT_SCALE * zoom));
 
+  // Per-row effective column count (may exceed global cols when extra cells were added to a row).
+  const getRowColCount = (r: number): number => planogram.rowColCounts?.[r] ?? cols;
+
   // Row container height = max of all cells' heights in that row (cells may differ due to per-cell overrides)
   const rowContainerHeightsPx = Array.from({ length: rows }, (_, r) => {
     let maxH = rowHeightsPx[r];
-    for (let c = 0; c < cols; c++) maxH = Math.max(maxH, getCellHeightPx(r, c));
+    for (let c = 0; c < getRowColCount(r); c++) maxH = Math.max(maxH, getCellHeightPx(r, c));
     return maxH;
   });
 
@@ -797,7 +849,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               onClick={addCol}
               disabled={!canAddCol}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title={canAddCol ? "Ajouter une colonne" : `Limite atteinte (${furniture?.dimensions.width ?? '?'} cm)`}
+              title={
+                !canAddCol
+                  ? `Limite atteinte (${furniture?.dimensions.width ?? '?'} cm)`
+                  : selectedHeaderRow !== null
+                  ? `Ajouter une cellule à la ligne ${selectedHeaderRow + 1}`
+                  : 'Ajouter une colonne à toutes les lignes'
+              }
             >+</button>
           </div>
 
@@ -953,7 +1011,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               <Fragment key={row}>
                 {/* Data row */}
                 <div className="flex">
-                  {Array.from({ length: cols }, (_, col) => {
+                  {Array.from({ length: getRowColCount(row) }, (_, col) => {
                     const key      = `${row}-${col}`;
                     const cell     = cellMap.get(key);
                     const prod     = cell ? productByEan.get(cell.ean) : undefined;
@@ -1080,7 +1138,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           )}
 
                           {/* Selected-cell resize handles — per-cell only (do not affect other rows/cols) */}
-                          {isSelected && col + 1 < cols && (
+                          {isSelected && col + 1 < getRowColCount(row) && (
                             <div
                               onMouseDown={(e) => startCellRightResize(e, row, col)}
                               style={{
@@ -1130,17 +1188,17 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           )}
                         </div>
 
-                        {/* Column resize handle — only between columns (not after the last one) */}
-                        {col < cols - 1 && (
+                        {/* Column resize handle — only between columns (not after the last one in this row) */}
+                        {col < getRowColCount(row) - 1 && (
                           <div
                             style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
                             className={[
                               'transition-colors',
-                              selectedCol === col || selectedCol === col + 1
+                              col < cols - 1 && (selectedCol === col || selectedCol === col + 1)
                                ? 'bg-blue-500/40 hover:bg-blue-400/70'
                                : 'bg-gray-800 hover:bg-blue-500/50',
                             ].join(' ')}
-                            onMouseDown={(e) => startColResize(e, col)}
+                            onMouseDown={col < cols - 1 ? (e) => startColResize(e, col) : undefined}
                           />
                         )}
                       </Fragment>

@@ -122,6 +122,12 @@ export interface Planogram {
    * When set, overrides rowHeightsCm[row] for that specific cell only.
    */
   cellHeightOverrides?: Record<string, number>;
+  /**
+   * Per-row column counts. When set for row r, that row has rowColCounts[r] cells
+   * instead of the global `cols`. Extra cells (col >= cols) rely on cellWidthOverrides
+   * for their width. Used when adding a cell to a single row only.
+   */
+  rowColCounts?: number[];
 }
 
 export interface PlanogramSummary {

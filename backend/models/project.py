@@ -188,6 +188,10 @@ class Planogram(CADBaseModel):
     widthCm: float
     heightCm: float
     cells: list[PlanogramCell] = Field(default_factory=list)
+    colWidthsCm: list[float] | None = None
+    rowHeightsCm: list[float] | None = None
+    cellWidthOverrides: dict[str, float] | None = None
+    cellHeightOverrides: dict[str, float] | None = None
 
 
 class Product(CADBaseModel):

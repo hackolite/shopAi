@@ -119,6 +119,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [isResizing, setIsResizing] = useState<'col' | 'row' | null>(null);
   /** Floating tooltip shown near cursor during resize (dimension in cm). */
   const [resizeTooltip, setResizeTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+  /** Per-cell width overrides (live preview during cell-specific drag). Key: "row-col". */
+  const [localCellWidthOverrides,  setLocalCellWidthOverrides]  = useState<Record<string, number> | null>(null);
+  /** Per-cell height overrides (live preview during cell-specific drag). Key: "row-col". */
+  const [localCellHeightOverrides, setLocalCellHeightOverrides] = useState<Record<string, number> | null>(null);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -360,89 +364,167 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     window.addEventListener('mouseup', onUp);
   };
 
-  // ── Selected-cell resize: neighbour absorbs the delta ────────────────────
-  // Dragging right edge of selected cell: cell grows, right neighbour shrinks.
-  // Dragging left: cell shrinks, right neighbour grows.
-  const startCellRightResize = (e: React.MouseEvent, col: number) => {
+  // ── Per-cell resize: only the segment belonging to this cell changes ─────
+  // Width helpers used by cell drag handlers (checked before any live-preview state).
+  const getCellStartWidthCm = (p: Planogram, row: number, col: number): number => {
+    const key = `${row}-${col}`;
+    return p.cellWidthOverrides?.[key] ?? getEffectiveColWidths(p)[col];
+  };
+  const getCellStartHeightCm = (p: Planogram, row: number, col: number): number => {
+    const key = `${row}-${col}`;
+    return p.cellHeightOverrides?.[key] ?? getEffectiveRowHeights(p)[row];
+  };
+
+  // Dragging right edge: cell grows, right neighbour shrinks (this row only).
+  const startCellRightResize = (e: React.MouseEvent, row: number, col: number) => {
     if (!planogram || col + 1 >= planogram.cols) return;
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
-    const startWidths = getEffectiveColWidths(planogram);
+    const key0 = `${row}-${col}`;
+    const key1 = `${row}-${col + 1}`;
+    const startW0 = getCellStartWidthCm(planogram, row, col);
+    const startW1 = getCellStartWidthCm(planogram, row, col + 1);
     const capturedPlanogram = planogram;
-    let finalWidths = [...startWidths];
+    let finalW0 = startW0;
+    let finalW1 = startW1;
     setIsResizing('col');
 
     const onMove = (ev: MouseEvent) => {
       const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-      const maxGrow   = startWidths[col + 1] - MIN_CELL_CM_W;
-      const maxShrink = startWidths[col]     - MIN_CELL_CM_W;
-      const clamped   = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
-      finalWidths = startWidths.map((w, i) =>
-        i === col     ? w + clamped :
-        i === col + 1 ? w - clamped :
-        w,
-      );
-      setLocalColWidths([...finalWidths]);
-      setResizeTooltip({
-        x: ev.clientX + 14, y: ev.clientY - 28,
-        text: `${finalWidths[col].toFixed(1)} / ${finalWidths[col + 1].toFixed(1)} cm`,
-      });
+      const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), Math.min(startW1 - MIN_CELL_CM_W, deltaCm));
+      finalW0 = startW0 + clamped;
+      finalW1 = startW1 - clamped;
+      setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
-      setLocalColWidths(null);
+      setLocalCellWidthOverrides(null);
       setResizeTooltip(null);
-      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
+      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
 
-  // Dragging bottom edge of selected cell: cell grows, bottom neighbour shrinks.
-  const startCellBottomResize = (e: React.MouseEvent, row: number) => {
+  // Dragging left edge: cell grows, left neighbour shrinks (this row only).
+  const startCellLeftResize = (e: React.MouseEvent, row: number, col: number) => {
+    if (!planogram || col <= 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const key0 = `${row}-${col - 1}`;
+    const key1 = `${row}-${col}`;
+    const startW0 = getCellStartWidthCm(planogram, row, col - 1);
+    const startW1 = getCellStartWidthCm(planogram, row, col);
+    const capturedPlanogram = planogram;
+    let finalW0 = startW0;
+    let finalW1 = startW1;
+    setIsResizing('col');
+
+    const onMove = (ev: MouseEvent) => {
+      // Dragging left (negative delta) shrinks the left neighbour, grows current
+      const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
+      const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), Math.min(startW1 - MIN_CELL_CM_W, deltaCm));
+      finalW0 = startW0 + clamped;
+      finalW1 = startW1 - clamped;
+      setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(null);
+      setLocalCellWidthOverrides(null);
+      setResizeTooltip(null);
+      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // Dragging bottom edge: cell grows, bottom neighbour shrinks (this column only).
+  const startCellBottomResize = (e: React.MouseEvent, row: number, col: number) => {
     if (!planogram || row + 1 >= planogram.rows) return;
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const startHeights = getEffectiveRowHeights(planogram);
+    const key0 = `${row}-${col}`;
+    const key1 = `${row + 1}-${col}`;
+    const startH0 = getCellStartHeightCm(planogram, row, col);
+    const startH1 = getCellStartHeightCm(planogram, row + 1, col);
     const capturedPlanogram = planogram;
-    let finalHeights = [...startHeights];
+    let finalH0 = startH0;
+    let finalH1 = startH1;
     setIsResizing('row');
 
     const onMove = (ev: MouseEvent) => {
       const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
-      const maxGrow   = startHeights[row + 1] - MIN_CELL_CM_H;
-      const maxShrink = startHeights[row]     - MIN_CELL_CM_H;
-      const clamped   = Math.max(-maxShrink, Math.min(maxGrow, deltaCm));
-      finalHeights = startHeights.map((h, i) =>
-        i === row     ? h + clamped :
-        i === row + 1 ? h - clamped :
-        h,
-      );
-      setLocalRowHeights([...finalHeights]);
-      setResizeTooltip({
-        x: ev.clientX + 14, y: ev.clientY - 28,
-        text: `${finalHeights[row].toFixed(1)} / ${finalHeights[row + 1].toFixed(1)} cm`,
-      });
+      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, deltaCm));
+      finalH0 = startH0 + clamped;
+      finalH1 = startH1 - clamped;
+      setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
-      setLocalRowHeights(null);
+      setLocalCellHeightOverrides(null);
       setResizeTooltip(null);
-      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
+      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
+
+  // Dragging top edge: cell grows, top neighbour shrinks (this column only).
+  const startCellTopResize = (e: React.MouseEvent, row: number, col: number) => {
+    if (!planogram || row <= 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const key0 = `${row - 1}-${col}`;
+    const key1 = `${row}-${col}`;
+    const startH0 = getCellStartHeightCm(planogram, row - 1, col);
+    const startH1 = getCellStartHeightCm(planogram, row, col);
+    const capturedPlanogram = planogram;
+    let finalH0 = startH0;
+    let finalH1 = startH1;
+    setIsResizing('row');
+
+    const onMove = (ev: MouseEvent) => {
+      // Dragging up (negative delta) shrinks the top neighbour, grows current
+      const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
+      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, deltaCm));
+      finalH0 = startH0 + clamped;
+      finalH1 = startH1 - clamped;
+      setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
+      setResizeTooltip({ x: ev.clientX + 14, y: ev.clientY - 28, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setIsResizing(null);
+      setLocalCellHeightOverrides(null);
+      setResizeTooltip(null);
+      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
 
   // ── Prevent text selection during resize ────────────────────────────────
   useEffect(() => {
@@ -517,6 +599,32 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // Per-column and per-row pixel sizes, proportional to physical dimensions and scaled by zoom
   const colWidthsPx = effectiveColWidths.map(w => Math.max(CELL_MIN_PX, Math.round(w * CELL_WIDTH_SCALE * zoom)));
   const rowHeightsPx = effectiveRowHeights.map(h => Math.max(CELL_MIN_PX, Math.round(h * CELL_HEIGHT_SCALE * zoom)));
+
+  // ── Per-cell effective sizes (override takes precedence over column/row default) ──
+  const getCellWidthCm = (row: number, col: number): number => {
+    const key = `${row}-${col}`;
+    if (localCellWidthOverrides?.[key] != null) return localCellWidthOverrides[key];
+    if (planogram.cellWidthOverrides?.[key] != null) return planogram.cellWidthOverrides[key];
+    return effectiveColWidths[col];
+  };
+  const getCellWidthPx = (row: number, col: number): number =>
+    Math.max(CELL_MIN_PX, Math.round(getCellWidthCm(row, col) * CELL_WIDTH_SCALE * zoom));
+
+  const getCellHeightCm = (row: number, col: number): number => {
+    const key = `${row}-${col}`;
+    if (localCellHeightOverrides?.[key] != null) return localCellHeightOverrides[key];
+    if (planogram.cellHeightOverrides?.[key] != null) return planogram.cellHeightOverrides[key];
+    return effectiveRowHeights[row];
+  };
+  const getCellHeightPx = (row: number, col: number): number =>
+    Math.max(CELL_MIN_PX, Math.round(getCellHeightCm(row, col) * CELL_HEIGHT_SCALE * zoom));
+
+  // Row container height = max of all cells' heights in that row (cells may differ due to per-cell overrides)
+  const rowContainerHeightsPx = Array.from({ length: rows }, (_, r) => {
+    let maxH = rowHeightsPx[r];
+    for (let c = 0; c < cols; c++) maxH = Math.max(maxH, getCellHeightPx(r, c));
+    return maxH;
+  });
 
   // Derived row/col of the currently selected cell, used to highlight adjacent resize handles
   const [selectedRow, selectedCol] = selectedKey
@@ -692,7 +800,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               <Fragment key={r}>
                 <div
                   className="text-xs text-gray-600 flex items-center justify-center flex-none"
-                  style={{ height: `${rowHeightsPx[r]}px`, width: '20px' }}
+                  style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px' }}
                 >
                   {r + 1}
                 </div>
@@ -715,9 +823,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     const isSelected = selectedKey === key;
                     const isDragOver = dragOver === key;
                     const isUploading = prod && uploadingEan === prod.ean;
-                    const cellCmW = effectiveColWidths[col];
-                    const cellCmH = effectiveRowHeights[row];
-                    const cellPxH = rowHeightsPx[row];
+                    const cellCmW = getCellWidthCm(row, col);
+                    const cellCmH = getCellHeightCm(row, col);
+                    const cellPxW = getCellWidthPx(row, col);
+                    const cellPxH = getCellHeightPx(row, col);
 
                     // Per-cell overflow: product physical dims exceed this cell's physical dims
                     const prodOverflow = prod
@@ -746,7 +855,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             prodOverflow ? 'bg-red-900/20' : '',
                           ].join(' ')}
                           style={{
-                            width:  `${colWidthsPx[col]}px`,
+                            width:  `${cellPxW}px`,
                             height: `${cellPxH}px`,
                             background: !prodOverflow && cell && catColor ? catColor + '18' : undefined,
                           }}
@@ -758,62 +867,62 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             <>
                               {/* Category stripe or overflow indicator */}
                               <div
-                                className="absolute inset-x-0 top-0 h-1 rounded-t"
-                                style={{ background: prodOverflow ? '#ef4444' : catColor }}
+                               className="absolute inset-x-0 top-0 h-1 rounded-t"
+                               style={{ background: prodOverflow ? '#ef4444' : catColor }}
                               />
 
                               {/* Thumbnail */}
                               <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
-                                <div className="w-full" style={{ height: `${Math.max(28, cellPxH - 32)}px` }}>
-                                  {isUploading ? (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                                    </div>
-                                  ) : (
-                                    <ProductThumb product={prod} />
-                                  )}
-                                </div>
-                                <div
-                                  className="text-xs font-medium leading-tight truncate w-full text-center"
-                                  style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}
-                                >
-                                  {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
-                                </div>
-                                {/* Product dimensions */}
-                                <div className="text-center leading-none" style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280' }}>
-                                  {prod.widthCm}×{prod.heightCm} cm
-                                </div>
+                               <div className="w-full" style={{ height: `${Math.max(28, cellPxH - 32)}px` }}>
+                                 {isUploading ? (
+                                   <div className="w-full h-full flex items-center justify-center">
+                                     <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                   </div>
+                                 ) : (
+                                   <ProductThumb product={prod} />
+                                 )}
+                               </div>
+                               <div
+                                 className="text-xs font-medium leading-tight truncate w-full text-center"
+                                 style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}
+                               >
+                                 {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
+                               </div>
+                               {/* Product dimensions */}
+                               <div className="text-center leading-none" style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280' }}>
+                                 {prod.widthCm}×{prod.heightCm} cm
+                               </div>
                               </div>
 
                               {/* Overflow badge */}
                               {prodOverflow && (
-                                <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
-                                  ⚠ débordement
-                                </div>
+                               <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
+                                 ⚠ débordement
+                               </div>
                               )}
 
                               {/* Hover actions */}
                               <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {/* Upload image */}
-                                <button
-                                  className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
-                                  title="Uploader une vignette"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    pendingUploadEan.current = prod.ean;
-                                    uploadInputRef.current?.click();
-                                  }}
-                                >
-                                  📷
-                                </button>
-                                {/* Remove */}
-                                <button
-                                  className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
-                                  onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                                  title="Retirer"
-                                >
-                                  ×
-                                </button>
+                               {/* Upload image */}
+                               <button
+                                 className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
+                                 title="Uploader une vignette"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   pendingUploadEan.current = prod.ean;
+                                   uploadInputRef.current?.click();
+                                 }}
+                               >
+                                 📷
+                               </button>
+                               {/* Remove */}
+                               <button
+                                 className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
+                                 onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
+                                 title="Retirer"
+                               >
+                                 ×
+                               </button>
                               </div>
                             </>
                           ) : cell ? (
@@ -821,8 +930,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             <>
                               <div className="text-xs text-gray-400 font-mono text-center px-1">{cell.ean.slice(-6)}</div>
                               <button
-                                className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
-                                onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
+                               className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
+                               onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
                               >×</button>
                             </>
                           ) : (
@@ -830,31 +939,53 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity">+</span>
                           )}
 
-                          {/* Selected-cell right resize handle (steals/gives to right neighbour) */}
+                          {/* Selected-cell resize handles — per-cell only (do not affect other rows/cols) */}
                           {isSelected && col + 1 < cols && (
                             <div
-                              onMouseDown={(e) => startCellRightResize(e, col)}
+                              onMouseDown={(e) => startCellRightResize(e, row, col)}
                               style={{
-                                position: 'absolute', right: 0, top: 0,
-                                width: '6px', height: '100%',
-                                cursor: 'col-resize', zIndex: 10,
-                                background: 'rgba(59,130,246,0.55)',
+                               position: 'absolute', right: 0, top: 0,
+                               width: '6px', height: '100%',
+                               cursor: 'col-resize', zIndex: 10,
+                               background: 'rgba(59,130,246,0.55)',
                               }}
-                              title="Redimensionner cette colonne (mange sur la voisine)"
+                              title="Redimensionner ce segment de colonne (cette ligne seulement)"
                             />
                           )}
-
-                          {/* Selected-cell bottom resize handle (steals/gives to bottom neighbour) */}
+                          {isSelected && col > 0 && (
+                            <div
+                              onMouseDown={(e) => startCellLeftResize(e, row, col)}
+                              style={{
+                               position: 'absolute', left: 0, top: 0,
+                               width: '6px', height: '100%',
+                               cursor: 'col-resize', zIndex: 10,
+                               background: 'rgba(59,130,246,0.55)',
+                              }}
+                              title="Redimensionner ce segment de colonne (cette ligne seulement)"
+                            />
+                          )}
                           {isSelected && row + 1 < rows && (
                             <div
-                              onMouseDown={(e) => startCellBottomResize(e, row)}
+                              onMouseDown={(e) => startCellBottomResize(e, row, col)}
                               style={{
-                                position: 'absolute', bottom: 0, left: 0,
-                                width: '100%', height: '6px',
-                                cursor: 'row-resize', zIndex: 10,
-                                background: 'rgba(59,130,246,0.55)',
+                               position: 'absolute', bottom: 0, left: 0,
+                               width: '100%', height: '6px',
+                               cursor: 'row-resize', zIndex: 10,
+                               background: 'rgba(59,130,246,0.55)',
                               }}
-                              title="Redimensionner cette ligne (mange sur la voisine)"
+                              title="Redimensionner ce segment de ligne (cette colonne seulement)"
+                            />
+                          )}
+                          {isSelected && row > 0 && (
+                            <div
+                              onMouseDown={(e) => startCellTopResize(e, row, col)}
+                              style={{
+                               position: 'absolute', top: 0, left: 0,
+                               width: '100%', height: '6px',
+                               cursor: 'row-resize', zIndex: 10,
+                               background: 'rgba(59,130,246,0.55)',
+                              }}
+                              title="Redimensionner ce segment de ligne (cette colonne seulement)"
                             />
                           )}
                         </div>
@@ -866,8 +997,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             className={[
                               'transition-colors',
                               selectedCol === col || selectedCol === col + 1
-                                ? 'bg-blue-500/40 hover:bg-blue-400/70'
-                                : 'bg-gray-800 hover:bg-blue-500/50',
+                               ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                               : 'bg-gray-800 hover:bg-blue-500/50',
                             ].join(' ')}
                             onMouseDown={(e) => startColResize(e, col)}
                           />
@@ -910,9 +1041,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         <div className="flex-1" />
         <span
           className="text-gray-600"
-        aria-label="Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · photo pour uploader une vignette · glisser les séparateurs pour redimensionner une colonne/ligne · sélectionner une cellule puis glisser son bord droit/bas pour la redimensionner sur la voisine · produit trop grand si débordement"
+        aria-label="Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · photo pour uploader une vignette · glisser les séparateurs pour redimensionner colonne/ligne entière · sélectionner une cellule puis glisser ses bords (◀▶▲▼) pour redimensionner uniquement ce segment · produit trop grand si débordement"
         >
-        Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ séparateurs (libre) · cellule sélectionnée : glisser ▶/▼ (voisine) · 🔴 débordement
+        Clic droit ou × pour vider · Suppr. pour retirer · Ctrl+Z annuler · 📷 vignette · ⟺ séparateurs (colonne/ligne entière) · cellule sélectionnée : glisser ◀▶▲▼ (segment seulement) · 🔴 débordement
         </span>
       </div>
     </div>

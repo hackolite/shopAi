@@ -95,8 +95,8 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
     const isLeftRight = faceId === 'left' || faceId === 'right';
     const isTopBottom = faceId === 'top' || faceId === 'bottom';
     return {
-      faceWidth:  isLeftRight ? dims.depth  : dims.width,
-      faceHeight: isTopBottom ? dims.depth  : dims.height,
+      faceWidth: isLeftRight ? dims.depth : dims.width,
+      faceHeight: isTopBottom ? dims.depth : dims.height,
     };
   };
 

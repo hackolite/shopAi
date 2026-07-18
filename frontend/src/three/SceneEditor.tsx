@@ -349,37 +349,35 @@ function PlanogramFaceOverlay({
 
   if (!texture) return null;
 
-  // Compute position, rotation, and plane size for each face
+  // Overlay plane is sized to the planogram's physical dimensions (not the gondola face),
+  // so that products always render at the same scale regardless of gondola size changes.
+  const planoW = planogram.widthCm  * CM_TO_UNIT;
+  const planoH = planogram.heightCm * CM_TO_UNIT;
+
+  // Compute position and rotation for each face (centred on that face of the gondola)
   let position: [number, number, number];
   let rotation: [number, number, number];
-  let faceW: number;
-  let faceH: number;
 
   switch (face) {
     case 'front':
       position = [0, 0,  D / 2 + OVERLAY_Z_OFFSET];
       rotation = [0, 0, 0];
-      faceW = W; faceH = H;
       break;
     case 'back':
       position = [0, 0, -(D / 2 + OVERLAY_Z_OFFSET)];
       rotation = [0, Math.PI, 0];
-      faceW = W; faceH = H;
       break;
     case 'left':
       position = [-(W / 2 + OVERLAY_Z_OFFSET), 0, 0];
       rotation = [0, -Math.PI / 2, 0];
-      faceW = D; faceH = H;
       break;
     case 'right':
       position = [ W / 2 + OVERLAY_Z_OFFSET, 0, 0];
       rotation = [0, Math.PI / 2, 0];
-      faceW = D; faceH = H;
       break;
     case 'top':
       position = [0, H / 2 + OVERLAY_Z_OFFSET, 0];
       rotation = [-Math.PI / 2, 0, 0];
-      faceW = W; faceH = D;
       break;
     default: {
       const _exhaustive: never = face;
@@ -389,7 +387,7 @@ function PlanogramFaceOverlay({
 
   return (
     <mesh position={position} rotation={rotation} onClick={handleClick}>
-      <planeGeometry args={[faceW * 0.97, faceH * 0.97]} />
+      <planeGeometry args={[planoW, planoH]} />
       <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
     </mesh>
   );

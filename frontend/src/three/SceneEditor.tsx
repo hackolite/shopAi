@@ -315,7 +315,7 @@ function PlanogramFaceOverlay({
     let cumW = 0;
     for (let i = 0; i < colWidths.length; i++) {
       cumW += colWidths[i] / planogram.widthCm;
-      if (uvX < cumW) { col = i; break; }
+      if (uvX <= cumW) { col = i; break; }
     }
 
     const uvY = Math.min(1, Math.max(0, 1 - event.uv.y)); // flip: UV.y=1 is top, row 0 is top
@@ -323,7 +323,7 @@ function PlanogramFaceOverlay({
     let cumH = 0;
     for (let i = 0; i < rowHeights.length; i++) {
       cumH += rowHeights[i] / planogram.heightCm;
-      if (uvY < cumH) { row = i; break; }
+      if (uvY <= cumH) { row = i; break; }
     }
 
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
 import { useSceneStore } from '../../store/sceneStore';
 import { useZoneStore } from '../../store/zoneStore';
@@ -5,7 +6,14 @@ import type { ActiveTool, ViewMode } from '../../store/uiStore';
 
 interface ToolbarProps {
   projectName: string;
+  projects: { id: string; name: string }[];
+  saveStatus: 'idle' | 'saving' | 'saved';
+  onNew: () => void;
+  onLoad: (projectId: string) => void;
+  onSave: () => void;
+  onSaveAs: () => void;
   onExport: () => void;
+  onImport: () => void;
 }
 
 const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = [
@@ -22,10 +30,12 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: 'split',     label: '⊞'  },
 ];
 
-export default function Toolbar({ projectName, onExport }: ToolbarProps) {
+export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onSave, onSaveAs, onExport, onImport }: ToolbarProps) {
   const { activeTool, setActiveTool, viewMode, setViewMode } = useUIStore();
   const scene = useSceneStore((s) => s.scene);
   const { addZone, zones } = useZoneStore();
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
+  const [loadMenuOpen, setLoadMenuOpen] = useState(false);
 
   const storeW = scene?.store.dimensions.width  ?? 2000;
   const storeD = scene?.store.dimensions.depth  ?? 1500;
@@ -33,14 +43,102 @@ export default function Toolbar({ projectName, onExport }: ToolbarProps) {
   const hasEntrance = zones.some((z) => z.type === 'entrance');
   const hasExit     = zones.some((z) => z.type === 'exit');
 
+  const closeMenus = () => { setFileMenuOpen(false); setLoadMenuOpen(false); };
+
   return (
     <div className="flex items-center h-11 bg-gray-950 border-b border-gray-800 shrink-0 px-3 gap-4 select-none">
-      {/* ── Left: Logo + Project Name ── */}
+      {/* ── Left: Logo + Project Name + File menu ── */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-lg leading-none">🏪</span>
-        <span className="text-sm font-semibold text-gray-200 truncate max-w-40">
+        <span className="text-sm font-semibold text-gray-200 truncate max-w-32">
           {projectName}
         </span>
+
+        {/* File menu button */}
+        <div className="relative">
+          <button
+            onClick={() => { setFileMenuOpen((v) => !v); setLoadMenuOpen(false); }}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
+            title="Menu Fichier"
+          >
+            📁
+            <span className="hidden md:inline">Fichier</span>
+            <span className="text-gray-600">▾</span>
+          </button>
+
+          {fileMenuOpen && (
+            <>
+              {/* Backdrop */}
+              <div className="fixed inset-0 z-40" onClick={closeMenus} />
+              <div className="absolute left-0 top-full mt-1 z-50 bg-gray-900 border border-gray-700 rounded shadow-xl min-w-44 py-1">
+                <button
+                  onClick={() => { closeMenus(); void onNew(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+                >
+                  <span>📄</span> Nouveau
+                </button>
+
+                {/* Load submenu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setLoadMenuOpen((v) => !v)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2 justify-between"
+                  >
+                    <span className="flex items-center gap-2"><span>📂</span> Ouvrir</span>
+                    <span className="text-gray-600">▶</span>
+                  </button>
+                  {loadMenuOpen && (
+                    <div className="absolute left-full top-0 ml-1 bg-gray-900 border border-gray-700 rounded shadow-xl min-w-48 py-1 max-h-64 overflow-y-auto">
+                      {projects.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-gray-500">Aucun projet</div>
+                      ) : (
+                        projects.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => { closeMenus(); onLoad(p.id); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white truncate"
+                          >
+                            {p.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-800 my-1" />
+
+                <button
+                  onClick={() => { closeMenus(); void onSave(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+                >
+                  <span>💾</span> Enregistrer <span className="ml-auto text-gray-600">Ctrl+S</span>
+                </button>
+                <button
+                  onClick={() => { closeMenus(); void onSaveAs(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+                >
+                  <span>💾</span> Enregistrer sous…
+                </button>
+
+                <div className="border-t border-gray-800 my-1" />
+
+                <button
+                  onClick={() => { closeMenus(); onExport(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+                >
+                  <span>⬇</span> Exporter…
+                </button>
+                <button
+                  onClick={() => { closeMenus(); onImport(); }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+                >
+                  <span>⬆</span> Importer…
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex-1" />
@@ -121,20 +219,26 @@ export default function Toolbar({ projectName, onExport }: ToolbarProps) {
 
       <div className="flex-1" />
 
-      {/* ── Right: Export + Status ── */}
+      {/* ── Right: Save status + Settings ── */}
       <div className="flex items-center gap-3 text-xs text-gray-500">
-        <button
-          onClick={onExport}
-          title="Exporter l'implémentation complète (scène + planogrammes)"
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors font-medium"
-        >
-          <span>⬇</span>
-          <span className="hidden md:inline">Exporter</span>
-        </button>
-        <span className="hidden md:inline flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-          Auto-saved
-        </span>
+        {saveStatus === 'saving' && (
+          <span className="flex items-center gap-1 text-yellow-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block animate-pulse" />
+            Enregistrement…
+          </span>
+        )}
+        {saveStatus === 'saved' && (
+          <span className="flex items-center gap-1 text-green-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+            Enregistré
+          </span>
+        )}
+        {saveStatus === 'idle' && (
+          <span className="hidden md:flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+            Auto-saved
+          </span>
+        )}
         <button
           className="px-2 py-1 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors"
           title="Settings"

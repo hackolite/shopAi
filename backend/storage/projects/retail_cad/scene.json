@@ -1,0 +1,582 @@
+{
+  "store": {
+    "id": "59a2ea14-fc95-4f48-993b-7168666c5cc4",
+    "name": "Retail CAD Demo",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "dimensions": {
+      "depth": 3000.0,
+      "width": 5000.0,
+      "height": 400.0
+    },
+    "walls": [
+      {
+        "id": "132aea46-721a-450c-a90a-351382c390f2",
+        "name": "Mur arrière",
+        "position": [
+          2500.0,
+          150.0,
+          2990.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "depth": 20.0,
+          "width": 5000.0,
+          "height": 300.0
+        },
+        "materialId": "solid_blue",
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "a67508fe-05b0-4322-8a49-720d945ee76f",
+        "name": "Mur latéral",
+        "position": [
+          10.0,
+          150.0,
+          1500.0
+        ],
+        "rotation": [
+          0.0,
+          90.0,
+          0.0
+        ],
+        "dimensions": {
+          "depth": 20.0,
+          "width": 3000.0,
+          "height": 300.0
+        },
+        "materialId": "solid_red",
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "floorColor": "#1e2230",
+    "wallColor": "#404060",
+    "zones": []
+  },
+  "furniture": [
+    {
+      "id": "fa4360fc-9551-4031-abfa-95c166a64fb1",
+      "name": "Gondole A",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1200.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "1a5f7f4e-cba8-47a5-80ef-3ba536ccfe5c",
+        "back": "7c7ca91f-b371-4f69-a088-bd1e98d97411",
+        "left": "e380ee93-7da1-44d5-b013-5c7054dd2eef",
+        "right": "9e103c02-2b51-47fb-90ac-288b5096bed4",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "99287c5c-d7bf-44c7-8c05-7ce60aac2686",
+      "name": "Gondole B",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1520.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e4fca27f-0f61-4b57-845e-3d64ba596c36",
+        "back": "d98084a0-32b9-4904-a54d-7770c0e83c16",
+        "left": "5b9e2f5d-986f-40db-b221-0dee5f0451e7",
+        "right": "c265084c-72ce-4ae7-81a5-ac95929aee6f",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9639013a-def6-4f25-b68c-ea935a15380e",
+      "name": "Gondole C",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1840.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "80fe7f8a-eb7a-4516-84ea-7c93d3e8142e",
+        "back": "b426ab6b-9ac2-4640-997c-0025987ee5a8",
+        "left": "8c7b61d8-11bb-4545-b0a0-ea1b990ed415",
+        "right": "98f0464a-d571-4ce5-95e3-04bd18b9100b",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "999af5f6-b114-41ed-99b6-3f69b2db050c",
+      "name": "Gondole D",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        2160.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "892bacfa-a830-4000-b891-e212dc9093e6",
+        "back": "4f06b5c4-257e-4ed7-afe5-c76f5db9fc95",
+        "left": "ef476016-2efd-456c-b17f-9e95ac049b98",
+        "right": "9c7348eb-2895-433e-8a08-897b4691c1ea",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3c700548-18f6-4f99-ad82-152e55bbe47f",
+      "name": "Gondole E",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        2480.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9e2f34b5-63da-4a4f-8c6f-e603c1104527",
+        "back": "3eeac967-c442-451f-a9ff-42bf878c0c30",
+        "left": "26828273-05a5-40c1-b93e-e131c0fdd6c0",
+        "right": "51cfdb33-66f5-43c6-9c2f-7bacf59c5290",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d3c5a6c2-fef6-480b-a6cd-5341adc147fb",
+      "name": "Gondole F",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1200.0,
+        0.0,
+        1460.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a1d32f7e-d793-4f88-8e0a-44fc7709121a",
+        "back": "736169f9-99e6-4e34-a91f-93d78da88afa",
+        "left": "418db281-91af-44a0-a2d4-31b62ce09199",
+        "right": "e22c4c7b-d2ef-464d-bffe-ba38cd56279b",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7c16fd5c-f3ff-4fe8-b166-043481d3a83f",
+      "name": "Gondole G",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1520.0,
+        0.0,
+        1460.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d598773b-2774-48b5-ab87-1f133cfab602",
+        "back": "f2f828dd-918c-47e1-925a-3526289ae4ee",
+        "left": "cfa1746b-2346-457c-909e-03b85039192c",
+        "right": "776f2ccb-af6e-45e9-8573-2fae12700058",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d90874b3-4026-423a-8b18-14a6e1ac6b3d",
+      "name": "Gondole H",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1840.0,
+        0.0,
+        1460.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5b8ddf17-6f05-4f6b-afc6-9c33d5f41e47",
+        "back": "0c5240d0-a2b6-4717-8656-dc48570fe1da",
+        "left": "78eb35cc-5f2b-4fd3-a366-06c4a328b521",
+        "right": "d31e068d-2b21-48f9-8e28-76dc27b26c34",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "014b2d5e-f63b-4db6-ab26-5fe857bc04a6",
+      "name": "Gondole I",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        2160.0,
+        0.0,
+        1460.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "2615c161-3650-488c-a3d1-eba023f5c220",
+        "back": "8103ab67-259b-4b8f-9297-b98f96a591f9",
+        "left": "04b09f2e-117a-493b-b90f-1bd736ab8020",
+        "right": "f744766c-bae8-42fe-be5b-1f70047f32af",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d1d8b0e8-6132-49a7-8653-308c9c49b3d6",
+      "name": "Gondole J",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        2480.0,
+        0.0,
+        1460.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "71e38891-c493-4ec0-a401-59d4c8cf2ac2",
+        "back": "cea7ed96-9d1a-4d89-a7ed-01f21b4564dc",
+        "left": "ed1f603e-d651-4066-a7a0-312d8bb374c1",
+        "right": "68c281ae-a401-4f18-acd3-b3a06198b647",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6614d868-4422-4a27-a6ec-a44621bdfc32",
+      "name": "Tête de gondole 1",
+      "type": "end_gondola",
+      "libraryId": "end_gondola",
+      "position": [
+        1100.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        270.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 80.0,
+        "height": 180.0
+      },
+      "materialId": "solid_red",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4793090b-8473-4dca-b98a-e999e0ac9caf",
+        "back": "eeeaf1d1-ec49-4096-a508-31f5978b8387",
+        "left": "5facdddc-0bad-4aa4-9f56-778209fd6738",
+        "right": "9ff4dadf-b060-4525-b38a-dfce1da05bd4",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1fa088c6-a1ba-4994-a53d-77e3d179a0da",
+      "name": "Tête de gondole 2",
+      "type": "end_gondola",
+      "libraryId": "end_gondola",
+      "position": [
+        2600.0,
+        0.0,
+        1200.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 80.0,
+        "height": 180.0
+      },
+      "materialId": "solid_red",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e34e42b8-a0d9-46f5-9ddf-b00ae86a5f56",
+        "back": "9dfab3a2-a05c-4b4a-a4b7-bcf9061cee33",
+        "left": "62a9dafa-7729-45d5-a18a-f6ad54f124e1",
+        "right": "aeabf79a-f7cc-43d8-8292-fd3c7f811898",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "90bdeaac-35e4-4fcd-ae80-e1e85af508f6",
+      "name": "Frigo 1",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        1600.0,
+        0.0,
+        2550.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "435a8be8-dfc0-4448-ae76-45ef2212ee21",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7b962296-4ccb-4d5d-92ed-b704de8158aa",
+      "name": "Frigo 2",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        2900.0,
+        0.0,
+        2550.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "7d2193f4-bc74-49b7-8c2f-d8ee1ee508ba",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "afd0e330-4612-4562-ac51-f0e08c90029f",
+      "name": "Caisse principale",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        4200.0,
+        0.0,
+        350.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 60.0,
+        "width": 80.0,
+        "height": 90.0
+      },
+      "materialId": "plastic_black",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    }
+  ]
+}

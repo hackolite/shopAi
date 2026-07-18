@@ -185,6 +185,60 @@ def ensure_project_exists(project_id: str) -> None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
 
 
+def duplicate_project(source_id: str, new_name: str) -> dict[str, Any]:
+    source_dir = _find_existing_project(source_id)
+    if source_dir is None:
+        raise HTTPException(status_code=404, detail=f"Project '{source_id}' not found")
+
+    new_id = str(uuid4())
+    _validate_project_id(new_id)
+    _ensure_storage_root()
+    new_dir = STORAGE_ROOT / new_id
+
+    shutil.copytree(source_dir, new_dir)
+
+    timestamp = _utc_now()
+    metadata = {"id": new_id, "name": new_name, "createdAt": timestamp, "updatedAt": timestamp}
+    _write_json(new_dir / "project.json", metadata)
+
+    return metadata
+
+
+def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
+    """Create a new project from an exported snapshot {scene, planograms}."""
+    new_id = str(uuid4())
+    _validate_project_id(new_id)
+    _ensure_storage_root()
+    project_dir = STORAGE_ROOT / new_id
+    project_dir.mkdir(parents=False, exist_ok=False)
+
+    timestamp = _utc_now()
+    metadata = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
+
+    defaults: dict[str, Any] = {
+        "project.json": metadata,
+        "scene.json": snapshot.get("scene", {
+            "store": {
+                "id": str(uuid4()),
+                "name": name,
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
+                "walls": [],
+            },
+            "furniture": [],
+        }),
+        "catalog.json": snapshot.get("catalog", {"products": []}),
+        "planograms.json": {"planograms": snapshot.get("planograms", [])},
+        "materials.json": snapshot.get("materials", {"materials": []}),
+        "settings.json": snapshot.get("settings", ProjectSettings().model_dump(mode="json")),
+        "textures.json": {"textures": []},
+    }
+    for filename, payload in defaults.items():
+        _write_json(project_dir / filename, payload)
+    return metadata
+
+
 def delete_project(project_id: str) -> None:
     project_dir = _find_existing_project(project_id)
     if project_dir is None:

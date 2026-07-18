@@ -11,8 +11,10 @@ from models.project import Catalog, FurnitureInstance, Material, Planogram, Prod
 from services.project_manager import (
     create_project,
     delete_project,
+    duplicate_project,
     ensure_project_exists,
     get_project_metadata,
+    import_project,
     list_cad_projects,
     load_project_file,
     save_project_file,
@@ -28,6 +30,15 @@ router = APIRouter(prefix="/api/cad/projects", tags=["cad-projects"])
 
 class CreateProjectPayload(BaseModel):
     name: str
+
+
+class DuplicateProjectPayload(BaseModel):
+    name: str
+
+
+class ImportProjectPayload(BaseModel):
+    name: str
+    snapshot: dict[str, Any]
 
 
 class NamedResourcePayload(BaseModel):
@@ -105,8 +116,8 @@ def _merge_model(model_cls, current: Any, payload: dict[str, Any]) -> Any:
 
 
 @router.get("/")
-def get_projects() -> list[dict[str, Any]]:
-    return [{"id": item["id"], "name": item["name"]} for item in list_cad_projects()]
+def get_projects() -> dict[str, Any]:
+    return {"projects": [{"id": item["id"], "name": item["name"]} for item in list_cad_projects()]}
 
 
 @router.post("/")
@@ -124,6 +135,16 @@ def get_project(project_id: str):
 def remove_project(project_id: str):
     delete_project(project_id)
     return {"deleted": True, "id": project_id}
+
+
+@router.post("/{project_id}/duplicate")
+def duplicate_project_endpoint(project_id: str, payload: DuplicateProjectPayload):
+    return duplicate_project(project_id, payload.name)
+
+
+@router.post("/import")
+def import_project_endpoint(payload: ImportProjectPayload):
+    return import_project(payload.snapshot, payload.name)
 
 
 @router.get("/{project_id}/scene")

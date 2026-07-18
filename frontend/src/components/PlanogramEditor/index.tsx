@@ -1024,6 +1024,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     const cellCmH = getCellHeightCm(row, col);
                     const cellPxW = getCellWidthPx(row, col);
                     const cellPxH = getCellHeightPx(row, col);
+                    // Whether this gap is between two global (shared) columns — drives resize cursor.
+                    const isGlobalColGap = col < cols - 1;
 
                     // Per-cell overflow: product physical dims exceed this cell's physical dims
                     const prodOverflow = prod
@@ -1194,11 +1196,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                             style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
                             className={[
                               'transition-colors',
-                              col < cols - 1 && (selectedCol === col || selectedCol === col + 1)
+                              isGlobalColGap && (selectedCol === col || selectedCol === col + 1)
                                ? 'bg-blue-500/40 hover:bg-blue-400/70'
                                : 'bg-gray-800 hover:bg-blue-500/50',
                             ].join(' ')}
-                            onMouseDown={col < cols - 1 ? (e) => startColResize(e, col) : undefined}
+                            onMouseDown={isGlobalColGap ? (e) => startColResize(e, col) : undefined}
                           />
                         )}
                       </Fragment>

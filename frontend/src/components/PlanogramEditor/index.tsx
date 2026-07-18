@@ -22,6 +22,16 @@ const CELL_MIN_PX = 4;
 const CANVAS_PADDING_PX = 28;
 /** Width of the left cm ruler / height of the top cm ruler (px). */
 const RULER_SIZE_PX = 30;
+/** Fallback px/cm scale used before the ResizeObserver reports a container size. */
+const FALLBACK_PX_PER_CM = 5;
+/** Minimum product block pixel size (width or height) for showing the thumbnail image. */
+const MIN_THUMBNAIL_PX = 18;
+/** Minimum cell height (px) at which the product name label is shown. */
+const MIN_CELL_HEIGHT_FOR_LABEL_PX = 28;
+/** Minimum cell height (px) at which the product dimension label is shown. */
+const MIN_CELL_HEIGHT_FOR_DIM_PX = 44;
+/** Minimum cell width (px) at which the product dimension label is shown. */
+const MIN_CELL_WIDTH_FOR_DIM_PX = 30;
 
 /** Minimum/maximum cell physical size (cm) enforced during drag-resize. */
 const MIN_CELL_CM_W = 2;
@@ -706,7 +716,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const availH = Math.max(1, containerSize.height - CANVAS_PADDING_PX * 2 - RULER_SIZE_PX - 4);
   const basePxPerCm = containerSize.width > 0
     ? Math.max(0.5, Math.min(availW / planogram.widthCm, availH / planogram.heightCm))
-    : 5; // fallback before observer fires
+    : FALLBACK_PX_PER_CM; // used before the ResizeObserver fires
   const pxPerCm = Math.max(0.5, basePxPerCm * zoom);
   pxPerCmRef.current = pxPerCm;
 
@@ -1039,7 +1049,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                                   }}
                                 >
                                   {/* Product image, only shown when block is large enough */}
-                                  {prodBlockPxW >= 18 && prodBlockPxH >= 18 && (
+                                  {prodBlockPxW >= MIN_THUMBNAIL_PX && prodBlockPxH >= MIN_THUMBNAIL_PX && (
                                     isUploading ? (
                                       <div className="w-full h-full flex items-center justify-center">
                                         <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -1051,7 +1061,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                                 </div>
 
                                 {/* Product label — shown above the block when cell is tall enough */}
-                                {cellPxH > 28 && (
+                                {cellPxH > MIN_CELL_HEIGHT_FOR_LABEL_PX && (
                                   <div
                                     style={{
                                       position: 'absolute',
@@ -1072,7 +1082,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                                 )}
 
                                 {/* Dimension label — shown when cell is wide/tall enough */}
-                                {cellPxH > 44 && cellPxW > 30 && (
+                                {cellPxH > MIN_CELL_HEIGHT_FOR_DIM_PX && cellPxW > MIN_CELL_WIDTH_FOR_DIM_PX && (
                                   <div
                                     style={{
                                       position: 'absolute',

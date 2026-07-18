@@ -618,7 +618,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const getCellStartWidthCm = (p: Planogram, row: number, col: number): number => {
     const key = `${row}-${col}`;
     // Extra cells (col >= p.cols) have no colWidthsCm entry; fall back to average cell width.
-    return p.cellWidthOverrides?.[key] ?? getEffectiveColWidths(p)[col] ?? Math.max(MIN_CELL_CM_W, p.widthCm / p.cols);
+    // Guard against p.cols === 0 (degenerate planogram) to avoid division by zero.
+    return p.cellWidthOverrides?.[key] ?? getEffectiveColWidths(p)[col] ?? Math.max(MIN_CELL_CM_W, p.cols > 0 ? p.widthCm / p.cols : MIN_CELL_CM_W);
   };
   const getCellStartHeightCm = (p: Planogram, row: number, col: number): number => {
     const key = `${row}-${col}`;
@@ -654,6 +655,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       }
     }
     // Maximum delta by which cell0 may grow before hitting the gondola limit.
+    // We subtract MIN_CELL_CM_W once to reserve the minimum size for cell1 (right neighbour);
+    // cell0's own minimum is already enforced by the lower bound -(startW0 - MIN_CELL_CM_W).
     const maxDeltaByGondola = gondolaMaxW - otherCellsW - MIN_CELL_CM_W - startW0;
 
     const onMove = (ev: MouseEvent) => {
@@ -708,6 +711,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       }
     }
     // Minimum clamped value (most negative) that keeps cell1 within the gondola.
+    // We add MIN_CELL_CM_W once to reserve the minimum size for cell0 (left neighbour);
+    // cell1's own minimum is already enforced by the upper bound (startW1 - MIN_CELL_CM_W).
     const minClampedByGondola = startW1 + otherCellsW + MIN_CELL_CM_W - gondolaMaxW;
 
     const onMove = (ev: MouseEvent) => {

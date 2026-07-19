@@ -450,6 +450,19 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         ...normalised.slice(insertIdx),
       ];
     }
+    // Shift mergedSpans row indices at rows >= insertIdx.
+    const oldMergedSpans = planogram.mergedSpans;
+    let newMergedSpans: Record<string, number> | undefined;
+    if (oldMergedSpans) {
+      newMergedSpans = {};
+      for (const [key, val] of Object.entries(oldMergedSpans)) {
+        const parts = key.split('-').map(Number);
+        if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+        const [r, c] = parts;
+        newMergedSpans[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
+      }
+      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
+    }
     applyUpdate({
       ...planogram,
       rows: planogram.rows + 1,
@@ -459,6 +472,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
       cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
       rowColCounts: newRowColCounts,
+      mergedSpans: newMergedSpans,
     });
     setSelectedHeaderRow(insertIdx);
   };
@@ -483,6 +497,17 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curHeights = getEffectiveRowHeights(planogram);
     const removedH = curHeights[lastRow];
+    // Remove mergedSpans entries that belong to the last row
+    let newMergedSpans: Record<string, number> | undefined;
+    if (planogram.mergedSpans) {
+      newMergedSpans = Object.fromEntries(
+        Object.entries(planogram.mergedSpans).filter(([k]) => {
+          const p = parseOverrideKey(k);
+          return p && p[0] !== lastRow;
+        }),
+      );
+      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
+    }
     applyUpdate({
       ...planogram,
       rows: planogram.rows - 1,
@@ -490,6 +515,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       rowHeightsCm: curHeights.slice(0, -1),
       cells: planogram.cells.filter((c) => c.row !== lastRow),
       rowColCounts: planogram.rowColCounts?.slice(0, -1),
+      mergedSpans: newMergedSpans,
     });
     if (selectedKey?.startsWith(`${lastRow}-`)) setSelectedKey(null);
   };
@@ -556,6 +582,19 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const newRowColCounts = oldRowColCounts
       ? Array.from({ length: planogram.rows }, (_, i) => (oldRowColCounts[i] ?? planogram.cols) + 1)
       : undefined;
+    // Shift mergedSpans col indices at cols >= insertIdx.
+    const oldMergedSpans = planogram.mergedSpans;
+    let newMergedSpans: Record<string, number> | undefined;
+    if (oldMergedSpans) {
+      newMergedSpans = {};
+      for (const [key, val] of Object.entries(oldMergedSpans)) {
+        const parts = key.split('-').map(Number);
+        if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
+        const [r, c] = parts;
+        newMergedSpans[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
+      }
+      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
+    }
     applyUpdate({
       ...planogram,
       cols: planogram.cols + 1,
@@ -565,6 +604,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
       cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
       rowColCounts: newRowColCounts,
+      mergedSpans: newMergedSpans,
     });
     setSelectedHeaderCol(insertIdx);
   };
@@ -592,11 +632,17 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
       ? undefined
       : newRowColCounts;
+    // Also remove any mergedSpan entry for the removed cell
+    const newMergedSpans = planogram.mergedSpans ? { ...planogram.mergedSpans } : undefined;
+    if (newMergedSpans) {
+      delete newMergedSpans[`${r}-${removeColIdx}`];
+    }
     applyUpdate({
       ...planogram,
       cells: newCells,
       cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
       rowColCounts: normalizedRowColCounts,
+      mergedSpans: newMergedSpans && Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
     });
     if (selectedKey === `${r}-${removeColIdx}`) setSelectedKey(null);
   };
@@ -687,6 +733,21 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       newRowColCounts = updated.every((c) => c === newCols) ? undefined : updated;
     }
 
+    // Update mergedSpans: drop removed col entries, shift col > removeIdx
+    const oldMergedSpans = planogram.mergedSpans;
+    let newMergedSpans: Record<string, number> | undefined;
+    if (oldMergedSpans) {
+      newMergedSpans = {};
+      for (const [key, val] of Object.entries(oldMergedSpans)) {
+        const parsed = parseOverrideKey(key);
+        if (!parsed) continue;
+        const [r, c] = parsed;
+        if (c === removeIdx) continue; // removed
+        newMergedSpans[c > removeIdx ? `${r}-${c - 1}` : key] = val;
+      }
+      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
+    }
+
     applyUpdate({
       ...planogram,
       cols: planogram.cols - 1,
@@ -696,6 +757,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
       cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
       rowColCounts: newRowColCounts,
+      mergedSpans: newMergedSpans,
     });
 
     // Update header selection
@@ -817,6 +879,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    * Merge all Ctrl-selected contiguous empty cells in the same row into a single
    * wider cell. The merged cell gets the combined width of all selected cells;
    * subsequent cells in the row are shifted left to fill the gaps.
+   * Only works when none of the selected cells are already merged.
    */
   const mergeSelectedCells = () => {
     if (!planogram || selectedKeys.size < 2) return;
@@ -824,6 +887,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const parsed = keys.map(k => k.split('-').map(Number) as [number, number]);
     // All must be empty
     if (parsed.some(([r, c]) => cellMap.has(`${r}-${c}`))) return;
+    // None of the selected cells may already be merged (would need span-aware contiguity check)
+    if (parsed.some(([r, c]) => (planogram.mergedSpans?.[`${r}-${c}`] ?? 1) > 1)) return;
     // All must be in the same row
     const rowSet = new Set(parsed.map(([r]) => r));
     if (rowSet.size !== 1) return;
@@ -836,6 +901,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const minCol = sortedCols[0];
     const maxCol = sortedCols[sortedCols.length - 1];
     const shiftAmount = maxCol - minCol; // cells removed = selected count - 1
+    const span = sortedCols.length;
 
     setHistory((prev) => [...prev.slice(-20), planogram]);
 
@@ -883,16 +949,216 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       newCellHeightOverrides[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
     }
 
+    // Rebuild mergedSpans: shift entries beyond maxCol in this row, then record the new merge
+    const newMergedSpans: Record<string, number> = {};
+    for (const [key, val] of Object.entries(planogram.mergedSpans ?? {})) {
+      const p = parseOverrideKey(key);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r !== row) { newMergedSpans[key] = val; continue; }
+      if (c >= minCol && c <= maxCol) continue; // merged away
+      newMergedSpans[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
+    }
+    newMergedSpans[`${row}-${minCol}`] = span;
+
     applyUpdate({
       ...planogram,
       cells: newCells,
       cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
       cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
       rowColCounts: normalizedRowColCounts,
+      mergedSpans: Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
     });
 
     setSelectedKey(null);
     setSelectedKeys(new Set());
+  };
+
+  /**
+   * Split the currently selected merged empty cell back into its original
+   * individual cells. Each split cell receives an equal share of the total width.
+   */
+  const splitSelectedCell = () => {
+    if (!planogram || !selectedKey) return;
+    const parsed = parseOverrideKey(selectedKey);
+    if (!parsed) return;
+    const [row, col] = parsed;
+    const span = planogram.mergedSpans?.[selectedKey] ?? 1;
+    if (span < 2) return;
+    if (cellMap.has(selectedKey)) return; // can only split empty boxes
+
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+
+    const totalWidth = getCellStartWidthCm(planogram, row, col);
+    const singleWidth = totalWidth / span;
+    const shiftAmount = span - 1; // number of cells to re-insert
+    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
+
+    // Shift occupied cells in this row that lie after col
+    const newCells = planogram.cells.map(c =>
+      c.row === row && c.col > col ? { ...c, col: c.col + shiftAmount } : c,
+    );
+
+    // Rebuild cellWidthOverrides: shift entries after col, then set widths for each split cell
+    const newCellWidthOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(planogram.cellWidthOverrides ?? {})) {
+      const p = parseOverrideKey(key);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r !== row) { newCellWidthOverrides[key] = val; continue; }
+      if (c === col) continue; // the merged cell — replaced by split cells below
+      newCellWidthOverrides[c > col ? `${r}-${c + shiftAmount}` : key] = val;
+    }
+    for (let i = 0; i < span; i++) {
+      newCellWidthOverrides[`${row}-${col + i}`] = singleWidth;
+    }
+
+    // Rebuild cellHeightOverrides: shift entries after col
+    const newCellHeightOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(planogram.cellHeightOverrides ?? {})) {
+      const p = parseOverrideKey(key);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r !== row) { newCellHeightOverrides[key] = val; continue; }
+      newCellHeightOverrides[c > col ? `${r}-${c + shiftAmount}` : key] = val;
+    }
+
+    // Rebuild mergedSpans: remove the split cell, shift entries after col
+    const newMergedSpans: Record<string, number> = {};
+    for (const [key, val] of Object.entries(planogram.mergedSpans ?? {})) {
+      const p = parseOverrideKey(key);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r === row && c === col) continue; // being split — remove
+      newMergedSpans[r === row && c > col ? `${r}-${c + shiftAmount}` : key] = val;
+    }
+
+    // Update rowColCounts
+    const newRowColCounts = Array.from(
+      { length: planogram.rows },
+      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
+    );
+    newRowColCounts[row] = rowColCount + shiftAmount;
+    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
+      ? undefined
+      : newRowColCounts;
+
+    applyUpdate({
+      ...planogram,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
+      cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
+      rowColCounts: normalizedRowColCounts,
+      mergedSpans: Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
+    });
+
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
+  };
+
+  /**
+   * Delete an empty box (cell with no product). Its width is transferred to the
+   * adjacent cell: the right neighbour if one exists, otherwise the left neighbour.
+   * All per-row widths in this row are made explicit so other rows are unaffected.
+   */
+  const deleteBox = (row: number, col: number) => {
+    if (!planogram) return;
+    const key = `${row}-${col}`;
+    if (cellMap.has(key)) return; // only delete empty boxes
+
+    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
+    const span = planogram.mergedSpans?.[key] ?? 1;
+    if (rowColCount - span < 1) return; // must keep at least one box in the row
+
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+
+    const boxWidth = getCellStartWidthCm(planogram, row, col);
+    const removeStart = col;
+    const removeEnd = col + span - 1;   // inclusive last column of the merged cell
+    const shiftAmount = span;
+
+    // Determine which neighbour receives the freed width
+    const hasRight = removeEnd + 1 < rowColCount;
+    const hasLeft = col > 0;
+    // rightNeighbour lands at removeStart after the shift; leftNeighbour stays in place
+    const neighborNewCol = hasRight ? removeStart : col - 1;
+
+    // Build complete explicit widths for every current cell in this row
+    const explicitWidths: number[] = [];
+    for (let c = 0; c < rowColCount; c++) {
+      explicitWidths[c] = getCellStartWidthCm(planogram, row, c);
+    }
+
+    // Remove deleted range and compute new widths
+    const newExplicitWidths: Record<number, number> = {};
+    for (let c = 0; c < rowColCount; c++) {
+      if (c >= removeStart && c <= removeEnd) continue; // deleted
+      const newC = c > removeEnd ? c - shiftAmount : c;
+      newExplicitWidths[newC] = explicitWidths[c];
+    }
+    // Transfer freed width to the chosen neighbour
+    if (hasRight || hasLeft) {
+      newExplicitWidths[neighborNewCol] = (newExplicitWidths[neighborNewCol] ?? 0) + boxWidth;
+    }
+
+    // Rebuild cellWidthOverrides: clear this row's entries, re-populate with new explicit widths
+    const newCellWidthOverrides: Record<string, number> = {};
+    for (const [k, val] of Object.entries(planogram.cellWidthOverrides ?? {})) {
+      const p = parseOverrideKey(k);
+      if (p && p[0] === row) continue; // drop all existing overrides for this row
+      newCellWidthOverrides[k] = val;
+    }
+    for (const [c, w] of Object.entries(newExplicitWidths)) {
+      newCellWidthOverrides[`${row}-${c}`] = w;
+    }
+
+    // Rebuild cellHeightOverrides: shift entries in this row after removeEnd
+    const newCellHeightOverrides: Record<string, number> = {};
+    for (const [k, val] of Object.entries(planogram.cellHeightOverrides ?? {})) {
+      const p = parseOverrideKey(k);
+      if (!p) { newCellHeightOverrides[k] = val; continue; }
+      const [r, c] = p;
+      if (r !== row) { newCellHeightOverrides[k] = val; continue; }
+      if (c >= removeStart && c <= removeEnd) continue; // deleted
+      newCellHeightOverrides[c > removeEnd ? `${r}-${c - shiftAmount}` : k] = val;
+    }
+
+    // Remove any cells (with products) that happen to be in the deleted range (shouldn't exist
+    // since we only delete empty boxes, but guard anyway) and shift remaining cells.
+    const newCells = planogram.cells
+      .filter(c => !(c.row === row && c.col >= removeStart && c.col <= removeEnd))
+      .map(c => c.row === row && c.col > removeEnd ? { ...c, col: c.col - shiftAmount } : c);
+
+    // Rebuild mergedSpans: remove deleted range entries, shift entries after removeEnd
+    const newMergedSpans: Record<string, number> = {};
+    for (const [k, val] of Object.entries(planogram.mergedSpans ?? {})) {
+      const p = parseOverrideKey(k);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r === row && c >= removeStart && c <= removeEnd) continue; // deleted
+      newMergedSpans[r === row && c > removeEnd ? `${r}-${c - shiftAmount}` : k] = val;
+    }
+
+    // Update rowColCounts
+    const newRowColCounts = Array.from(
+      { length: planogram.rows },
+      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
+    );
+    newRowColCounts[row] = rowColCount - shiftAmount;
+    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
+      ? undefined
+      : newRowColCounts;
+
+    applyUpdate({
+      ...planogram,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
+      cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
+      rowColCounts: normalizedRowColCounts,
+      mergedSpans: Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
+    });
+
+    if (selectedKey === key) { setSelectedKey(null); setSelectedKeys(new Set()); }
   };
 
   // Dragging right edge: cell grows, right neighbour shrinks (this row only).
@@ -1305,8 +1571,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     // Extra cells (col >= cols) have no global colWidthsCm entry; fall back to default cell width.
     return effectiveColWidths[col] ?? Math.max(MIN_CELL_CM_W, physCellW);
   };
-  const getCellWidthPx = (row: number, col: number): number =>
-    Math.max(CELL_MIN_PX, Math.round(getCellWidthCm(row, col) * CELL_WIDTH_SCALE * zoom));
+  const getCellWidthPx = (row: number, col: number): number => {
+    const span = planogram?.mergedSpans?.[`${row}-${col}`] ?? 1;
+    // A merged cell visually absorbs the RESIZE_HANDLE_PX separators that would have
+    // existed between the original individual cells, so add them back here.
+    const separatorPx = span > 1 ? (span - 1) * RESIZE_HANDLE_PX : 0;
+    return Math.max(CELL_MIN_PX, Math.round(getCellWidthCm(row, col) * CELL_WIDTH_SCALE * zoom)) + separatorPx;
+  };
 
   const getCellHeightCm = (row: number, col: number): number => {
     const key = `${row}-${col}`;
@@ -1357,11 +1628,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   }
 
   // ── Merge eligibility ────────────────────────────────────────────────────
-  // True when all selected cells are empty, in the same row, and form a contiguous column range.
+  // True when all selected cells are empty, in the same row, form a contiguous column range,
+  // and none are already merged (re-merging merged cells is not supported).
   const canMerge = (() => {
     if (selectedKeys.size < 2) return false;
     const parsedKeys = [...selectedKeys].map(k => k.split('-').map(Number) as [number, number]);
     if (parsedKeys.some(([r, c]) => cellMap.has(`${r}-${c}`))) return false;
+    if (parsedKeys.some(([r, c]) => (planogram.mergedSpans?.[`${r}-${c}`] ?? 1) > 1)) return false;
     const rowSet = new Set(parsedKeys.map(([r]) => r));
     if (rowSet.size !== 1) return false;
     const sortedCols = parsedKeys.map(([, c]) => c).sort((a, b) => a - b);
@@ -1369,6 +1642,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (sortedCols[i] !== sortedCols[i - 1] + 1) return false;
     }
     return true;
+  })();
+
+  // ── Split eligibility ────────────────────────────────────────────────────
+  // True when the single selected cell is an empty merged box (span >= 2).
+  const canSplit = (() => {
+    if (!selectedKey || selectedKeys.size > 1) return false;
+    if (cellMap.has(selectedKey)) return false;
+    return (planogram.mergedSpans?.[selectedKey] ?? 1) >= 2;
+  })();
+
+  // ── Delete-box eligibility ────────────────────────────────────────────────
+  // True when the single selected cell is an empty box and the row has > 1 cell.
+  const canDeleteBox = (() => {
+    if (!selectedKey || selectedKeys.size > 1) return false;
+    if (cellMap.has(selectedKey)) return false;
+    const parsed = parseOverrideKey(selectedKey);
+    if (!parsed) return false;
+    const [r] = parsed;
+    const span = planogram.mergedSpans?.[selectedKey] ?? 1;
+    const rowColCount = planogram.rowColCounts?.[r] ?? planogram.cols;
+    return rowColCount - span >= 1; // must keep at least one box after deletion
   })();
 
   // ── Row fill ratios (cm used / planogram widthCm per row) ────────────────
@@ -1568,8 +1862,32 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 <button
                   onClick={mergeSelectedCells}
                   className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
-                  title={`Fusionner les ${selectedKeys.size} cellules vides contiguës en une seule cellule plus large`}
+                  title={`Fusionner les ${selectedKeys.size} boîtes vides contiguës en une seule boîte plus large`}
                 >⊞ Fusionner ({selectedKeys.size})</button>
+              )}
+            </>
+          )}
+
+          {/* Single empty-box actions: split and delete */}
+          {(canSplit || canDeleteBox) && selectedKeys.size <= 1 && (
+            <>
+              <div className="h-4 w-px bg-gray-700" />
+              {canSplit && (() => {
+                const splitSpan = planogram.mergedSpans?.[selectedKey!] ?? 1;
+                return (
+                  <button
+                    onClick={splitSelectedCell}
+                    className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
+                    title={`Diviser cette boîte fusionnée (${splitSpan} colonnes) en ${splitSpan} boîtes de largeur égale`}
+                  >⊟ Diviser</button>
+                );
+              })()}
+              {canDeleteBox && (
+                <button
+                  onClick={() => { if (selectedRow !== null && selectedCol !== null) deleteBox(selectedRow, selectedCol); }}
+                  className="px-2 py-0.5 text-xs rounded bg-red-800/40 hover:bg-red-700/60 text-red-300 transition-colors"
+                  title="Supprimer cette boîte — sa largeur est redistribuée à la boîte adjacente"
+                >🗑 Suppr. boîte</button>
               )}
             </>
           )}
@@ -1941,8 +2259,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                               >×</button>
                             </>
                           ) : (
-                            // Empty cell
-                            <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity">+</span>
+                            // Empty cell — a rigid "box" (boîte)
+                            <>
+                              {/* The "+" is always visible to indicate this is a box slot */}
+                              <span className="text-gray-600 text-sm font-bold select-none leading-none">+</span>
+                              {/* Merged-box indicator */}
+                              {(planogram.mergedSpans?.[key] ?? 1) > 1 && (
+                                <span
+                                  className="absolute bottom-0.5 left-0.5 text-gray-500 leading-none select-none"
+                                  style={{ fontSize: '9px' }}
+                                  title={`Boîte fusionnée — ${planogram.mergedSpans![key]} colonnes`}
+                                >⊟</span>
+                              )}
+                              {/* Delete-box button (hover) — only when the row has more than one cell */}
+                              {(planogram.rowColCounts?.[row] ?? cols) - (planogram.mergedSpans?.[key] ?? 1) >= 1 && (
+                                <button
+                                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => { e.stopPropagation(); deleteBox(row, col); }}
+                                  title="Supprimer cette boîte (sa largeur est donnée à la boîte adjacente)"
+                                >×</button>
+                              )}
+                            </>
                           )}
 
                           {/* Selected-cell resize handles — per-cell only (do not affect other rows/cols) */}
@@ -2067,7 +2404,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             <span className="text-gray-600">· Cliquer cellule vide pour placer · Glisser depuis catalogue · Ctrl+clic multi-sélection</span>
           </>
         ) : (
-          <span>Sélectionnez un produit dans le catalogue · Ctrl+clic multi-sélection · Shift+clic plage · Glisser cellule occupée pour déplacer</span>
+          <span>
+            {'Sélectionnez un produit dans le catalogue · Ctrl+clic multi-sélection · Shift+clic plage'}
+            {' · Glisser cellule occupée pour déplacer'}
+            {' · Boîtes vides : × supprimer · ⊞ fusionner (multi-sélection) · ⊟ diviser (boîte fusionnée)'}
+          </span>
         )}
         <div className="flex-1" />
         <span className="text-gray-600">

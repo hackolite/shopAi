@@ -128,6 +128,13 @@ export interface Planogram {
    * for their width. Used when adding a cell to a single row only.
    */
   rowColCounts?: number[];
+  /**
+   * Column-span for merged (fused) cells, keyed by "row-col".
+   * When set for a cell, that cell spans mergedSpans[key] logical columns.
+   * The cell's width in cellWidthOverrides already reflects the combined width.
+   * Used to restore individual cells when splitting and to compute correct pixel widths.
+   */
+  mergedSpans?: Record<string, number>;
 }
 
 export interface PlanogramSummary {

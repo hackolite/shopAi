@@ -567,8 +567,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
     // Update header selection
     if (selectedHeaderRow !== null) {
-      if (selectedHeaderRow >= planogram.rows - 1) setSelectedHeaderRow(null);
-      // else keep selection on same index (now pointing at the row that shifted up)
+      if (selectedHeaderRow === removeIdx) {
+        setSelectedHeaderRow(null);
+      } else if (selectedHeaderRow > removeIdx) {
+        setSelectedHeaderRow(selectedHeaderRow - 1);
+      }
     }
 
     // Update cell selection: clear if it was in the deleted row; shift if in a row below

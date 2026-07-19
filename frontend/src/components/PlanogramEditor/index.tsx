@@ -1245,20 +1245,24 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                                 title="Déplacer le séparateur gauche (cette ligne seulement)"
                               />
                             )}
+                            {/* Always-visible separator handle: absolute left-edge overlay on each non-first box.
+                                Using an overlay (zero layout width) keeps the total row width constant after
+                                fusion — removing the old flex-sibling div was causing the row to shrink by
+                                RESIZE_HANDLE_PX on every fusion, making merged cells appear narrower than the
+                                sum of their parts. */}
+                            {bi > 0 && (
+                              <div
+                                style={{ position: 'absolute', left: 0, top: 0, width: `${RESIZE_HANDLE_PX}px`, height: '100%', cursor: 'col-resize', zIndex: 5 }}
+                                className={['transition-colors',
+                                  (selBoxIdx === bi - 1 || selBoxIdx === bi) && selDisplayRow === di
+                                    ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                                    : 'bg-gray-800 hover:bg-blue-500/50'].join(' ')}
+                                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startSepResize(e, di, bi - 1); }}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Déplacer le séparateur"
+                              />
+                            )}
                           </div>
-
-                          {/* Separator handle between boxes */}
-                          {!isLastBox && (
-                            <div
-                              style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellHPx}px`, cursor: 'col-resize', flexShrink: 0 }}
-                              className={['transition-colors',
-                                (selBoxIdx === bi || selBoxIdx === bi + 1) && selDisplayRow === di
-                                  ? 'bg-blue-500/40 hover:bg-blue-400/70'
-                                  : 'bg-gray-800 hover:bg-blue-500/50'].join(' ')}
-                              onMouseDown={(e) => startSepResize(e, di, bi)}
-                              title="Déplacer le séparateur"
-                            />
-                          )}
                         </Fragment>
                       );
                     })}

@@ -150,6 +150,44 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
       }
 
       if (updated !== detail) {
+        // If gondola data is present, scale its geometry to match the new face dimensions.
+        // This keeps separator positions and shelf heights in sync with the resized furniture.
+        if (updated.gondola) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let g: any = { ...updated.gondola };
+
+          if (detail.widthCm > faceWidth) {
+            const wScale = faceWidth / detail.widthCm;
+            g = {
+              ...g,
+              width_cm: faceWidth,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              shelves: g.shelves?.map((shelf: any) => ({
+                ...shelf,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                separators: shelf.separators?.map((sep: any) => ({
+                  ...sep,
+                  position_cm: sep.position_cm * wScale,
+                })),
+              })),
+            };
+          }
+
+          if (detail.heightCm > faceHeight) {
+            const hScale = faceHeight / detail.heightCm;
+            g = {
+              ...g,
+              height_cm: faceHeight,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              shelves: g.shelves?.map((shelf: any) => ({
+                ...shelf,
+                height_cm: shelf.height_cm * hScale,
+              })),
+            };
+          }
+
+          updated = { ...updated, gondola: g };
+        }
         cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);
         syncPlanogram(updated);
       }

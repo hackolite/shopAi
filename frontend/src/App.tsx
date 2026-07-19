@@ -171,11 +171,11 @@ export default function App() {
   }, [requestOpenPlanogramId]);
 
   const closePlanogram = () => {
-    // When returning to 3D, request the camera to fly to the gondola that was being edited
+    // When returning to 3D, fly the camera to face the planogram that was just edited
     if (activePlanogramId) {
       const planogram = planogramDetails.get(activePlanogramId);
       if (planogram?.furnitureId) {
-        setFlyToFurnitureId(planogram.furnitureId);
+        setFlyToFurnitureId(planogram.furnitureId, planogram.face ?? null);
       }
     }
     setActivePlanogramId(null);

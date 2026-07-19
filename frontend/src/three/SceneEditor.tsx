@@ -1742,6 +1742,7 @@ function MeasureTool({ store }: { store: StoreConfig }) {
 function CameraFlyToFurniture() {
   const { camera, controls } = useThree();
   const flyToFurnitureId    = useUIStore((s) => s.flyToFurnitureId);
+  const flyToFurnitureFace  = useUIStore((s) => s.flyToFurnitureFace);
   const setFlyToFurnitureId = useUIStore((s) => s.setFlyToFurnitureId);
   const scene               = useSceneStore((s) => s.scene);
 
@@ -1759,7 +1760,29 @@ function CameraFlyToFurniture() {
 
     const target = new THREE.Vector3(cx, cy, cz);
     const dist   = Math.max(W, H, D) * 1.5 + 5;
-    const offset = new THREE.Vector3(cx + dist * 0.7, cy + dist * 0.5, cz + dist * 0.7);
+
+    // Compute face direction in local furniture space, then rotate to world space
+    const ryRad = (furniture.rotation[1] ?? 0) * (Math.PI / 180);
+    let localDirX = 0;
+    let localDirZ = 0;
+    switch (flyToFurnitureFace) {
+      case 'front':  localDirZ =  1; break;
+      case 'back':   localDirZ = -1; break;
+      case 'right':  localDirX =  1; break;
+      case 'left':   localDirX = -1; break;
+      default:
+        // No face info — keep original diagonal fallback
+        localDirX = 0.7; localDirZ = 0.7;
+    }
+    // Apply Y-rotation: R_y × [localDirX, 0, localDirZ]
+    const worldDirX = Math.cos(ryRad) * localDirX + Math.sin(ryRad) * localDirZ;
+    const worldDirZ = -Math.sin(ryRad) * localDirX + Math.cos(ryRad) * localDirZ;
+
+    const offset = new THREE.Vector3(
+      cx + worldDirX * dist,
+      cy + dist * 0.4,
+      cz + worldDirZ * dist,
+    );
 
     camera.position.copy(offset);
     camera.lookAt(target);
@@ -1769,7 +1792,7 @@ function CameraFlyToFurniture() {
     controls?.update?.();
 
     setFlyToFurnitureId(null);
-  }, [flyToFurnitureId, scene, camera, controls, setFlyToFurnitureId]);
+  }, [flyToFurnitureId, flyToFurnitureFace, scene, camera, controls, setFlyToFurnitureId]);
 
   return null;
 }

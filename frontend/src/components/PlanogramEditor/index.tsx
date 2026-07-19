@@ -672,6 +672,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         const lp = gondolaToLegacyPlanogram(last, { ...planogramBase, gondola: last });
         setActivePlanogram(lp); scheduleSave(lp);
       }
+      // `gondola` is captured from the outer scope at call time (pre-undo state).
+      // Sync furniture width whenever the undo restores a different gondola width.
+      if (gondola && last.width_cm !== gondola.width_cm) {
+        syncFurnitureDimension(last.width_cm);
+      }
       return prev.slice(0, -1);
     });
   };
@@ -686,6 +691,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (planogramBase) {
         const lp = gondolaToLegacyPlanogram(next, { ...planogramBase, gondola: next });
         setActivePlanogram(lp); scheduleSave(lp);
+      }
+      // `gondola` is captured from the outer scope at call time (pre-redo state).
+      // Sync furniture width whenever the redo restores a different gondola width.
+      if (gondola && next.width_cm !== gondola.width_cm) {
+        syncFurnitureDimension(next.width_cm);
       }
       return prev.slice(0, -1);
     });

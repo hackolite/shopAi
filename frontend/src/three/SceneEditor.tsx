@@ -13,6 +13,7 @@ import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
+import { extendGondolaWidth, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../engine/gondola';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (1 m). */
@@ -399,34 +400,48 @@ function PlanogramFaceOverlay({
   const planoW = planogram.widthCm  * CM_TO_UNIT;
   const planoH = planogram.heightCm * CM_TO_UNIT;
 
-  // Top-align the overlay on the gondola face: when the planogram is shorter than the
-  // gondola, the plane is shifted upward so row 0 always starts at the top of the face.
-  // yOffset moves the plane centre so its top edge coincides with the gondola top edge.
+  // Top-align vertically: when the planogram is shorter than the gondola the plane is
+  // shifted upward so row 0 always starts at the top of the face.
   const yOffset = (H - planoH) / 2;
 
-  // Compute position and rotation for each face (top-aligned on that face of the gondola)
+  // Left-align horizontally: shift the overlay toward the gondola's local -X edge so
+  // that column 0 always appears at the left of the face (rather than being centred).
+  // For front/back/top faces the horizontal axis is the gondola's X axis (face width = W).
+  // For left/right faces the horizontal axis is the gondola's Z axis (face width = D).
+  const xOffFrontBack = (planoW - W) / 2; // negative → shift toward -X (left)
+  const zOffSide      = (D - planoW) / 2; // positive → shift toward +Z (gondola front = viewer left)
+
+  // Compute position and rotation for each face (top- and left-aligned on the gondola face)
   let position: [number, number, number];
   let rotation: [number, number, number];
 
   switch (face) {
     case 'front':
-      position = [0, yOffset,  D / 2 + OVERLAY_Z_OFFSET];
+      position = [xOffFrontBack, yOffset,  D / 2 + OVERLAY_Z_OFFSET];
       rotation = [0, 0, 0];
       break;
     case 'back':
-      position = [0, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
+      // Back face is mirrored in X (rotation π around Y).  To keep the planogram
+      // at the same physical side of the gondola as the front face, the X offset
+      // is negated so that column 0 sits at the gondola's -X side on both faces.
+      position = [-xOffFrontBack, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
       rotation = [0, Math.PI, 0];
       break;
     case 'left':
-      position = [-(W / 2 + OVERLAY_Z_OFFSET), yOffset, 0];
+      // Rotation [0, -π/2, 0]: overlay local +x → gondola local +z.
+      // zOffSide centres the overlay starting from the +Z (front) side of the gondola,
+      // which is "left" from the customer's perspective walking along the aisle.
+      position = [-(W / 2 + OVERLAY_Z_OFFSET), yOffset, zOffSide];
       rotation = [0, -Math.PI / 2, 0];
       break;
     case 'right':
-      position = [ W / 2 + OVERLAY_Z_OFFSET, yOffset, 0];
+      // Rotation [0, +π/2, 0]: overlay local +x → gondola local -z.
+      // Same front-of-gondola left-alignment as the left face.
+      position = [ W / 2 + OVERLAY_Z_OFFSET, yOffset, zOffSide];
       rotation = [0, Math.PI / 2, 0];
       break;
     case 'top':
-      position = [0, H / 2 + OVERLAY_Z_OFFSET, 0];
+      position = [xOffFrontBack, H / 2 + OVERLAY_Z_OFFSET, 0];
       rotation = [-Math.PI / 2, 0, 0];
       break;
     default: {
@@ -817,6 +832,44 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
       };
       updateFurniture(snapped);
       if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+
+      // ── Extend planograms linked to this furniture when it grew ────────────────
+      if (!projectId) return;
+      const base = baseFurRef.current;
+      const oldW = base.dimensions.width;
+      const oldD = base.dimensions.depth;
+      const newW = snapped.dimensions.width;
+      const newD = snapped.dimensions.depth;
+      const { planogramDetails, syncPlanogram } = usePlanogramStore.getState();
+
+      const facesToExtend: { face: string; newWidthCm: number }[] = [];
+      if (newW > oldW + 0.5) {
+        facesToExtend.push({ face: 'front', newWidthCm: newW });
+        facesToExtend.push({ face: 'back',  newWidthCm: newW });
+      }
+      if (newD > oldD + 0.5) {
+        facesToExtend.push({ face: 'left',  newWidthCm: newD });
+        facesToExtend.push({ face: 'right', newWidthCm: newD });
+      }
+      if (facesToExtend.length === 0) return;
+
+      const faces = snapped.faces ?? {};
+      for (const { face, newWidthCm } of facesToExtend) {
+        const planoId = faces[face as keyof typeof faces];
+        if (!planoId) continue;
+        const planogram = planogramDetails.get(planoId as string);
+        if (!planogram) continue;
+
+        // Ensure the planogram has a gondola representation before extending.
+        const gondola = planogram.gondola ?? legacyCellsToSeparators(planogram);
+        const extended = extendGondolaWidth(gondola, newWidthCm);
+        if (extended === gondola) continue; // nothing changed
+
+        const updated = gondolaToLegacyPlanogram(extended, { ...planogram, gondola: extended });
+        cadApi.updatePlanogram(projectId, planoId as string, updated)
+          .then(() => syncPlanogram(updated))
+          .catch(console.error);
+      }
     };
 
     gl.domElement.addEventListener('pointermove', onMove);

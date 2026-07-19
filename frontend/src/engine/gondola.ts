@@ -316,11 +316,12 @@ export function cmdSplitBox(
     const newSep = newShelf?.separators.find((s) => !existingIds.has(s.id));
     if (newSep) {
       // Re-add the placement pointing to leftSepId → newSep (left sub-box).
+      // Preserve the original cellId so the placement keeps the same identity.
       return {
         ...gAfterSplit,
         productPlacements: [
           ...gAfterSplit.productPlacements,
-          { ...existingPlacement, rightSeparatorId: newSep.id, cellId: crypto.randomUUID() },
+          { ...existingPlacement, rightSeparatorId: newSep.id },
         ],
       };
     }

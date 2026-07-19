@@ -222,10 +222,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         setGondola(g);
         setBoxes(bs);
         setBoxMap(buildBoxMap(bs));
-        const { rows: _r, cols: _c, widthCm: _w, heightCm: _h, cells: _cl,
-                colWidthsCm: _cw, rowHeightsCm: _rh, rowColCounts: _rc,
-                cellWidthOverrides: _wo, cellHeightOverrides: _ho, mergedSpans: _ms,
-                gondola: _go, ...base } = p;
+        const {
+          rows: _rows, cols: _cols, widthCm: _widthCm, heightCm: _heightCm,
+          cells: _cells, colWidthsCm: _colWidths, rowHeightsCm: _rowHeights,
+          rowColCounts: _rowColCounts, cellWidthOverrides: _cellWidthOverrides,
+          cellHeightOverrides: _cellHeightOverrides, mergedSpans: _mergedSpans,
+          gondola: _gondola, ...base
+        } = p;
         setPlanogramBase({ ...base, gondola: g });
         setActivePlanogram(gondolaToLegacyPlanogram(g, { ...base, gondola: g }));
       })
@@ -316,7 +319,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup',   onUp);
     };
-  }, []); // ← empty deps: register once, always reads from refs
+  }, []); // ← empty deps: register once; the closures (onMove/onUp) read from refs on every event
 
   // ── Start sep drag ────────────────────────────────────────────────────────
   const startSepDrag = (e: React.MouseEvent, shelf: Shelf, sep: Separator) => {
@@ -626,7 +629,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       if (selectedSep) {
         const shelf = gondola?.shelves.find(s => s.id === selectedSep.shelfId);
         const sep   = shelf?.separators.find(s => s.id === selectedSep.sepId);
-        if (sep?.movable) { e.preventDefault(); pushHistory(); applyGondola(cmdRemoveSeparator(gondola!, shelf!.id, sep.id)); setSelectedSep(null); }
+        if (sep?.movable) {
+          e.preventDefault();
+          pushHistory();
+          applyGondola(cmdRemoveSeparator(gondola!, shelf!.id, sep.id));
+          setSelectedSep(null);
+        }
         return;
       }
       if (selectedKeys.size > 1) clearSelectedBoxes();
@@ -826,7 +834,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         {(canSplit || canDeleteBox) && selectedKeys.size <= 1 && (<>
           <div className="h-4 w-px bg-gray-700" />
           {canSplit && <button onClick={splitSelectedBox} className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200">⊟ Diviser</button>}
-          {canDeleteBox && <button onClick={() => { if (selDi != null && selBi != null) deleteBox(selDi, selBi); }}
+          {canDeleteBox && <button onClick={() => { if (selDi !== null && selBi !== null) deleteBox(selDi, selBi); }}
             className="px-2 py-0.5 text-xs rounded bg-red-800/40 hover:bg-red-700/60 text-red-300">🗑 Suppr. boîte</button>}
         </>)}
         {/* Separator selected */}
@@ -890,7 +898,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                     className={['flex flex-col items-center justify-center cursor-pointer select-none rounded-l text-xs relative overflow-hidden',
                       selectedHeaderRow === di ? 'bg-blue-900/40 text-blue-400' : 'text-gray-600 hover:bg-gray-800/60 hover:text-gray-300'].join(' ')}
                     style={{ height: hp, width: 24, flexShrink: 0 }}
-                    onClick={() => { setSelectedKey(null); setSelectedHeaderCol(null); setSelectedSep(null); setSelectedHeaderRow(p => p === di ? null : di); }}
+                    onClick={() => {
+                      setSelectedKey(null);
+                      setSelectedHeaderCol(null);
+                      setSelectedSep(null);
+                      setSelectedHeaderRow(p => p === di ? null : di);
+                    }}
                     title={`Ligne ${di + 1} — ${rowFillCm[di].toFixed(1)} / ${gondola.width_cm.toFixed(1)} cm`}
                   >
                     {di + 1}

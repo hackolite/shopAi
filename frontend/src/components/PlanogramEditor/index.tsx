@@ -1435,7 +1435,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               onClick={() => setClearAllConfirm(true)}
               disabled={planogram.cells.length === 0}
               className="px-2 py-0.5 text-xs rounded hover:bg-red-900/50 text-gray-400 hover:text-red-300 disabled:opacity-30 transition-colors"
-              title="Vider tous les blocs gondoles"
+              title="Vider tous les blocs de gondole"
             >🗑 Tout vider</button>
           ) : (
             <span className="flex items-center gap-1">

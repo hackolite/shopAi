@@ -716,3 +716,60 @@ export function getRowBoxes(boxes: Box[], shelfDisplayIndex: number): Box[] {
 export function getSeparatorPositions(shelf: Shelf): number[] {
   return sortedSeps(shelf).map((s) => s.position_cm);
 }
+
+/**
+ * §4 Extend gondola width: grows the gondola to `newWidthCm`, adding empty boxes
+ * in the new region `[oldWidthCm, newWidthCm)` on every shelf.
+ *
+ * Existing shelves and product placements are fully preserved.  New internal
+ * separators are spaced at the same width as the last existing column on each shelf
+ * (or DEFAULT_SEP_SPACING_CM when there is only the boundary pair).
+ *
+ * No-op when `newWidthCm <= gondola.width_cm`.
+ */
+export function extendGondolaWidth(gondola: Gondola, newWidthCm: number): Gondola {
+  if (newWidthCm <= gondola.width_cm + MIN_BOX_CM / 2) return gondola;
+
+  const oldWidthCm = gondola.width_cm;
+
+  return {
+    ...gondola,
+    width_cm: newWidthCm,
+    shelves: gondola.shelves.map((shelf) => {
+      const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
+      if (sorted.length < 2) return shelf;
+
+      // Estimate column spacing from the last existing column on this shelf.
+      const lastColWidth =
+        sorted[sorted.length - 1].position_cm - sorted[sorted.length - 2].position_cm;
+      const colSpacing = Math.max(MIN_BOX_CM, lastColWidth);
+
+      // Move the right boundary separator to the new width.
+      const newSorted = sorted.map((sep, idx) =>
+        idx === sorted.length - 1 ? { ...sep, position_cm: newWidthCm } : sep,
+      );
+
+      // Add internal separators in the new region at regular intervals.
+      const extraSeps: Separator[] = [];
+      let pos = oldWidthCm + colSpacing;
+      while (pos < newWidthCm - MIN_BOX_CM) {
+        extraSeps.push({
+          id: crypto.randomUUID(),
+          position_cm: pos,
+          type: 'virtual',
+          movable: true,
+        });
+        pos += colSpacing;
+      }
+
+      return {
+        ...shelf,
+        separators: [
+          ...newSorted.slice(0, -1), // existing seps except right boundary
+          ...extraSeps,              // new empty-box separators
+          newSorted[newSorted.length - 1], // right boundary at newWidthCm
+        ],
+      };
+    }),
+  };
+}

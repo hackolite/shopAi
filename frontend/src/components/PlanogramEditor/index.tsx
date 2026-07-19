@@ -158,6 +158,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // ── UI ────────────────────────────────────────────────────────────────────
   const [zoom,           setZoom]           = useState(1.5);
   const [loading,        setLoading]        = useState(true);
+  const [loadError,      setLoadError]      = useState<string | null>(null);
   const [uploadingEan,   setUploadingEan]   = useState<string | null>(null);
   const [crushNavIdx,    setCrushNavIdx]    = useState(0);
   const [addRowDialog,   setAddRowDialog]   = useState<{ canAutoFix: boolean; topRowH: number; needed: number } | null>(null);
@@ -232,6 +233,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
+    setLoadError(null);
     setSelectedKey(null);
     setSelectedKeys(new Set());
     cadApi.getPlanogram(projectId, planogramId)
@@ -251,7 +253,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         setPlanogramBase({ ...base, gondola: g });
         setActivePlanogram(gondolaToLegacyPlanogram(g, { ...base, gondola: g }));
       })
-      .catch(console.error)
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.startsWith('[404]')) {
+          setLoadError('Ce planogramme est introuvable (404). Il a peut-être été supprimé ou n\'a pas encore été créé.');
+        } else {
+          setLoadError('Erreur lors du chargement du planogramme. Veuillez réessayer.');
+        }
+        console.error(err);
+      })
       .finally(() => setLoading(false));
   }, [projectId, planogramId, setActivePlanogram]);
 
@@ -705,6 +715,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   // ── Computed for render ───────────────────────────────────────────────────
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 w-full h-full bg-gray-900">
+        <p className="text-red-400 text-sm text-center max-w-xs">{loadError}</p>
+        <button
+          className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded"
+          onClick={onClose}
+        >
+          Fermer
+        </button>
+      </div>
+    );
+  }
+
   if (loading || !gondola) {
     return loading
       ? (<div className="flex items-center justify-center w-full h-full bg-gray-900"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>)

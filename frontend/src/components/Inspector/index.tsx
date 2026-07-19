@@ -5,6 +5,10 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId } from '../../types/cad';
+import { extendGondolaWidth, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
+
+/** Minimum cm growth required before extending a linked planogram to fill new gondola space. */
+const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
 
 const FACE_LABELS: Record<FaceId, string> = {
   front:  'Face avant',
@@ -191,6 +195,15 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
         }
         cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);
         syncPlanogram(updated);
+      } else if (faceWidth > detail.widthCm + DIMENSION_CHANGE_TOLERANCE_CM) {
+        // Furniture grew wider — extend the gondola to fill the new space with empty columns.
+        const gondola = detail.gondola ?? legacyCellsToSeparators(detail);
+        const extended = extendGondolaWidth(gondola, faceWidth);
+        if (extended !== gondola) {
+          const extUpdated = gondolaToLegacyPlanogram(extended, { ...detail, gondola: extended });
+          cadApi.updatePlanogram(projectId, planogramId, extUpdated).catch(console.error);
+          syncPlanogram(extUpdated);
+        }
       }
     }
   };

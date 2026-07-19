@@ -198,47 +198,46 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
 
       if ((def.hasFaces ?? []).length > 0) {
         try {
-          const createdPlanograms = await Promise.all(
-            def.hasFaces.map(async (faceId) => {
-              const isFrontBack = faceId === 'front' || faceId === 'back';
-              const isLeftRight = faceId === 'left' || faceId === 'right';
-              const widthCm = isFrontBack
-                ? created.dimensions.width
-                : isLeftRight
-                  ? created.dimensions.depth
-                  : created.dimensions.width;
-              const heightCm = faceId === 'top' || faceId === 'bottom'
-                ? created.dimensions.depth
-                : created.dimensions.height;
-              const rows = DEFAULT_PLANOGRAM_ROWS;
-              const cols = Math.max(1, Math.floor(widthCm / DEFAULT_COLUMN_WIDTH_CM));
+          // Sequential creation avoids a read-modify-write race condition on
+          // planograms.json: FastAPI runs sync handlers in a thread pool, so
+          // concurrent POST /planograms requests can overwrite each other's file.
+          const createdPlanograms: [string, string][] = [];
+          for (const faceId of def.hasFaces) {
+            const isLeftRight = faceId === 'left' || faceId === 'right';
+            const widthCm = isLeftRight
+              ? created.dimensions.depth
+              : created.dimensions.width;
+            const heightCm = faceId === 'top' || faceId === 'bottom'
+              ? created.dimensions.depth
+              : created.dimensions.height;
+            const rows = DEFAULT_PLANOGRAM_ROWS;
+            const cols = Math.max(1, Math.floor(widthCm / DEFAULT_COLUMN_WIDTH_CM));
 
-              const cells: PlanogramCell[] = catalogProducts.length > 0
-                ? Array.from({ length: rows * cols }, (_, idx) => ({
-                    id: crypto.randomUUID(),
-                    ean: catalogProducts[idx % catalogProducts.length].ean,
-                    row: Math.floor(idx / cols),
-                    col: idx % cols,
-                    rotation: 0 as const,
-                  }))
-                : [];
+            const cells: PlanogramCell[] = catalogProducts.length > 0
+              ? Array.from({ length: rows * cols }, (_, idx) => ({
+                  id: crypto.randomUUID(),
+                  ean: catalogProducts[idx % catalogProducts.length].ean,
+                  row: Math.floor(idx / cols),
+                  col: idx % cols,
+                  rotation: 0 as const,
+                }))
+              : [];
 
-              const planogram: Planogram = {
-                id: crypto.randomUUID(),
-                name: `${def.name} - ${FACE_LABELS[faceId]}`,
-                furnitureId: created.id,
-                face: faceId,
-                rows,
-                cols,
-                widthCm,
-                heightCm,
-                cells,
-              };
-              const createdPlanogram = await cadApi.createPlanogram(projectId, planogram);
-              setPlanogramDetail(createdPlanogram);
-              return [faceId, createdPlanogram.id] as const;
-            }),
-          );
+            const planogram: Planogram = {
+              id: crypto.randomUUID(),
+              name: `${def.name} - ${FACE_LABELS[faceId]}`,
+              furnitureId: created.id,
+              face: faceId,
+              rows,
+              cols,
+              widthCm,
+              heightCm,
+              cells,
+            };
+            const createdPlanogram = await cadApi.createPlanogram(projectId, planogram);
+            setPlanogramDetail(createdPlanogram);
+            createdPlanograms.push([faceId, createdPlanogram.id]);
+          }
 
           const updatedFurniture = {
             ...created,

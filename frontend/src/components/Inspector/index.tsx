@@ -4,11 +4,15 @@ import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
-import type { FurnitureInstance, FaceId } from '../../types/cad';
+import type { FurnitureInstance, FaceId, Planogram } from '../../types/cad';
 import { extendGondolaWidth, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
 
 /** Minimum cm growth required before extending a linked planogram to fill new gondola space. */
 const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
+/** Default rows when auto-creating a planogram from the Inspector. */
+const DEFAULT_PLANOGRAM_ROWS = 3;
+/** Default column width in cm when auto-creating a planogram from the Inspector. */
+const DEFAULT_COLUMN_WIDTH_CM = 40;
 
 const FACE_LABELS: Record<FaceId, string> = {
   front:  'Face avant',
@@ -66,8 +70,9 @@ interface FurnitureInspectorProps {
 
 function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: FurnitureInspectorProps) {
   const { updateFurniture } = useSceneStore();
-  const { planograms, planogramDetails, syncPlanogram } = usePlanogramStore();
+  const { planograms, planogramDetails, syncPlanogram, setPlanogramDetail, setPlanograms } = usePlanogramStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [creatingFace, setCreatingFace] = useState<FaceId | null>(null);
 
   const save = (updated: FurnitureInstance) => {
     updateFurniture(updated);
@@ -227,6 +232,50 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
    save({ ...furniture, faces: newFaces });
   };
 
+  /** Create a new empty planogram for a face that currently has none. */
+  const handleCreateFace = async (faceId: FaceId) => {
+    if (!projectId) return;
+    setCreatingFace(faceId);
+    try {
+      const isLeftRight = faceId === 'left' || faceId === 'right';
+      const widthCm = isLeftRight ? furniture.dimensions.depth : furniture.dimensions.width;
+      const heightCm = (faceId === 'top' || faceId === 'bottom')
+        ? furniture.dimensions.depth
+        : furniture.dimensions.height;
+      const rows = DEFAULT_PLANOGRAM_ROWS;
+      const cols = Math.max(1, Math.floor(widthCm / DEFAULT_COLUMN_WIDTH_CM));
+
+      const planogram: Planogram = {
+        id: crypto.randomUUID(),
+        name: `${furniture.name} - ${FACE_LABELS[faceId]}`,
+        furnitureId: furniture.id,
+        face: faceId,
+        rows,
+        cols,
+        widthCm,
+        heightCm,
+        cells: [],
+      };
+
+      const createdPlanogram = await cadApi.createPlanogram(projectId, planogram);
+      setPlanogramDetail(createdPlanogram);
+
+      const newFaces = { ...furniture.faces, [faceId]: createdPlanogram.id };
+      const updatedFurniture = { ...furniture, faces: newFaces };
+      const persistedFurniture = await cadApi.updateFurniture(projectId, furniture.id, updatedFurniture);
+      save(persistedFurniture);
+
+      const refreshed = await cadApi.listPlanograms(projectId);
+      setPlanograms(refreshed.planograms);
+
+      onOpenPlanogram(createdPlanogram.id);
+    } catch (err) {
+      console.error('Failed to create planogram for face:', err);
+    } finally {
+      setCreatingFace(null);
+    }
+  };
+
   /** True if the planogram's declared dimensions exceed the furniture face. */
   const isFaceOverflowing = (faceId: FaceId, planogramId: string): boolean => {
     const summary = planograms.find(p => p.id === planogramId);
@@ -349,7 +398,14 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
                       </button>
                     </>
                   ) : (
-                    <span className="text-gray-600">—</span>
+                    <button
+                      onClick={() => { void handleCreateFace(faceId); }}
+                      disabled={creatingFace !== null}
+                      title="Créer un planogramme pour cette face"
+                      className="text-gray-500 hover:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {creatingFace === faceId ? '⟳' : '＋'}
+                    </button>
                   )}
                 </div>
               );

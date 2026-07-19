@@ -1,10 +1,45 @@
+// ─── PlanogramEditor — refonte moteur séparateurs (§2-§7) ─────────────────────
+//
+// Source de vérité interne : Gondola (séparateurs).
+// Les boxes sont calculées dynamiquement via computeBoxes().
+// L'API REST et la vue 3D consomment la couche d'adaptation §6 (gondolaToLegacyPlanogram).
+//
 import { useState, useEffect, useRef, Fragment } from 'react';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useSceneStore } from '../../store/sceneStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
-import type { CADProduct, Planogram, PlanogramCell } from '../../types/cad';
+import type { CADProduct, Planogram } from '../../types/cad';
+import type { Box, BoxKey, Gondola } from '../../types/gondola';
+import { makeBoxKey, parseBoxKey } from '../../types/gondola';
+import {
+  computeBoxes,
+  buildBoxMap,
+  getShelfByDisplayIndex,
+  shelfBoxCount,
+  sortedSeps,
+  gondolaToLegacyPlanogram,
+  legacyCellsToSeparators,
+  cmdSetPlacement,
+  cmdClearPlacement,
+  cmdClearAllPlacements,
+  cmdMoveSeparator,
+  cmdInsertSeparator,
+  cmdRemoveSeparator,
+  cmdAddShelf,
+  cmdRemoveShelf,
+  cmdResizeAdjacentShelves,
+  cmdFuseBoxes,
+  cmdSplitBox,
+  cmdClearBoxesByKeys,
+  findBox,
+  getRowBoxes,
+  snapToShelfBelow,
+  DEFAULT_SHELF_HEIGHT_CM,
+  DEFAULT_SEP_SPACING_CM,
+  MIN_BOX_CM,
+} from '../../engine/gondola';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {
@@ -16,95 +51,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Promotion': '#F44336',
 };
 
-/** Min / max cell pixel widths and height ratios for the planogram grid. */
 const CELL_MIN_PX     = 48;
-/** Width scale: multiply physical cm-per-col by this to get pixel width. */
 const CELL_WIDTH_SCALE  = 1.2;
-/** Height scale: multiply physical cm-per-row by this to get pixel height. */
 const CELL_HEIGHT_SCALE = 0.6;
-
-/** Minimum cell physical size (cm) enforced during drag-resize. */
-const MIN_CELL_CM_W = 2;
-const MIN_CELL_CM_H = 2;
-/** Width/height (px) of resize handle strips between columns and rows. */
 const RESIZE_HANDLE_PX = 4;
-/** Tooltip position offset from the cursor (px) during resize. */
 const RESIZE_TOOLTIP_DX = 14;
 const RESIZE_TOOLTIP_DY = -28;
-/** Snap threshold in pixels: when a cell edge is within this distance of a global column boundary, it snaps. */
 const SNAP_THRESHOLD_PX = 12;
-
-/** Returns per-column widths in cm, falling back to equal distribution. */
-function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
-  return p.colWidthsCm?.length === p.cols
-    ? p.colWidthsCm
-    : Array(p.cols).fill(p.widthCm / p.cols);
-}
-
-/** Returns per-row heights in cm, falling back to equal distribution. */
-function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsCm?: number[] }): number[] {
-  return p.rowHeightsCm?.length === p.rows
-    ? p.rowHeightsCm
-    : Array(p.rows).fill(p.heightCm / p.rows);
-}
-
-/**
- * Returns cumulative column boundary positions in cm.
- * boundaries[0] = 0 (left edge), boundaries[c+1] = sum of widths 0..c.
- * Used for snap-to-column-boundary when resizing cells.
- */
-function getColBoundariesCm(p: Planogram): number[] {
-  const widths = getEffectiveColWidths(p);
-  const boundaries: number[] = [0];
-  let cum = 0;
-  for (const w of widths) {
-    cum += w;
-    boundaries.push(cum);
-  }
-  return boundaries;
-}
-
-/**
- * Returns cumulative row boundary positions in cm.
- * boundaries[0] = 0 (top edge), boundaries[r+1] = sum of heights 0..r.
- * Used for snap-to-row-boundary when resizing cells vertically.
- */
-function getRowBoundariesCm(p: Planogram): number[] {
-  const heights = getEffectiveRowHeights(p);
-  const boundaries: number[] = [0];
-  let cum = 0;
-  for (const h of heights) {
-    cum += h;
-    boundaries.push(cum);
-  }
-  return boundaries;
-}
-
-/**
- * Snaps `valueCm` to the nearest entry in `boundaries` if it is within
- * `thresholdCm`; returns the snapped value (or `valueCm` if nothing is close).
- * Also returns the index of the snapped boundary (-1 when no snap).
- */
-function snapCmToBoundary(
-  valueCm: number,
-  boundaries: number[],
-  thresholdCm: number,
-): { snapped: number; idx: number } {
-  let best = valueCm;
-  let minDist = Infinity;
-  let snapIdx = -1;
-  for (let i = 0; i < boundaries.length; i++) {
-    const dist = Math.abs(valueCm - boundaries[i]);
-    if (dist < thresholdCm && dist < minDist) {
-      minDist = dist;
-      best = boundaries[i];
-      snapIdx = i;
-    }
-  }
-  return { snapped: best, idx: snapIdx };
-}
-
-/** Zoom control bounds and step for the planogram view. */
 const ZOOM_MIN  = 0.5;
 const ZOOM_MAX  = 4;
 const ZOOM_STEP = 0.25;
@@ -113,22 +66,9 @@ function getCategoryColor(category: string): string {
   return CATEGORY_COLORS[category] ?? '#9E9E9E';
 }
 
-type CellMap = Map<string, PlanogramCell>;
-
-function buildCellMap(cells: PlanogramCell[]): CellMap {
-  const map = new Map<string, PlanogramCell>();
-  for (const cell of cells) map.set(`${cell.row}-${cell.col}`, cell);
-  return map;
-}
-
-/** Default SVG thumbnail shown when a product has no imageUrl. */
 function DefaultThumb({ color }: { color: string }) {
   return (
-    <svg
-      viewBox="0 0 40 40"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ width: '100%', height: '100%' }}
-    >
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
       <rect x="2" y="2" width="36" height="36" rx="3" fill={color + '33'} stroke={color} strokeWidth="1.5" />
       <rect x="8" y="12" width="24" height="3" rx="1.5" fill={color + 'aa'} />
       <rect x="8" y="19" width="18" height="2" rx="1" fill={color + '77'} />
@@ -137,7 +77,6 @@ function DefaultThumb({ color }: { color: string }) {
   );
 }
 
-/** Product thumbnail: shows imageUrl if available, otherwise a colored SVG. */
 function ProductThumb({ product }: { product: CADProduct }) {
   const color = getCategoryColor(product.category);
   const [imgError, setImgError] = useState(false);
@@ -154,72 +93,57 @@ function ProductThumb({ product }: { product: CADProduct }) {
   return <DefaultThumb color={color} />;
 }
 
+// ─── Props ─────────────────────────────────────────────────────────────────────
 interface PlanogramEditorProps {
   projectId: string | null;
   planogramId: string;
   onClose: () => void;
 }
 
+// ─── Component ─────────────────────────────────────────────────────────────────
 export default function PlanogramEditor({ projectId, planogramId, onClose }: PlanogramEditorProps) {
-  const [planogram, setPlanogram] = useState<Planogram | null>(null);
-  const [cellMap,   setCellMap]   = useState<CellMap>(new Map());
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [history,   setHistory]   = useState<Planogram[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [dragOver,  setDragOver]  = useState<string | null>(null);
-  const [uploadingEan, setUploadingEan] = useState<string | null>(null);
-  /** Zoom multiplier: 1 = default, max 3. */
-  const [zoom, setZoom] = useState(1.5);
-  /** Local per-column widths (cm) while a column resize drag is in progress. */
-  const [localColWidths,  setLocalColWidths]  = useState<number[] | null>(null);
-  /** Local per-row heights (cm) while a row resize drag is in progress. */
-  const [localRowHeights, setLocalRowHeights] = useState<number[] | null>(null);
-  /** Which axis is currently being resized (used for cursor management). */
-  const [isResizing, setIsResizing] = useState<'col' | 'row' | null>(null);
-  /** Floating tooltip shown near cursor during resize (dimension in cm). */
-  const [resizeTooltip, setResizeTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
-  /** Per-cell width overrides (live preview during cell-specific drag). Key: "row-col". */
-  const [localCellWidthOverrides,  setLocalCellWidthOverrides]  = useState<Record<string, number> | null>(null);
-  /** Per-cell height overrides (live preview during cell-specific drag). Key: "row-col". */
-  const [localCellHeightOverrides, setLocalCellHeightOverrides] = useState<Record<string, number> | null>(null);
-  /** Index of the column selected by clicking its header label (null = none). */
-  const [selectedHeaderCol, setSelectedHeaderCol] = useState<number | null>(null);
-  /** Index of the row selected by clicking its header label (null = none). */
-  const [selectedHeaderRow, setSelectedHeaderRow] = useState<number | null>(null);
-  /**
-   * Index of the global column boundary (0..cols) that is currently being snapped to
-   * during a per-cell width resize drag. Boundary i+1 is between col i and col i+1.
-   * Used to highlight the corresponding column-header separator.
-   */
-  const [activeSnapBoundary, setActiveSnapBoundary] = useState<number | null>(null);
-  /**
-   * Index of the global row boundary (0..rows) that is currently being snapped to
-   * during a per-cell height resize drag.
-   */
-  const [activeRowSnapBoundary, setActiveRowSnapBoundary] = useState<number | null>(null);
+  // Core gondola state
+  const [gondola,  setGondola]  = useState<Gondola | null>(null);
+  const [boxes,    setBoxes]    = useState<Box[]>([]);
+  const [boxMap,   setBoxMap]   = useState<Map<BoxKey, Box>>(new Map());
+  // Planogram base (non-geometry fields for legacy adapter)
+  const [planogramBase, setPlanogramBase] = useState<Omit<Planogram, 'rows'|'cols'|'widthCm'|'heightCm'|'cells'|'colWidthsCm'|'rowHeightsCm'|'rowColCounts'|'cellWidthOverrides'|'cellHeightOverrides'|'mergedSpans'> & { gondola?: Gondola } | null>(null);
 
-  // ── Redo stack (cleared on every new action) ─────────────────────────────
-  const [future, setFuture] = useState<Planogram[]>([]);
-  // ── Multi-selection (Ctrl+click / Shift+click) ───────────────────────────
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-  const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
-  // ── Internal drag (cell → cell move/swap) ────────────────────────────────
-  const internalDragSrcRef = useRef<{ row: number; col: number; ean: string } | null>(null);
-  const [internalDragOver, setInternalDragOver] = useState<string | null>(null);
-  // ── Crush navigation ─────────────────────────────────────────────────────
-  const [crushNavIdx, setCrushNavIdx] = useState(0);
-  // ── AddRow dialog (suggest auto-shrink top row) ──────────────────────────
-  const [addRowDialog, setAddRowDialog] = useState<{
-    canAutoFix: boolean;
-    topRowH: number;
-    needed: number;
-  } | null>(null);
-  // ── Clear-all confirmation ────────────────────────────────────────────────
+  // Undo / redo
+  const [history, setHistory] = useState<Gondola[]>([]);
+  const [future,  setFuture]  = useState<Gondola[]>([]);
+
+  // Selection
+  const [selectedKey,     setSelectedKey]     = useState<BoxKey | null>(null);
+  const [selectedKeys,    setSelectedKeys]    = useState<Set<BoxKey>>(new Set());
+  const [lastSelectedKey, setLastSelectedKey] = useState<BoxKey | null>(null);
+
+  // Header row/col selection
+  const [selectedHeaderRow, setSelectedHeaderRow] = useState<number | null>(null);
+  const [selectedHeaderCol, setSelectedHeaderCol] = useState<number | null>(null);
+
+  // Drag
+  const internalDragSrcRef = useRef<{ displayRow: number; boxIndex: number; ean: string } | null>(null);
+  const [dragOver,         setDragOver]         = useState<BoxKey | null>(null);
+  const [internalDragOver, setInternalDragOver] = useState<BoxKey | null>(null);
+
+  // Resize state
+  const [isResizing,        setIsResizing]        = useState<'sep' | 'shelf' | null>(null);
+  const [localSepPositions, setLocalSepPositions] = useState<Map<string, number> | null>(null);
+  const [localShelfHeights, setLocalShelfHeights] = useState<Map<string, number> | null>(null);
+  const [resizeTooltip,     setResizeTooltip]     = useState<{ x: number; y: number; text: string } | null>(null);
+  const [activeSnapIdx,     setActiveSnapIdx]     = useState<number | null>(null);
+
+  // UI
+  const [zoom,           setZoom]           = useState(1.5);
+  const [loading,        setLoading]        = useState(true);
+  const [uploadingEan,   setUploadingEan]   = useState<string | null>(null);
+  const [crushNavIdx,    setCrushNavIdx]    = useState(0);
+  const [addRowDialog,   setAddRowDialog]   = useState<{ canAutoFix: boolean; topRowH: number; needed: number } | null>(null);
   const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
-  /** Stores the EAN to upload for when the file input fires. */
   const pendingUploadEan = useRef<string | null>(null);
 
   const { setActivePlanogram } = usePlanogramStore();
@@ -228,636 +152,378 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const productByEan = new Map(products.map((p) => [p.ean, p] as const));
 
-  // ── Physical cell dimensions (cm) ────────────────────────────────────────
-  const physCellW = planogram ? planogram.widthCm  / planogram.cols : 0;
-  const physCellH = planogram ? planogram.heightCm / planogram.rows : 0;
+  // ── Derived gondola metrics ─────────────────────────────────────────────────
+  const shelfCount = gondola?.shelves.length ?? 0;
+  const maxBoxCount = gondola
+    ? Math.max(...gondola.shelves.map((s) => shelfBoxCount(s)), 1)
+    : 0;
 
-  // ── Overflow detection ───────────────────────────────────────────────────
-  const furniture = planogram
-    ? scene?.furniture.find(f => f.id === planogram.furnitureId)
+  // ── Overflow detection (against 3D furniture bounds) ───────────────────────
+  const furniture = gondola
+    ? scene?.furniture.find(f => planogramBase && f.id === planogramBase.furnitureId)
     : null;
 
-  const isOverflowing = planogram && furniture
-    ? planogram.widthCm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
-      planogram.heightCm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
+  const isOverflowing = gondola && furniture
+    ? gondola.width_cm > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
+      gondola.height_cm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
     : false;
 
-  // ── Add-row / add-col guards (stay within 3D furniture bounds) ───────────
-  // How much gondola space is still available beyond the current planogram size
-  const gondolaRemainingW: number = (planogram && furniture)
-    ? furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM - planogram.widthCm
+  const gondolaRemainingW: number = (gondola && furniture)
+    ? furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM - gondola.width_cm
     : Infinity;
-  const gondolaRemainingH: number = (planogram && furniture)
-    ? furniture.dimensions.height + OVERFLOW_TOLERANCE_CM - planogram.heightCm
+  const gondolaRemainingH: number = (gondola && furniture)
+    ? furniture.dimensions.height + OVERFLOW_TOLERANCE_CM - gondola.height_cm
     : Infinity;
 
-  // Default width/height for a new column/row: average cell size capped at remaining gondola space
-  const newColWidthCm  = planogram ? Math.max(MIN_CELL_CM_W, Math.min(physCellW, gondolaRemainingW))  : 0;
-  const newRowHeightCm = planogram ? Math.max(MIN_CELL_CM_H, Math.min(physCellH, gondolaRemainingH)) : 0;
+  const defaultRowH = gondola ? Math.max(MIN_BOX_CM, Math.min(DEFAULT_SHELF_HEIGHT_CM, gondolaRemainingH)) : 0;
+  const canAddRow = gondola ? gondolaRemainingH >= MIN_BOX_CM : false;
+  const canAddCol = gondola ? gondolaRemainingW >= MIN_BOX_CM : false;
 
-  const canAddCol = planogram ? gondolaRemainingW >= MIN_CELL_CM_W : false;
-  const canAddRow = planogram ? gondolaRemainingH >= MIN_CELL_CM_H : false;
-
-  // ── Load planogram ───────────────────────────────────────────────────────
+  // ── Load planogram on mount ──────────────────────────────────────────────────
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
     setSelectedKey(null);
+    setSelectedKeys(new Set());
     cadApi.getPlanogram(projectId, planogramId)
       .then((p) => {
-        setPlanogram(p);
-        setCellMap(buildCellMap(p.cells));
-        setActivePlanogram(p);
+        // Use embedded gondola if present, else migrate from legacy cells
+        const g: Gondola = p.gondola ?? legacyCellsToSeparators(p);
+        const bs = computeBoxes(g);
+        setGondola(g);
+        setBoxes(bs);
+        setBoxMap(buildBoxMap(bs));
+        // Store the non-geometry planogram fields
+        const { rows: _r, cols: _c, widthCm: _w, heightCm: _h, cells: _cells,
+                colWidthsCm: _cw, rowHeightsCm: _rh, rowColCounts: _rc,
+                cellWidthOverrides: _wo, cellHeightOverrides: _ho, mergedSpans: _ms,
+                gondola: _go, ...base } = p;
+        setPlanogramBase({ ...base, gondola: g });
+        setActivePlanogram(gondolaToLegacyPlanogram(g, { ...base, gondola: g }));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [projectId, planogramId, setActivePlanogram]);
 
-  // ── Auto-save ────────────────────────────────────────────────────────────
-  const scheduleSave = (updated: Planogram) => {
+  // ── Auto-save ────────────────────────────────────────────────────────────────
+  const scheduleSave = (legacyPlanogram: Planogram) => {
     if (!projectId) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      cadApi.updatePlanogram(projectId, updated.id, updated).catch(console.error);
+      cadApi.updatePlanogram(projectId, legacyPlanogram.id, legacyPlanogram).catch(console.error);
     }, 500);
   };
 
-  const applyUpdate = (updated: Planogram) => {
-    setPlanogram(updated);
-    setCellMap(buildCellMap(updated.cells));
-    setActivePlanogram(updated);
-    setFuture([]); // every new action clears the redo stack
-    scheduleSave(updated);
+  // ── Core: apply a new gondola state ─────────────────────────────────────────
+  const applyGondola = (g: Gondola) => {
+    const bs = computeBoxes(g);
+    const bm = buildBoxMap(bs);
+    setGondola(g);
+    setBoxes(bs);
+    setBoxMap(bm);
+    setFuture([]);
+    if (planogramBase) {
+      const legacyPlanogram = gondolaToLegacyPlanogram(g, { ...planogramBase, gondola: g });
+      setActivePlanogram(legacyPlanogram);
+      scheduleSave(legacyPlanogram);
+    }
   };
 
-  const fillCellWithEan = (row: number, col: number, ean: string) => {
-    if (!planogram) return;
-    const key      = `${row}-${col}`;
-    const existing = cellMap.get(key);
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const newCell: PlanogramCell = {
-      id: existing?.id ?? crypto.randomUUID(),
-      ean, row, col, rotation: 0,
-    };
-    const newCells = existing
-      ? planogram.cells.map((c) => (c.row === row && c.col === col ? newCell : c))
-      : [...planogram.cells, newCell];
-    applyUpdate({ ...planogram, cells: newCells });
+  const pushHistory = () => {
+    if (gondola) setHistory(prev => [...prev.slice(-20), gondola]);
+  };
+
+  // ── Product placement operations ──────────────────────────────────────────────
+  const fillBox = (displayRow: number, boxIndex: number, ean: string) => {
+    if (!gondola) return;
+    const box = findBox(boxes, displayRow, boxIndex);
+    if (!box) return;
+    pushHistory();
+    applyGondola(cmdSetPlacement(gondola, box.shelfId, box.leftSeparatorId, box.rightSeparatorId, ean));
     addRecentlyUsed(ean);
   };
 
-  const clearCell = (row: number, col: number) => {
-    if (!planogram) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const newCells = planogram.cells.filter((c) => !(c.row === row && c.col === col));
-    applyUpdate({ ...planogram, cells: newCells });
+  const clearBox = (displayRow: number, boxIndex: number) => {
+    if (!gondola) return;
+    const box = findBox(boxes, displayRow, boxIndex);
+    if (!box) return;
+    pushHistory();
+    applyGondola(cmdClearPlacement(gondola, box.shelfId, box.leftSeparatorId, box.rightSeparatorId));
     setSelectedKey(null);
     setSelectedKeys(new Set());
   };
 
-  /** Move a product from src cell to dst cell; swap if dst is occupied. */
-  const moveCell = (srcRow: number, srcCol: number, dstRow: number, dstCol: number) => {
-    if (!planogram) return;
+  const moveBox = (srcRow: number, srcCol: number, dstRow: number, dstCol: number) => {
+    if (!gondola) return;
     if (srcRow === dstRow && srcCol === dstCol) return;
-    const srcCell = cellMap.get(`${srcRow}-${srcCol}`);
-    if (!srcCell) return;
-    const dstCell = cellMap.get(`${dstRow}-${dstCol}`);
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    let newCells = planogram.cells.filter(
-      (c) => !(c.row === srcRow && c.col === srcCol) && !(c.row === dstRow && c.col === dstCol),
-    );
-    newCells = [
-      ...newCells,
-      { ...srcCell, row: dstRow, col: dstCol },
-      ...(dstCell ? [{ ...dstCell, row: srcRow, col: srcCol }] : []),
-    ];
-    applyUpdate({ ...planogram, cells: newCells });
+    const srcBox = findBox(boxes, srcRow, srcCol);
+    if (!srcBox?.placement) return;
+    const dstBox = findBox(boxes, dstRow, dstCol);
+    pushHistory();
+    const ean      = srcBox.placement.productId;
+    const rotation = srcBox.placement.rotation;
+    let g = cmdClearPlacement(gondola, srcBox.shelfId, srcBox.leftSeparatorId, srcBox.rightSeparatorId);
+    // Swap: if dst has a product, move it to src position
+    if (dstBox?.placement) {
+      g = cmdSetPlacement(g, srcBox.shelfId, srcBox.leftSeparatorId, srcBox.rightSeparatorId,
+        dstBox.placement.productId, dstBox.placement.rotation ?? 0);
+    }
+    g = cmdSetPlacement(g, dstBox!.shelfId, dstBox!.leftSeparatorId, dstBox!.rightSeparatorId,
+      ean, rotation ?? 0);
+    applyGondola(g);
   };
 
-  /** Remove products from all selected cells in a single undo-able transaction. */
-  const clearSelectedCells = () => {
-    if (!planogram || selectedKeys.size === 0) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const keysToRemove = selectedKeys;
-    const newCells = planogram.cells.filter(
-      (c) => !keysToRemove.has(`${c.row}-${c.col}`),
-    );
-    applyUpdate({ ...planogram, cells: newCells });
+  const clearSelectedBoxes = () => {
+    if (!gondola || selectedKeys.size === 0) return;
+    pushHistory();
+    applyGondola(cmdClearBoxesByKeys(gondola, boxes, selectedKeys));
     setSelectedKey(null);
     setSelectedKeys(new Set());
   };
 
-  /** Remove all products from every cell in the planogram in a single undo-able transaction. */
-  const clearAllCells = () => {
-    if (!planogram) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    applyUpdate({ ...planogram, cells: [] });
+  const clearAll = () => {
+    if (!gondola) return;
+    pushHistory();
+    applyGondola(cmdClearAllPlacements(gondola));
     setSelectedKey(null);
     setSelectedKeys(new Set());
     setClearAllConfirm(false);
   };
 
-  /** Fill all selected cells with a given EAN in a single undo-able transaction. */
-  const fillSelectedCells = (ean: string) => {
-    if (!planogram || selectedKeys.size === 0) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const keys = [...selectedKeys];
-    let newCells = [...planogram.cells];
-    for (const key of keys) {
-      const [r, c] = key.split('-').map(Number);
-      const existing = cellMap.get(key);
-      const newCell: PlanogramCell = { id: existing?.id ?? crypto.randomUUID(), ean, row: r, col: c, rotation: 0 };
-      if (existing) {
-        newCells = newCells.map((cell) => (cell.row === r && cell.col === c ? newCell : cell));
-      } else {
-        newCells = [...newCells, newCell];
-      }
+  const fillSelectedBoxes = (ean: string) => {
+    if (!gondola || selectedKeys.size === 0) return;
+    pushHistory();
+    let g = gondola;
+    for (const key of selectedKeys) {
+      const parsed = parseBoxKey(key);
+      if (!parsed) continue;
+      const [di, bi] = parsed;
+      const box = findBox(boxes, di, bi);
+      if (box) g = cmdSetPlacement(g, box.shelfId, box.leftSeparatorId, box.rightSeparatorId, ean);
     }
-    applyUpdate({ ...planogram, cells: newCells });
+    applyGondola(g);
     addRecentlyUsed(ean);
   };
 
-  const undo = () => {
-    setHistory((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      // Snapshot current state into the redo stack before restoring
-      if (planogram) setFuture((f) => [...f.slice(-20), planogram]);
-      setPlanogram(last);
-      setCellMap(buildCellMap(last.cells));
-      setActivePlanogram(last);
-      scheduleSave(last);
-      return prev.slice(0, -1);
-    });
-  };
-
-  const redo = () => {
-    setFuture((prev) => {
-      if (prev.length === 0) return prev;
-      const next = prev[prev.length - 1];
-      // Snapshot current state into the undo stack before restoring
-      if (planogram) setHistory((h) => [...h.slice(-20), planogram]);
-      setPlanogram(next);
-      setCellMap(buildCellMap(next.cells));
-      setActivePlanogram(next);
-      scheduleSave(next);
-      return prev.slice(0, -1);
-    });
-  };
-
-  // ── Row / column management ──────────────────────────────────────────────
-  /** Internal implementation: actually inserts the row after optional top-row shrink. */
+  // ── Shelf management ──────────────────────────────────────────────────────────
   const _doAddRow = (shrinkTopRowBy = 0) => {
-    if (!planogram) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const curHeights = getEffectiveRowHeights(planogram);
-    // If we auto-shrank the top row, update its height
-    const baseHeights = shrinkTopRowBy > 0
-      ? curHeights.map((h, i) => (i === 0 ? h - shrinkTopRowBy : h))
-      : curHeights;
-    // Insert after the selected row header (or append at end if none selected).
-    const insertAfter = selectedHeaderRow ?? planogram.rows - 1;
-    const insertIdx = insertAfter + 1;
-    const newHeights = [...baseHeights.slice(0, insertIdx), newRowHeightCm, ...baseHeights.slice(insertIdx)];
-    // Shift cells and height overrides at rows >= insertIdx.
-    const newCells = planogram.cells.map((c) =>
-      c.row >= insertIdx ? { ...c, row: c.row + 1 } : c,
-    );
-    const oldOverrides = planogram.cellHeightOverrides ?? {};
-    const newHeightOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldOverrides)) {
-      const parts = key.split('-').map(Number);
-      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-      const [r, c] = parts;
-      newHeightOverrides[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
-    }
-    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
-    const newWidthOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldWidthOverrides)) {
-      const parts = key.split('-').map(Number);
-      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-      const [r, c] = parts;
-      newWidthOverrides[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
-    }
-    // Shift rowColCounts entries at rows >= insertIdx.
-    const oldRowColCounts = planogram.rowColCounts;
-    let newRowColCounts: number[] | undefined;
-    if (oldRowColCounts) {
-      const normalised = Array.from({ length: planogram.rows }, (_, i) => oldRowColCounts[i] ?? planogram.cols);
-      newRowColCounts = [
-        ...normalised.slice(0, insertIdx),
-        planogram.cols,
-        ...normalised.slice(insertIdx),
-      ];
-    }
-    // Shift mergedSpans row indices at rows >= insertIdx.
-    const oldMergedSpans = planogram.mergedSpans;
-    let newMergedSpans: Record<string, number> | undefined;
-    if (oldMergedSpans) {
-      newMergedSpans = {};
-      for (const [key, val] of Object.entries(oldMergedSpans)) {
-        const parts = key.split('-').map(Number);
-        if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-        const [r, c] = parts;
-        newMergedSpans[r >= insertIdx ? `${r + 1}-${c}` : key] = val;
-      }
-      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
-    }
-    applyUpdate({
-      ...planogram,
-      rows: planogram.rows + 1,
-      heightCm: planogram.heightCm + newRowHeightCm - shrinkTopRowBy,
-      rowHeightsCm: newHeights,
-      cells: newCells,
-      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
-      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
-      rowColCounts: newRowColCounts,
-      mergedSpans: newMergedSpans,
-    });
-    setSelectedHeaderRow(insertIdx);
+    if (!gondola) return;
+    pushHistory();
+    // If a row header is selected, insert above that row
+    const insertAboveShelfId = selectedHeaderRow !== null
+      ? getShelfByDisplayIndex(gondola, selectedHeaderRow)?.id
+      : undefined;
+    const topShelf = gondola.shelves[gondola.shelves.length - 1];
+    if (shrinkTopRowBy > 0 && topShelf.height_cm - shrinkTopRowBy < MIN_BOX_CM) return;
+    applyGondola(cmdAddShelf(gondola, defaultRowH, insertAboveShelfId));
+    setSelectedHeaderRow(selectedHeaderRow !== null ? selectedHeaderRow : 0);
   };
 
   const addRow = () => {
-    if (!planogram || !canAddRow) return;
-    const curHeights = getEffectiveRowHeights(planogram);
-    const topRowH = curHeights[0];
-    const MIN_TOP_AFTER = 1; // leave at least 1 cm for top row
-    // Warn if top row would become very thin after auto-shrink (future: fixed-height model)
-    if (topRowH <= newRowHeightCm + MIN_TOP_AFTER) {
-      const canAutoFix = topRowH - newRowHeightCm >= MIN_TOP_AFTER;
-      setAddRowDialog({ canAutoFix, topRowH, needed: newRowHeightCm });
+    if (!gondola || !canAddRow) return;
+    const topShelf = gondola.shelves[gondola.shelves.length - 1];
+    const topRowH = topShelf.height_cm;
+    const MIN_TOP_AFTER = 1;
+    if (topRowH <= defaultRowH + MIN_TOP_AFTER) {
+      const canAutoFix = topRowH - defaultRowH >= MIN_TOP_AFTER;
+      setAddRowDialog({ canAutoFix, topRowH, needed: defaultRowH });
       return;
     }
     _doAddRow();
   };
 
   const removeRow = () => {
-    if (!planogram || planogram.rows <= 1) return;
-    const removeIdx = selectedHeaderRow ?? planogram.rows - 1;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const curHeights = getEffectiveRowHeights(planogram);
-    const removedH = curHeights[removeIdx];
-
-    // Remove cells at removeIdx; shift cells at row > removeIdx up by 1
-    const newCells = planogram.cells
-      .filter((c) => c.row !== removeIdx)
-      .map((c) => (c.row > removeIdx ? { ...c, row: c.row - 1 } : c));
-
-    // Remove the deleted row height; shift remaining heights
-    const newRowHeights = [...curHeights.slice(0, removeIdx), ...curHeights.slice(removeIdx + 1)];
-
-    // Update cellWidthOverrides: drop removed row, shift row > removeIdx
-    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
-    const newWidthOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldWidthOverrides)) {
-      const parsed = parseOverrideKey(key);
-      if (!parsed) continue;
-      const [r, c] = parsed;
-      if (r === removeIdx) continue;
-      newWidthOverrides[r > removeIdx ? `${r - 1}-${c}` : key] = val;
-    }
-
-    // Update cellHeightOverrides: drop removed row, shift row > removeIdx
-    const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
-    const newHeightOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldHeightOverrides)) {
-      const parsed = parseOverrideKey(key);
-      if (!parsed) continue;
-      const [r, c] = parsed;
-      if (r === removeIdx) continue;
-      newHeightOverrides[r > removeIdx ? `${r - 1}-${c}` : key] = val;
-    }
-
-    // Update rowColCounts: remove the deleted row, shift remaining entries
-    let newRowColCounts: number[] | undefined;
-    if (planogram.rowColCounts) {
-      const normalised = Array.from(
-        { length: planogram.rows },
-        (_, i) => planogram.rowColCounts![i] ?? planogram.cols,
-      );
-      const updated = [...normalised.slice(0, removeIdx), ...normalised.slice(removeIdx + 1)];
-      newRowColCounts = updated.every((c) => c === planogram.cols) ? undefined : updated;
-    }
-
-    // Update mergedSpans: drop removed row entries, shift row > removeIdx
-    let newMergedSpans: Record<string, number> | undefined;
-    if (planogram.mergedSpans) {
-      newMergedSpans = {};
-      for (const [key, val] of Object.entries(planogram.mergedSpans)) {
-        const parsed = parseOverrideKey(key);
-        if (!parsed) continue;
-        const [r, c] = parsed;
-        if (r === removeIdx) continue;
-        newMergedSpans[r > removeIdx ? `${r - 1}-${c}` : key] = val;
-      }
-      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
-    }
-
-    applyUpdate({
-      ...planogram,
-      rows: planogram.rows - 1,
-      heightCm: planogram.heightCm - removedH,
-      rowHeightsCm: newRowHeights,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
-      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
-      rowColCounts: newRowColCounts,
-      mergedSpans: newMergedSpans,
-    });
-
-    // Update header selection
+    if (!gondola || shelfCount <= 1) return;
+    const di = selectedHeaderRow ?? 0; // default to top row
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    if (!shelf) return;
+    pushHistory();
+    applyGondola(cmdRemoveShelf(gondola, shelf.id));
     if (selectedHeaderRow !== null) {
-      if (selectedHeaderRow === removeIdx) {
-        setSelectedHeaderRow(null);
-      } else if (selectedHeaderRow > removeIdx) {
-        setSelectedHeaderRow(selectedHeaderRow - 1);
-      }
+      setSelectedHeaderRow(Math.min(selectedHeaderRow, shelfCount - 2));
     }
-
-    // Update cell selection: clear if it was in the deleted row; shift if in a row below
-    setSelectedKey((prev) => {
-      if (!prev) return prev;
-      const parsed = parseOverrideKey(prev);
-      if (!parsed) return prev;
-      const [r, c] = parsed;
-      if (r === removeIdx) return null;
-      if (r > removeIdx) return `${r - 1}-${c}`;
-      return prev;
-    });
-    setSelectedKeys((prev) => {
-      const next = new Set<string>();
-      for (const key of prev) {
-        const parsed = parseOverrideKey(key);
-        if (!parsed) { next.add(key); continue; }
-        const [r, c] = parsed;
-        if (r === removeIdx) continue;
-        next.add(r > removeIdx ? `${r - 1}-${c}` : key);
-      }
-      return next;
-    });
   };
 
-  // ── Add a single cell to one row (without affecting other rows) ────────────
-  const addCellToRow = (r: number) => {
-    if (!planogram || !canAddCol) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const currentRowCols = planogram.rowColCounts?.[r] ?? planogram.cols;
-    const newColIdx = currentRowCols; // append after the last existing cell of this row
-    const newWidthCm = Math.max(MIN_CELL_CM_W, newColWidthCm);
-    // Build updated rowColCounts — initialise all rows to their current effective count
-    const newRowColCounts: number[] = Array.from(
-      { length: planogram.rows },
-      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
-    );
-    newRowColCounts[r] = currentRowCols + 1;
-    // Register a width override for the new extra cell
-    const newCellWidthOverrides = { ...(planogram.cellWidthOverrides ?? {}) };
-    newCellWidthOverrides[`${r}-${newColIdx}`] = newWidthCm;
-    applyUpdate({
-      ...planogram,
-      rowColCounts: newRowColCounts,
-      cellWidthOverrides: newCellWidthOverrides,
-    });
-    setSelectedHeaderRow(r);
+  // ── Separator (column) management ─────────────────────────────────────────────
+  const addSeparatorToShelf = (displayRow: number) => {
+    if (!gondola) return;
+    const shelf = getShelfByDisplayIndex(gondola, displayRow);
+    if (!shelf) return;
+    const seps = sortedSeps(shelf);
+    const lastInternal = seps[seps.length - 2]; // second-to-last
+    const rightBound   = seps[seps.length - 1].position_cm;
+    const newPos = lastInternal
+      ? Math.max(lastInternal.position_cm + MIN_BOX_CM, rightBound - DEFAULT_SEP_SPACING_CM)
+      : rightBound / 2;
+    if (newPos <= MIN_BOX_CM || newPos >= rightBound - MIN_BOX_CM) return;
+    pushHistory();
+    applyGondola(cmdInsertSeparator(gondola, shelf.id, newPos));
   };
 
   const addCol = () => {
-    if (!planogram || !canAddCol) return;
-    // If a row header is selected, add a cell only to that row.
+    if (!gondola || !canAddCol) return;
     if (selectedHeaderRow !== null) {
-      addCellToRow(selectedHeaderRow);
+      addSeparatorToShelf(selectedHeaderRow);
       return;
     }
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const curWidths = getEffectiveColWidths(planogram);
-    // Insert after the selected column header (or append at end if none selected).
-    const insertAfter = selectedHeaderCol ?? planogram.cols - 1;
-    const insertIdx = insertAfter + 1;
-    const newWidths = [...curWidths.slice(0, insertIdx), newColWidthCm, ...curWidths.slice(insertIdx)];
-    // Shift cells and width overrides at cols >= insertIdx.
-    const newCells = planogram.cells.map((c) =>
-      c.col >= insertIdx ? { ...c, col: c.col + 1 } : c,
-    );
-    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
-    const newWidthOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldWidthOverrides)) {
-      const parts = key.split('-').map(Number);
-      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-      const [r, c] = parts;
-      newWidthOverrides[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
-    }
-    const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
-    const newHeightOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldHeightOverrides)) {
-      const parts = key.split('-').map(Number);
-      if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-      const [r, c] = parts;
-      newHeightOverrides[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
-    }
-    // Keep rowColCounts in sync: every row gains the new global column.
-    const oldRowColCounts = planogram.rowColCounts;
-    const newRowColCounts = oldRowColCounts
-      ? Array.from({ length: planogram.rows }, (_, i) => (oldRowColCounts[i] ?? planogram.cols) + 1)
-      : undefined;
-    // Shift mergedSpans col indices at cols >= insertIdx.
-    const oldMergedSpans = planogram.mergedSpans;
-    let newMergedSpans: Record<string, number> | undefined;
-    if (oldMergedSpans) {
-      newMergedSpans = {};
-      for (const [key, val] of Object.entries(oldMergedSpans)) {
-        const parts = key.split('-').map(Number);
-        if (parts.length !== 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) continue;
-        const [r, c] = parts;
-        newMergedSpans[c >= insertIdx ? `${r}-${c + 1}` : key] = val;
+    // Add to all shelves
+    pushHistory();
+    let g = gondola;
+    for (let di = 0; di < shelfCount; di++) {
+      const shelf = getShelfByDisplayIndex(g, di);
+      if (!shelf) continue;
+      const seps = sortedSeps(shelf);
+      const rightBound = seps[seps.length - 1].position_cm;
+      const lastInternal = seps[seps.length - 2];
+      const newPos = lastInternal
+        ? Math.max(lastInternal.position_cm + MIN_BOX_CM, rightBound - DEFAULT_SEP_SPACING_CM)
+        : rightBound / 2;
+      if (newPos > MIN_BOX_CM && newPos < rightBound - MIN_BOX_CM) {
+        g = cmdInsertSeparator(g, shelf.id, newPos);
       }
-      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
     }
-    applyUpdate({
-      ...planogram,
-      cols: planogram.cols + 1,
-      widthCm: planogram.widthCm + newColWidthCm,
-      colWidthsCm: newWidths,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
-      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
-      rowColCounts: newRowColCounts,
-      mergedSpans: newMergedSpans,
-    });
-    setSelectedHeaderCol(insertIdx);
+    applyGondola(g);
   };
 
-  // ── Remove a single cell from one row (counterpart to addCellToRow) ───────────
-  /**
-   * Removes the last extra cell from row `r`. Only has an effect when that row
-   * has more cells than the planogram's base column count (i.e. extra cells were
-   * previously added via addCellToRow).
-   */
-  const removeCellFromRow = (r: number) => {
-    if (!planogram) return;
-    const currentRowCols = planogram.rowColCounts?.[r] ?? planogram.cols;
-    if (currentRowCols <= 1) return;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const removeColIdx = currentRowCols - 1;
-    const newCells = planogram.cells.filter((c) => !(c.row === r && c.col === removeColIdx));
-    const newCellWidthOverrides = { ...(planogram.cellWidthOverrides ?? {}) };
-    delete newCellWidthOverrides[`${r}-${removeColIdx}`];
-    const newRowColCounts: number[] = Array.from(
-      { length: planogram.rows },
-      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
-    );
-    newRowColCounts[r] = currentRowCols - 1;
-    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
-      ? undefined
-      : newRowColCounts;
-    // Also remove any mergedSpan entry for the removed cell
-    const newMergedSpans = planogram.mergedSpans ? { ...planogram.mergedSpans } : undefined;
-    if (newMergedSpans) {
-      delete newMergedSpans[`${r}-${removeColIdx}`];
-    }
-    applyUpdate({
-      ...planogram,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
-      rowColCounts: normalizedRowColCounts,
-      mergedSpans: newMergedSpans && Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
-    });
-    if (selectedKey === `${r}-${removeColIdx}`) setSelectedKey(null);
-  };
-
-  /**
-   * Parses a cell override key ("row-col") into [row, col].
-   * Returns null if the key is malformed, or if either coordinate is not a
-   * non-negative integer (cell coordinates must be >= 0 and whole numbers).
-   * Note: Number.isInteger() returns false for NaN and floats, so no separate
-   * NaN check is needed.
-   */
-  const parseOverrideKey = (key: string): [number, number] | null => {
-    const parts = key.split('-').map(Number);
-    if (
-      parts.length !== 2 ||
-      !Number.isInteger(parts[0]) || parts[0] < 0 ||
-      !Number.isInteger(parts[1]) || parts[1] < 0
-    ) return null;
-    return [parts[0], parts[1]];
-  };
-
-  /**
-   * After removing column `removeIdx`, updates `selectedKey` to reflect the
-   * new column indices: clears the key if the removed column was selected,
-   * or decrements the column index for keys beyond the removed column.
-   */
-  const updateSelectedKeyAfterColRemoval = (key: string | null, removeIdx: number): string | null => {
-    if (!key) return key;
-    const parsed = parseOverrideKey(key);
-    if (!parsed) return key;
-    const [r, c] = parsed;
-    if (c === removeIdx) return null;
-    if (c > removeIdx) return `${r}-${c - 1}`;
-    return key;
+  const removeSeparatorFromShelf = (displayRow: number) => {
+    if (!gondola) return;
+    const shelf = getShelfByDisplayIndex(gondola, displayRow);
+    if (!shelf) return;
+    const seps = sortedSeps(shelf);
+    if (seps.length <= 2) return; // only boundaries remain — nothing to remove
+    const lastInternal = seps[seps.length - 2]; // rightmost internal sep
+    pushHistory();
+    applyGondola(cmdRemoveSeparator(gondola, shelf.id, lastInternal.id));
   };
 
   const removeCol = () => {
-    if (!planogram || planogram.cols <= 1) return;
-    // If a row header is selected, remove the last extra cell from that row only.
+    if (!gondola) return;
     if (selectedHeaderRow !== null) {
-      removeCellFromRow(selectedHeaderRow);
+      removeSeparatorFromShelf(selectedHeaderRow);
       return;
     }
-    const removeIdx = selectedHeaderCol ?? planogram.cols - 1;
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-    const curWidths = getEffectiveColWidths(planogram);
-    const removedW = curWidths[removeIdx];
-
-    // Remove column at removeIdx from colWidthsCm
-    const newWidths = [...curWidths.slice(0, removeIdx), ...curWidths.slice(removeIdx + 1)];
-
-    // Remove cells at removeIdx, shift cells at col > removeIdx down by 1
-    const newCells = planogram.cells
-      .filter((c) => c.col !== removeIdx)
-      .map((c) => (c.col > removeIdx ? { ...c, col: c.col - 1 } : c));
-
-    // Update cellWidthOverrides: drop removed col, shift col > removeIdx
-    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
-    const newWidthOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldWidthOverrides)) {
-      const parsed = parseOverrideKey(key);
-      if (!parsed) continue;
-      const [r, c] = parsed;
-      if (c === removeIdx) continue;
-      newWidthOverrides[c > removeIdx ? `${r}-${c - 1}` : key] = val;
+    // Remove last internal separator from all shelves
+    pushHistory();
+    let g = gondola;
+    for (let di = 0; di < shelfCount; di++) {
+      const shelf = getShelfByDisplayIndex(g, di);
+      if (!shelf) continue;
+      const seps = sortedSeps(shelf);
+      if (seps.length <= 2) continue;
+      const lastInternal = seps[seps.length - 2];
+      g = cmdRemoveSeparator(g, shelf.id, lastInternal.id);
     }
-
-    // Update cellHeightOverrides: drop removed col, shift col > removeIdx
-    const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
-    const newHeightOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(oldHeightOverrides)) {
-      const parsed = parseOverrideKey(key);
-      if (!parsed) continue;
-      const [r, c] = parsed;
-      if (c === removeIdx) continue;
-      newHeightOverrides[c > removeIdx ? `${r}-${c - 1}` : key] = val;
-    }
-
-    // Update rowColCounts: rows that had more columns than removeIdx lose one
-    const oldRowColCounts = planogram.rowColCounts;
-    let newRowColCounts: number[] | undefined;
-    if (oldRowColCounts) {
-      const newCols = planogram.cols - 1;
-      const updated = Array.from({ length: planogram.rows }, (_, r) => {
-        const effective = oldRowColCounts[r] ?? planogram.cols;
-        return effective > removeIdx ? effective - 1 : effective;
-      });
-      newRowColCounts = updated.every((c) => c === newCols) ? undefined : updated;
-    }
-
-    // Update mergedSpans: drop removed col entries, shift col > removeIdx
-    const oldMergedSpans = planogram.mergedSpans;
-    let newMergedSpans: Record<string, number> | undefined;
-    if (oldMergedSpans) {
-      newMergedSpans = {};
-      for (const [key, val] of Object.entries(oldMergedSpans)) {
-        const parsed = parseOverrideKey(key);
-        if (!parsed) continue;
-        const [r, c] = parsed;
-        if (c === removeIdx) continue; // removed
-        newMergedSpans[c > removeIdx ? `${r}-${c - 1}` : key] = val;
-      }
-      if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
-    }
-
-    applyUpdate({
-      ...planogram,
-      cols: planogram.cols - 1,
-      widthCm: planogram.widthCm - removedW,
-      colWidthsCm: newWidths,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
-      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
-      rowColCounts: newRowColCounts,
-      mergedSpans: newMergedSpans,
-    });
-
-    // Update header selection
-    if (selectedHeaderCol === removeIdx) {
-      setSelectedHeaderCol(null);
-    } else if (selectedHeaderCol !== null && selectedHeaderCol > removeIdx) {
-      setSelectedHeaderCol(selectedHeaderCol - 1);
-    }
-
-    // Update cell selection if it pointed to the removed or shifted column
-    setSelectedKey((prev) => updateSelectedKeyAfterColRemoval(prev, removeIdx));
+    applyGondola(g);
   };
 
-  // ── Image upload ─────────────────────────────────────────────────────────
+  // ── Fuse / split ─────────────────────────────────────────────────────────────
+  const fuseSelectedBoxes = () => {
+    if (!gondola || selectedKeys.size < 2) return;
+    const parsed = [...selectedKeys].map(k => parseBoxKey(k)).filter((p): p is [number,number] => p !== null);
+    const rowSet = new Set(parsed.map(([r]) => r));
+    if (rowSet.size !== 1) return;
+    const di = parsed[0][0];
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    if (!shelf) return;
+    const sortedCols = parsed.map(([,c]) => c).sort((a,b) => a-b);
+    for (let i = 1; i < sortedCols.length; i++) {
+      if (sortedCols[i] !== sortedCols[i-1] + 1) return;
+    }
+    const rowBoxes = getRowBoxes(boxes, di);
+    const leftBox  = rowBoxes[sortedCols[0]];
+    const rightBox = rowBoxes[sortedCols[sortedCols.length - 1]];
+    if (!leftBox || !rightBox) return;
+    pushHistory();
+    applyGondola(cmdFuseBoxes(gondola, shelf.id, leftBox.leftSeparatorId, rightBox.rightSeparatorId));
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
+  };
+
+  const splitSelectedBox = () => {
+    if (!gondola || !selectedKey) return;
+    const parsed = parseBoxKey(selectedKey);
+    if (!parsed) return;
+    const [di, bi] = parsed;
+    const box = findBox(boxes, di, bi);
+    if (!box) return;
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    if (!shelf) return;
+    const splitPos = box.x_cm + box.width_cm / 2;
+    pushHistory();
+    applyGondola(cmdSplitBox(gondola, shelf.id, box.leftSeparatorId, box.rightSeparatorId, splitPos));
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
+  };
+
+  // Delete a box (empty box only): remove the separator to its right, giving width to right neighbour;
+  // or if it's the last box, remove the separator to its left.
+  const deleteBox = (displayRow: number, boxIndex: number) => {
+    if (!gondola) return;
+    const box = findBox(boxes, displayRow, boxIndex);
+    if (!box || box.placement) return; // only delete empty boxes
+    const shelf = getShelfByDisplayIndex(gondola, displayRow);
+    if (!shelf) return;
+    const rowBoxes = getRowBoxes(boxes, displayRow);
+    if (rowBoxes.length <= 1) return; // must keep at least one box
+    const seps = sortedSeps(shelf);
+    const isLast = boxIndex === rowBoxes.length - 1;
+    // Remove the right separator for all but the last box; remove the left separator for the last
+    const sepToRemove = isLast
+      ? seps.find(s => s.id === box.leftSeparatorId)
+      : seps.find(s => s.id === box.rightSeparatorId);
+    if (!sepToRemove || !sepToRemove.movable) return;
+    pushHistory();
+    applyGondola(cmdRemoveSeparator(gondola, shelf.id, sepToRemove.id));
+    if (selectedKey === makeBoxKey(displayRow, boxIndex)) {
+      setSelectedKey(null);
+      setSelectedKeys(new Set());
+    }
+  };
+
+  // ── Undo / Redo ───────────────────────────────────────────────────────────────
+  const undo = () => {
+    setHistory(prev => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (gondola) setFuture(f => [...f.slice(-20), gondola]);
+      const bs = computeBoxes(last);
+      setGondola(last);
+      setBoxes(bs);
+      setBoxMap(buildBoxMap(bs));
+      if (planogramBase) {
+        const lp = gondolaToLegacyPlanogram(last, { ...planogramBase, gondola: last });
+        setActivePlanogram(lp);
+        scheduleSave(lp);
+      }
+      return prev.slice(0, -1);
+    });
+  };
+
+  const redo = () => {
+    setFuture(prev => {
+      if (prev.length === 0) return prev;
+      const next = prev[prev.length - 1];
+      if (gondola) setHistory(h => [...h.slice(-20), gondola]);
+      const bs = computeBoxes(next);
+      setGondola(next);
+      setBoxes(bs);
+      setBoxMap(buildBoxMap(bs));
+      if (planogramBase) {
+        const lp = gondolaToLegacyPlanogram(next, { ...planogramBase, gondola: next });
+        setActivePlanogram(lp);
+        scheduleSave(lp);
+      }
+      return prev.slice(0, -1);
+    });
+  };
+
+  // ── Image upload ─────────────────────────────────────────────────────────────
   const handleImageUpload = async (ean: string, file: File) => {
     if (!projectId) return;
     setUploadingEan(ean);
     try {
       const result = await cadApi.uploadProductImage(projectId, ean, file);
-      // Refresh catalog with updated imageUrl
-      const updatedProducts = products.map(p =>
-        p.ean === ean ? { ...p, imageUrl: result.imageUrl } : p
-      );
+      const updatedProducts = products.map(p => p.ean === ean ? { ...p, imageUrl: result.imageUrl } : p);
       setProducts(updatedProducts);
     } catch (err) {
       console.error('Image upload failed:', err);
@@ -866,691 +532,140 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
   };
 
-  // ── Column / row resize via drag (fixed total — redistributes between neighbours) ──
-  const startColResize = (e: React.MouseEvent, colIdx: number) => {
-    if (!planogram || colIdx + 1 >= planogram.cols) return;
+  // ── Separator (column) resize ──────────────────────────────────────────────────
+  // Drag the separator between box col and col+1 in a specific display row.
+  const startSepResize = (e: React.MouseEvent, displayRow: number, sepBetweenCol: number) => {
+    if (!gondola) return;
+    const shelf = getShelfByDisplayIndex(gondola, displayRow);
+    if (!shelf) return;
+    const rowBoxes = getRowBoxes(boxes, displayRow);
+    const leftBox  = rowBoxes[sepBetweenCol];
+    const rightBox = rowBoxes[sepBetweenCol + 1];
+    if (!leftBox || !rightBox) return;
+
     e.preventDefault();
     const startX = e.clientX;
-    const startWidths = getEffectiveColWidths(planogram);
-    const capturedPlanogram = planogram;
-    const w0 = startWidths[colIdx];
-    const w1 = startWidths[colIdx + 1];
-    let finalWidths = [...startWidths];
-    setIsResizing('col');
+    const capturedGondola = gondola;
+    const seps = sortedSeps(shelf);
+    const sepIdx = seps.findIndex(s => s.id === leftBox.rightSeparatorId);
+    const sep    = seps[sepIdx];
+    if (!sep?.movable) return;
+
+    const origPos = sep.position_cm;
+    let finalPos  = origPos;
+    setIsResizing('sep');
+
+    // Snap boundaries from shelf below
+    const thresholdCm = SNAP_THRESHOLD_PX / (CELL_WIDTH_SCALE * zoom);
 
     const onMove = (ev: MouseEvent) => {
-      const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-      // Clamp so neither column goes below the minimum size
-      const clamped = Math.max(-(w0 - MIN_CELL_CM_W), Math.min(w1 - MIN_CELL_CM_W, deltaCm));
-      const newW0 = w0 + clamped;
-      const newW1 = w1 - clamped;
-      finalWidths = startWidths.map((w, i) => i === colIdx ? newW0 : i === colIdx + 1 ? newW1 : w);
-      setLocalColWidths(finalWidths);
-      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${newW0.toFixed(1)} / ${newW1.toFixed(1)} cm` });
+      const rawDelta = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
+      const rawNewPos = origPos + rawDelta;
+      // Snap to shelf below
+      const { snapped, idx } = snapToShelfBelow(capturedGondola, displayRow, rawNewPos, thresholdCm);
+      finalPos = snapped;
+      setActiveSnapIdx(idx >= 0 ? idx : null);
+      setLocalSepPositions(new Map([[sep.id, finalPos]]));
+      setResizeTooltip({
+        x: ev.clientX + RESIZE_TOOLTIP_DX,
+        y: ev.clientY + RESIZE_TOOLTIP_DY,
+        text: `${leftBox.x_cm.toFixed(1)}…${finalPos.toFixed(1)} / ${finalPos.toFixed(1)}…${rightBox.x_cm + rightBox.width_cm} cm`,
+      });
     };
 
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
-      setLocalColWidths(null);
+      setLocalSepPositions(null);
       setResizeTooltip(null);
-      // Total planogram width stays fixed — only colWidthsCm changes
-      applyUpdate({ ...capturedPlanogram, colWidthsCm: finalWidths });
+      setActiveSnapIdx(null);
+      applyGondola(cmdMoveSeparator(capturedGondola, shelf.id, sep.id, finalPos));
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
 
-  const startRowResize = (e: React.MouseEvent, rowIdx: number) => {
-    if (!planogram || rowIdx + 1 >= planogram.rows) return;
+  // ── Shelf height resize ────────────────────────────────────────────────────────
+  // Drag the border between shelf at displayRow and displayRow+1.
+  const startShelfResize = (e: React.MouseEvent, displayRow: number) => {
+    if (!gondola || displayRow + 1 >= shelfCount) return;
+    const shelfAbove = getShelfByDisplayIndex(gondola, displayRow);     // top one
+    const shelfBelow = getShelfByDisplayIndex(gondola, displayRow + 1); // bottom one
+    if (!shelfAbove || !shelfBelow) return;
+
     e.preventDefault();
     const startY = e.clientY;
-    const startHeights = getEffectiveRowHeights(planogram);
-    const capturedPlanogram = planogram;
-    const h0 = startHeights[rowIdx];
-    const h1 = startHeights[rowIdx + 1];
-    let finalHeights = [...startHeights];
-    setIsResizing('row');
+    const h0 = shelfAbove.height_cm;
+    const h1 = shelfBelow.height_cm;
+    const capturedGondola = gondola;
+    let finalH0 = h0;
+    let finalH1 = h1;
+    setIsResizing('shelf');
 
     const onMove = (ev: MouseEvent) => {
       const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
-      // Clamp so neither row goes below the minimum size
-      const clamped = Math.max(-(h0 - MIN_CELL_CM_H), Math.min(h1 - MIN_CELL_CM_H, deltaCm));
-      const newH0 = h0 + clamped;
-      const newH1 = h1 - clamped;
-      finalHeights = startHeights.map((h, i) => i === rowIdx ? newH0 : i === rowIdx + 1 ? newH1 : h);
-      setLocalRowHeights(finalHeights);
-      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${newH0.toFixed(1)} / ${newH1.toFixed(1)} cm` });
+      const clamped = Math.max(-(h0 - MIN_BOX_CM), Math.min(h1 - MIN_BOX_CM, deltaCm));
+      finalH0 = h0 + clamped;
+      finalH1 = h1 - clamped;
+      setLocalShelfHeights(new Map([[shelfAbove.id, finalH0], [shelfBelow.id, finalH1]]));
+      setResizeTooltip({
+        x: ev.clientX + RESIZE_TOOLTIP_DX,
+        y: ev.clientY + RESIZE_TOOLTIP_DY,
+        text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm`,
+      });
     };
 
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setIsResizing(null);
-      setLocalRowHeights(null);
+      setLocalShelfHeights(null);
       setResizeTooltip(null);
-      // Total planogram height stays fixed — only rowHeightsCm changes
-      applyUpdate({ ...capturedPlanogram, rowHeightsCm: finalHeights });
+      applyGondola(cmdResizeAdjacentShelves(capturedGondola, shelfAbove.id, finalH0, shelfBelow.id, finalH1));
     };
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
 
-  // ── Per-cell resize: only the segment belonging to this cell changes ─────
-  // Width helpers used by cell drag handlers (checked before any live-preview state).
-  const getCellStartWidthCm = (p: Planogram, row: number, col: number): number => {
-    const key = `${row}-${col}`;
-    // Extra cells (col >= p.cols) have no colWidthsCm entry; fall back to average cell width.
-    // Guard against p.cols === 0 (degenerate planogram) to avoid division by zero.
-    return p.cellWidthOverrides?.[key] ?? getEffectiveColWidths(p)[col] ?? Math.max(MIN_CELL_CM_W, p.cols > 0 ? p.widthCm / p.cols : MIN_CELL_CM_W);
-  };
-  const getCellStartHeightCm = (p: Planogram, row: number, col: number): number => {
-    const key = `${row}-${col}`;
-    return p.cellHeightOverrides?.[key] ?? getEffectiveRowHeights(p)[row];
-  };
-
-  /**
-   * Merge all Ctrl-selected contiguous empty cells in the same row into a single
-   * wider cell. The merged cell gets the combined width of all selected cells;
-   * subsequent cells in the row are shifted left to fill the gaps.
-   * Only works when none of the selected cells are already merged.
-   */
-  const mergeSelectedCells = () => {
-    if (!planogram || selectedKeys.size < 2) return;
-    const keys = [...selectedKeys];
-    const parsed = keys.map(k => k.split('-').map(Number) as [number, number]);
-    // All must be empty
-    if (parsed.some(([r, c]) => cellMap.has(`${r}-${c}`))) return;
-    // None of the selected cells may already be merged (would need span-aware contiguity check)
-    if (parsed.some(([r, c]) => (planogram.mergedSpans?.[`${r}-${c}`] ?? 1) > 1)) return;
-    // All must be in the same row
-    const rowSet = new Set(parsed.map(([r]) => r));
-    if (rowSet.size !== 1) return;
-    const row = parsed[0][0];
-    const sortedCols = parsed.map(([, c]) => c).sort((a, b) => a - b);
-    // Columns must be contiguous (no gaps)
-    for (let i = 1; i < sortedCols.length; i++) {
-      if (sortedCols[i] !== sortedCols[i - 1] + 1) return;
-    }
-    const minCol = sortedCols[0];
-    const maxCol = sortedCols[sortedCols.length - 1];
-    const shiftAmount = maxCol - minCol; // cells removed = selected count - 1
-    const span = sortedCols.length;
-
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-
-    // Combined width of the merged cell
-    const totalWidth = sortedCols.reduce((sum, c) => sum + getCellStartWidthCm(planogram, row, c), 0);
-
-    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
-
-    // Shift occupied cells in this row that lie beyond maxCol
-    const newCells = planogram.cells.map(c => {
-      if (c.row === row && c.col > maxCol) return { ...c, col: c.col - shiftAmount };
-      return c;
-    });
-
-    // Update rowColCounts for this row
-    const newRowColCounts: number[] = Array.from(
-      { length: planogram.rows },
-      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
-    );
-    newRowColCounts[row] = rowColCount - shiftAmount;
-    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
-      ? undefined
-      : newRowColCounts;
-
-    // Rebuild cellWidthOverrides: remove merged-away entries, shift entries beyond maxCol
-    const newCellWidthOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(planogram.cellWidthOverrides ?? {})) {
-      const p = parseOverrideKey(key);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r !== row) { newCellWidthOverrides[key] = val; continue; }
-      if (c >= minCol && c <= maxCol) continue; // merged away
-      newCellWidthOverrides[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
-    }
-    newCellWidthOverrides[`${row}-${minCol}`] = totalWidth;
-
-    // Rebuild cellHeightOverrides: drop removed cells, shift entries beyond maxCol
-    const newCellHeightOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(planogram.cellHeightOverrides ?? {})) {
-      const p = parseOverrideKey(key);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r !== row) { newCellHeightOverrides[key] = val; continue; }
-      if (c > minCol && c <= maxCol) continue; // merged away
-      newCellHeightOverrides[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
-    }
-
-    // Rebuild mergedSpans: shift entries beyond maxCol in this row, then record the new merge
-    const newMergedSpans: Record<string, number> = {};
-    for (const [key, val] of Object.entries(planogram.mergedSpans ?? {})) {
-      const p = parseOverrideKey(key);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r !== row) { newMergedSpans[key] = val; continue; }
-      if (c >= minCol && c <= maxCol) continue; // merged away
-      newMergedSpans[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
-    }
-    newMergedSpans[`${row}-${minCol}`] = span;
-
-    applyUpdate({
-      ...planogram,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
-      cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
-      rowColCounts: normalizedRowColCounts,
-      mergedSpans: Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
-    });
-
-    setSelectedKey(null);
-    setSelectedKeys(new Set());
-  };
-
-  /**
-   * Split the currently selected merged empty cell back into its original
-   * individual cells. Each split cell receives an equal share of the total width.
-   */
-  const splitSelectedCell = () => {
-    if (!planogram || !selectedKey) return;
-    const parsed = parseOverrideKey(selectedKey);
-    if (!parsed) return;
-    const [row, col] = parsed;
-    const span = planogram.mergedSpans?.[selectedKey] ?? 1;
-    if (span < 2) return;
-    if (cellMap.has(selectedKey)) return; // can only split empty boxes
-
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-
-    const totalWidth = getCellStartWidthCm(planogram, row, col);
-    const singleWidth = totalWidth / span;
-    const shiftAmount = span - 1; // number of cells to re-insert
-    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
-
-    // Shift occupied cells in this row that lie after col
-    const newCells = planogram.cells.map(c =>
-      c.row === row && c.col > col ? { ...c, col: c.col + shiftAmount } : c,
-    );
-
-    // Rebuild cellWidthOverrides: shift entries after col, then set widths for each split cell
-    const newCellWidthOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(planogram.cellWidthOverrides ?? {})) {
-      const p = parseOverrideKey(key);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r !== row) { newCellWidthOverrides[key] = val; continue; }
-      if (c === col) continue; // the merged cell — replaced by split cells below
-      newCellWidthOverrides[c > col ? `${r}-${c + shiftAmount}` : key] = val;
-    }
-    for (let i = 0; i < span; i++) {
-      newCellWidthOverrides[`${row}-${col + i}`] = singleWidth;
-    }
-
-    // Rebuild cellHeightOverrides: shift entries after col
-    const newCellHeightOverrides: Record<string, number> = {};
-    for (const [key, val] of Object.entries(planogram.cellHeightOverrides ?? {})) {
-      const p = parseOverrideKey(key);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r !== row) { newCellHeightOverrides[key] = val; continue; }
-      newCellHeightOverrides[c > col ? `${r}-${c + shiftAmount}` : key] = val;
-    }
-
-    // Rebuild mergedSpans: remove the split cell, shift entries after col
-    const newMergedSpans: Record<string, number> = {};
-    for (const [key, val] of Object.entries(planogram.mergedSpans ?? {})) {
-      const p = parseOverrideKey(key);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r === row && c === col) continue; // being split — remove
-      newMergedSpans[r === row && c > col ? `${r}-${c + shiftAmount}` : key] = val;
-    }
-
-    // Update rowColCounts
-    const newRowColCounts = Array.from(
-      { length: planogram.rows },
-      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
-    );
-    newRowColCounts[row] = rowColCount + shiftAmount;
-    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
-      ? undefined
-      : newRowColCounts;
-
-    applyUpdate({
-      ...planogram,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
-      cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
-      rowColCounts: normalizedRowColCounts,
-      mergedSpans: Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
-    });
-
-    setSelectedKey(null);
-    setSelectedKeys(new Set());
-  };
-
-  /**
-   * Delete an empty box (cell with no product). Its width is transferred to the
-   * adjacent cell: the right neighbour if one exists, otherwise the left neighbour.
-   * All per-row widths in this row are made explicit so other rows are unaffected.
-   */
-  const deleteBox = (row: number, col: number) => {
-    if (!planogram) return;
-    const key = `${row}-${col}`;
-    if (cellMap.has(key)) return; // only delete empty boxes
-
-    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
-    const span = planogram.mergedSpans?.[key] ?? 1;
-    if (rowColCount - span < 1) return; // must keep at least one box in the row
-
-    setHistory((prev) => [...prev.slice(-20), planogram]);
-
-    const boxWidth = getCellStartWidthCm(planogram, row, col);
-    const removeStart = col;
-    const removeEnd = col + span - 1;   // inclusive last column of the merged cell
-    const shiftAmount = span;
-
-    // Determine which neighbour receives the freed width
-    const hasRight = removeEnd + 1 < rowColCount;
-    const hasLeft = col > 0;
-    // rightNeighbour lands at removeStart after the shift; leftNeighbour stays in place
-    const neighborNewCol = hasRight ? removeStart : col - 1;
-
-    // Build complete explicit widths for every current cell in this row
-    const explicitWidths: number[] = [];
-    for (let c = 0; c < rowColCount; c++) {
-      explicitWidths[c] = getCellStartWidthCm(planogram, row, c);
-    }
-
-    // Remove deleted range and compute new widths
-    const newExplicitWidths: Record<number, number> = {};
-    for (let c = 0; c < rowColCount; c++) {
-      if (c >= removeStart && c <= removeEnd) continue; // deleted
-      const newC = c > removeEnd ? c - shiftAmount : c;
-      newExplicitWidths[newC] = explicitWidths[c];
-    }
-    // Transfer freed width to the chosen neighbour
-    if (hasRight || hasLeft) {
-      newExplicitWidths[neighborNewCol] = (newExplicitWidths[neighborNewCol] ?? 0) + boxWidth;
-    }
-
-    // Rebuild cellWidthOverrides: clear this row's entries, re-populate with new explicit widths
-    const newCellWidthOverrides: Record<string, number> = {};
-    for (const [k, val] of Object.entries(planogram.cellWidthOverrides ?? {})) {
-      const p = parseOverrideKey(k);
-      if (p && p[0] === row) continue; // drop all existing overrides for this row
-      newCellWidthOverrides[k] = val;
-    }
-    for (const [c, w] of Object.entries(newExplicitWidths)) {
-      newCellWidthOverrides[`${row}-${c}`] = w;
-    }
-
-    // Rebuild cellHeightOverrides: shift entries in this row after removeEnd
-    const newCellHeightOverrides: Record<string, number> = {};
-    for (const [k, val] of Object.entries(planogram.cellHeightOverrides ?? {})) {
-      const p = parseOverrideKey(k);
-      if (!p) { newCellHeightOverrides[k] = val; continue; }
-      const [r, c] = p;
-      if (r !== row) { newCellHeightOverrides[k] = val; continue; }
-      if (c >= removeStart && c <= removeEnd) continue; // deleted
-      newCellHeightOverrides[c > removeEnd ? `${r}-${c - shiftAmount}` : k] = val;
-    }
-
-    // Remove any cells (with products) that happen to be in the deleted range (shouldn't exist
-    // since we only delete empty boxes, but guard anyway) and shift remaining cells.
-    const newCells = planogram.cells
-      .filter(c => !(c.row === row && c.col >= removeStart && c.col <= removeEnd))
-      .map(c => c.row === row && c.col > removeEnd ? { ...c, col: c.col - shiftAmount } : c);
-
-    // Rebuild mergedSpans: remove deleted range entries, shift entries after removeEnd
-    const newMergedSpans: Record<string, number> = {};
-    for (const [k, val] of Object.entries(planogram.mergedSpans ?? {})) {
-      const p = parseOverrideKey(k);
-      if (!p) continue;
-      const [r, c] = p;
-      if (r === row && c >= removeStart && c <= removeEnd) continue; // deleted
-      newMergedSpans[r === row && c > removeEnd ? `${r}-${c - shiftAmount}` : k] = val;
-    }
-
-    // Update rowColCounts
-    const newRowColCounts = Array.from(
-      { length: planogram.rows },
-      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
-    );
-    newRowColCounts[row] = rowColCount - shiftAmount;
-    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
-      ? undefined
-      : newRowColCounts;
-
-    applyUpdate({
-      ...planogram,
-      cells: newCells,
-      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
-      cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
-      rowColCounts: normalizedRowColCounts,
-      mergedSpans: Object.keys(newMergedSpans).length ? newMergedSpans : undefined,
-    });
-
-    if (selectedKey === key) { setSelectedKey(null); setSelectedKeys(new Set()); }
-  };
-
-  // Dragging right edge: cell grows, right neighbour shrinks (this row only).
-  const startCellRightResize = (e: React.MouseEvent, row: number, col: number) => {
-    // Use the row's effective column count so extra-cell rows (rowColCounts) work correctly.
-    const capturedRowColCount = planogram?.rowColCounts?.[row] ?? planogram?.cols ?? 0;
-    if (!planogram || col + 1 >= capturedRowColCount) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const key0 = `${row}-${col}`;
-    const key1 = `${row}-${col + 1}`;
-    const startW0 = getCellStartWidthCm(planogram, row, col);
-    const startW1 = getCellStartWidthCm(planogram, row, col + 1);
-    const capturedPlanogram = planogram;
-    let finalW0 = startW0;
-    let finalW1 = startW1;
-    setIsResizing('col');
-
-    // Gondola width cap: only applies when the selected cell grows (enlargement).
-    const gondolaMaxW = furniture?.dimensions.width ?? Infinity;
-    let otherCellsW = 0;
-    for (let c = 0; c < capturedRowColCount; c++) {
-      if (c !== col && c !== col + 1) {
-        otherCellsW += getCellStartWidthCm(capturedPlanogram, row, c);
-      }
-    }
-    const maxDeltaByGondola = gondolaMaxW - otherCellsW - MIN_CELL_CM_W - startW0;
-
-    // Left edge of the selected cell in cm (for snap computation of its right edge).
-    let leftOffsetCm = 0;
-    for (let c = 0; c < col; c++) leftOffsetCm += getCellStartWidthCm(capturedPlanogram, row, c);
-
-    const colBoundaries = getColBoundariesCm(capturedPlanogram);
-
-    const onMove = (ev: MouseEvent) => {
-      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_WIDTH_SCALE * zoom);
-      const rawDeltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-
-      // Snap the right edge of the selected cell to a global column boundary.
-      const rawRightEdgeCm = leftOffsetCm + startW0 + rawDeltaCm;
-      const { snapped: snappedRightEdge, idx: snapIdx } = snapCmToBoundary(rawRightEdgeCm, colBoundaries, thresholdCm);
-      const effectiveDelta = snappedRightEdge - leftOffsetCm - startW0;
-
-      setActiveSnapBoundary(snapIdx >= 0 ? snapIdx : null);
-
-      if (effectiveDelta >= 0) {
-        // Enlargement: selected cell grows to the right, right neighbour shrinks.
-        const clamped = Math.max(0, Math.min(Math.min(startW1 - MIN_CELL_CM_W, maxDeltaByGondola), effectiveDelta));
-        finalW0 = startW0 + clamped;
-        finalW1 = startW1 - clamped;
-        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
-      } else {
-        // Reduction: selected cell shrinks, right neighbour stays unchanged.
-        const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), effectiveDelta);
-        finalW0 = startW0 + clamped;
-        finalW1 = startW1;
-        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} cm` });
-      }
-
-      setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-    };
-
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      setIsResizing(null);
-      setLocalCellWidthOverrides(null);
-      setResizeTooltip(null);
-      setActiveSnapBoundary(null);
-      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
-  // Dragging left edge: enlargement grows the selected cell and shrinks the left neighbour;
-  // reduction shrinks only the selected cell without moving the left neighbour.
-  const startCellLeftResize = (e: React.MouseEvent, row: number, col: number) => {
-    if (!planogram || col <= 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const key0 = `${row}-${col - 1}`;  // left neighbour
-    const key1 = `${row}-${col}`;       // selected cell
-    const startW0 = getCellStartWidthCm(planogram, row, col - 1);
-    const startW1 = getCellStartWidthCm(planogram, row, col);
-    const capturedPlanogram = planogram;
-    let finalW0 = startW0;
-    let finalW1 = startW1;
-    setIsResizing('col');
-
-    // Gondola cap only applies to enlargement (selected cell growing left into the gondola).
-    const gondolaMaxW = furniture?.dimensions.width ?? Infinity;
-    const capturedRowColCount = capturedPlanogram.rowColCounts?.[row] ?? capturedPlanogram.cols;
-    let otherCellsW = 0;
-    for (let c = 0; c < capturedRowColCount; c++) {
-      if (c !== col - 1 && c !== col) {
-        otherCellsW += getCellStartWidthCm(capturedPlanogram, row, c);
-      }
-    }
-    // Most-negative delta allowed before the selected cell would exceed the gondola.
-    const minClampedByGondola = startW1 + otherCellsW + MIN_CELL_CM_W - gondolaMaxW;
-
-    // Position of the left edge of the selected cell (= border between col-1 and col) in cm.
-    let leftEdgeCm = 0;
-    for (let c = 0; c < col; c++) leftEdgeCm += getCellStartWidthCm(capturedPlanogram, row, c);
-
-    const colBoundaries = getColBoundariesCm(capturedPlanogram);
-
-    const onMove = (ev: MouseEvent) => {
-      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_WIDTH_SCALE * zoom);
-      const rawDeltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-
-      // Snap the left edge (border between col-1 and col) to a global column boundary.
-      const rawBorderCm = leftEdgeCm + rawDeltaCm;
-      const { snapped: snappedBorder, idx: snapIdx } = snapCmToBoundary(rawBorderCm, colBoundaries, thresholdCm);
-      const effectiveDelta = snappedBorder - leftEdgeCm;
-
-      setActiveSnapBoundary(snapIdx >= 0 ? snapIdx : null);
-
-      if (effectiveDelta <= 0) {
-        // Enlargement: selected cell grows to the left, left neighbour shrinks.
-        const clamped = Math.max(
-          Math.max(-(startW0 - MIN_CELL_CM_W), minClampedByGondola),
-          Math.min(0, effectiveDelta),
-        );
-        finalW0 = startW0 + clamped;
-        finalW1 = startW1 - clamped;
-        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
-      } else {
-        // Reduction: selected cell shrinks, left neighbour stays unchanged.
-        const clamped = Math.min(startW1 - MIN_CELL_CM_W, effectiveDelta);
-        finalW0 = startW0;
-        finalW1 = startW1 - clamped;
-        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW1.toFixed(1)} cm` });
-      }
-
-      setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-    };
-
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      setIsResizing(null);
-      setLocalCellWidthOverrides(null);
-      setResizeTooltip(null);
-      setActiveSnapBoundary(null);
-      applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
-  // Dragging bottom edge: cell grows, bottom neighbour shrinks (this column only).
-  const startCellBottomResize = (e: React.MouseEvent, row: number, col: number) => {
-    if (!planogram || row + 1 >= planogram.rows) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const startY = e.clientY;
-    const key0 = `${row}-${col}`;
-    const key1 = `${row + 1}-${col}`;
-    const startH0 = getCellStartHeightCm(planogram, row, col);
-    const startH1 = getCellStartHeightCm(planogram, row + 1, col);
-    const capturedPlanogram = planogram;
-    let finalH0 = startH0;
-    let finalH1 = startH1;
-    setIsResizing('row');
-
-    // Top edge of the selected cell in cm (for snap computation of its bottom edge).
-    let topOffsetCm = 0;
-    for (let r = 0; r < row; r++) topOffsetCm += getCellStartHeightCm(capturedPlanogram, r, col);
-    const rowBoundaries = getRowBoundariesCm(capturedPlanogram);
-
-    const onMove = (ev: MouseEvent) => {
-      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_HEIGHT_SCALE * zoom);
-      const rawDeltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
-
-      // Snap the bottom edge of the selected cell to a global row boundary.
-      const rawBottomEdgeCm = topOffsetCm + startH0 + rawDeltaCm;
-      const { snapped: snappedBottomEdge, idx: snapRowIdx } = snapCmToBoundary(rawBottomEdgeCm, rowBoundaries, thresholdCm);
-      const effectiveDelta = snappedBottomEdge - topOffsetCm - startH0;
-
-      setActiveRowSnapBoundary(snapRowIdx >= 0 ? snapRowIdx : null);
-
-      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, effectiveDelta));
-      finalH0 = startH0 + clamped;
-      finalH1 = startH1 - clamped;
-      setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
-      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
-    };
-
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      setIsResizing(null);
-      setLocalCellHeightOverrides(null);
-      setResizeTooltip(null);
-      setActiveRowSnapBoundary(null);
-      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
-  // Dragging top edge: cell grows, top neighbour shrinks (this column only).
-  const startCellTopResize = (e: React.MouseEvent, row: number, col: number) => {
-    if (!planogram || row <= 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const startY = e.clientY;
-    const key0 = `${row - 1}-${col}`;
-    const key1 = `${row}-${col}`;
-    const startH0 = getCellStartHeightCm(planogram, row - 1, col);
-    const startH1 = getCellStartHeightCm(planogram, row, col);
-    const capturedPlanogram = planogram;
-    let finalH0 = startH0;
-    let finalH1 = startH1;
-    setIsResizing('row');
-
-    // Position of the top edge of the selected cell (= border between row-1 and row) in cm.
-    let topEdgeCm = 0;
-    for (let r = 0; r < row; r++) topEdgeCm += getCellStartHeightCm(capturedPlanogram, r, col);
-    const rowBoundaries = getRowBoundariesCm(capturedPlanogram);
-
-    const onMove = (ev: MouseEvent) => {
-      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_HEIGHT_SCALE * zoom);
-      const rawDeltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
-
-      // Snap the top border (between row-1 and row) to a global row boundary.
-      const rawBorderCm = topEdgeCm + rawDeltaCm;
-      const { snapped: snappedBorder, idx: snapRowIdx } = snapCmToBoundary(rawBorderCm, rowBoundaries, thresholdCm);
-      const effectiveDelta = snappedBorder - topEdgeCm;
-
-      setActiveRowSnapBoundary(snapRowIdx >= 0 ? snapRowIdx : null);
-
-      // Dragging up (negative delta) shrinks the top neighbour, grows current
-      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, effectiveDelta));
-      finalH0 = startH0 + clamped;
-      finalH1 = startH1 - clamped;
-      setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
-      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalH0.toFixed(1)} / ${finalH1.toFixed(1)} cm` });
-    };
-
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      setIsResizing(null);
-      setLocalCellHeightOverrides(null);
-      setResizeTooltip(null);
-      setActiveRowSnapBoundary(null);
-      applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
-
-  // ── Prevent text selection during resize ────────────────────────────────
-  useEffect(() => {
-    if (isResizing) {
-      document.body.style.userSelect = 'none';
-    }
-    return () => {
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing]);
-
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────────
   const keyHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   keyHandlerRef.current = (e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-      return;
-    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if (
       ((e.ctrlKey || e.metaKey) && e.key === 'y') ||
-      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') ||
-      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')
-    ) {
-      e.preventDefault();
-      redo();
-      return;
-    }
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
+    ) { e.preventDefault(); redo(); return; }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (selectedKeys.size > 1) {
-        clearSelectedCells();
-      } else if (selectedKey) {
-        const [r, c] = selectedKey.split('-').map(Number);
-        clearCell(r, c);
+      if (selectedKeys.size > 1) { clearSelectedBoxes(); }
+      else if (selectedKey) {
+        const parsed = parseBoxKey(selectedKey);
+        if (parsed) clearBox(parsed[0], parsed[1]);
       }
     }
   };
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => keyHandlerRef.current?.(e);
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // ── Cell click ───────────────────────────────────────────────────────────
-  const handleCellClick = (row: number, col: number, e: React.MouseEvent) => {
-    // Clicking a cell clears any header selection
+  // ── Prevent text selection during resize ────────────────────────────────────
+  useEffect(() => {
+    document.body.style.userSelect = isResizing ? 'none' : '';
+    return () => { document.body.style.userSelect = ''; };
+  }, [isResizing]);
+
+  // ── Cell click ───────────────────────────────────────────────────────────────
+  const handleBoxClick = (di: number, bi: number, e: React.MouseEvent) => {
     setSelectedHeaderCol(null);
     setSelectedHeaderRow(null);
-    const key  = `${row}-${col}`;
+    const key = makeBoxKey(di, bi);
 
-    // Ctrl+click: toggle cell in/out of multi-selection
     if (e.ctrlKey || e.metaKey) {
-      setSelectedKeys((prev) => {
+      setSelectedKeys(prev => {
         const next = new Set(prev);
         if (next.has(key)) next.delete(key); else next.add(key);
         return next;
@@ -1560,233 +675,189 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       return;
     }
 
-    // Shift+click: range select from lastSelectedKey to this key
-    if (e.shiftKey && lastSelectedKey && planogram) {
-      const [r0, c0] = lastSelectedKey.split('-').map(Number);
-      const rowMin = Math.min(r0, row); const rowMax = Math.max(r0, row);
-      const colMin = Math.min(c0, col); const colMax = Math.max(c0, col);
+    if (e.shiftKey && lastSelectedKey && gondola) {
+      const [r0, c0] = parseBoxKey(lastSelectedKey) ?? [di, bi];
+      const rowMin = Math.min(r0, di); const rowMax = Math.max(r0, di);
+      const colMin = Math.min(c0, bi); const colMax = Math.max(c0, bi);
       const rangeKeys = new Set<string>();
       for (let r = rowMin; r <= rowMax; r++) {
-        for (let c = colMin; c <= colMax; c++) rangeKeys.add(`${r}-${c}`);
+        for (let c = colMin; c <= colMax; c++) rangeKeys.add(makeBoxKey(r, c));
       }
       setSelectedKeys(rangeKeys);
       setSelectedKey(key);
       return;
     }
 
-    // Plain click: clear multi-selection, handle single select/place
     setSelectedKeys(new Set());
     setLastSelectedKey(key);
-    const cell = cellMap.get(key);
-    if (!cell && selectedEan) {
-      fillCellWithEan(row, col, selectedEan);
+    const box = boxMap.get(key);
+    if (!box?.placement && selectedEan) {
+      fillBox(di, bi, selectedEan);
       return;
     }
     setSelectedKey(key === selectedKey ? null : key);
   };
 
-  // ── Header click (select entire column / row) ────────────────────────────
   const handleColHeaderClick = (c: number) => {
     setSelectedKey(null);
     setSelectedHeaderRow(null);
-    setSelectedHeaderCol(prev => (prev === c ? null : c));
+    setSelectedHeaderCol(prev => prev === c ? null : c);
   };
-
   const handleRowHeaderClick = (r: number) => {
     setSelectedKey(null);
     setSelectedHeaderCol(null);
-    setSelectedHeaderRow(prev => (prev === r ? null : r));
+    setSelectedHeaderRow(prev => prev === r ? null : r);
   };
 
-  const handleDrop = (e: React.DragEvent, row: number, col: number) => {
+  const handleDrop = (e: React.DragEvent, di: number, bi: number) => {
     e.preventDefault();
     setDragOver(null);
     setInternalDragOver(null);
-    // Internal cell-to-cell drag takes priority
     const src = internalDragSrcRef.current;
     if (src) {
       internalDragSrcRef.current = null;
-      moveCell(src.row, src.col, row, col);
+      moveBox(src.displayRow, src.boxIndex, di, bi);
       return;
     }
-    // Catalogue drag: EAN in dataTransfer
     const ean = e.dataTransfer.getData('text/plain').trim();
-    if (ean) fillCellWithEan(row, col, ean);
+    if (ean) fillBox(di, bi, ean);
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center w-full h-full bg-gray-900">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  // ── Computed rendering values ─────────────────────────────────────────────────
+  if (loading || !gondola) {
+    return loading
+      ? (<div className="flex items-center justify-center w-full h-full bg-gray-900"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>)
+      : (<div className="flex items-center justify-center w-full h-full bg-gray-900"><p className="text-gray-500 text-sm">Chargement échoué</p></div>);
   }
 
-  if (!planogram) {
-    return (
-      <div className="flex items-center justify-center w-full h-full bg-gray-900">
-        <p className="text-gray-500 text-sm">Failed to load planogram</p>
-      </div>
-    );
-  }
-
-  const rows = planogram.rows;
-  const cols = planogram.cols;
-  // Per-column and per-row cm sizes, using local drag state when resizing
-  const effectiveColWidths = localColWidths ?? getEffectiveColWidths(planogram);
-  const effectiveRowHeights = localRowHeights ?? getEffectiveRowHeights(planogram);
-  // Per-column and per-row pixel sizes, proportional to physical dimensions and scaled by zoom
-  const colWidthsPx = effectiveColWidths.map(w => Math.max(CELL_MIN_PX, Math.round(w * CELL_WIDTH_SCALE * zoom)));
-  const rowHeightsPx = effectiveRowHeights.map(h => Math.max(CELL_MIN_PX, Math.round(h * CELL_HEIGHT_SCALE * zoom)));
-
-  // ── Per-cell effective sizes (override takes precedence over column/row default) ──
-  const getCellWidthCm = (row: number, col: number): number => {
-    const key = `${row}-${col}`;
-    if (localCellWidthOverrides?.[key] != null) return localCellWidthOverrides[key];
-    if (planogram.cellWidthOverrides?.[key] != null) return planogram.cellWidthOverrides[key];
-    // Extra cells (col >= cols) have no global colWidthsCm entry; fall back to default cell width.
-    return effectiveColWidths[col] ?? Math.max(MIN_CELL_CM_W, physCellW);
-  };
-  const getCellWidthPx = (row: number, col: number): number => {
-    const span = planogram?.mergedSpans?.[`${row}-${col}`] ?? 1;
-    // A merged cell visually absorbs the RESIZE_HANDLE_PX separators that would have
-    // existed between the original individual cells, so add them back here.
-    const separatorPx = span > 1 ? (span - 1) * RESIZE_HANDLE_PX : 0;
-    return Math.max(CELL_MIN_PX, Math.round(getCellWidthCm(row, col) * CELL_WIDTH_SCALE * zoom)) + separatorPx;
+  // Per-box pixel sizes (with live preview during drag)
+  const getBoxWidthPx = (di: number, bi: number): number => {
+    const box = findBox(boxes, di, bi);
+    if (!box) return CELL_MIN_PX;
+    let wCm = box.width_cm;
+    if (localSepPositions) {
+      const shelf = getShelfByDisplayIndex(gondola, di);
+      if (shelf) {
+        const seps = sortedSeps(shelf);
+        const leftSepIdx  = seps.findIndex(s => s.id === box.leftSeparatorId);
+        const rightSepIdx = seps.findIndex(s => s.id === box.rightSeparatorId);
+        const leftPos  = localSepPositions.get(seps[leftSepIdx]?.id  ?? '') ?? seps[leftSepIdx]?.position_cm  ?? box.x_cm;
+        const rightPos = localSepPositions.get(seps[rightSepIdx]?.id ?? '') ?? seps[rightSepIdx]?.position_cm ?? (box.x_cm + box.width_cm);
+        wCm = rightPos - leftPos;
+      }
+    }
+    return Math.max(CELL_MIN_PX, Math.round(wCm * CELL_WIDTH_SCALE * zoom));
   };
 
-  const getCellHeightCm = (row: number, col: number): number => {
-    const key = `${row}-${col}`;
-    if (localCellHeightOverrides?.[key] != null) return localCellHeightOverrides[key];
-    if (planogram.cellHeightOverrides?.[key] != null) return planogram.cellHeightOverrides[key];
-    return effectiveRowHeights[row];
+  const getBoxHeightPx = (di: number): number => {
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    if (!shelf) return CELL_MIN_PX;
+    const h = localShelfHeights?.get(shelf.id) ?? shelf.height_cm;
+    return Math.max(CELL_MIN_PX, Math.round(h * CELL_HEIGHT_SCALE * zoom));
   };
-  const getCellHeightPx = (row: number, col: number): number =>
-    Math.max(CELL_MIN_PX, Math.round(getCellHeightCm(row, col) * CELL_HEIGHT_SCALE * zoom));
 
-  // Per-row effective column count (may exceed global cols when extra cells were added to a row).
-  const getRowColCount = (r: number): number => planogram.rowColCounts?.[r] ?? cols;
+  const getBoxWidthCm = (di: number, bi: number): number => {
+    const box = findBox(boxes, di, bi);
+    return box?.width_cm ?? 0;
+  };
 
-  // Row container height = max of all cells' heights in that row (cells may differ due to per-cell overrides)
-  const rowContainerHeightsPx = Array.from({ length: rows }, (_, r) => {
-    let maxH = rowHeightsPx[r];
-    for (let c = 0; c < getRowColCount(r); c++) maxH = Math.max(maxH, getCellHeightPx(r, c));
-    return maxH;
-  });
+  const getBoxHeightCm = (di: number): number => {
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    return shelf?.height_cm ?? 0;
+  };
 
-  // Derived row/col of the currently selected cell, used to highlight adjacent resize handles
-  const [selectedRow, selectedCol] = selectedKey
-    ? selectedKey.split('-').map(Number) as [number, number]
-    : [null, null] as [null, null];
-
-  // ── Grey extension: extra gondola space beyond current planogram dimensions ──
-  // Use the same remaining-space formula as canAddCol/canAddRow (includes OVERFLOW_TOLERANCE_CM)
+  // Grey extension areas
   const extraGondolaWidthCm  = furniture ? Math.max(0, gondolaRemainingW)  : 0;
   const extraGondolaHeightCm = furniture ? Math.max(0, gondolaRemainingH) : 0;
   const greyExtWidthPx  = Math.round(extraGondolaWidthCm  * CELL_WIDTH_SCALE  * zoom);
   const greyExtHeightPx = Math.round(extraGondolaHeightCm * CELL_HEIGHT_SCALE * zoom);
 
-  // ── Crush detection (list of all cells where product exceeds cell dimensions) ──
-  const crushedCells: { key: string; row: number; col: number; prod: CADProduct }[] = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < getRowColCount(r); c++) {
-      const key = `${r}-${c}`;
-      const cell = cellMap.get(key);
-      if (!cell) continue;
-      const prod = productByEan.get(cell.ean);
-      if (!prod) continue;
-      const cellCmW = getCellWidthCm(r, c);
-      const cellCmH = getCellHeightCm(r, c);
-      if (prod.widthCm > cellCmW + OVERFLOW_TOLERANCE_CM || prod.heightCm > cellCmH + OVERFLOW_TOLERANCE_CM) {
-        crushedCells.push({ key, row: r, col: c, prod });
-      }
+  // Crush detection
+  const crushedBoxes: { key: BoxKey; di: number; bi: number; prod: CADProduct }[] = [];
+  for (const box of boxes) {
+    if (!box.placement) continue;
+    const prod = productByEan.get(box.placement.productId);
+    if (!prod) continue;
+    if (prod.widthCm > box.width_cm + OVERFLOW_TOLERANCE_CM || prod.heightCm > box.height_cm + OVERFLOW_TOLERANCE_CM) {
+      crushedBoxes.push({ key: makeBoxKey(box.shelfDisplayIndex, box.boxIndex), di: box.shelfDisplayIndex, bi: box.boxIndex, prod });
     }
   }
 
-  // ── Merge eligibility ────────────────────────────────────────────────────
-  // True when all selected cells are empty, in the same row, form a contiguous column range,
-  // and none are already merged (re-merging merged cells is not supported).
-  const canMerge = (() => {
+  // Fuse eligibility: multiple boxes, same row, contiguous, no product
+  const canFuse = (() => {
     if (selectedKeys.size < 2) return false;
-    const parsedKeys = [...selectedKeys].map(k => k.split('-').map(Number) as [number, number]);
-    if (parsedKeys.some(([r, c]) => cellMap.has(`${r}-${c}`))) return false;
-    if (parsedKeys.some(([r, c]) => (planogram.mergedSpans?.[`${r}-${c}`] ?? 1) > 1)) return false;
-    const rowSet = new Set(parsedKeys.map(([r]) => r));
+    const parsed = [...selectedKeys].map(k => parseBoxKey(k)).filter((p): p is [number,number] => p !== null);
+    const rowSet = new Set(parsed.map(([r]) => r));
     if (rowSet.size !== 1) return false;
-    const sortedCols = parsedKeys.map(([, c]) => c).sort((a, b) => a - b);
+    const sortedCols = parsed.map(([,c]) => c).sort((a,b) => a-b);
     for (let i = 1; i < sortedCols.length; i++) {
-      if (sortedCols[i] !== sortedCols[i - 1] + 1) return false;
+      if (sortedCols[i] !== sortedCols[i-1] + 1) return false;
     }
     return true;
   })();
 
-  // ── Split eligibility ────────────────────────────────────────────────────
-  // True when the single selected cell is an empty merged box (span >= 2).
+  // Split eligibility: single box, no product, width > 2 * MIN_BOX_CM
   const canSplit = (() => {
     if (!selectedKey || selectedKeys.size > 1) return false;
-    if (cellMap.has(selectedKey)) return false;
-    return (planogram.mergedSpans?.[selectedKey] ?? 1) >= 2;
+    const parsed = parseBoxKey(selectedKey);
+    if (!parsed) return false;
+    const box = findBox(boxes, parsed[0], parsed[1]);
+    return box !== undefined && !box.placement && box.width_cm > 2 * MIN_BOX_CM;
   })();
 
-  // ── Delete-box eligibility ────────────────────────────────────────────────
-  // True when the single selected cell is an empty box and the row has > 1 cell.
+  // Delete-box eligibility: single empty box, row has > 1 box
   const canDeleteBox = (() => {
     if (!selectedKey || selectedKeys.size > 1) return false;
-    if (cellMap.has(selectedKey)) return false;
-    const parsed = parseOverrideKey(selectedKey);
+    const parsed = parseBoxKey(selectedKey);
     if (!parsed) return false;
-    const [r] = parsed;
-    const span = planogram.mergedSpans?.[selectedKey] ?? 1;
-    const rowColCount = planogram.rowColCounts?.[r] ?? planogram.cols;
-    return rowColCount - span >= 1; // must keep at least one box after deletion
+    const [di, bi] = parsed;
+    const box = findBox(boxes, di, bi);
+    if (!box || box.placement) return false;
+    return getRowBoxes(boxes, di).length > 1;
   })();
 
-  // ── Row fill ratios (cm used / planogram widthCm per row) ────────────────
-  const rowFillCm = Array.from({ length: rows }, (_, r) => {
-    let total = 0;
-    for (let c = 0; c < getRowColCount(r); c++) total += getCellWidthCm(r, c);
-    return total;
+  // Row fill cm
+  const rowFillCm = Array.from({ length: shelfCount }, (_, di) => {
+    return getRowBoxes(boxes, di).reduce((acc, b) => acc + b.width_cm, 0);
   });
 
-  // ── Navigate to a crushed cell ───────────────────────────────────────────
   const scrollToCrushed = (idx: number) => {
-    if (crushedCells.length === 0) return;
-    const target = crushedCells[idx % crushedCells.length];
+    if (crushedBoxes.length === 0) return;
+    const target = crushedBoxes[idx % crushedBoxes.length];
     setSelectedKey(target.key);
     setSelectedKeys(new Set());
-    // Use data attribute to scroll to the cell
     setTimeout(() => {
-      document.querySelector<HTMLElement>(`[data-cell-key="${target.key}"]`)
+      document.querySelector<HTMLElement>(`[data-box-key="${target.key}"]`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }, 0);
   };
 
   const handleCrushBadgeClick = () => {
-    if (crushedCells.length === 0) return;
-    const nextIdx = (crushNavIdx) % crushedCells.length;
+    if (crushedBoxes.length === 0) return;
+    const nextIdx = crushNavIdx % crushedBoxes.length;
     scrollToCrushed(nextIdx);
     setCrushNavIdx(nextIdx + 1);
   };
 
+  const [selDisplayRow, selBoxIdx] = selectedKey ? (parseBoxKey(selectedKey) ?? [null, null]) : [null, null];
+
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full bg-gray-900">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800 shrink-0">
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold text-gray-200 truncate">{planogram.name}</h2>
+          <h2 className="text-sm font-semibold text-gray-200 truncate">
+            {planogramBase?.name ?? planogramId}
+          </h2>
           <p className="text-xs text-gray-500">
-            {rows} lignes × {cols} colonnes
-            &nbsp;·&nbsp;
-            {planogram.widthCm.toFixed(1)} × {planogram.heightCm.toFixed(1)} cm
-            &nbsp;·&nbsp;
-            {planogram.cells.length} / {rows * cols} remplis
-            &nbsp;·&nbsp;
-            <span className="text-gray-600">{physCellW.toFixed(1)} × {physCellH.toFixed(1)} cm/cellule</span>
+            {shelfCount} ligne{shelfCount !== 1 ? 's' : ''}
+            &nbsp;·&nbsp;{gondola.width_cm.toFixed(1)} × {gondola.height_cm.toFixed(1)} cm
+            &nbsp;·&nbsp;{gondola.productPlacements.length} produit{gondola.productPlacements.length !== 1 ? 's' : ''}
+            &nbsp;·&nbsp;<span className="text-gray-600">moteur séparateurs</span>
           </p>
         </div>
 
-        {/* Hidden file input for image upload */}
         <input
           ref={uploadInputRef}
           type="file"
@@ -1802,184 +873,107 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         />
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Row / column management */}
+          {/* Row management */}
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-600 mr-0.5">Lignes</span>
-            <button
-              onClick={removeRow}
-              disabled={rows <= 1}
+            <button onClick={removeRow} disabled={shelfCount <= 1}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title={
-                selectedHeaderRow !== null
-                  ? `Supprimer la ligne ${selectedHeaderRow + 1}`
-                  : 'Supprimer la dernière ligne'
-              }
+              title={selectedHeaderRow !== null ? `Supprimer la ligne ${selectedHeaderRow + 1}` : 'Supprimer la ligne supérieure'}
             >−</button>
-            <span className="text-xs text-gray-400 w-5 text-center">{rows}</span>
-            <button
-              onClick={addRow}
-              disabled={!canAddRow}
+            <span className="text-xs text-gray-400 w-5 text-center">{shelfCount}</span>
+            <button onClick={addRow} disabled={!canAddRow}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title={canAddRow ? "Ajouter une ligne" : `Limite atteinte (${furniture?.dimensions.height ?? '?'} cm)`}
+              title={canAddRow ? 'Ajouter une ligne' : `Limite atteinte (${furniture?.dimensions.height ?? '?'} cm)`}
             >+</button>
           </div>
-
           <div className="h-4 w-px bg-gray-700" />
-
+          {/* Col management */}
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-600 mr-0.5">Colonnes</span>
-            <button
-              onClick={removeCol}
-              disabled={cols <= 1}
+            <button onClick={removeCol} disabled={maxBoxCount <= 1}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title={
-                selectedHeaderRow !== null
-                  ? `Supprimer la dernière cellule de la ligne ${selectedHeaderRow + 1}`
-                  : selectedHeaderCol !== null
-                  ? `Supprimer la colonne ${selectedHeaderCol + 1}`
-                  : 'Supprimer la dernière colonne'
-              }
+              title={selectedHeaderRow !== null ? `Retirer la dernière cellule de la ligne ${selectedHeaderRow + 1}` : 'Retirer la dernière colonne (toutes les lignes)'}
             >−</button>
-            <span className="text-xs text-gray-400 w-5 text-center">{cols}</span>
-            <button
-              onClick={addCol}
-              disabled={!canAddCol}
+            <span className="text-xs text-gray-400 w-5 text-center">{maxBoxCount}</span>
+            <button onClick={addCol} disabled={!canAddCol}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title={
-                !canAddCol
-                  ? `Limite atteinte (${furniture?.dimensions.width ?? '?'} cm)`
-                  : selectedHeaderRow !== null
-                  ? `Ajouter une cellule à la ligne ${selectedHeaderRow + 1}`
-                  : 'Ajouter une colonne à toutes les lignes'
-              }
+              title={!canAddCol ? `Limite atteinte (${furniture?.dimensions.width ?? '?'} cm)` : selectedHeaderRow !== null ? `Ajouter une cellule à la ligne ${selectedHeaderRow + 1}` : 'Ajouter une colonne (toutes les lignes)'}
             >+</button>
           </div>
-
           <div className="h-4 w-px bg-gray-700" />
-
-          {/* Zoom controls */}
+          {/* Zoom */}
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors"
-              title="Zoom arrière"
-            >−</button>
+            <button onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors" title="Zoom arrière">−</button>
             <span className="text-xs text-gray-500 w-10 text-center">{Math.round(zoom * 100)}%</span>
-            <button
-              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
-              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors"
-              title="Zoom avant"
-            >+</button>
+            <button onClick={() => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 text-sm transition-colors" title="Zoom avant">+</button>
           </div>
-
           <div className="h-4 w-px bg-gray-700" />
-
-          {/* Undo / Redo */}
-          <button
-            onClick={undo}
-            disabled={history.length === 0}
-            className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors"
-            title="Annuler (Ctrl+Z)"
-          >↩ Annuler</button>
-          <button
-            onClick={redo}
-            disabled={future.length === 0}
-            className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors"
-            title="Rétablir (Ctrl+Y)"
-          >↪ Rétablir</button>
-
-          {/* Crush badge — click to navigate between conflicts */}
-          {crushedCells.length > 0 && (
-            <button
-              onClick={handleCrushBadgeClick}
+          {/* Undo/Redo */}
+          <button onClick={undo} disabled={history.length === 0}
+            className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors" title="Annuler (Ctrl+Z)">↩ Annuler</button>
+          <button onClick={redo} disabled={future.length === 0}
+            className="px-2 py-1 text-xs rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 transition-colors" title="Rétablir (Ctrl+Y)">↪ Rétablir</button>
+          {/* Crush badge */}
+          {crushedBoxes.length > 0 && (
+            <button onClick={handleCrushBadgeClick}
               className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-800/60 hover:bg-red-700/80 text-red-300 text-xs transition-colors"
-              title={`${crushedCells.length} conflit(s) — cliquer pour naviguer`}
-            >
-              ⚠ {crushedCells.length} conflit{crushedCells.length > 1 ? 's' : ''}
-            </button>
+              title={`${crushedBoxes.length} conflit(s) — cliquer pour naviguer`}
+            >⚠ {crushedBoxes.length} conflit{crushedBoxes.length > 1 ? 's' : ''}</button>
           )}
-
           <div className="h-4 w-px bg-gray-700" />
-
-          {/* Clear all cells */}
+          {/* Clear all */}
           {!clearAllConfirm ? (
-            <button
-              onClick={() => setClearAllConfirm(true)}
-              disabled={planogram.cells.length === 0}
-              className="px-2 py-0.5 text-xs rounded hover:bg-red-900/50 text-gray-400 hover:text-red-300 disabled:opacity-30 transition-colors"
-              title="Vider tous les blocs de gondole"
-            >🗑 Tout vider</button>
+            <button onClick={() => setClearAllConfirm(true)} disabled={gondola.productPlacements.length === 0}
+              className="px-2 py-0.5 text-xs rounded hover:bg-red-900/50 text-gray-400 hover:text-red-300 disabled:opacity-30 transition-colors" title="Vider tous les produits">🗑 Tout vider</button>
           ) : (
             <span className="flex items-center gap-1">
               <span className="text-xs text-red-300">Confirmer ?</span>
-              <button
-                onClick={clearAllCells}
-                className="px-2 py-0.5 text-xs rounded bg-red-700 hover:bg-red-600 text-white transition-colors"
-              >Oui</button>
-              <button
-                onClick={() => setClearAllConfirm(false)}
-                className="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
-              >Non</button>
+              <button onClick={clearAll} className="px-2 py-0.5 text-xs rounded bg-red-700 hover:bg-red-600 text-white transition-colors">Oui</button>
+              <button onClick={() => setClearAllConfirm(false)} className="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors">Non</button>
             </span>
           )}
-
-          {/* Multi-selection bulk actions */}
+          {/* Multi-select actions */}
           {selectedKeys.size > 1 && (
             <>
               <div className="h-4 w-px bg-gray-700" />
-              <button
-                onClick={clearSelectedCells}
+              <button onClick={clearSelectedBoxes}
                 className="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-red-800/50 text-gray-300 hover:text-red-200 transition-colors"
                 title={`Vider les ${selectedKeys.size} cellules sélectionnées`}
               >Vider ({selectedKeys.size})</button>
               {selectedEan && (
-                <button
-                  onClick={() => fillSelectedCells(selectedEan)}
+                <button onClick={() => fillSelectedBoxes(selectedEan)}
                   className="px-2 py-0.5 text-xs rounded bg-blue-800/50 hover:bg-blue-700/70 text-blue-200 transition-colors"
                   title={`Appliquer ${selectedEan} à ${selectedKeys.size} cellules`}
                 >Appliquer ({selectedKeys.size})</button>
               )}
-              {canMerge && (
-                <button
-                  onClick={mergeSelectedCells}
+              {canFuse && (
+                <button onClick={fuseSelectedBoxes}
                   className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
-                  title={`Fusionner les ${selectedKeys.size} boîtes vides contiguës en une seule boîte plus large`}
+                  title={`Fusionner les ${selectedKeys.size} boîtes contiguës en une seule`}
                 >⊞ Fusionner ({selectedKeys.size})</button>
               )}
             </>
           )}
-
-          {/* Single empty-box actions: split and delete */}
+          {/* Single box actions */}
           {(canSplit || canDeleteBox) && selectedKeys.size <= 1 && (
             <>
               <div className="h-4 w-px bg-gray-700" />
-              {canSplit && (() => {
-                const splitSpan = planogram.mergedSpans?.[selectedKey!] ?? 1;
-                return (
-                  <button
-                    onClick={splitSelectedCell}
-                    className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
-                    title={`Diviser cette boîte fusionnée (${splitSpan} colonnes) en ${splitSpan} boîtes de largeur égale`}
-                  >⊟ Diviser</button>
-                );
-              })()}
+              {canSplit && (
+                <button onClick={splitSelectedBox}
+                  className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
+                  title="Diviser cette boîte en deux">⊟ Diviser</button>
+              )}
               {canDeleteBox && (
-                <button
-                  onClick={() => { if (selectedRow !== null && selectedCol !== null) deleteBox(selectedRow, selectedCol); }}
+                <button onClick={() => { if (selDisplayRow !== null && selBoxIdx !== null) deleteBox(selDisplayRow, selBoxIdx); }}
                   className="px-2 py-0.5 text-xs rounded bg-red-800/40 hover:bg-red-700/60 text-red-300 transition-colors"
-                  title="Supprimer cette boîte — sa largeur est redistribuée à la boîte adjacente"
-                >🗑 Suppr. boîte</button>
+                  title="Supprimer cette boîte (sa largeur est redistribuée)">🗑 Suppr. boîte</button>
               )}
             </>
           )}
-
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-700 text-gray-400 hover:text-white text-base transition-colors"
-            title="Fermer"
-          >
-            ×
-          </button>
+          <button onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-700 text-gray-400 hover:text-white text-base transition-colors" title="Fermer">×</button>
         </div>
       </div>
 
@@ -1988,14 +982,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border-b border-red-700/50 text-xs text-red-300 shrink-0">
           <span className="text-base">🔴</span>
           <span>
-            Ce planogramme ({planogram.widthCm} × {planogram.heightCm} cm) dépasse les dimensions de la gondole
+            Ce planogramme ({gondola.width_cm} × {gondola.height_cm} cm) dépasse les dimensions de la gondole
             ({furniture?.dimensions.width ?? '?'} × {furniture?.dimensions.height ?? '?'} cm).
-            Les produits en dehors des limites ne seront pas affichés correctement.
           </span>
         </div>
       )}
 
-      {/* AddRow dialog — shown when top row height check triggers */}
+      {/* AddRow dialog */}
       {addRowDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-xl p-5 max-w-sm w-full mx-4">
@@ -2003,19 +996,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             <p className="text-xs text-gray-300 mb-4">
               {addRowDialog.canAutoFix
                 ? `La rangée supérieure fait ${addRowDialog.topRowH.toFixed(1)} cm. Il faut ${addRowDialog.needed.toFixed(1)} cm pour la nouvelle rangée. Réduire automatiquement la rangée du haut ?`
-                : `La rangée supérieure fait déjà ${addRowDialog.topRowH.toFixed(1)} cm, trop peu pour absorber une nouvelle rangée (${addRowDialog.needed.toFixed(1)} cm). Supprimez une rangée existante pour libérer de l'espace.`}
+                : `La rangée supérieure fait déjà ${addRowDialog.topRowH.toFixed(1)} cm, trop peu pour absorber une nouvelle rangée (${addRowDialog.needed.toFixed(1)} cm).`}
             </p>
             <div className="flex gap-2 justify-end">
               {addRowDialog.canAutoFix && (
-                <button
-                  onClick={() => { setAddRowDialog(null); _doAddRow(addRowDialog.needed); }}
-                  className="px-3 py-1.5 text-xs rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors"
-                >Réduire et ajouter</button>
+                <button onClick={() => { setAddRowDialog(null); _doAddRow(addRowDialog.needed); }}
+                  className="px-3 py-1.5 text-xs rounded bg-blue-700 hover:bg-blue-600 text-white transition-colors">Réduire et ajouter</button>
               )}
-              <button
-                onClick={() => setAddRowDialog(null)}
-                className="px-3 py-1.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
-              >Annuler</button>
+              <button onClick={() => setAddRowDialog(null)}
+                className="px-3 py-1.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors">Annuler</button>
             </div>
           </div>
         </div>
@@ -2023,448 +1012,282 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
       {/* Grid area */}
       <div className="flex-1 overflow-auto p-4">
-        {/* Full-screen overlay to hold cursor during resize */}
+        {/* Resize overlay */}
         {isResizing && (
-          <div
-            style={{
-              position: 'fixed', inset: 0, zIndex: 9999,
-              cursor: isResizing === 'col' ? 'col-resize' : 'row-resize',
-            }}
-          />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: isResizing === 'sep' ? 'col-resize' : 'row-resize' }} />
         )}
-
-        {/* Dimension tooltip during resize */}
+        {/* Tooltip */}
         {resizeTooltip && (
-          <div
-            style={{
-              position: 'fixed',
-              left: resizeTooltip.x,
-              top: resizeTooltip.y,
-              zIndex: 10000,
-              pointerEvents: 'none',
-            }}
-            className="bg-gray-950 text-blue-300 text-xs font-mono px-1.5 py-0.5 rounded border border-blue-500/60 shadow-lg whitespace-nowrap"
-          >
+          <div style={{ position: 'fixed', left: resizeTooltip.x, top: resizeTooltip.y, zIndex: 10000, pointerEvents: 'none' }}
+            className="bg-gray-950 text-blue-300 text-xs font-mono px-1.5 py-0.5 rounded border border-blue-500/60 shadow-lg whitespace-nowrap">
             {resizeTooltip.text}
           </div>
         )}
 
-        {/* Column numbers — sticky top so they stay visible on vertical scroll */}
-        <div
-          className="flex mb-1"
-          style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#111827' }}
-        >
-          {/* Corner spacer (sticky top+left) */}
-          <div
-            style={{
-              width: '24px', flexShrink: 0,
-              position: 'sticky', left: 0, zIndex: 20,
-              backgroundColor: '#111827',
-            }}
-          />
-          {Array.from({ length: cols }, (_, c) => (
+        {/* Column header */}
+        <div className="flex mb-1" style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#111827' }}>
+          <div style={{ width: '24px', flexShrink: 0, position: 'sticky', left: 0, zIndex: 20, backgroundColor: '#111827' }} />
+          {Array.from({ length: maxBoxCount }, (_, c) => (
             <Fragment key={c}>
-              <div
-                className={[
-                  'text-center text-xs pb-0.5 flex-none cursor-pointer select-none transition-colors rounded-t',
-                  selectedHeaderCol === c
-                    ? 'text-blue-400 bg-blue-900/40'
-                    : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60',
-                ].join(' ')}
-                style={{ width: `${colWidthsPx[c]}px` }}
-                onClick={() => handleColHeaderClick(c)}
-                title={`Colonne ${c + 1} — cliquer pour sélectionner`}
-              >
-                {c + 1}
-              </div>
-              {c < cols - 1 && (
-                <div
-                  style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0, cursor: 'col-resize' }}
-                  className={[
-                    'transition-colors',
-                    activeSnapBoundary === c + 1
-                      ? 'bg-yellow-400/80'
-                      : 'hover:bg-blue-500/60',
-                  ].join(' ')}
-                  onMouseDown={(e) => startColResize(e, c)}
-                  title="Redimensionner colonne"
+              {/* Width: derive from top shelf box widths */}
+              {(() => {
+                const topShelf = getShelfByDisplayIndex(gondola, 0);
+                const topBoxes = topShelf ? getRowBoxes(boxes, 0) : [];
+                const w = topBoxes[c] ? getBoxWidthPx(0, c) : CELL_MIN_PX;
+                return (
+                  <div
+                    className={['text-center text-xs pb-0.5 flex-none cursor-pointer select-none transition-colors rounded-t',
+                      selectedHeaderCol === c ? 'text-blue-400 bg-blue-900/40' : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60'].join(' ')}
+                    style={{ width: `${w}px` }}
+                    onClick={() => handleColHeaderClick(c)}
+                    title={`Colonne ${c + 1}`}
+                  >{c + 1}</div>
+                );
+              })()}
+              {c < maxBoxCount - 1 && (
+                <div style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0, cursor: 'col-resize' }}
+                  className={['transition-colors', activeSnapIdx === c + 1 ? 'bg-yellow-400/80' : 'hover:bg-blue-500/60'].join(' ')}
                 />
               )}
             </Fragment>
           ))}
-          {/* Grey extension header */}
           {greyExtWidthPx > 0 && (
-            <div
-              style={{ width: `${greyExtWidthPx}px`, marginLeft: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }}
+            <div style={{ width: `${greyExtWidthPx}px`, marginLeft: `${RESIZE_HANDLE_PX}px`, flexShrink: 0 }}
               className="text-center text-xs text-gray-500 pb-0.5 italic"
-              title={`${extraGondolaWidthCm.toFixed(0)} cm disponibles sur la gondole`}
-            >
+              title={`${extraGondolaWidthCm.toFixed(0)} cm disponibles`}>
               +{extraGondolaWidthCm.toFixed(0)} cm
             </div>
           )}
         </div>
 
         <div className="flex">
-          {/* Row numbers — sticky left so they stay visible on horizontal scroll */}
-          <div
-            className="flex flex-col"
-            style={{ width: '20px', marginRight: '4px', position: 'sticky', left: 0, zIndex: 5, backgroundColor: '#111827' }}
-          >
-            {Array.from({ length: rows }, (_, r) => {
-              const fillCm = rowFillCm[r];
-              const fillRatio = planogram.widthCm > 0 ? fillCm / planogram.widthCm : 0;
+          {/* Row numbers */}
+          <div className="flex flex-col" style={{ width: '20px', marginRight: '4px', position: 'sticky', left: 0, zIndex: 5, backgroundColor: '#111827' }}>
+            {Array.from({ length: shelfCount }, (_, di) => {
+              const fillCm = rowFillCm[di];
+              const fillRatio = gondola.width_cm > 0 ? fillCm / gondola.width_cm : 0;
               const fillColor = fillRatio > 1 ? '#ef4444' : fillRatio > 0.95 ? '#f59e0b' : '#22c55e';
+              const rowH = getBoxHeightPx(di);
               return (
-              <Fragment key={r}>
-                <div
-                  className={[
-                    'text-xs flex flex-col items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l',
-                    selectedHeaderRow === r
-                      ? 'text-blue-400 bg-blue-900/40'
-                      : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60',
-                  ].join(' ')}
-                  style={{ height: `${rowContainerHeightsPx[r]}px`, width: '20px', position: 'relative', overflow: 'hidden' }}
-                  onClick={() => handleRowHeaderClick(r)}
-                  title={`Ligne ${r + 1} — ${fillCm.toFixed(1)} cm / ${planogram.widthCm.toFixed(1)} cm (${(fillRatio * 100).toFixed(0)}% utilisé)`}
-                >
-                  {r + 1}
-                  {/* Fill bar */}
+                <Fragment key={di}>
                   <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      height: '3px',
-                      width: `${Math.min(fillRatio * 100, 100)}%`,
-                      backgroundColor: fillColor,
-                      borderRadius: '0 0 0 3px',
-                      transition: 'width 0.2s',
-                    }}
-                  />
-                </div>
-                {r < rows - 1 && (
-                  <div
-                    style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
-                    className={[
-                      'transition-colors',
-                      activeRowSnapBoundary === r + 1
-                        ? 'bg-yellow-400/80'
-                        : 'hover:bg-blue-500/60',
-                    ].join(' ')}
-                    onMouseDown={(e) => startRowResize(e, r)}
-                    title="Redimensionner ligne"
-                  />
-                )}
-              </Fragment>
+                    className={['text-xs flex flex-col items-center justify-center flex-none cursor-pointer select-none transition-colors rounded-l',
+                      selectedHeaderRow === di ? 'text-blue-400 bg-blue-900/40' : 'text-gray-600 hover:text-gray-300 hover:bg-gray-800/60'].join(' ')}
+                    style={{ height: `${rowH}px`, width: '20px', position: 'relative', overflow: 'hidden' }}
+                    onClick={() => handleRowHeaderClick(di)}
+                    title={`Ligne ${di + 1} — ${fillCm.toFixed(1)} / ${gondola.width_cm.toFixed(1)} cm`}
+                  >
+                    {di + 1}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, height: '3px', width: `${Math.min(fillRatio * 100, 100)}%`, backgroundColor: fillColor, borderRadius: '0 0 0 3px', transition: 'width 0.2s' }} />
+                  </div>
+                  {di < shelfCount - 1 && (
+                    <div style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
+                      className={['transition-colors', (selDisplayRow === di || selDisplayRow === di + 1) ? 'bg-blue-500/40 hover:bg-blue-400/70' : 'bg-gray-800 hover:bg-blue-500/50'].join(' ')}
+                      onMouseDown={(e) => startShelfResize(e, di)} title="Redimensionner ligne" />
+                  )}
+                </Fragment>
               );
             })}
           </div>
 
           {/* Main grid */}
           <div className="flex flex-col">
-            {Array.from({ length: rows }, (_, row) => (
-              <Fragment key={row}>
-                {/* Data row */}
-                <div className="flex">
-                  {Array.from({ length: getRowColCount(row) }, (_, col) => {
-                    const key      = `${row}-${col}`;
-                    const cell     = cellMap.get(key);
-                    const prod     = cell ? productByEan.get(cell.ean) : undefined;
-                    const catColor = prod ? getCategoryColor(prod.category) : undefined;
-                    const isSelected = selectedKey === key;
-                    const isMultiSelected = selectedKeys.has(key);
-                    const isInternalDragOver = internalDragOver === key;
-                    const isDragOver = dragOver === key;
-                    const isUploading = prod && uploadingEan === prod.ean;
-                    const isHeaderHighlighted = selectedHeaderCol === col || selectedHeaderRow === row;
-                    const cellCmW = getCellWidthCm(row, col);
-                    const cellCmH = getCellHeightCm(row, col);
-                    const cellPxW = getCellWidthPx(row, col);
-                    const cellPxH = getCellHeightPx(row, col);
-                    // Whether this gap is between two global (shared) columns — drives resize cursor.
-                    const isGlobalColGap = col < cols - 1;
+            {Array.from({ length: shelfCount }, (_, di) => {
+              const rowBoxes = getRowBoxes(boxes, di);
+              const rowH = getBoxHeightPx(di);
+              return (
+                <Fragment key={di}>
+                  <div className="flex">
+                    {rowBoxes.map((box) => {
+                      const bi  = box.boxIndex;
+                      const key = makeBoxKey(di, bi);
+                      const prod = box.placement ? productByEan.get(box.placement.productId) : undefined;
+                      const catColor = prod ? getCategoryColor(prod.category) : undefined;
+                      const isSelected      = selectedKey === key;
+                      const isMultiSelected = selectedKeys.has(key);
+                      const isDragOver      = dragOver === key;
+                      const isInternalDO    = internalDragOver === key;
+                      const isHeaderHL      = selectedHeaderCol === bi || selectedHeaderRow === di;
+                      const cellWCm = getBoxWidthCm(di, bi);
+                      const cellHCm = getBoxHeightCm(di);
+                      const cellWPx = getBoxWidthPx(di, bi);
+                      const cellHPx = rowH;
+                      const isUploading = prod && uploadingEan === prod.ean;
+                      const prodOverflow = prod
+                        ? prod.widthCm  > cellWCm + OVERFLOW_TOLERANCE_CM ||
+                          prod.heightCm > cellHCm + OVERFLOW_TOLERANCE_CM
+                        : false;
+                      const showDimBadge = zoom >= 1 && prod;
+                      const isLastBox = bi === rowBoxes.length - 1;
 
-                    // Per-cell overflow: product physical dims exceed this cell's physical dims
-                    const prodOverflow = prod
-                      ? prod.widthCm  > cellCmW + OVERFLOW_TOLERANCE_CM ||
-                        prod.heightCm > cellCmH + OVERFLOW_TOLERANCE_CM
-                      : false;
-
-                    // Zoom-aware dimension badge visibility
-                    const showDimBadge = zoom >= 1 && prod;
-
-                    return (
-                      <Fragment key={col}>
-                        <div
-                          data-cell-key={key}
-                          draggable={!!cell}
-                          onClick={(e) => handleCellClick(row, col, e)}
-                          onContextMenu={(e) => { e.preventDefault(); if (cell) clearCell(row, col); }}
-                          onDragStart={(e) => {
-                            if (!cell || !prod) return;
-                            internalDragSrcRef.current = { row, col, ean: cell.ean };
-                            e.dataTransfer.effectAllowed = 'move';
-                            // Remove default drag image to avoid browser ghost
-                            const ghost = document.createElement('div');
-                            ghost.style.position = 'absolute'; ghost.style.top = '-9999px';
-                            document.body.appendChild(ghost);
-                            e.dataTransfer.setDragImage(ghost, 0, 0);
-                            setTimeout(() => document.body.removeChild(ghost), 0);
-                          }}
-                          onDragEnd={() => {
-                            internalDragSrcRef.current = null;
-                            setInternalDragOver(null);
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            if (internalDragSrcRef.current) {
-                              setInternalDragOver(key);
-                              setDragOver(null);
-                            } else {
-                              setDragOver(key);
-                              setInternalDragOver(null);
-                            }
-                          }}
-                          onDragLeave={() => { setDragOver(null); setInternalDragOver(null); }}
-                          onDrop={(e) => handleDrop(e, row, col)}
-                          className={[
-                            'relative flex flex-col items-start justify-start rounded cursor-pointer transition-all overflow-hidden select-none border group flex-none',
-                            prodOverflow
-                              ? 'border-red-500 border-solid'
-                              : isInternalDragOver
-                              ? 'border-blue-400 border-dashed bg-blue-900/20'
-                              : isDragOver
-                              ? 'border-green-400 bg-green-900/20 border-solid'
-                              : cell
-                              ? 'border-transparent'
-                              : 'border-dashed border-gray-700 hover:border-gray-500',
-                            isSelected ? 'ring-2 ring-blue-500' : '',
-                            isMultiSelected && !isSelected ? 'ring-2 ring-blue-400/70 bg-blue-900/20' : '',
-                            isHeaderHighlighted && !isSelected && !isMultiSelected ? 'ring-1 ring-blue-400/60 bg-blue-900/15' : '',
-                            prodOverflow ? 'bg-red-900/20' : '',
-                            cell ? 'cursor-grab active:cursor-grabbing' : '',
-                          ].join(' ')}
-                          style={{
-                            width:  `${cellPxW}px`,
-                            height: `${cellPxH}px`,
-                            background: !prodOverflow && cell && catColor ? catColor + '18' : undefined,
-                          }}
-                          title={prodOverflow && prod
-                            ? `⚠ ${prod.name} (${prod.widthCm}×${prod.heightCm} cm) dépasse la cellule (${cellCmW.toFixed(1)}×${cellCmH.toFixed(1)} cm)`
-                            : cell ? `${prod?.name ?? cell.ean} — glisser pour déplacer`
-                            : undefined}
-                        >
-                          {cell && prod ? (
-                            <>
-                              {/* Category stripe or overflow indicator */}
-                              <div
-                               className="absolute inset-x-0 top-0 h-1 rounded-t"
-                               style={{ background: prodOverflow ? '#ef4444' : catColor }}
-                              />
-
-                              {/* Thumbnail */}
-                              <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
-                               <div className="w-full" style={{ height: `${Math.max(28, cellPxH - 32)}px` }}>
-                                 {isUploading ? (
-                                   <div className="w-full h-full flex items-center justify-center">
-                                     <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                                   </div>
-                                 ) : (
-                                   <ProductThumb product={prod} />
-                                 )}
-                               </div>
-                               <div
-                                 className="text-xs font-medium leading-tight truncate w-full text-center"
-                                 style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}
-                               >
-                                 {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
-                               </div>
-                               {/* Product dimensions — zoom-aware */}
-                               {showDimBadge && (
-                                 <div
-                                   className="text-center leading-none px-0.5 rounded"
-                                   style={{
-                                     fontSize: '9px',
-                                     color: prodOverflow ? '#f87171' : '#6b7280',
-                                     background: prodOverflow ? 'rgba(239,68,68,0.15)' : undefined,
-                                   }}
-                                 >
-                                   {prod.widthCm}×{prod.heightCm} cm
-                                   {zoom > 2 && (
-                                     <span style={{ color: '#4b5563' }}>
-                                       {' '}/ {cellCmW.toFixed(1)} cm
-                                     </span>
-                                   )}
-                                 </div>
-                               )}
-                              </div>
-
-                              {/* Overflow badge */}
-                              {prodOverflow && (
-                               <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>
-                                 ⚠ débordement
-                               </div>
-                              )}
-
-                              {/* Hover actions */}
-                              <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                               {/* Upload image */}
-                               <button
-                                 className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
-                                 title="Uploader une vignette"
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   pendingUploadEan.current = prod.ean;
-                                   uploadInputRef.current?.click();
-                                 }}
-                               >
-                                 📷
-                               </button>
-                               {/* Remove */}
-                               <button
-                                 className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
-                                 onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                                 title="Retirer"
-                               >
-                                 ×
-                               </button>
-                              </div>
-                            </>
-                          ) : cell ? (
-                            // Cell with EAN but no catalog match
-                            <>
-                              <div className="text-xs text-gray-400 font-mono text-center px-1">{cell.ean.slice(-6)}</div>
-                              <button
-                               className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
-                               onClick={(e) => { e.stopPropagation(); clearCell(row, col); }}
-                              >×</button>
-                            </>
-                          ) : (
-                            // Empty cell — a rigid "box" (boîte)
-                            <>
-                              {/* The "+" is always visible to indicate this is a box slot */}
-                              <span className="text-gray-600 text-sm font-bold select-none leading-none">+</span>
-                              {/* Merged-box indicator */}
-                              {(planogram.mergedSpans?.[key] ?? 1) > 1 && (
-                                <span
-                                  className="absolute bottom-0.5 left-0.5 text-gray-500 leading-none select-none"
-                                  style={{ fontSize: '9px' }}
-                                  title={`Boîte fusionnée — ${planogram.mergedSpans![key]} colonnes`}
-                                >⊟</span>
-                              )}
-                              {/* Delete-box button (hover) — only when the row has more than one cell */}
-                              {(planogram.rowColCounts?.[row] ?? cols) - (planogram.mergedSpans?.[key] ?? 1) >= 1 && (
-                                <button
-                                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={(e) => { e.stopPropagation(); deleteBox(row, col); }}
-                                  title="Supprimer cette boîte (sa largeur est donnée à la boîte adjacente)"
-                                >×</button>
-                              )}
-                            </>
-                          )}
-
-                          {/* Selected-cell resize handles — per-cell only (do not affect other rows/cols) */}
-                          {isSelected && col + 1 < getRowColCount(row) && (
-                            <div
-                              onMouseDown={(e) => startCellRightResize(e, row, col)}
-                              style={{
-                               position: 'absolute', right: 0, top: 0,
-                               width: '6px', height: '100%',
-                               cursor: 'col-resize', zIndex: 10,
-                               background: 'rgba(59,130,246,0.55)',
-                              }}
-                              title="Redimensionner ce segment de colonne (cette ligne seulement)"
-                            />
-                          )}
-                          {isSelected && col > 0 && (
-                            <div
-                              onMouseDown={(e) => startCellLeftResize(e, row, col)}
-                              style={{
-                               position: 'absolute', left: 0, top: 0,
-                               width: '6px', height: '100%',
-                               cursor: 'col-resize', zIndex: 10,
-                               background: 'rgba(59,130,246,0.55)',
-                              }}
-                              title="Redimensionner ce segment de colonne (cette ligne seulement)"
-                            />
-                          )}
-                          {isSelected && row + 1 < rows && (
-                            <div
-                              onMouseDown={(e) => startCellBottomResize(e, row, col)}
-                              style={{
-                               position: 'absolute', bottom: 0, left: 0,
-                               width: '100%', height: '6px',
-                               cursor: 'row-resize', zIndex: 10,
-                               background: 'rgba(59,130,246,0.55)',
-                              }}
-                              title="Redimensionner ce segment de ligne (cette colonne seulement)"
-                            />
-                          )}
-                          {isSelected && row > 0 && (
-                            <div
-                              onMouseDown={(e) => startCellTopResize(e, row, col)}
-                              style={{
-                               position: 'absolute', top: 0, left: 0,
-                               width: '100%', height: '6px',
-                               cursor: 'row-resize', zIndex: 10,
-                               background: 'rgba(59,130,246,0.55)',
-                              }}
-                              title="Redimensionner ce segment de ligne (cette colonne seulement)"
-                            />
-                          )}
-                        </div>
-
-                        {/* Column resize handle — only between columns (not after the last one in this row) */}
-                        {col < getRowColCount(row) - 1 && (
+                      return (
+                        <Fragment key={bi}>
                           <div
-                            style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellPxH}px`, cursor: 'col-resize', flexShrink: 0 }}
+                            data-box-key={key}
+                            draggable={!!box.placement}
+                            onClick={(e) => handleBoxClick(di, bi, e)}
+                            onContextMenu={(e) => { e.preventDefault(); if (box.placement) clearBox(di, bi); }}
+                            onDragStart={(e) => {
+                              if (!box.placement || !prod) return;
+                              internalDragSrcRef.current = { displayRow: di, boxIndex: bi, ean: box.placement.productId };
+                              e.dataTransfer.effectAllowed = 'move';
+                              const ghost = document.createElement('div');
+                              ghost.style.cssText = 'position:absolute;top:-9999px';
+                              document.body.appendChild(ghost);
+                              e.dataTransfer.setDragImage(ghost, 0, 0);
+                              setTimeout(() => document.body.removeChild(ghost), 0);
+                            }}
+                            onDragEnd={() => { internalDragSrcRef.current = null; setInternalDragOver(null); }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              if (internalDragSrcRef.current) { setInternalDragOver(key); setDragOver(null); }
+                              else { setDragOver(key); setInternalDragOver(null); }
+                            }}
+                            onDragLeave={() => { setDragOver(null); setInternalDragOver(null); }}
+                            onDrop={(e) => handleDrop(e, di, bi)}
                             className={[
-                              'transition-colors',
-                              isGlobalColGap && (selectedCol === col || selectedCol === col + 1)
-                               ? 'bg-blue-500/40 hover:bg-blue-400/70'
-                               : 'bg-gray-800 hover:bg-blue-500/50',
+                              'relative flex flex-col items-start justify-start rounded cursor-pointer transition-all overflow-hidden select-none border group flex-none',
+                              prodOverflow ? 'border-red-500 border-solid'
+                                : isInternalDO ? 'border-blue-400 border-dashed bg-blue-900/20'
+                                : isDragOver  ? 'border-green-400 bg-green-900/20 border-solid'
+                                : box.placement ? 'border-transparent'
+                                : 'border-dashed border-gray-700 hover:border-gray-500',
+                              isSelected ? 'ring-2 ring-blue-500' : '',
+                              isMultiSelected && !isSelected ? 'ring-2 ring-blue-400/70 bg-blue-900/20' : '',
+                              isHeaderHL && !isSelected && !isMultiSelected ? 'ring-1 ring-blue-400/60 bg-blue-900/15' : '',
+                              prodOverflow ? 'bg-red-900/20' : '',
+                              box.placement ? 'cursor-grab active:cursor-grabbing' : '',
                             ].join(' ')}
-                            onMouseDown={isGlobalColGap ? (e) => startColResize(e, col) : undefined}
-                          />
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                  {/* Grey extension area to the right — extra gondola width not yet used by columns */}
-                  {greyExtWidthPx > 0 && (
+                            style={{
+                              width:  `${cellWPx}px`,
+                              height: `${cellHPx}px`,
+                              background: !prodOverflow && box.placement && catColor ? catColor + '18' : undefined,
+                            }}
+                            title={prodOverflow && prod
+                              ? `⚠ ${prod.name} (${prod.widthCm}×${prod.heightCm} cm) dépasse (${cellWCm.toFixed(1)}×${cellHCm.toFixed(1)} cm)`
+                              : box.placement ? `${prod?.name ?? box.placement.productId} — glisser pour déplacer` : undefined}
+                          >
+                            {box.placement && prod ? (
+                              <>
+                                <div className="absolute inset-x-0 top-0 h-1 rounded-t" style={{ background: prodOverflow ? '#ef4444' : catColor }} />
+                                <div className="w-full px-1 pt-1.5 pb-0.5 flex flex-col items-center gap-0.5">
+                                  <div className="w-full" style={{ height: `${Math.max(28, cellHPx - 32)}px` }}>
+                                    {isUploading
+                                      ? <div className="w-full h-full flex items-center justify-center"><div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" /></div>
+                                      : <ProductThumb product={prod} />}
+                                  </div>
+                                  <div className="text-xs font-medium leading-tight truncate w-full text-center"
+                                    style={{ color: prodOverflow ? '#f87171' : catColor, fontSize: '10px' }}>
+                                    {prod.name.length > 14 ? prod.name.slice(0, 12) + '…' : prod.name}
+                                  </div>
+                                  {showDimBadge && (
+                                    <div className="text-center leading-none px-0.5 rounded"
+                                      style={{ fontSize: '9px', color: prodOverflow ? '#f87171' : '#6b7280', background: prodOverflow ? 'rgba(239,68,68,0.15)' : undefined }}>
+                                      {prod.widthCm}×{prod.heightCm} cm
+                                      {zoom > 2 && <span style={{ color: '#4b5563' }}> / {cellWCm.toFixed(1)} cm</span>}
+                                    </div>
+                                  )}
+                                </div>
+                                {prodOverflow && (
+                                  <div className="absolute bottom-0.5 left-0.5 text-red-400 leading-none" style={{ fontSize: '9px' }}>⚠ débordement</div>
+                                )}
+                                <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-blue-400 bg-gray-900/70 rounded text-xs leading-none"
+                                    title="Uploader une vignette"
+                                    onClick={(e) => { e.stopPropagation(); pendingUploadEan.current = prod.ean; uploadInputRef.current?.click(); }}
+                                  >📷</button>
+                                  <button
+                                    className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none"
+                                    onClick={(e) => { e.stopPropagation(); clearBox(di, bi); }}
+                                    title="Retirer"
+                                  >×</button>
+                                </div>
+                              </>
+                            ) : box.placement ? (
+                              <>
+                                <div className="text-xs text-gray-400 font-mono text-center px-1">{box.placement.productId.slice(-6)}</div>
+                                <button className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs"
+                                  onClick={(e) => { e.stopPropagation(); clearBox(di, bi); }}>×</button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-gray-600 text-sm font-bold select-none leading-none">+</span>
+                                {/* Info: box width */}
+                                {zoom >= 1.5 && (
+                                  <span className="absolute bottom-0.5 left-0.5 text-gray-600 leading-none select-none" style={{ fontSize: '8px' }}>
+                                    {cellWCm.toFixed(1)} cm
+                                  </span>
+                                )}
+                                {/* Delete-box button */}
+                                {rowBoxes.length > 1 && (
+                                  <button
+                                    className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-red-400 bg-gray-900/60 rounded text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => { e.stopPropagation(); deleteBox(di, bi); }}
+                                    title="Supprimer cette boîte (la largeur est redistribuée)"
+                                  >×</button>
+                                )}
+                              </>
+                            )}
+
+                            {/* Selected-box separator drag handles */}
+                            {isSelected && !isLastBox && (
+                              <div
+                                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startSepResize(e, di, bi); }}
+                                style={{ position: 'absolute', right: 0, top: 0, width: '6px', height: '100%', cursor: 'col-resize', zIndex: 10, background: 'rgba(59,130,246,0.55)' }}
+                                title="Déplacer le séparateur (cette ligne seulement)"
+                              />
+                            )}
+                            {isSelected && bi > 0 && (
+                              <div
+                                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startSepResize(e, di, bi - 1); }}
+                                style={{ position: 'absolute', left: 0, top: 0, width: '6px', height: '100%', cursor: 'col-resize', zIndex: 10, background: 'rgba(59,130,246,0.55)' }}
+                                title="Déplacer le séparateur gauche (cette ligne seulement)"
+                              />
+                            )}
+                          </div>
+
+                          {/* Separator handle between boxes */}
+                          {!isLastBox && (
+                            <div
+                              style={{ width: `${RESIZE_HANDLE_PX}px`, height: `${cellHPx}px`, cursor: 'col-resize', flexShrink: 0 }}
+                              className={['transition-colors',
+                                (selBoxIdx === bi || selBoxIdx === bi + 1) && selDisplayRow === di
+                                  ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                                  : 'bg-gray-800 hover:bg-blue-500/50'].join(' ')}
+                              onMouseDown={(e) => startSepResize(e, di, bi)}
+                              title="Déplacer le séparateur"
+                            />
+                          )}
+                        </Fragment>
+                      );
+                    })}
+
+                    {/* Grey extension right */}
+                    {greyExtWidthPx > 0 && (
+                      <div style={{ width: `${greyExtWidthPx}px`, height: `${rowH}px`, flexShrink: 0, marginLeft: `${RESIZE_HANDLE_PX}px` }}
+                        className="bg-gray-700/25 border border-dashed border-gray-600/50" />
+                    )}
+                  </div>
+
+                  {/* Shelf resize handle */}
+                  {di < shelfCount - 1 && (
                     <div
-                      style={{
-                        width:     `${greyExtWidthPx}px`,
-                        height:    `${rowContainerHeightsPx[row]}px`,
-                        flexShrink: 0,
-                        marginLeft: `${RESIZE_HANDLE_PX}px`,
-                      }}
-                      className="bg-gray-700/25 border border-dashed border-gray-600/50"
+                      style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
+                      className={['transition-colors',
+                        selDisplayRow === di || selDisplayRow === di + 1
+                          ? 'bg-blue-500/40 hover:bg-blue-400/70'
+                          : 'bg-gray-800 hover:bg-blue-500/50'].join(' ')}
+                      onMouseDown={(e) => startShelfResize(e, di)}
                     />
                   )}
-                </div>
-
-                {/* Row resize handle — only between rows (not after the last one) */}
-                {row < rows - 1 && (
-                  <div
-                    style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
-                    className={[
-                      'transition-colors',
-                      selectedRow === row || selectedRow === row + 1
-                        ? 'bg-blue-500/40 hover:bg-blue-400/70'
-                        : 'bg-gray-800 hover:bg-blue-500/50',
-                    ].join(' ')}
-                    onMouseDown={(e) => startRowResize(e, row)}
-                  />
-                )}
-              </Fragment>
-            ))}
-            {/* Grey extension below — extra gondola height not yet used by rows */}
+                </Fragment>
+              );
+            })}
+            {/* Grey extension bottom */}
             {greyExtHeightPx > 0 && (
-              <div
-                style={{ height: `${greyExtHeightPx}px`, flexShrink: 0, marginTop: `${RESIZE_HANDLE_PX}px` }}
-                className="bg-gray-700/25 border border-dashed border-gray-600/50"
-              />
+              <div style={{ height: `${greyExtHeightPx}px`, flexShrink: 0, marginTop: `${RESIZE_HANDLE_PX}px` }}
+                className="bg-gray-700/25 border border-dashed border-gray-600/50" />
             )}
           </div>
         </div>
@@ -2475,26 +1298,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         {selectedKeys.size > 1 ? (
           <>
             <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-            <span className="text-blue-300">{selectedKeys.size} cellules sélectionnées</span>
-            <span className="text-gray-600">· Suppr pour vider · Ctrl+clic pour toggle · Shift+clic pour étendre{canMerge ? ' · ⊞ Fusionner disponible' : ''}</span>
+            <span className="text-blue-300">{selectedKeys.size} boîtes sélectionnées</span>
+            <span className="text-gray-600">· Suppr vider · Ctrl+clic toggle · Shift+clic étendre{canFuse ? ' · ⊞ Fusionner disponible' : ''}</span>
           </>
         ) : selectedEan ? (
           <>
             <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
             <span>Sélectionné: <span className="font-mono text-gray-300">{selectedEan}</span></span>
-            <span className="text-gray-600">· Cliquer cellule vide pour placer · Glisser depuis catalogue · Ctrl+clic multi-sélection</span>
+            <span className="text-gray-600">· Cliquer boîte vide pour placer · Glisser depuis catalogue</span>
           </>
         ) : (
-          <span>
-            {'Sélectionnez un produit dans le catalogue · Ctrl+clic multi-sélection · Shift+clic plage'}
-            {' · Glisser cellule occupée pour déplacer'}
-            {' · Boîtes vides : × supprimer · ⊞ fusionner (multi-sélection) · ⊟ diviser (boîte fusionnée)'}
-          </span>
+          <span>Sélectionner un produit · Ctrl+clic multi-sélection · Shift+clic plage · Glisser pour déplacer · ⊞ Fusionner · ⊟ Diviser</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">
-          Clic droit/× vider · Suppr retirer · Ctrl+Z annuler · Ctrl+Y rétablir · 📷 vignette · ⟺ séparateurs · ◀▶▲▼ segment · 🔴 débordement
-        </span>
+        <span className="text-gray-600">Clic droit/× vider · Suppr retirer · Ctrl+Z annuler · 🔴 débordement · moteur séparateurs v2</span>
       </div>
     </div>
   );

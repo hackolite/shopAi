@@ -135,6 +135,12 @@ export interface Planogram {
    * Used to restore individual cells when splitting and to compute correct pixel widths.
    */
   mergedSpans?: Record<string, number>;
+  /**
+   * New boundary-based internal model (§2 of the gondola engine spec).
+   * When present, this is the source of truth; cells/rows/cols are derived.
+   * When absent, the legacy cells model is active.
+   */
+  gondola?: import('./gondola').Gondola;
 }
 
 export interface PlanogramSummary {

@@ -225,16 +225,21 @@ function PlanogramFaceOverlay({
   const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
 
   useEffect(() => {
-    if (!planogram) { setLoadedImages(new Map()); return; }
     const productByEan = new Map(products.map((p) => [p.ean, p]));
     const urlsByEan = new Map<string, string>();
-    for (const cell of planogram.cells) {
-      const prod = productByEan.get(cell.ean);
-      if (prod?.imageUrl && !urlsByEan.has(prod.ean)) {
-        urlsByEan.set(prod.ean, prod.imageUrl);
+    if (planogram) {
+      for (const cell of planogram.cells) {
+        const prod = productByEan.get(cell.ean);
+        if (prod?.imageUrl && !urlsByEan.has(prod.ean)) {
+          urlsByEan.set(prod.ean, prod.imageUrl);
+        }
       }
     }
-    if (urlsByEan.size === 0) { setLoadedImages(new Map()); return; }
+
+    if (urlsByEan.size === 0) {
+      setLoadedImages(new Map());
+      return;
+    }
 
     let cancelled = false;
     const newImages = new Map<string, HTMLImageElement>();
@@ -245,6 +250,9 @@ function PlanogramFaceOverlay({
     };
     for (const [ean, url] of urlsByEan) {
       const img = new Image();
+      // Images are served from the same backend origin; crossOrigin is set so that
+      // canvas.drawImage() does not taint the canvas when running from a dev server
+      // that may differ from the API origin.
       img.crossOrigin = 'anonymous';
       img.onload  = () => { newImages.set(ean, img); settle(); };
       img.onerror = () => settle();

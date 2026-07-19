@@ -981,10 +981,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
       // Snap the bottom edge of the selected cell to a global row boundary.
       const rawBottomEdgeCm = topOffsetCm + startH0 + rawDeltaCm;
-      const { snapped: snappedBottomEdge, idx: snapIdx } = snapCmToBoundary(rawBottomEdgeCm, rowBoundaries, thresholdCm);
+      const { snapped: snappedBottomEdge, idx: snapRowIdx } = snapCmToBoundary(rawBottomEdgeCm, rowBoundaries, thresholdCm);
       const effectiveDelta = snappedBottomEdge - topOffsetCm - startH0;
 
-      setActiveRowSnapBoundary(snapIdx >= 0 ? snapIdx : null);
+      setActiveRowSnapBoundary(snapRowIdx >= 0 ? snapRowIdx : null);
 
       const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, effectiveDelta));
       finalH0 = startH0 + clamped;
@@ -1033,10 +1033,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
       // Snap the top border (between row-1 and row) to a global row boundary.
       const rawBorderCm = topEdgeCm + rawDeltaCm;
-      const { snapped: snappedBorder, idx: snapIdx } = snapCmToBoundary(rawBorderCm, rowBoundaries, thresholdCm);
+      const { snapped: snappedBorder, idx: snapRowIdx } = snapCmToBoundary(rawBorderCm, rowBoundaries, thresholdCm);
       const effectiveDelta = snappedBorder - topEdgeCm;
 
-      setActiveRowSnapBoundary(snapIdx >= 0 ? snapIdx : null);
+      setActiveRowSnapBoundary(snapRowIdx >= 0 ? snapRowIdx : null);
 
       // Dragging up (negative delta) shrinks the top neighbour, grows current
       const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, effectiveDelta));

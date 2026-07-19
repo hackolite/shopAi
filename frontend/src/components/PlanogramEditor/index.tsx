@@ -730,7 +730,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     setSelectedHeaderCol(null); setSelectedHeaderRow(null); setSelectedSep(null);
     const key = makeBoxKey(di, bi);
     if (e.ctrlKey || e.metaKey) {
-      setSelectedKeys(prev => { const n = new Set(prev); if (n.has(key)) { n.delete(key); } else { n.add(key); } return n; });
+      setSelectedKeys(prev => {
+        const n = new Set(prev);
+        // Seed the multi-selection with the previously single-selected cell so that
+        // a simple "click A then Ctrl+click B" produces {A, B} and enables Fusionner.
+        if (selectedKey && !n.has(selectedKey)) n.add(selectedKey);
+        if (n.has(key)) { n.delete(key); } else { n.add(key); }
+        return n;
+      });
       setSelectedKey(key); setLastSelectedKey(key);
       return;
     }

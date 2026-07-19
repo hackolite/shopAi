@@ -313,12 +313,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const insertAboveShelfId = selectedHeaderRow !== null
       ? getShelfByDisplayIndex(gondola, selectedHeaderRow)?.id
       : undefined;
-    const needed = defaultRowH + shrinkTopRowBy;
     const topShelf = gondola.shelves[gondola.shelves.length - 1];
     if (shrinkTopRowBy > 0 && topShelf.height_cm - shrinkTopRowBy < MIN_BOX_CM) return;
     applyGondola(cmdAddShelf(gondola, defaultRowH, insertAboveShelfId));
     setSelectedHeaderRow(selectedHeaderRow !== null ? selectedHeaderRow : 0);
-    void needed;
   };
 
   const addRow = () => {

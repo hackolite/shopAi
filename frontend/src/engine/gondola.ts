@@ -21,6 +21,7 @@ import type { Planogram, PlanogramCell } from '../types/cad';
 export const DEFAULT_SHELF_HEIGHT_CM = 30;
 export const DEFAULT_SEP_SPACING_CM = 15;
 export const MIN_BOX_CM = 2;
+export const DEFAULT_GONDOLA_DEPTH_CM = 45;
 
 // ─── §3 Core: computeBoxes ────────────────────────────────────────────────────
 
@@ -377,8 +378,7 @@ export function cmdAddShelf(
   newHeight_cm: number,
   insertAboveShelfId?: string,
 ): Gondola {
-  const defaultSepSpacing = Math.max(MIN_BOX_CM, DEFAULT_SEP_SPACING_CM);
-  const newShelf = makeDefaultShelf(g.width_cm, newHeight_cm, defaultSepSpacing);
+  const newShelf = makeDefaultShelf(g.width_cm, newHeight_cm, Math.max(MIN_BOX_CM, DEFAULT_SEP_SPACING_CM));
 
   if (!insertAboveShelfId) {
     // Insert at top (append to end of shelves array which is bottom-up)
@@ -593,7 +593,7 @@ export function legacyCellsToSeparators(planogram: Planogram): Gondola {
     id: gondolaId,
     width_cm: planogram.widthCm,
     height_cm: planogram.heightCm,
-    depth_cm: 45,
+    depth_cm: DEFAULT_GONDOLA_DEPTH_CM,
     shelves,
     productPlacements: placements,
   };

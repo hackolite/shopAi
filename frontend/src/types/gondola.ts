@@ -48,7 +48,7 @@ export interface ProductPlacement {
 }
 
 /**
- * The gondola gondola.  Only width_cm is resizable; height_cm is always fixed.
+ * The main gondola object.  Only width_cm is resizable; height_cm is always fixed.
  * shelves[0] = bottom-most shelf, shelves[N-1] = top-most shelf.
  */
 export interface Gondola {

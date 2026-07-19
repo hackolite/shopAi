@@ -9,7 +9,6 @@ Functions:
 """
 from __future__ import annotations
 
-import math
 from uuid import uuid4
 
 from models.gondola import (
@@ -19,6 +18,8 @@ from models.gondola import (
     GondolaSeparator,
 )
 from models.project import Planogram, PlanogramCell
+
+DEFAULT_GONDOLA_DEPTH_CM = 45.0
 
 
 def _sorted_seps(shelf: GondolaShelf) -> list[GondolaSeparator]:
@@ -118,7 +119,7 @@ def legacy_cells_to_gondola(planogram: Planogram) -> GondolaData:
         h = planogram.heightCm / max(planogram.rows, 1)
         row_heights = [h] * planogram.rows
 
-    shelves: list[GondolaShelf] = [None] * shelf_count  # type: ignore[list-item]
+    shelves_by_phys: dict[int, GondolaShelf] = {}
     placements: list[GondolaProductPlacement] = []
 
     for display_row in range(shelf_count):
@@ -158,7 +159,7 @@ def legacy_cells_to_gondola(planogram: Planogram) -> GondolaData:
             height_cm=row_heights[display_row],
             separators=seps,
         )
-        shelves[phys_idx] = shelf
+        shelves_by_phys[phys_idx] = shelf
 
         # Product placements
         for c in range(row_col_count):
@@ -176,11 +177,13 @@ def legacy_cells_to_gondola(planogram: Planogram) -> GondolaData:
                     cellId=cell.id,
                 ))
 
+    shelves = [shelves_by_phys[i] for i in range(shelf_count)]
+
     return GondolaData(
         id=gondola_id,
         width_cm=planogram.widthCm,
         height_cm=planogram.heightCm,
-        depth_cm=45.0,
+        depth_cm=DEFAULT_GONDOLA_DEPTH_CM,
         shelves=shelves,
         productPlacements=placements,
     )

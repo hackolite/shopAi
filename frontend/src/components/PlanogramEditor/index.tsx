@@ -214,6 +214,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     topRowH: number;
     needed: number;
   } | null>(null);
+  // ── Clear-all confirmation ────────────────────────────────────────────────
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -343,6 +345,16 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     applyUpdate({ ...planogram, cells: newCells });
     setSelectedKey(null);
     setSelectedKeys(new Set());
+  };
+
+  /** Remove all products from every cell in the planogram in a single undo-able transaction. */
+  const clearAllCells = () => {
+    if (!planogram) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    applyUpdate({ ...planogram, cells: [] });
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
+    setClearAllConfirm(false);
   };
 
   /** Fill all selected cells with a given EAN in a single undo-able transaction. */
@@ -799,6 +811,88 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const getCellStartHeightCm = (p: Planogram, row: number, col: number): number => {
     const key = `${row}-${col}`;
     return p.cellHeightOverrides?.[key] ?? getEffectiveRowHeights(p)[row];
+  };
+
+  /**
+   * Merge all Ctrl-selected contiguous empty cells in the same row into a single
+   * wider cell. The merged cell gets the combined width of all selected cells;
+   * subsequent cells in the row are shifted left to fill the gaps.
+   */
+  const mergeSelectedCells = () => {
+    if (!planogram || selectedKeys.size < 2) return;
+    const keys = [...selectedKeys];
+    const parsed = keys.map(k => k.split('-').map(Number) as [number, number]);
+    // All must be empty
+    if (parsed.some(([r, c]) => cellMap.has(`${r}-${c}`))) return;
+    // All must be in the same row
+    const rowSet = new Set(parsed.map(([r]) => r));
+    if (rowSet.size !== 1) return;
+    const row = parsed[0][0];
+    const sortedCols = parsed.map(([, c]) => c).sort((a, b) => a - b);
+    // Columns must be contiguous (no gaps)
+    for (let i = 1; i < sortedCols.length; i++) {
+      if (sortedCols[i] !== sortedCols[i - 1] + 1) return;
+    }
+    const minCol = sortedCols[0];
+    const maxCol = sortedCols[sortedCols.length - 1];
+    const shiftAmount = maxCol - minCol; // cells removed = selected count - 1
+
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+
+    // Combined width of the merged cell
+    const totalWidth = sortedCols.reduce((sum, c) => sum + getCellStartWidthCm(planogram, row, c), 0);
+
+    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
+
+    // Shift occupied cells in this row that lie beyond maxCol
+    const newCells = planogram.cells.map(c => {
+      if (c.row === row && c.col > maxCol) return { ...c, col: c.col - shiftAmount };
+      return c;
+    });
+
+    // Update rowColCounts for this row
+    const newRowColCounts: number[] = Array.from(
+      { length: planogram.rows },
+      (_, i) => planogram.rowColCounts?.[i] ?? planogram.cols,
+    );
+    newRowColCounts[row] = rowColCount - shiftAmount;
+    const normalizedRowColCounts = newRowColCounts.every((c) => c === planogram.cols)
+      ? undefined
+      : newRowColCounts;
+
+    // Rebuild cellWidthOverrides: remove merged-away entries, shift entries beyond maxCol
+    const newCellWidthOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(planogram.cellWidthOverrides ?? {})) {
+      const p = parseOverrideKey(key);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r !== row) { newCellWidthOverrides[key] = val; continue; }
+      if (c >= minCol && c <= maxCol) continue; // merged away
+      newCellWidthOverrides[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
+    }
+    newCellWidthOverrides[`${row}-${minCol}`] = totalWidth;
+
+    // Rebuild cellHeightOverrides: drop removed cells, shift entries beyond maxCol
+    const newCellHeightOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(planogram.cellHeightOverrides ?? {})) {
+      const p = parseOverrideKey(key);
+      if (!p) continue;
+      const [r, c] = p;
+      if (r !== row) { newCellHeightOverrides[key] = val; continue; }
+      if (c > minCol && c <= maxCol) continue; // merged away
+      newCellHeightOverrides[c > maxCol ? `${r}-${c - shiftAmount}` : key] = val;
+    }
+
+    applyUpdate({
+      ...planogram,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newCellWidthOverrides).length ? newCellWidthOverrides : undefined,
+      cellHeightOverrides: Object.keys(newCellHeightOverrides).length ? newCellHeightOverrides : undefined,
+      rowColCounts: normalizedRowColCounts,
+    });
+
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
   };
 
   // Dragging right edge: cell grows, right neighbour shrinks (this row only).
@@ -1262,6 +1356,21 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
   }
 
+  // ── Merge eligibility ────────────────────────────────────────────────────
+  // True when all selected cells are empty, in the same row, and form a contiguous column range.
+  const canMerge = (() => {
+    if (selectedKeys.size < 2) return false;
+    const parsedKeys = [...selectedKeys].map(k => k.split('-').map(Number) as [number, number]);
+    if (parsedKeys.some(([r, c]) => cellMap.has(`${r}-${c}`))) return false;
+    const rowSet = new Set(parsedKeys.map(([r]) => r));
+    if (rowSet.size !== 1) return false;
+    const sortedCols = parsedKeys.map(([, c]) => c).sort((a, b) => a - b);
+    for (let i = 1; i < sortedCols.length; i++) {
+      if (sortedCols[i] !== sortedCols[i - 1] + 1) return false;
+    }
+    return true;
+  })();
+
   // ── Row fill ratios (cm used / planogram widthCm per row) ────────────────
   const rowFillCm = Array.from({ length: rows }, (_, r) => {
     let total = 0;
@@ -1415,6 +1524,30 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             </button>
           )}
 
+          <div className="h-4 w-px bg-gray-700" />
+
+          {/* Clear all cells */}
+          {!clearAllConfirm ? (
+            <button
+              onClick={() => setClearAllConfirm(true)}
+              disabled={planogram.cells.length === 0}
+              className="px-2 py-0.5 text-xs rounded hover:bg-red-900/50 text-gray-400 hover:text-red-300 disabled:opacity-30 transition-colors"
+              title="Vider tous les blocs de gondole"
+            >🗑 Tout vider</button>
+          ) : (
+            <span className="flex items-center gap-1">
+              <span className="text-xs text-red-300">Confirmer ?</span>
+              <button
+                onClick={clearAllCells}
+                className="px-2 py-0.5 text-xs rounded bg-red-700 hover:bg-red-600 text-white transition-colors"
+              >Oui</button>
+              <button
+                onClick={() => setClearAllConfirm(false)}
+                className="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+              >Non</button>
+            </span>
+          )}
+
           {/* Multi-selection bulk actions */}
           {selectedKeys.size > 1 && (
             <>
@@ -1430,6 +1563,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                   className="px-2 py-0.5 text-xs rounded bg-blue-800/50 hover:bg-blue-700/70 text-blue-200 transition-colors"
                   title={`Appliquer ${selectedEan} à ${selectedKeys.size} cellules`}
                 >Appliquer ({selectedKeys.size})</button>
+              )}
+              {canMerge && (
+                <button
+                  onClick={mergeSelectedCells}
+                  className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
+                  title={`Fusionner les ${selectedKeys.size} cellules vides contiguës en une seule cellule plus large`}
+                >⊞ Fusionner ({selectedKeys.size})</button>
               )}
             </>
           )}
@@ -1918,7 +2058,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <>
             <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
             <span className="text-blue-300">{selectedKeys.size} cellules sélectionnées</span>
-            <span className="text-gray-600">· Suppr pour vider · Ctrl+clic pour toggle · Shift+clic pour étendre</span>
+            <span className="text-gray-600">· Suppr pour vider · Ctrl+clic pour toggle · Shift+clic pour étendre{canMerge ? ' · ⊞ Fusionner disponible' : ''}</span>
           </>
         ) : selectedEan ? (
           <>

@@ -24,6 +24,7 @@ import {
   getShelfByDisplayIndex,
   shelfBoxCount,
   sortedSeps,
+  extendGondolaHeight,
   MIN_BOX_CM,
 } from './gondola';
 import type { Gondola, Shelf, Separator } from '../types/gondola';
@@ -371,6 +372,53 @@ describe('cmdRemoveShelf', () => {
     const g1 = cmdSetPlacement(g, botShelf.id, seps[0].id, seps[1].id, 'X');
     const updated = cmdRemoveShelf(g1, botShelf.id);
     expect(updated.productPlacements.filter((p) => p.shelfId === botShelf.id)).toHaveLength(0);
+  });
+});
+
+// ─── §4 extendGondolaHeight ───────────────────────────────────────────────────
+
+describe('extendGondolaHeight', () => {
+  it('appends a new shelf at the top', () => {
+    const g = makeGondola(); // 2 shelves, height=50
+    const updated = extendGondolaHeight(g, 15);
+    expect(updated.shelves.length).toBe(3);
+    // New shelf is at the top (last in bottom-up array)
+    const newTop = updated.shelves[updated.shelves.length - 1];
+    expect(newTop.height_cm).toBeCloseTo(15);
+  });
+
+  it('grows total height_cm by the new shelf height', () => {
+    const g = makeGondola(); // height_cm = 50
+    const updated = extendGondolaHeight(g, 15);
+    expect(updated.height_cm).toBeCloseTo(65);
+    const sumH = updated.shelves.reduce((acc, s) => acc + s.height_cm, 0);
+    expect(sumH).toBeCloseTo(65);
+  });
+
+  it('leaves existing shelves unchanged', () => {
+    const g = makeGondola();
+    const updated = extendGondolaHeight(g, 20);
+    expect(updated.shelves[0].height_cm).toBeCloseTo(g.shelves[0].height_cm);
+    expect(updated.shelves[1].height_cm).toBeCloseTo(g.shelves[1].height_cm);
+  });
+
+  it('inserts above a specified shelf when insertAboveShelfId is provided', () => {
+    const g = makeGondola(); // shelves[0]=bottom(30), shelves[1]=top(20)
+    const botShelf = g.shelves[0];
+    const updated = extendGondolaHeight(g, 10, botShelf.id);
+    expect(updated.shelves.length).toBe(3);
+    // New shelf should be at index 1 (just above bottom shelf)
+    expect(updated.shelves[1].height_cm).toBeCloseTo(10);
+    // Bottom and top shelves should be unchanged
+    expect(updated.shelves[0].height_cm).toBeCloseTo(30);
+    expect(updated.shelves[2].height_cm).toBeCloseTo(20);
+  });
+
+  it('falls back to inserting at top for unknown insertAboveShelfId', () => {
+    const g = makeGondola();
+    const updated = extendGondolaHeight(g, 10, 'nonexistent-id');
+    expect(updated.shelves.length).toBe(3);
+    expect(updated.shelves[updated.shelves.length - 1].height_cm).toBeCloseTo(10);
   });
 });
 

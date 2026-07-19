@@ -42,6 +42,7 @@ import {
   getRowBoxes,
   extendGondolaWidth,
   shrinkGondolaWidth,
+  extendGondolaHeight,
   DEFAULT_SHELF_HEIGHT_CM,
   DEFAULT_SEP_SPACING_CM,
   MIN_BOX_CM,
@@ -162,7 +163,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [loadError,      setLoadError]      = useState<string | null>(null);
   const [uploadingEan,   setUploadingEan]   = useState<string | null>(null);
   const [crushNavIdx,    setCrushNavIdx]    = useState(0);
-  const [addRowDialog,   setAddRowDialog]   = useState<{ canAutoFix: boolean; topRowH: number; needed: number } | null>(null);
   const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
   // ── Context menu ──────────────────────────────────────────────────────────
@@ -212,15 +212,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   })();
 
   // New row height = half the absorber shelf height, clamped to [MIN_BOX_CM, DEFAULT_SHELF_HEIGHT_CM].
-  // Adding a row redistributes existing height, so gondolaRemainingH is not the right input here.
+  // When the absorber shelf is too small to split, extendGondolaHeight will be used instead
+  // and the new shelf will get DEFAULT_SHELF_HEIGHT_CM.
   const defaultRowH = _addRowAbsorberShelf
     ? Math.max(MIN_BOX_CM, Math.min(DEFAULT_SHELF_HEIGHT_CM, _addRowAbsorberShelf.height_cm / 2))
-    : 0;
+    : DEFAULT_SHELF_HEIGHT_CM;
 
-  // Row can be added when the absorber shelf is tall enough to be split into two.
-  const canAddRow = _addRowAbsorberShelf
-    ? _addRowAbsorberShelf.height_cm > MIN_BOX_CM * 2
-    : false;
+  // Row can always be added: either by splitting the absorber shelf (when tall enough)
+  // or by extending the gondola height (and syncing the furniture).
+  const canAddRow = gondola !== null;
 
   // Column add always grows the gondola width; the only limit is a reasonable minimum width.
   const canAddCol = gondola !== null;
@@ -492,24 +492,27 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   // ── Row management ────────────────────────────────────────────────────────
-  const _doAddRow = (shrinkTopBy = 0) => {
+  const _doAddRow = () => {
     if (!gondola) return;
     pushHistory();
     const insertAboveShelfId = selectedHeaderRow !== null
       ? getShelfByDisplayIndex(gondola, selectedHeaderRow)?.id : undefined;
-    const topShelf = gondola.shelves[gondola.shelves.length - 1];
-    if (shrinkTopBy > 0 && topShelf.height_cm - shrinkTopBy < MIN_BOX_CM) return;
-    applyGondola(cmdAddShelf(gondola, defaultRowH, insertAboveShelfId));
+    // Attempt to split the absorber shelf (classic behaviour — total height unchanged)
+    const g = cmdAddShelf(gondola, defaultRowH, insertAboveShelfId);
+    if (g !== gondola) {
+      // cmdAddShelf succeeded
+      applyGondola(g);
+    } else {
+      // Absorber shelf too small to split — grow the gondola height and sync the furniture
+      const grown = extendGondolaHeight(gondola, defaultRowH, insertAboveShelfId);
+      applyGondola(grown);
+      syncFurnitureDimension(undefined, grown.height_cm);
+    }
     setSelectedHeaderRow(selectedHeaderRow !== null ? selectedHeaderRow : 0);
   };
 
   const addRow = () => {
-    if (!gondola || !canAddRow) return;
-    const topH = gondola.shelves[gondola.shelves.length - 1].height_cm;
-    if (topH <= defaultRowH + 1) {
-      setAddRowDialog({ canAutoFix: topH - defaultRowH >= 1, topRowH: topH, needed: defaultRowH });
-      return;
-    }
+    if (!gondola) return;
     _doAddRow();
   };
 
@@ -524,20 +527,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   // ── Column (separator) management ────────────────────────────────────────
 
-  /** After a gondola width change, update the linked furniture dimensions in the scene store and persist to the API. */
-  const syncFurnitureDimension = (newWidthCm: number) => {
+  /** After a gondola dimension change, update the linked furniture in the scene store and persist to the API. */
+  const syncFurnitureDimension = (newWidthCm?: number, newHeightCm?: number) => {
     if (!planogramBase || !scene) return;
+    if (newWidthCm === undefined && newHeightCm === undefined) return;
     const fur = scene.furniture.find(f => f.id === planogramBase.furnitureId);
     if (!fur) return;
     const face = planogramBase.face;
     let updatedDims = { ...fur.dimensions };
-    if (face === 'front' || face === 'back') {
-      updatedDims = { ...updatedDims, width: newWidthCm };
-    } else if (face === 'left' || face === 'right') {
-      updatedDims = { ...updatedDims, depth: newWidthCm };
-    } else {
-      // top/bottom: treat as width
-      updatedDims = { ...updatedDims, width: newWidthCm };
+    if (newWidthCm !== undefined) {
+      if (face === 'front' || face === 'back') {
+        updatedDims = { ...updatedDims, width: newWidthCm };
+      } else if (face === 'left' || face === 'right') {
+        updatedDims = { ...updatedDims, depth: newWidthCm };
+      } else {
+        // top/bottom: treat as width
+        updatedDims = { ...updatedDims, width: newWidthCm };
+      }
+    }
+    if (newHeightCm !== undefined) {
+      updatedDims = { ...updatedDims, height: newHeightCm };
     }
     const updated = { ...fur, dimensions: updatedDims };
     updateFurniture(updated);
@@ -953,27 +962,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       {isOverflowing && (
         <div className="flex items-center gap-2 px-4 py-1.5 bg-red-900/30 border-b border-red-700/50 text-xs text-red-300 shrink-0">
           🔴 Ce planogramme ({gondola.width_cm}×{gondola.height_cm} cm) dépasse la gondole ({furniture?.dimensions.width ?? '?'}×{furniture?.dimensions.height ?? '?'} cm).
-        </div>
-      )}
-
-      {/* Add-row dialog */}
-      {addRowDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-gray-800 border border-gray-600 rounded-lg shadow-xl p-5 max-w-sm w-full mx-4">
-            <h3 className="text-sm font-semibold text-gray-100 mb-2">Espace insuffisant</h3>
-            <p className="text-xs text-gray-300 mb-4">
-              {addRowDialog.canAutoFix
-                ? `Ligne du haut : ${addRowDialog.topRowH.toFixed(1)} cm. Nouvelle ligne : ${addRowDialog.needed.toFixed(1)} cm. Réduire automatiquement ?`
-                : `Ligne du haut trop petite (${addRowDialog.topRowH.toFixed(1)} cm) pour absorber ${addRowDialog.needed.toFixed(1)} cm.`}
-            </p>
-            <div className="flex gap-2 justify-end">
-              {addRowDialog.canAutoFix && (
-                <button onClick={() => { setAddRowDialog(null); _doAddRow(addRowDialog.needed); }}
-                  className="px-3 py-1.5 text-xs rounded bg-blue-700 hover:bg-blue-600 text-white">Réduire et ajouter</button>
-              )}
-              <button onClick={() => setAddRowDialog(null)} className="px-3 py-1.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Annuler</button>
-            </div>
-          </div>
         </div>
       )}
 

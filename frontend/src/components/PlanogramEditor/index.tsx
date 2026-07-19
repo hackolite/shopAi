@@ -31,6 +31,8 @@ const RESIZE_HANDLE_PX = 4;
 /** Tooltip position offset from the cursor (px) during resize. */
 const RESIZE_TOOLTIP_DX = 14;
 const RESIZE_TOOLTIP_DY = -28;
+/** Snap threshold in pixels: when a cell edge is within this distance of a global column boundary, it snaps. */
+const SNAP_THRESHOLD_PX = 8;
 
 /** Returns per-column widths in cm, falling back to equal distribution. */
 function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
@@ -44,6 +46,46 @@ function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsC
   return p.rowHeightsCm?.length === p.rows
     ? p.rowHeightsCm
     : Array(p.rows).fill(p.heightCm / p.rows);
+}
+
+/**
+ * Returns cumulative column boundary positions in cm.
+ * boundaries[0] = 0 (left edge), boundaries[c+1] = sum of widths 0..c.
+ * Used for snap-to-column-boundary when resizing cells.
+ */
+function getColBoundariesCm(p: Planogram): number[] {
+  const widths = getEffectiveColWidths(p);
+  const boundaries: number[] = [0];
+  let cum = 0;
+  for (const w of widths) {
+    cum += w;
+    boundaries.push(cum);
+  }
+  return boundaries;
+}
+
+/**
+ * Snaps `valueCm` to the nearest entry in `boundaries` if it is within
+ * `thresholdCm`; returns the snapped value (or `valueCm` if nothing is close).
+ * Also returns the index of the snapped boundary (-1 when no snap).
+ */
+function snapCmToBoundary(
+  valueCm: number,
+  boundaries: number[],
+  thresholdCm: number,
+): { snapped: number; idx: number } {
+  let best = valueCm;
+  let minDist = Infinity;
+  let snapIdx = -1;
+  for (let i = 0; i < boundaries.length; i++) {
+    const dist = Math.abs(valueCm - boundaries[i]);
+    if (dist < thresholdCm && dist < minDist) {
+      minDist = dist;
+      best = boundaries[i];
+      snapIdx = i;
+    }
+  }
+  return { snapped: best, idx: snapIdx };
 }
 
 /** Zoom control bounds and step for the planogram view. */
@@ -128,6 +170,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [selectedHeaderCol, setSelectedHeaderCol] = useState<number | null>(null);
   /** Index of the row selected by clicking its header label (null = none). */
   const [selectedHeaderRow, setSelectedHeaderRow] = useState<number | null>(null);
+  /**
+   * Index of the global column boundary (0..cols) that is currently being snapped to
+   * during a per-cell width resize drag. Boundary i+1 is between col i and col i+1.
+   * Used to highlight the corresponding column-header separator.
+   */
+  const [activeSnapBoundary, setActiveSnapBoundary] = useState<number | null>(null);
 
   // ── Redo stack (cleared on every new action) ─────────────────────────────
   const [future, setFuture] = useState<Planogram[]>([]);
@@ -735,8 +783,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // Dragging right edge: cell grows, right neighbour shrinks (this row only).
   const startCellRightResize = (e: React.MouseEvent, row: number, col: number) => {
     // Use the row's effective column count so extra-cell rows (rowColCounts) work correctly.
-    const rowColCount = planogram?.rowColCounts?.[row] ?? planogram?.cols ?? 0;
-    if (!planogram || col + 1 >= rowColCount) return;
+    const capturedRowColCount = planogram?.rowColCounts?.[row] ?? planogram?.cols ?? 0;
+    if (!planogram || col + 1 >= capturedRowColCount) return;
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
@@ -749,32 +797,48 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     let finalW1 = startW1;
     setIsResizing('col');
 
-    // Gondola width cap: the growing cell (cell0) must not push the row total beyond gondola width.
-    // Since we redistribute (finalW0 + finalW1 = startW0 + startW1), the total is preserved and
-    // gondola is maintained as long as the initial row total is within bounds. We still add an
-    // explicit clamp for safety (e.g. extra-cell rows where widths may have drifted).
+    // Gondola width cap: only applies when the selected cell grows (enlargement).
     const gondolaMaxW = furniture?.dimensions.width ?? Infinity;
     let otherCellsW = 0;
-    for (let c = 0; c < rowColCount; c++) {
+    for (let c = 0; c < capturedRowColCount; c++) {
       if (c !== col && c !== col + 1) {
         otherCellsW += getCellStartWidthCm(capturedPlanogram, row, c);
       }
     }
-    // Maximum delta by which cell0 may grow before hitting the gondola limit.
-    // We subtract MIN_CELL_CM_W once to reserve the minimum size for cell1 (right neighbour);
-    // cell0's own minimum is already enforced by the lower bound -(startW0 - MIN_CELL_CM_W).
     const maxDeltaByGondola = gondolaMaxW - otherCellsW - MIN_CELL_CM_W - startW0;
 
+    // Left edge of the selected cell in cm (for snap computation of its right edge).
+    let leftOffsetCm = 0;
+    for (let c = 0; c < col; c++) leftOffsetCm += getCellStartWidthCm(capturedPlanogram, row, c);
+
+    const colBoundaries = getColBoundariesCm(capturedPlanogram);
+
     const onMove = (ev: MouseEvent) => {
-      const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-      const clamped = Math.max(
-        -(startW0 - MIN_CELL_CM_W),
-        Math.min(Math.min(startW1 - MIN_CELL_CM_W, maxDeltaByGondola), deltaCm),
-      );
-      finalW0 = startW0 + clamped;
-      finalW1 = startW1 - clamped;
+      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_WIDTH_SCALE * zoom);
+      const rawDeltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
+
+      // Snap the right edge of the selected cell to a global column boundary.
+      const rawRightEdgeCm = leftOffsetCm + startW0 + rawDeltaCm;
+      const { snapped: snappedRightEdge, idx: snapIdx } = snapCmToBoundary(rawRightEdgeCm, colBoundaries, thresholdCm);
+      const effectiveDelta = snappedRightEdge - leftOffsetCm - startW0;
+
+      setActiveSnapBoundary(snapIdx >= 0 ? snapIdx : null);
+
+      if (effectiveDelta >= 0) {
+        // Enlargement: selected cell grows to the right, right neighbour shrinks.
+        const clamped = Math.max(0, Math.min(Math.min(startW1 - MIN_CELL_CM_W, maxDeltaByGondola), effectiveDelta));
+        finalW0 = startW0 + clamped;
+        finalW1 = startW1 - clamped;
+        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      } else {
+        // Reduction: selected cell shrinks, right neighbour stays unchanged.
+        const clamped = Math.max(-(startW0 - MIN_CELL_CM_W), effectiveDelta);
+        finalW0 = startW0 + clamped;
+        finalW1 = startW1;
+        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} cm` });
+      }
+
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -783,6 +847,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellWidthOverrides(null);
       setResizeTooltip(null);
+      setActiveSnapBoundary(null);
       applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
     };
 
@@ -790,14 +855,15 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     window.addEventListener('mouseup', onUp);
   };
 
-  // Dragging left edge: cell grows, left neighbour shrinks (this row only).
+  // Dragging left edge: enlargement grows the selected cell and shrinks the left neighbour;
+  // reduction shrinks only the selected cell without moving the left neighbour.
   const startCellLeftResize = (e: React.MouseEvent, row: number, col: number) => {
     if (!planogram || col <= 0) return;
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
-    const key0 = `${row}-${col - 1}`;
-    const key1 = `${row}-${col}`;
+    const key0 = `${row}-${col - 1}`;  // left neighbour
+    const key1 = `${row}-${col}`;       // selected cell
     const startW0 = getCellStartWidthCm(planogram, row, col - 1);
     const startW1 = getCellStartWidthCm(planogram, row, col);
     const capturedPlanogram = planogram;
@@ -805,33 +871,53 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     let finalW1 = startW1;
     setIsResizing('col');
 
-    // Gondola width cap: the growing cell (cell1 = current cell, when dragging left) must not
-    // push the row total beyond gondola width. Redistribution preserves total so gondola is
-    // already maintained; explicit clamp guards against extra-cell rows where widths may drift.
+    // Gondola cap only applies to enlargement (selected cell growing left into the gondola).
     const gondolaMaxW = furniture?.dimensions.width ?? Infinity;
-    const rowColCount = capturedPlanogram.rowColCounts?.[row] ?? capturedPlanogram.cols;
+    const capturedRowColCount = capturedPlanogram.rowColCounts?.[row] ?? capturedPlanogram.cols;
     let otherCellsW = 0;
-    for (let c = 0; c < rowColCount; c++) {
+    for (let c = 0; c < capturedRowColCount; c++) {
       if (c !== col - 1 && c !== col) {
         otherCellsW += getCellStartWidthCm(capturedPlanogram, row, c);
       }
     }
-    // Minimum clamped value (most negative) that keeps cell1 within the gondola.
-    // We add MIN_CELL_CM_W once to reserve the minimum size for cell0 (left neighbour);
-    // cell1's own minimum is already enforced by the upper bound (startW1 - MIN_CELL_CM_W).
+    // Most-negative delta allowed before the selected cell would exceed the gondola.
     const minClampedByGondola = startW1 + otherCellsW + MIN_CELL_CM_W - gondolaMaxW;
 
+    // Position of the left edge of the selected cell (= border between col-1 and col) in cm.
+    let leftEdgeCm = 0;
+    for (let c = 0; c < col; c++) leftEdgeCm += getCellStartWidthCm(capturedPlanogram, row, c);
+
+    const colBoundaries = getColBoundariesCm(capturedPlanogram);
+
     const onMove = (ev: MouseEvent) => {
-      // Dragging left (negative delta) shrinks the left neighbour, grows current
-      const deltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
-      const clamped = Math.max(
-        Math.max(-(startW0 - MIN_CELL_CM_W), minClampedByGondola),
-        Math.min(startW1 - MIN_CELL_CM_W, deltaCm),
-      );
-      finalW0 = startW0 + clamped;
-      finalW1 = startW1 - clamped;
+      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_WIDTH_SCALE * zoom);
+      const rawDeltaCm = (ev.clientX - startX) / (CELL_WIDTH_SCALE * zoom);
+
+      // Snap the left edge (border between col-1 and col) to a global column boundary.
+      const rawBorderCm = leftEdgeCm + rawDeltaCm;
+      const { snapped: snappedBorder, idx: snapIdx } = snapCmToBoundary(rawBorderCm, colBoundaries, thresholdCm);
+      const effectiveDelta = snappedBorder - leftEdgeCm;
+
+      setActiveSnapBoundary(snapIdx >= 0 ? snapIdx : null);
+
+      if (effectiveDelta <= 0) {
+        // Enlargement: selected cell grows to the left, left neighbour shrinks.
+        const clamped = Math.max(
+          Math.max(-(startW0 - MIN_CELL_CM_W), minClampedByGondola),
+          Math.min(0, effectiveDelta),
+        );
+        finalW0 = startW0 + clamped;
+        finalW1 = startW1 - clamped;
+        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
+      } else {
+        // Reduction: selected cell shrinks, left neighbour stays unchanged.
+        const clamped = Math.min(startW1 - MIN_CELL_CM_W, effectiveDelta);
+        finalW0 = startW0;
+        finalW1 = startW1 - clamped;
+        setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW1.toFixed(1)} cm` });
+      }
+
       setLocalCellWidthOverrides({ ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 });
-      setResizeTooltip({ x: ev.clientX + RESIZE_TOOLTIP_DX, y: ev.clientY + RESIZE_TOOLTIP_DY, text: `${finalW0.toFixed(1)} / ${finalW1.toFixed(1)} cm` });
     };
 
     const onUp = () => {
@@ -840,6 +926,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellWidthOverrides(null);
       setResizeTooltip(null);
+      setActiveSnapBoundary(null);
       applyUpdate({ ...capturedPlanogram, cellWidthOverrides: { ...(capturedPlanogram.cellWidthOverrides ?? {}), [key0]: finalW0, [key1]: finalW1 } });
     };
 
@@ -1403,7 +1490,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               {c < cols - 1 && (
                 <div
                   style={{ width: `${RESIZE_HANDLE_PX}px`, flexShrink: 0, cursor: 'col-resize' }}
-                  className="hover:bg-blue-500/60 transition-colors"
+                  className={[
+                    'transition-colors',
+                    activeSnapBoundary === c + 1
+                      ? 'bg-yellow-400/80'
+                      : 'hover:bg-blue-500/60',
+                  ].join(' ')}
                   onMouseDown={(e) => startColResize(e, c)}
                   title="Redimensionner colonne"
                 />

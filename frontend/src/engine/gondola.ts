@@ -741,9 +741,7 @@ export function extendGondolaWidth(gondola: Gondola, newWidthCm: number): Gondol
 
       // Estimate column spacing from the last existing column on this shelf.
       const lastColWidth =
-        sorted.length >= 2
-          ? sorted[sorted.length - 1].position_cm - sorted[sorted.length - 2].position_cm
-          : DEFAULT_SEP_SPACING_CM;
+        sorted[sorted.length - 1].position_cm - sorted[sorted.length - 2].position_cm;
       const colSpacing = Math.max(MIN_BOX_CM, lastColWidth);
 
       // Move the right boundary separator to the new width.

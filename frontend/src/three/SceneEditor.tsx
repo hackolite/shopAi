@@ -45,6 +45,10 @@ const HANDLE_COLOR   = '#ffcc00';
 const HANDLE_HOVER   = '#ffffff';
 const HANDLE_EMISSIVE = '#664400';
 
+/** Tolerance (cm) used when detecting whether a dimension has grown enough to warrant
+ *  extending linked planograms.  Avoids spurious extensions due to floating-point drift. */
+const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
+
 /** Debounce delay (ms) before persisting zone changes to the backend. */
 const ZONE_AUTOSAVE_DEBOUNCE_MS = 800;
 /** Video bitrate (bps) used when recording the 3D scene. */
@@ -843,11 +847,11 @@ function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
       const { planogramDetails, syncPlanogram } = usePlanogramStore.getState();
 
       const facesToExtend: { face: string; newWidthCm: number }[] = [];
-      if (newW > oldW + 0.5) {
+      if (newW > oldW + DIMENSION_CHANGE_TOLERANCE_CM) {
         facesToExtend.push({ face: 'front', newWidthCm: newW });
         facesToExtend.push({ face: 'back',  newWidthCm: newW });
       }
-      if (newD > oldD + 0.5) {
+      if (newD > oldD + DIMENSION_CHANGE_TOLERANCE_CM) {
         facesToExtend.push({ face: 'left',  newWidthCm: newD });
         facesToExtend.push({ face: 'right', newWidthCm: newD });
       }

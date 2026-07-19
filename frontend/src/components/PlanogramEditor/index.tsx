@@ -254,8 +254,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         setActivePlanogram(gondolaToLegacyPlanogram(g, { ...base, gondola: g }));
       })
       .catch((err: unknown) => {
-        const status = (err as { status?: number })?.status ?? (err as { response?: { status?: number } })?.response?.status;
-        if (status === 404) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.startsWith('[404]')) {
           setLoadError('Ce planogramme est introuvable (404). Il a peut-être été supprimé ou n\'a pas encore été créé.');
         } else {
           setLoadError('Erreur lors du chargement du planogramme. Veuillez réessayer.');

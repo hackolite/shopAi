@@ -543,7 +543,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!fur) return;
     const face = planogramBase.face;
     let updatedDims = { ...fur.dimensions };
-    let updatedPos: [number, number, number] = [fur.position[0], fur.position[1], fur.position[2]];
+    let updatedPos: [number, number, number] = [...fur.position] as [number, number, number];
+    const ry = fur.rotation[1] * (Math.PI / 180);
 
     if (newWidthCm !== undefined) {
       if (face === 'front' || face === 'back') {
@@ -553,7 +554,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         // Keeping that world position fixed when width changes:
         //   Δpos[0] = -(Δwidth/2) * (1 - cos(ry))
         //   Δpos[2] = -(Δwidth/2) * sin(ry)
-        const ry = fur.rotation[1] * (Math.PI / 180);
         const delta = newWidthCm - fur.dimensions.width;
         updatedPos = [
           fur.position[0] - (delta / 2) * (1 - Math.cos(ry)),
@@ -568,7 +568,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         // Keeping that world position fixed when depth changes:
         //   Δpos[0] = +(Δdepth/2) * sin(ry)
         //   Δpos[2] = -(Δdepth/2) * (1 - cos(ry))
-        const ry = fur.rotation[1] * (Math.PI / 180);
         const delta = newWidthCm - fur.dimensions.depth;
         updatedPos = [
           fur.position[0] + (delta / 2) * Math.sin(ry),

@@ -497,7 +497,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     pushHistory();
     const insertAboveShelfId = selectedHeaderRow !== null
       ? getShelfByDisplayIndex(gondola, selectedHeaderRow)?.id : undefined;
-    // Attempt to split the absorber shelf (classic behaviour — total height unchanged)
+    // Attempt to split the absorber shelf (classic behavior — total height unchanged)
     const g = cmdAddShelf(gondola, defaultRowH, insertAboveShelfId);
     if (g !== gondola) {
       // cmdAddShelf succeeded
@@ -527,10 +527,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   // ── Column (separator) management ────────────────────────────────────────
 
-  /** After a gondola dimension change, update the linked furniture in the scene store and persist to the API. */
+  /** After a gondola dimension change, update the linked furniture in the scene store and persist to the API.
+   *  Pass newWidthCm to update the horizontal dimension and/or newHeightCm to update the vertical dimension.
+   *  At least one argument must be defined; passing neither is a no-op (defensive guard). */
   const syncFurnitureDimension = (newWidthCm?: number, newHeightCm?: number) => {
     if (!planogramBase || !scene) return;
-    if (newWidthCm === undefined && newHeightCm === undefined) return;
+    if (newWidthCm === undefined && newHeightCm === undefined) return; // defensive guard — callers always supply ≥1 arg
     const fur = scene.furniture.find(f => f.id === planogramBase.furnitureId);
     if (!fur) return;
     const face = planogramBase.face;

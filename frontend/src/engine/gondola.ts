@@ -466,6 +466,43 @@ export function cmdRemoveShelf(g: Gondola, shelfId: string): Gondola {
 }
 
 /**
+ * §4 Extend gondola height: inserts a new shelf without taking height from any
+ * existing shelf.  The gondola's total height_cm grows by newShelfHeightCm.
+ *
+ * Use this when the planogram edition needs to add a row beyond the current
+ * capacity (i.e. when cmdAddShelf is blocked because the absorber shelf is too
+ * small).  The linked furniture dimensions must be updated by the caller via
+ * syncFurnitureDimension so the 3D gondola follows the planogram.
+ *
+ * insertAboveShelfId — when provided the new shelf is inserted just above that
+ *   shelf (bottom-up array position idx+1); when omitted the new shelf is
+ *   appended at the top.
+ */
+export function extendGondolaHeight(
+  g: Gondola,
+  newShelfHeightCm: number,
+  insertAboveShelfId?: string,
+): Gondola {
+  const newShelf = makeDefaultShelf(g.width_cm, newShelfHeightCm, DEFAULT_SEP_SPACING_CM);
+  const newHeightCm = g.height_cm + newShelfHeightCm;
+
+  if (!insertAboveShelfId) {
+    // Append at top (bottom-up array: top shelf has the highest index)
+    return { ...g, height_cm: newHeightCm, shelves: [...g.shelves, newShelf] };
+  }
+
+  const idx = g.shelves.findIndex((s) => s.id === insertAboveShelfId);
+  if (idx < 0) {
+    // Unknown shelf id — fall back to inserting at top
+    return { ...g, height_cm: newHeightCm, shelves: [...g.shelves, newShelf] };
+  }
+
+  const newShelves = [...g.shelves];
+  newShelves.splice(idx + 1, 0, newShelf);
+  return { ...g, height_cm: newHeightCm, shelves: newShelves };
+}
+
+/**
  * Resize two adjacent shelves simultaneously (drag border between them).
  * shelfId1 is the top shelf, shelfId2 is the bottom shelf in display order.
  * In the gondola's bottom-up array, shelfId2 has the lower physical index.

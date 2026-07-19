@@ -214,6 +214,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     topRowH: number;
     needed: number;
   } | null>(null);
+  // ── Clear-all confirmation ────────────────────────────────────────────────
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
   const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef  = useRef<HTMLInputElement>(null);
@@ -343,6 +345,16 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     applyUpdate({ ...planogram, cells: newCells });
     setSelectedKey(null);
     setSelectedKeys(new Set());
+  };
+
+  /** Remove all products from every cell in the planogram in a single undo-able transaction. */
+  const clearAllCells = () => {
+    if (!planogram) return;
+    setHistory((prev) => [...prev.slice(-20), planogram]);
+    applyUpdate({ ...planogram, cells: [] });
+    setSelectedKey(null);
+    setSelectedKeys(new Set());
+    setClearAllConfirm(false);
   };
 
   /** Fill all selected cells with a given EAN in a single undo-able transaction. */
@@ -1413,6 +1425,30 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             >
               ⚠ {crushedCells.length} conflit{crushedCells.length > 1 ? 's' : ''}
             </button>
+          )}
+
+          <div className="h-4 w-px bg-gray-700" />
+
+          {/* Clear all cells */}
+          {!clearAllConfirm ? (
+            <button
+              onClick={() => setClearAllConfirm(true)}
+              disabled={planogram.cells.length === 0}
+              className="px-2 py-0.5 text-xs rounded hover:bg-red-900/50 text-gray-400 hover:text-red-300 disabled:opacity-30 transition-colors"
+              title="Vider tous les blocs gondoles"
+            >🗑 Tout vider</button>
+          ) : (
+            <span className="flex items-center gap-1">
+              <span className="text-xs text-red-300">Confirmer ?</span>
+              <button
+                onClick={clearAllCells}
+                className="px-2 py-0.5 text-xs rounded bg-red-700 hover:bg-red-600 text-white transition-colors"
+              >Oui</button>
+              <button
+                onClick={() => setClearAllConfirm(false)}
+                className="px-2 py-0.5 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+              >Non</button>
+            </span>
           )}
 
           {/* Multi-selection bulk actions */}

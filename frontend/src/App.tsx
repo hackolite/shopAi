@@ -40,7 +40,7 @@ export default function App() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
 
-  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, undo } = useSceneStore();
+  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, toggleFurnitureSelection, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId, planogramDetails } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, setFlyToFurnitureId } = useUIStore();
@@ -248,12 +248,19 @@ export default function App() {
       }
     }
 
-    // Select the last pasted item (or the single one)
-    if (lastCreatedId.length === 1) selectFurniture(lastCreatedId[0]);
+    // Select all pasted items: single item → single selection, multiple → multi-selection.
+    if (lastCreatedId.length === 1) {
+      selectFurniture(lastCreatedId[0]);
+    } else if (lastCreatedId.length > 1) {
+      // Seed multi-selection with all pasted items so the user can immediately
+      // move or copy the whole group again.
+      selectFurniture(null);
+      for (const id of lastCreatedId) toggleFurnitureSelection(id);
+    }
 
     const planoData = await cadApi.listPlanograms(projectId);
     setPlanograms(planoData.planograms);
-  }, [clipboard, projectId, addFurniture, selectFurniture, setPlanograms, setPlanogramDetail]);
+  }, [clipboard, projectId, addFurniture, selectFurniture, toggleFurnitureSelection, setPlanograms, setPlanogramDetail]);
 
   // ── Delete selected furniture ─────────────────────────────────────────────
   const deleteSelected = useCallback(() => {

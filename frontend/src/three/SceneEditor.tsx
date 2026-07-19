@@ -465,12 +465,12 @@ interface FurnitureMeshProps {
 
 function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const [hovered, setHovered] = useState(false);
-  const { selectedFurnitureId, selectFurniture, selection } = useSceneStore();
+  const { selectedFurnitureId, selectedFurnitureIds, selectFurniture, toggleFurnitureSelection, selection } = useSceneStore();
   const { activeTool } = useUIStore();
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
 
-  const isSelected  = selectedFurnitureId === furniture.id;
+  const isSelected  = selectedFurnitureId === furniture.id || selectedFurnitureIds.has(furniture.id);
   // Used only for material appearance (roughness/metalness), not for overlay logic.
   const isGondolaStyle = furniture.type.startsWith('gondola');
 
@@ -487,7 +487,6 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
 
   const { selectZone } = useZoneStore();
   const { planogramDetails } = usePlanogramStore();
-  const setRequestOpenPlanogramId = usePlanogramStore((state) => state.setRequestOpenPlanogramId);
 
   // Detect product selection on this gondola (planogram cell click)
   const isProductSelected =
@@ -550,12 +549,9 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    // Ctrl/Cmd+click → open the planogram in the editor (fallback for clicks that land on
-    // the gondola body outside the planogram overlay area, or when the overlay event is
-    // intercepted before reaching its handler).
+    // Ctrl/Cmd+click → toggle this furniture in the multi-selection group.
     if (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey) {
-      const planogramId = (Object.values(furniture.faces) as (string | null)[]).find(id => id !== null);
-      if (planogramId) setRequestOpenPlanogramId(planogramId);
+      toggleFurnitureSelection(furniture.id);
       return;
     }
     if (!SELECTABLE_TOOLS.has(activeTool)) return;
@@ -1006,6 +1002,200 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
         <HandleMesh
           key={`store-${axis}${sign}`}
           position={[posX, BOUNDARY_HANDLE_Y, posZ]}
+          axis={axis}
+          sign={sign}
+          cursor={cursor}
+          onStartDrag={startDrag}
+        />
+      ))}
+    </group>
+  );
+}
+
+
+// ─── Furniture resize handles (width / depth) ─────────────────────────────────
+/** Furniture types that can be resized via 3D drag handles in scale mode. */
+const RESIZABLE_FURNITURE_TYPES = new Set(['wall', 'partition', 'register']);
+/** Y level of the furniture resize handles (same as boundary handles). */
+const FURNITURE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
+
+interface FurnitureResizeHandlesProps {
+  furniture: FurnitureInstance;
+  projectId: string | null;
+}
+
+function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandlesProps) {
+  const { updateFurniture } = useSceneStore();
+  const { gl, raycaster, camera } = useThree();
+  const setResizeDragging = useContext(ResizeDragCtx);
+
+  const ry  = furniture.rotation[1] * (Math.PI / 180);
+  const px  = furniture.position[0] * CM_TO_UNIT;
+  const pz  = furniture.position[2] * CM_TO_UNIT;
+  const W   = furniture.dimensions.width  * CM_TO_UNIT;
+  const D   = furniture.dimensions.depth  * CM_TO_UNIT;
+
+  const isDragging      = useRef(false);
+  const dragAxis        = useRef<'width' | 'depth'>('width');
+  const dragSign        = useRef<1 | -1>(1);
+  const dragStart       = useRef(new THREE.Vector3());
+  const pointerIdRef    = useRef(-1);
+  const baseFurnitureRef = useRef<FurnitureInstance>(furniture);
+  const curFurnitureRef  = useRef<FurnitureInstance>(furniture);
+  curFurnitureRef.current = furniture;
+
+  const _ndc    = useRef(new THREE.Vector2());
+  const _hit    = useRef(new THREE.Vector3());
+  const _delta  = useRef(new THREE.Vector3());
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
+    const rect = gl.domElement.getBoundingClientRect();
+    _ndc.current.set(
+      ((clientX - rect.left) / rect.width)  *  2 - 1,
+      -((clientY - rect.top) / rect.height) *  2 + 1,
+    );
+    raycaster.setFromCamera(_ndc.current, camera);
+    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
+  }, [gl, raycaster, camera, dragPlane]);
+
+  const startDrag = useCallback((
+    axis: 'width' | 'depth',
+    sign: 1 | -1,
+    clientX: number,
+    clientY: number,
+    pointerId: number,
+  ) => {
+    if (!getHitPoint(clientX, clientY, dragStart.current)) return;
+    baseFurnitureRef.current = curFurnitureRef.current;
+    isDragging.current   = true;
+    dragAxis.current     = axis;
+    dragSign.current     = sign;
+    pointerIdRef.current = pointerId;
+    setResizeDragging(true);
+  }, [getHitPoint, setResizeDragging]);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base  = baseFurnitureRef.current;
+        const bW    = base.dimensions.width  * CM_TO_UNIT;
+        const bD    = base.dimensions.depth  * CM_TO_UNIT;
+        const bPosX = base.position[0];
+        const bPosZ = base.position[2];
+
+        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
+        const sign  = dragSign.current;
+
+        const newDims = { ...base.dimensions };
+        const newPos: [number, number, number] = [bPosX, base.position[1], bPosZ];
+
+        if (dragAxis.current === 'width') {
+          const move = delta.x * sign;
+          const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
+          newDims.width = newW / CM_TO_UNIT;
+          if (sign === -1) {
+            newPos[0] = bPosX - (newW - bW) / CM_TO_UNIT;
+          }
+        } else {
+          const move = delta.z * sign;
+          const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
+          newDims.depth = newD / CM_TO_UNIT;
+          if (sign === -1) {
+            newPos[2] = bPosZ - (newD - bD) / CM_TO_UNIT;
+          }
+        }
+
+        updateFurniture({ ...base, dimensions: newDims, position: newPos });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+      setResizeDragging(false);
+
+      if (pointerIdRef.current >= 0) {
+        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        pointerIdRef.current = -1;
+      }
+
+      const cur  = curFurnitureRef.current;
+      const sign = dragSign.current;
+      const base = baseFurnitureRef.current;
+
+      const snappedW = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.width));
+      const snappedD = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.depth));
+      const snappedPos: [number, number, number] = [...cur.position];
+
+      if (sign === -1) {
+        if (dragAxis.current === 'width') {
+          snappedPos[0] = base.position[0] + base.dimensions.width - snappedW;
+        } else {
+          snappedPos[2] = base.position[2] + base.dimensions.depth - snappedD;
+        }
+      }
+
+      const snapped: FurnitureInstance = {
+        ...cur,
+        position: snappedPos,
+        dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
+      };
+      updateFurniture(snapped);
+      if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, getHitPoint, updateFurniture, projectId, setResizeDragging]);
+
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  // Handle positions in world space — account for furniture rotation (Y axis).
+  const cosR = Math.cos(ry);
+  const sinR = Math.sin(ry);
+  // Local (unrotated) handle offsets relative to the furniture's origin corner (px, pz).
+  // We work in the local frame (half-W, half-D from centre) then rotate into world space.
+  const cx = px + W / 2;
+  const cz = pz + D / 2;
+
+  // Rotate a local-space point around the centre.
+  const rotLocal = (lx: number, lz: number): [number, number] => {
+    const rx2 = lx * cosR - lz * sinR;
+    const rz2 = lx * sinR + lz * cosR;
+    return [cx + rx2, cz + rz2];
+  };
+
+  const [rhPosX, rhPosZ] = rotLocal( W / 2, 0);      // right edge
+  const [lhPosX, lhPosZ] = rotLocal(-W / 2, 0);      // left edge
+  const [fhPosX, fhPosZ] = rotLocal(0,  D / 2);      // far edge
+  const [nhPosX, nhPosZ] = rotLocal(0, -D / 2);      // near edge
+
+  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
+    { axis: 'width',  sign:  1, hx: rhPosX, hz: rhPosZ, cursor: 'ew-resize' },
+    { axis: 'width',  sign: -1, hx: lhPosX, hz: lhPosZ, cursor: 'ew-resize' },
+    { axis: 'depth',  sign:  1, hx: fhPosX, hz: fhPosZ, cursor: 'ns-resize' },
+    { axis: 'depth',  sign: -1, hx: nhPosX, hz: nhPosZ, cursor: 'ns-resize' },
+  ];
+
+  return (
+    <group>
+      {handles.map(({ axis, sign, hx, hz, cursor }) => (
+        <HandleMesh
+          key={`furn-${furniture.id}-${axis}${sign}`}
+          position={[hx, FURNITURE_HANDLE_Y, hz]}
           axis={axis}
           sign={sign}
           cursor={cursor}
@@ -1674,9 +1864,14 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 
   // Show transform controls whenever furniture is selected.
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
-  // 'scale' no longer resizes furniture in 3D — furniture dimensions are controlled from the planogram view.
+  // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
   const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
+  // Show furniture resize handles in scale mode for resizable furniture types.
+  const showFurnitureResize =
+    activeTool === 'scale' &&
+    selectedFurniture != null &&
+    RESIZABLE_FURNITURE_TYPES.has(selectedFurniture.type);
   // Show boundary handles when the boundary is explicitly selected (any non-measure tool),
   // OR passively in scale mode when nothing else is selected (backward compat).
   const showBoundaryHandles =
@@ -1712,6 +1907,10 @@ function SceneContent({ projectId }: { projectId: string | null }) {
             mode={tMode}
             projectId={projectId}
           />
+        )}
+
+        {showFurnitureResize && (
+          <FurnitureResizeHandles furniture={selectedFurniture} projectId={projectId} />
         )}
 
         {showBoundaryHandles && (

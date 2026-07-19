@@ -32,7 +32,7 @@ const RESIZE_HANDLE_PX = 4;
 const RESIZE_TOOLTIP_DX = 14;
 const RESIZE_TOOLTIP_DY = -28;
 /** Snap threshold in pixels: when a cell edge is within this distance of a global column boundary, it snaps. */
-const SNAP_THRESHOLD_PX = 8;
+const SNAP_THRESHOLD_PX = 12;
 
 /** Returns per-column widths in cm, falling back to equal distribution. */
 function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
@@ -59,6 +59,22 @@ function getColBoundariesCm(p: Planogram): number[] {
   let cum = 0;
   for (const w of widths) {
     cum += w;
+    boundaries.push(cum);
+  }
+  return boundaries;
+}
+
+/**
+ * Returns cumulative row boundary positions in cm.
+ * boundaries[0] = 0 (top edge), boundaries[r+1] = sum of heights 0..r.
+ * Used for snap-to-row-boundary when resizing cells vertically.
+ */
+function getRowBoundariesCm(p: Planogram): number[] {
+  const heights = getEffectiveRowHeights(p);
+  const boundaries: number[] = [0];
+  let cum = 0;
+  for (const h of heights) {
+    cum += h;
     boundaries.push(cum);
   }
   return boundaries;
@@ -176,6 +192,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    * Used to highlight the corresponding column-header separator.
    */
   const [activeSnapBoundary, setActiveSnapBoundary] = useState<number | null>(null);
+  /**
+   * Index of the global row boundary (0..rows) that is currently being snapped to
+   * during a per-cell height resize drag.
+   */
+  const [activeRowSnapBoundary, setActiveRowSnapBoundary] = useState<number | null>(null);
 
   // ── Redo stack (cleared on every new action) ─────────────────────────────
   const [future, setFuture] = useState<Planogram[]>([]);
@@ -949,9 +970,23 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     let finalH1 = startH1;
     setIsResizing('row');
 
+    // Top edge of the selected cell in cm (for snap computation of its bottom edge).
+    let topOffsetCm = 0;
+    for (let r = 0; r < row; r++) topOffsetCm += getCellStartHeightCm(capturedPlanogram, r, col);
+    const rowBoundaries = getRowBoundariesCm(capturedPlanogram);
+
     const onMove = (ev: MouseEvent) => {
-      const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
-      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, deltaCm));
+      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_HEIGHT_SCALE * zoom);
+      const rawDeltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
+
+      // Snap the bottom edge of the selected cell to a global row boundary.
+      const rawBottomEdgeCm = topOffsetCm + startH0 + rawDeltaCm;
+      const { snapped: snappedBottomEdge, idx: snapIdx } = snapCmToBoundary(rawBottomEdgeCm, rowBoundaries, thresholdCm);
+      const effectiveDelta = snappedBottomEdge - topOffsetCm - startH0;
+
+      setActiveRowSnapBoundary(snapIdx >= 0 ? snapIdx : null);
+
+      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, effectiveDelta));
       finalH0 = startH0 + clamped;
       finalH1 = startH1 - clamped;
       setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
@@ -964,6 +999,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellHeightOverrides(null);
       setResizeTooltip(null);
+      setActiveRowSnapBoundary(null);
       applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
     };
 
@@ -986,10 +1022,24 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     let finalH1 = startH1;
     setIsResizing('row');
 
+    // Position of the top edge of the selected cell (= border between row-1 and row) in cm.
+    let topEdgeCm = 0;
+    for (let r = 0; r < row; r++) topEdgeCm += getCellStartHeightCm(capturedPlanogram, r, col);
+    const rowBoundaries = getRowBoundariesCm(capturedPlanogram);
+
     const onMove = (ev: MouseEvent) => {
+      const thresholdCm = SNAP_THRESHOLD_PX / (CELL_HEIGHT_SCALE * zoom);
+      const rawDeltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
+
+      // Snap the top border (between row-1 and row) to a global row boundary.
+      const rawBorderCm = topEdgeCm + rawDeltaCm;
+      const { snapped: snappedBorder, idx: snapIdx } = snapCmToBoundary(rawBorderCm, rowBoundaries, thresholdCm);
+      const effectiveDelta = snappedBorder - topEdgeCm;
+
+      setActiveRowSnapBoundary(snapIdx >= 0 ? snapIdx : null);
+
       // Dragging up (negative delta) shrinks the top neighbour, grows current
-      const deltaCm = (ev.clientY - startY) / (CELL_HEIGHT_SCALE * zoom);
-      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, deltaCm));
+      const clamped = Math.max(-(startH0 - MIN_CELL_CM_H), Math.min(startH1 - MIN_CELL_CM_H, effectiveDelta));
       finalH0 = startH0 + clamped;
       finalH1 = startH1 - clamped;
       setLocalCellHeightOverrides({ ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 });
@@ -1002,6 +1052,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       setIsResizing(null);
       setLocalCellHeightOverrides(null);
       setResizeTooltip(null);
+      setActiveRowSnapBoundary(null);
       applyUpdate({ ...capturedPlanogram, cellHeightOverrides: { ...(capturedPlanogram.cellHeightOverrides ?? {}), [key0]: finalH0, [key1]: finalH1 } });
     };
 
@@ -1555,7 +1606,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 {r < rows - 1 && (
                   <div
                     style={{ height: `${RESIZE_HANDLE_PX}px`, cursor: 'row-resize' }}
-                    className="hover:bg-blue-500/60 transition-colors"
+                    className={[
+                      'transition-colors',
+                      activeRowSnapBoundary === r + 1
+                        ? 'bg-yellow-400/80'
+                        : 'hover:bg-blue-500/60',
+                    ].join(' ')}
                     onMouseDown={(e) => startRowResize(e, r)}
                     title="Redimensionner ligne"
                   />

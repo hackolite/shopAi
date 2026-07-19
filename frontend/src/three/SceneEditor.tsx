@@ -221,6 +221,38 @@ function PlanogramFaceOverlay({
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
 
+  // Preload product images so they can be drawn into the canvas texture.
+  const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
+
+  useEffect(() => {
+    if (!planogram) { setLoadedImages(new Map()); return; }
+    const productByEan = new Map(products.map((p) => [p.ean, p]));
+    const urlsByEan = new Map<string, string>();
+    for (const cell of planogram.cells) {
+      const prod = productByEan.get(cell.ean);
+      if (prod?.imageUrl && !urlsByEan.has(prod.ean)) {
+        urlsByEan.set(prod.ean, prod.imageUrl);
+      }
+    }
+    if (urlsByEan.size === 0) { setLoadedImages(new Map()); return; }
+
+    let cancelled = false;
+    const newImages = new Map<string, HTMLImageElement>();
+    let pending = urlsByEan.size;
+    const settle = () => {
+      pending--;
+      if (!cancelled && pending === 0) setLoadedImages(new Map(newImages));
+    };
+    for (const [ean, url] of urlsByEan) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload  = () => { newImages.set(ean, img); settle(); };
+      img.onerror = () => settle();
+      img.src = url;
+    }
+    return () => { cancelled = true; };
+  }, [planogram, products]);
+
   const texture = useMemo(() => {
     if (!planogram) return null;
     const productByEan = new Map(products.map((p) => [p.ean, p]));
@@ -269,6 +301,11 @@ function PlanogramFaceOverlay({
       ctx.fillStyle = color;
       const { x: cx, y: cy, w: cw, h: ch } = getCellRectPx(cell.row, cell.col);
       ctx.fillRect(cx + 1, cy + 1, cw, ch);
+      // Draw product image on top of the colour block when available
+      const img = prod ? loadedImages.get(prod.ean) : null;
+      if (img) {
+        ctx.drawImage(img, cx + 1, cy + 1, cw, ch);
+      }
     }
 
     // Highlight the selected cell with a bright yellow outline + tint
@@ -285,7 +322,7 @@ function PlanogramFaceOverlay({
     }
 
     return new THREE.CanvasTexture(canvas);
-  }, [planogram, products, selectedCellId]);
+  }, [planogram, products, selectedCellId, loadedImages]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -354,25 +391,30 @@ function PlanogramFaceOverlay({
   const planoW = planogram.widthCm  * CM_TO_UNIT;
   const planoH = planogram.heightCm * CM_TO_UNIT;
 
-  // Compute position and rotation for each face (centred on that face of the gondola)
+  // Top-align the overlay on the gondola face: when the planogram is shorter than the
+  // gondola, the plane is shifted upward so row 0 always starts at the top of the face.
+  // yOffset moves the plane centre so its top edge coincides with the gondola top edge.
+  const yOffset = (H - planoH) / 2;
+
+  // Compute position and rotation for each face (top-aligned on that face of the gondola)
   let position: [number, number, number];
   let rotation: [number, number, number];
 
   switch (face) {
     case 'front':
-      position = [0, 0,  D / 2 + OVERLAY_Z_OFFSET];
+      position = [0, yOffset,  D / 2 + OVERLAY_Z_OFFSET];
       rotation = [0, 0, 0];
       break;
     case 'back':
-      position = [0, 0, -(D / 2 + OVERLAY_Z_OFFSET)];
+      position = [0, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
       rotation = [0, Math.PI, 0];
       break;
     case 'left':
-      position = [-(W / 2 + OVERLAY_Z_OFFSET), 0, 0];
+      position = [-(W / 2 + OVERLAY_Z_OFFSET), yOffset, 0];
       rotation = [0, -Math.PI / 2, 0];
       break;
     case 'right':
-      position = [ W / 2 + OVERLAY_Z_OFFSET, 0, 0];
+      position = [ W / 2 + OVERLAY_Z_OFFSET, yOffset, 0];
       rotation = [0, Math.PI / 2, 0];
       break;
     case 'top':

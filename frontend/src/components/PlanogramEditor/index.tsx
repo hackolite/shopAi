@@ -493,31 +493,108 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const removeRow = () => {
     if (!planogram || planogram.rows <= 1) return;
-    const lastRow = planogram.rows - 1;
+    const removeIdx = selectedHeaderRow ?? planogram.rows - 1;
     setHistory((prev) => [...prev.slice(-20), planogram]);
     const curHeights = getEffectiveRowHeights(planogram);
-    const removedH = curHeights[lastRow];
-    // Remove mergedSpans entries that belong to the last row
+    const removedH = curHeights[removeIdx];
+
+    // Remove cells at removeIdx; shift cells at row > removeIdx up by 1
+    const newCells = planogram.cells
+      .filter((c) => c.row !== removeIdx)
+      .map((c) => (c.row > removeIdx ? { ...c, row: c.row - 1 } : c));
+
+    // Remove the deleted row height; shift remaining heights
+    const newRowHeights = [...curHeights.slice(0, removeIdx), ...curHeights.slice(removeIdx + 1)];
+
+    // Update cellWidthOverrides: drop removed row, shift row > removeIdx
+    const oldWidthOverrides = planogram.cellWidthOverrides ?? {};
+    const newWidthOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldWidthOverrides)) {
+      const parsed = parseOverrideKey(key);
+      if (!parsed) continue;
+      const [r, c] = parsed;
+      if (r === removeIdx) continue;
+      newWidthOverrides[r > removeIdx ? `${r - 1}-${c}` : key] = val;
+    }
+
+    // Update cellHeightOverrides: drop removed row, shift row > removeIdx
+    const oldHeightOverrides = planogram.cellHeightOverrides ?? {};
+    const newHeightOverrides: Record<string, number> = {};
+    for (const [key, val] of Object.entries(oldHeightOverrides)) {
+      const parsed = parseOverrideKey(key);
+      if (!parsed) continue;
+      const [r, c] = parsed;
+      if (r === removeIdx) continue;
+      newHeightOverrides[r > removeIdx ? `${r - 1}-${c}` : key] = val;
+    }
+
+    // Update rowColCounts: remove the deleted row, shift remaining entries
+    let newRowColCounts: number[] | undefined;
+    if (planogram.rowColCounts) {
+      const normalised = Array.from(
+        { length: planogram.rows },
+        (_, i) => planogram.rowColCounts![i] ?? planogram.cols,
+      );
+      const updated = [...normalised.slice(0, removeIdx), ...normalised.slice(removeIdx + 1)];
+      newRowColCounts = updated.every((c) => c === planogram.cols) ? undefined : updated;
+    }
+
+    // Update mergedSpans: drop removed row entries, shift row > removeIdx
     let newMergedSpans: Record<string, number> | undefined;
     if (planogram.mergedSpans) {
-      newMergedSpans = Object.fromEntries(
-        Object.entries(planogram.mergedSpans).filter(([k]) => {
-          const p = parseOverrideKey(k);
-          return p && p[0] !== lastRow;
-        }),
-      );
+      newMergedSpans = {};
+      for (const [key, val] of Object.entries(planogram.mergedSpans)) {
+        const parsed = parseOverrideKey(key);
+        if (!parsed) continue;
+        const [r, c] = parsed;
+        if (r === removeIdx) continue;
+        newMergedSpans[r > removeIdx ? `${r - 1}-${c}` : key] = val;
+      }
       if (Object.keys(newMergedSpans).length === 0) newMergedSpans = undefined;
     }
+
     applyUpdate({
       ...planogram,
       rows: planogram.rows - 1,
       heightCm: planogram.heightCm - removedH,
-      rowHeightsCm: curHeights.slice(0, -1),
-      cells: planogram.cells.filter((c) => c.row !== lastRow),
-      rowColCounts: planogram.rowColCounts?.slice(0, -1),
+      rowHeightsCm: newRowHeights,
+      cells: newCells,
+      cellWidthOverrides: Object.keys(newWidthOverrides).length ? newWidthOverrides : undefined,
+      cellHeightOverrides: Object.keys(newHeightOverrides).length ? newHeightOverrides : undefined,
+      rowColCounts: newRowColCounts,
       mergedSpans: newMergedSpans,
     });
-    if (selectedKey?.startsWith(`${lastRow}-`)) setSelectedKey(null);
+
+    // Update header selection
+    if (selectedHeaderRow !== null) {
+      if (selectedHeaderRow === removeIdx) {
+        setSelectedHeaderRow(null);
+      } else if (selectedHeaderRow > removeIdx) {
+        setSelectedHeaderRow(selectedHeaderRow - 1);
+      }
+    }
+
+    // Update cell selection: clear if it was in the deleted row; shift if in a row below
+    setSelectedKey((prev) => {
+      if (!prev) return prev;
+      const parsed = parseOverrideKey(prev);
+      if (!parsed) return prev;
+      const [r, c] = parsed;
+      if (r === removeIdx) return null;
+      if (r > removeIdx) return `${r - 1}-${c}`;
+      return prev;
+    });
+    setSelectedKeys((prev) => {
+      const next = new Set<string>();
+      for (const key of prev) {
+        const parsed = parseOverrideKey(key);
+        if (!parsed) { next.add(key); continue; }
+        const [r, c] = parsed;
+        if (r === removeIdx) continue;
+        next.add(r > removeIdx ? `${r - 1}-${c}` : key);
+      }
+      return next;
+    });
   };
 
   // ── Add a single cell to one row (without affecting other rows) ────────────
@@ -1732,7 +1809,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               onClick={removeRow}
               disabled={rows <= 1}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm transition-colors"
-              title="Supprimer dernière ligne"
+              title={
+                selectedHeaderRow !== null
+                  ? `Supprimer la ligne ${selectedHeaderRow + 1}`
+                  : 'Supprimer la dernière ligne'
+              }
             >−</button>
             <span className="text-xs text-gray-400 w-5 text-center">{rows}</span>
             <button

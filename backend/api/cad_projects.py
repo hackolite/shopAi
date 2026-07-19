@@ -10,6 +10,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from models.project import Catalog, FurnitureInstance, Material, Planogram, Product, ProjectSettings, SceneData, Store
+from models.gondola import GondolaData
+from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
 from services.project_manager import (
     create_project,
     delete_project,
@@ -348,7 +350,15 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
 def get_planogram(project_id: str, planogram_id: str):
     planograms = _load_planograms(project_id)
     index = _find_index(planograms, "id", planogram_id)
-    return planograms[index].model_dump(mode="json")
+    planogram = planograms[index]
+    # §6: if gondola is the source of truth, derive legacy cells before returning
+    if planogram.gondola:
+        try:
+            gondola = GondolaData.model_validate(planogram.gondola)
+            planogram = gondola_to_legacy_cells(gondola, planogram)
+        except Exception:
+            pass  # fall back to stored cells if parsing fails
+    return planogram.model_dump(mode="json")
 
 
 @router.put("/{project_id}/planograms/{planogram_id}")

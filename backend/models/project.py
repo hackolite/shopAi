@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -193,6 +193,9 @@ class Planogram(CADBaseModel):
     cellWidthOverrides: dict[str, float] | None = None
     cellHeightOverrides: dict[str, float] | None = None
     rowColCounts: list[int] | None = None
+    mergedSpans: dict[str, int] | None = None
+    # §6 — new boundary-based internal model; when present, is the source of truth.
+    gondola: Optional[Any] = None
 
 
 class Product(CADBaseModel):

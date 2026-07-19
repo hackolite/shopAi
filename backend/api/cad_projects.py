@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import re
+import threading
 from typing import Any
 from uuid import uuid4
 
@@ -32,6 +33,19 @@ ALLOWED_IMAGE_TYPES = frozenset({
 })
 
 router = APIRouter(prefix="/api/cad/projects", tags=["cad-projects"])
+
+# Per-project mutex: FastAPI runs sync handlers in a thread pool, so concurrent
+# POST /planograms requests for the same project must not race on planograms.json.
+_project_locks: dict[str, threading.Lock] = {}
+_project_locks_guard = threading.Lock()
+
+
+def _get_project_lock(project_id: str) -> threading.Lock:
+    """Return (creating if needed) a per-project threading.Lock."""
+    with _project_locks_guard:
+        if project_id not in _project_locks:
+            _project_locks[project_id] = threading.Lock()
+        return _project_locks[project_id]
 
 
 class CreateProjectPayload(BaseModel):
@@ -153,6 +167,9 @@ def export_project_endpoint(project_id: str):
 @router.delete("/{project_id}")
 def remove_project(project_id: str):
     delete_project(project_id)
+    # Release the per-project lock entry so it doesn't grow unbounded.
+    with _project_locks_guard:
+        _project_locks.pop(project_id, None)
     return {"deleted": True, "id": project_id}
 
 
@@ -327,8 +344,8 @@ def list_planograms_endpoint(project_id: str):
 
 @router.post("/{project_id}/planograms")
 def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
-    scene = _load_scene(project_id)
-    planograms = _load_planograms(project_id)
+    # Validate and build the planogram object before acquiring the lock so that
+    # invalid payloads fail fast without blocking other requests.
     data = dict(payload)
     data.setdefault("id", str(uuid4()))
     data["cells"] = [
@@ -336,13 +353,22 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
         for cell in data.get("cells", [])
     ]
     planogram = Planogram.model_validate(data)
-    if any(item.id == planogram.id for item in planograms):
-        raise HTTPException(status_code=409, detail=f"Planogram '{planogram.id}' already exists")
-    planograms.append(planogram)
-    furniture_index = _find_index(scene.furniture, "id", planogram.furnitureId)
-    scene.furniture[furniture_index].faces[planogram.face.value] = planogram.id
-    _save_planograms(project_id, planograms)
-    _save_scene(project_id, scene)
+
+    # Hold a per-project lock for the read-modify-write on planograms.json and
+    # scene.json.  FastAPI executes synchronous route handlers in a thread pool,
+    # so without this lock, concurrent POST /planograms requests for the same
+    # project can read the same stale planograms list, both append their
+    # planogram, and the last writer silently discards the first one.
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        planograms = _load_planograms(project_id)
+        if any(item.id == planogram.id for item in planograms):
+            raise HTTPException(status_code=409, detail=f"Planogram '{planogram.id}' already exists")
+        planograms.append(planogram)
+        furniture_index = _find_index(scene.furniture, "id", planogram.furnitureId)
+        scene.furniture[furniture_index].faces[planogram.face.value] = planogram.id
+        _save_planograms(project_id, planograms)
+        _save_scene(project_id, scene)
     return planogram.model_dump(mode="json")
 
 

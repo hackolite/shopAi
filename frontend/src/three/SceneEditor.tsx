@@ -13,7 +13,6 @@ import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
-import { extendGondolaWidth, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../engine/gondola';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (1 m). */
@@ -45,22 +44,10 @@ const HANDLE_COLOR   = '#ffcc00';
 const HANDLE_HOVER   = '#ffffff';
 const HANDLE_EMISSIVE = '#664400';
 
-/** Tolerance (cm) used when detecting whether a dimension has grown enough to warrant
- *  extending linked planograms.  Avoids spurious extensions due to floating-point drift. */
-const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
-
 /** Debounce delay (ms) before persisting zone changes to the backend. */
 const ZONE_AUTOSAVE_DEBOUNCE_MS = 800;
 /** Video bitrate (bps) used when recording the 3D scene. */
 const RECORDING_BITRATE = 8_000_000;
-
-/**
- * Angle thresholds (radians) used to decide whether a handle's drag axis
- * appears more horizontal (EW) or vertical (NS) on screen.
- * 45° = π/4, 135° = 3π/4.
- */
-const ANGLE_45_DEG  = Math.PI / 4;
-const ANGLE_135_DEG = 3 * Math.PI / 4;
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -687,248 +674,6 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
   );
 }
 
-// ─── Resize handles (scale mode — one handle per face, drags from that side) ──
-interface ResizeHandlesProps {
-  furniture: FurnitureInstance;
-  projectId: string | null;
-}
-
-function ResizeHandles({ furniture, projectId }: ResizeHandlesProps) {
-  const { updateFurniture } = useSceneStore();
-  const { gl, raycaster, camera } = useThree();
-
-  const W  = furniture.dimensions.width  * CM_TO_UNIT;
-  const H  = furniture.dimensions.height * CM_TO_UNIT;
-  const D  = furniture.dimensions.depth  * CM_TO_UNIT;
-  const ry = furniture.rotation[1] * (Math.PI / 180);
-  const px = furniture.position[0] * CM_TO_UNIT;
-  const pz = furniture.position[2] * CM_TO_UNIT;
-
-  // Drag state — all refs so event listeners stay stable.
-  const isDragging    = useRef(false);
-  const dragAxis      = useRef<'width' | 'depth'>('width');
-  const dragSign      = useRef<1 | -1>(1);
-  const dragStart     = useRef(new THREE.Vector3());
-  const pointerIdRef  = useRef(-1);
-  const baseFurRef    = useRef<FurnitureInstance>(furniture);
-  /** Tracks the latest intermediate furniture value during a drag. */
-  const currentFurRef = useRef<FurnitureInstance>(furniture);
-  currentFurRef.current = furniture;
-
-  // Pre-allocated vectors reused every pointermove to reduce GC pressure.
-  const _lx    = useRef(new THREE.Vector3());
-  const _lz    = useRef(new THREE.Vector3());
-  const _hit   = useRef(new THREE.Vector3());
-  const _delta = useRef(new THREE.Vector3());
-  const _ndc   = useRef(new THREE.Vector2());
-
-  /** Horizontal Y=0 plane used for raycasting during a drag. */
-  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
-
-  /** Write the world-space hit point on the drag plane into `out`; returns false if ray is parallel. */
-  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
-    const rect = gl.domElement.getBoundingClientRect();
-    _ndc.current.set(
-      ((clientX - rect.left) / rect.width)  *  2 - 1,
-      -((clientY - rect.top)  / rect.height) *  2 + 1,
-    );
-    raycaster.setFromCamera(_ndc.current, camera);
-    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
-  }, [gl, raycaster, camera, dragPlane]);
-
-  /** Called from each handle's pointerDown handler. */
-  const startDrag = useCallback((
-    axis: 'width' | 'depth',
-    sign: 1 | -1,
-    clientX: number,
-    clientY: number,
-    pointerId: number,
-  ) => {
-    if (!getHitPoint(clientX, clientY, dragStart.current)) return; // ray parallel to plane — ignore
-    baseFurRef.current   = currentFurRef.current;
-    isDragging.current   = true;
-    dragAxis.current     = axis;
-    dragSign.current     = sign;
-    pointerIdRef.current = pointerId;
-  }, [getHitPoint]);
-
-  useEffect(() => {
-    let rafId = 0;
-
-    const onMove = (e: PointerEvent) => {
-      if (!isDragging.current) return;
-      // Capture coords synchronously; compute and update inside rAF to throttle.
-      const { clientX, clientY } = e;
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const base = baseFurRef.current;
-        const bW  = base.dimensions.width  * CM_TO_UNIT;
-        const bD  = base.dimensions.depth  * CM_TO_UNIT;
-        const bRy = base.rotation[1] * (Math.PI / 180);
-
-        // Local axes of the furniture in world space (reused vectors).
-        const lx = _lx.current.set( Math.cos(bRy), 0, Math.sin(bRy));
-        const lz = _lz.current.set(-Math.sin(bRy), 0, Math.cos(bRy));
-
-        const bCx = base.position[0] * CM_TO_UNIT + bW / 2;
-        const bCz = base.position[2] * CM_TO_UNIT + bD / 2;
-
-        if (!getHitPoint(clientX, clientY, _hit.current)) return; // ray parallel — skip frame
-        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
-        const sign  = dragSign.current;
-
-        const newDims = { ...base.dimensions };
-        const newPos  = [...base.position] as [number, number, number];
-
-        if (dragAxis.current === 'width') {
-          // How much the dragged face moved (positive = outward).
-          const move = delta.dot(lx) * sign;
-          const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
-          const dW   = newW - bW;
-          // Shift center along the local X axis toward the dragged side.
-          const newCx = bCx + Math.cos(bRy) * dW / 2 * sign;
-          const newCz = bCz + Math.sin(bRy) * dW / 2 * sign;
-          newDims.width = newW / CM_TO_UNIT;
-          newPos[0]     = (newCx - newW / 2) / CM_TO_UNIT;
-          newPos[2]     = (newCz - bD  / 2)  / CM_TO_UNIT;
-        } else {
-          const move = delta.dot(lz) * sign;
-          const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
-          const dD   = newD - bD;
-          const newCx = bCx + (-Math.sin(bRy)) * dD / 2 * sign;
-          const newCz = bCz +   Math.cos(bRy)  * dD / 2 * sign;
-          newDims.depth = newD / CM_TO_UNIT;
-          newPos[0]     = (newCx - bW  / 2) / CM_TO_UNIT;
-          newPos[2]     = (newCz - newD / 2) / CM_TO_UNIT;
-        }
-
-        updateFurniture({ ...base, dimensions: newDims, position: newPos });
-      });
-    };
-
-    const onUp = () => {
-      if (!isDragging.current) return;
-      cancelAnimationFrame(rafId);
-      isDragging.current = false;
-
-      // Release pointer capture explicitly.
-      if (pointerIdRef.current >= 0) {
-        try {
-          gl.domElement.releasePointerCapture(pointerIdRef.current);
-        } catch (err) {
-          console.warn('releasePointerCapture failed:', err);
-        }
-        pointerIdRef.current = -1;
-      }
-
-      // Snap final position and dimensions to the grid.
-      // Clamp to minimum first so the snapped value can never fall below it.
-      const cur = currentFurRef.current;
-      const snapDim = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
-      const snapped: FurnitureInstance = {
-        ...cur,
-        position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
-        dimensions: {
-          ...cur.dimensions,
-          width: snapDim(cur.dimensions.width),
-          depth: snapDim(cur.dimensions.depth),
-        },
-      };
-      updateFurniture(snapped);
-      if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
-
-      // ── Extend planograms linked to this furniture when it grew ────────────────
-      if (!projectId) return;
-      const base = baseFurRef.current;
-      const oldW = base.dimensions.width;
-      const oldD = base.dimensions.depth;
-      const newW = snapped.dimensions.width;
-      const newD = snapped.dimensions.depth;
-      const { planogramDetails, syncPlanogram } = usePlanogramStore.getState();
-
-      const facesToExtend: { face: string; newWidthCm: number }[] = [];
-      if (newW > oldW + DIMENSION_CHANGE_TOLERANCE_CM) {
-        facesToExtend.push({ face: 'front', newWidthCm: newW });
-        facesToExtend.push({ face: 'back',  newWidthCm: newW });
-      }
-      if (newD > oldD + DIMENSION_CHANGE_TOLERANCE_CM) {
-        facesToExtend.push({ face: 'left',  newWidthCm: newD });
-        facesToExtend.push({ face: 'right', newWidthCm: newD });
-      }
-      if (facesToExtend.length === 0) return;
-
-      const faces = snapped.faces ?? {};
-      for (const { face, newWidthCm } of facesToExtend) {
-        const planoId = faces[face as keyof typeof faces];
-        if (!planoId) continue;
-        const planogram = planogramDetails.get(planoId as string);
-        if (!planogram) continue;
-
-        // Ensure the planogram has a gondola representation before extending.
-        const gondola = planogram.gondola ?? legacyCellsToSeparators(planogram);
-        const extended = extendGondolaWidth(gondola, newWidthCm);
-        if (extended === gondola) continue; // nothing changed
-
-        const updated = gondolaToLegacyPlanogram(extended, { ...planogram, gondola: extended });
-        cadApi.updatePlanogram(projectId, planoId as string, updated)
-          .then(() => syncPlanogram(updated))
-          .catch(console.error);
-      }
-    };
-
-    gl.domElement.addEventListener('pointermove', onMove);
-    gl.domElement.addEventListener('pointerup',   onUp);
-    return () => {
-      cancelAnimationFrame(rafId);
-      gl.domElement.removeEventListener('pointermove', onMove);
-      gl.domElement.removeEventListener('pointerup',   onUp);
-    };
-  }, [gl, getHitPoint, updateFurniture, projectId]);
-
-  // Ensure cursor is reset when this component unmounts (e.g. tool switch or deselect).
-  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
-
-  // ── Render four face handles (+W, -W, +D, -D) ──
-  const centerX = px + W / 2;
-  const centerZ = pz + D / 2;
-
-  // Choose resize cursor based on the handle's approximate screen-space orientation.
-  // The width axis (local X) is along world [cos(ry), 0, sin(ry)]; depth is 90° offset.
-  // ANGLE_45_DEG / ANGLE_135_DEG split the rotation into quadrants where width appears
-  // more horizontal (EW) vs vertical (NS) on a top-down view.
-  const ryMod180 = Math.abs(ry % Math.PI);
-  const widthIsEW = ryMod180 < ANGLE_45_DEG || ryMod180 > ANGLE_135_DEG;
-
-  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; lx: number; lz: number }[] = [
-    { axis: 'width', sign:  1, lx:  Math.cos(ry),  lz:  Math.sin(ry) },
-    { axis: 'width', sign: -1, lx: -Math.cos(ry),  lz: -Math.sin(ry) },
-    { axis: 'depth', sign:  1, lx: -Math.sin(ry),  lz:  Math.cos(ry) },
-    { axis: 'depth', sign: -1, lx:  Math.sin(ry),  lz: -Math.cos(ry) },
-  ];
-
-  return (
-    <group>
-      {handles.map(({ axis, sign, lx: hlx, lz: hlz }) => {
-        const halfDim = axis === 'width' ? W / 2 : D / 2;
-        const hx = centerX + hlx * halfDim;
-        const hz = centerZ + hlz * halfDim;
-        // 'width' axis is EW when widthIsEW; depth is always the opposite.
-        const cursor = (axis === 'width') === widthIsEW ? 'ew-resize' : 'ns-resize';
-        return (
-          <HandleMesh
-            key={`${axis}${sign}`}
-            position={[hx, H / 2, hz]}
-            axis={axis}
-            sign={sign}
-            cursor={cursor}
-            onStartDrag={startDrag}
-          />
-        );
-      })}
-    </group>
-  );
-}
-
 interface HandleMeshProps {
   position: [number, number, number];
   axis: 'width' | 'depth';
@@ -958,7 +703,6 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
   );
 }
 
-// ─── Store Floor + fine grid ───────────────────────────────────────────────────
 function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
@@ -1915,9 +1659,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 
   // Show transform controls whenever furniture is selected.
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
-  // 'scale' uses the custom ResizeHandles component instead.
+  // 'scale' no longer resizes furniture in 3D — furniture dimensions are controlled from the planogram view.
   const hasSelection        = selectedFurniture != null && transformTarget != null;
-  const showResizeHandles   = hasSelection && activeTool === 'scale';
   const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
   // Show boundary handles when the boundary is explicitly selected (any non-measure tool),
   // OR passively in scale mode when nothing else is selected (backward compat).
@@ -1954,10 +1697,6 @@ function SceneContent({ projectId }: { projectId: string | null }) {
             mode={tMode}
             projectId={projectId}
           />
-        )}
-
-        {showResizeHandles && (
-          <ResizeHandles furniture={selectedFurniture} projectId={projectId} />
         )}
 
         {showBoundaryHandles && (

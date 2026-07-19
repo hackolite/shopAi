@@ -31,7 +31,6 @@ import {
   cmdClearPlacement,
   cmdClearAllPlacements,
   cmdMoveSeparator,
-  cmdInsertSeparator,
   cmdRemoveSeparator,
   cmdAddShelf,
   cmdRemoveShelf,
@@ -41,6 +40,8 @@ import {
   cmdClearBoxesByKeys,
   findBox,
   getRowBoxes,
+  extendGondolaWidth,
+  shrinkGondolaWidth,
   DEFAULT_SHELF_HEIGHT_CM,
   DEFAULT_SEP_SPACING_CM,
   MIN_BOX_CM,
@@ -177,7 +178,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const { setActivePlanogram } = usePlanogramStore();
   const { products, selectedEan, addRecentlyUsed, setProducts, selectProduct } = useCatalogStore();
-  const { scene } = useSceneStore();
+  const { scene, updateFurniture } = useSceneStore();
   const productByEan = new Map(products.map(p => [p.ean, p] as const));
 
   // ── Derived geometry ──────────────────────────────────────────────────────
@@ -214,9 +215,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     ? _addRowAbsorberShelf.height_cm > MIN_BOX_CM * 2
     : false;
 
-  // Column can be added by inserting a separator within the existing gondola width;
-  // this never changes gondola.width_cm, so gondolaRemainingW is irrelevant here.
-  const canAddCol = gondola ? gondola.width_cm > MIN_BOX_CM * 2 : false;
+  // Column add always grows the gondola width; the only limit is a reasonable minimum width.
+  const canAddCol = gondola !== null;
+
+  // Column remove is possible when there is more than one column on at least one shelf.
+  const canRemoveCol = gondola
+    ? gondola.shelves.some(s => s.separators.length >= 3)
+    : false;
 
   // ── px / cm conversion ────────────────────────────────────────────────────
   const pxPerCmX = BASE_PX_PER_CM_X * zoom;
@@ -511,44 +516,47 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   // ── Column (separator) management ────────────────────────────────────────
-  const addSepToShelf = (g: Gondola, displayRow: number): Gondola => {
-    const shelf = getShelfByDisplayIndex(g, displayRow);
-    if (!shelf) return g;
-    const seps = sortedSeps(shelf);
-    const rightBound  = seps[seps.length - 1].position_cm;
-    const lastInternal = seps[seps.length - 2];
-    const newPos = lastInternal
-      ? Math.max(lastInternal.position_cm + MIN_BOX_CM, rightBound - DEFAULT_SEP_SPACING_CM)
-      : rightBound / 2;
-    if (newPos <= MIN_BOX_CM || newPos >= rightBound - MIN_BOX_CM) return g;
-    return cmdInsertSeparator(g, shelf.id, newPos);
+
+  /** After a gondola width change, update the linked furniture dimensions in the scene store and persist to the API. */
+  const syncFurnitureDimension = (newWidthCm: number) => {
+    if (!planogramBase || !scene) return;
+    const fur = scene.furniture.find(f => f.id === planogramBase.furnitureId);
+    if (!fur) return;
+    const face = planogramBase.face;
+    let updatedDims = { ...fur.dimensions };
+    if (face === 'front' || face === 'back') {
+      updatedDims = { ...updatedDims, width: newWidthCm };
+    } else if (face === 'left' || face === 'right') {
+      updatedDims = { ...updatedDims, depth: newWidthCm };
+    } else {
+      // top/bottom: treat as width
+      updatedDims = { ...updatedDims, width: newWidthCm };
+    }
+    const updated = { ...fur, dimensions: updatedDims };
+    updateFurniture(updated);
+    if (projectId) cadApi.updateFurniture(projectId, fur.id, updated).catch(console.error);
   };
 
   const addCol = () => {
     if (!gondola || !canAddCol) return;
     pushHistory();
-    if (selectedHeaderRow !== null) {
-      applyGondola(addSepToShelf(gondola, selectedHeaderRow));
-    } else {
-      let g = gondola;
-      for (let di = 0; di < shelfCount; di++) g = addSepToShelf(g, di);
-      applyGondola(g);
-    }
+    // Grow the gondola width by DEFAULT_SEP_SPACING_CM on all shelves.
+    const newWidthCm = gondola.width_cm + DEFAULT_SEP_SPACING_CM;
+    const g = extendGondolaWidth(gondola, newWidthCm);
+    applyGondola(g);
+    syncFurnitureDimension(newWidthCm);
   };
 
   const removeCol = () => {
-    if (!gondola) return;
+    if (!gondola || !canRemoveCol) return;
     pushHistory();
-    let g = gondola;
-    const rows = selectedHeaderRow !== null ? [selectedHeaderRow] : Array.from({ length: shelfCount }, (_, i) => i);
-    for (const di of rows) {
-      const shelf = getShelfByDisplayIndex(g, di);
-      if (!shelf) continue;
-      const seps = sortedSeps(shelf);
-      if (seps.length <= 2) continue;
-      g = cmdRemoveSeparator(g, shelf.id, seps[seps.length - 2].id);
-    }
+    const shelfId = selectedHeaderRow !== null
+      ? getShelfByDisplayIndex(gondola, selectedHeaderRow)?.id
+      : undefined;
+    const g = shrinkGondolaWidth(gondola, shelfId);
+    if (g === gondola) return; // nothing changed
     applyGondola(g);
+    syncFurnitureDimension(g.width_cm);
   };
 
   // ── Fuse / split ──────────────────────────────────────────────────────────
@@ -828,7 +836,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         {/* Cols */}
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-600">Colonnes</span>
-          <button onClick={removeCol} disabled={maxBoxCount <= 1} title="Retirer une colonne"
+          <button onClick={removeCol} disabled={!canRemoveCol} title="Retirer une colonne"
             className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 text-sm">−</button>
           <span className="text-xs text-gray-400 w-5 text-center">{maxBoxCount}</span>
           <button onClick={addCol} disabled={!canAddCol} title={canAddCol ? 'Ajouter une colonne' : 'Limite atteinte'}

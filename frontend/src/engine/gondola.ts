@@ -718,6 +718,59 @@ export function getSeparatorPositions(shelf: Shelf): number[] {
 }
 
 /**
+ * §4 Shrink gondola width: removes the last column from every shelf (or a
+ * specific shelf when `shelfId` is supplied) and moves the right boundary to the
+ * position of the last internal separator, reducing `gondola.width_cm`.
+ *
+ * Any product placement in the removed column is discarded.
+ * No-op when there is only one column on a shelf (boundary pair only) or the
+ * resulting width would fall below `MIN_BOX_CM * 2`.
+ */
+export function shrinkGondolaWidth(gondola: Gondola, shelfId?: string): Gondola {
+  let newWidthCm = gondola.width_cm;
+
+  const shelves = gondola.shelves.map((shelf) => {
+    if (shelfId && shelf.id !== shelfId) return shelf;
+
+    const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
+    // Need at least 3 separators (left boundary + 1 internal + right boundary)
+    if (sorted.length < 3) return shelf;
+
+    // The separator that becomes the new right boundary is the one just before
+    // the current right boundary.
+    const newRightPos = sorted[sorted.length - 2].position_cm;
+    if (newRightPos < MIN_BOX_CM * 2) return shelf;
+
+    // Track the minimum new width across all affected shelves.
+    if (!shelfId || shelf.id === shelfId) {
+      newWidthCm = Math.min(newWidthCm, newRightPos);
+    }
+
+    // Remove the last internal separator and move the right boundary to its position.
+    // We preserve the right boundary separator's ID by spreading from sorted[length-1].
+    const withoutLast = sorted.slice(0, -2); // all except last internal + right boundary
+    const newRightBoundary: Separator = { ...sorted[sorted.length - 1], position_cm: newRightPos, movable: false, type: 'virtual' };
+
+    return {
+      ...shelf,
+      separators: [...withoutLast, newRightBoundary],
+    };
+  });
+
+  if (newWidthCm >= gondola.width_cm) return gondola; // no shelf was changed
+
+  // Drop product placements that were in the removed region.
+  const productPlacements = gondola.productPlacements.filter((p) => {
+    const shelf = shelves.find((s) => s.id === p.shelfId);
+    if (!shelf) return true;
+    const rightSep = shelf.separators.find((s) => s.id === p.rightSeparatorId);
+    return rightSep !== undefined;
+  });
+
+  return { ...gondola, width_cm: newWidthCm, shelves, productPlacements };
+}
+
+/**
  * §4 Extend gondola width: grows the gondola to `newWidthCm`, adding empty boxes
  * in the new region `[oldWidthCm, newWidthCm)` on every shelf.
  *

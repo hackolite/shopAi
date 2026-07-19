@@ -2228,7 +2228,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           onDragLeave={() => { setDragOver(null); setInternalDragOver(null); }}
                           onDrop={(e) => handleDrop(e, row, col)}
                           className={[
-                            'relative flex flex-col items-center justify-center rounded cursor-pointer transition-all overflow-hidden select-none border group flex-none',
+                            'relative flex flex-col items-start justify-start rounded cursor-pointer transition-all overflow-hidden select-none border group flex-none',
                             prodOverflow
                               ? 'border-red-500 border-solid'
                               : isInternalDragOver

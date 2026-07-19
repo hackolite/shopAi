@@ -531,11 +531,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    *  Pass newWidthCm to update the horizontal dimension and/or newHeightCm to update the vertical dimension.
    *  At least one argument must be defined; passing neither is a no-op (defensive guard).
    *
-   *  Position anchoring: the furniture box is rendered with its group center at
-   *  [position[0] + width/2, ...]. When width/depth grows we must shift the
-   *  stored position so the gondola's local-left corner (separator at 0) stays
-   *  fixed in world space regardless of the furniture's Y-axis rotation. For a
-   *  0° rotation this is a no-op (cos(0)=1, sin(0)=0). */
+   *  Position anchoring: the furniture's stored position is NEVER modified here.
+   *  position[0] is the world-space left edge (X) and position[2] is the near edge (Z).
+   *  Keeping them fixed means the physical left/near corner of the gondola is always
+   *  anchored, regardless of Y-axis rotation — columns are always added/removed on the
+   *  right (larger-X / larger-Z) side in world space. */
   const syncFurnitureDimension = (newWidthCm?: number, newHeightCm?: number) => {
     if (!planogramBase || !scene) return;
     if (newWidthCm === undefined && newHeightCm === undefined) return; // defensive guard — callers always supply ≥1 arg
@@ -543,47 +543,21 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!fur) return;
     const face = planogramBase.face;
     let updatedDims = { ...fur.dimensions };
-    let updatedPos: [number, number, number] = [...fur.position] as [number, number, number];
-    const ry = fur.rotation[1] * (Math.PI / 180);
 
     if (newWidthCm !== undefined) {
-      if (face === 'front' || face === 'back') {
-        // The planogram's horizontal axis maps to the furniture's local X (width).
-        // Local-left corner (-width/2, 0, 0) world offset after Y-rotation ry:
-        //   X: -width/2 * cos(ry)   Z: +width/2 * sin(ry)
-        // Keeping that world position fixed when width changes:
-        //   Δpos[0] = -(Δwidth/2) * (1 - cos(ry))
-        //   Δpos[2] = -(Δwidth/2) * sin(ry)
-        const delta = newWidthCm - fur.dimensions.width;
-        updatedPos = [
-          fur.position[0] - (delta / 2) * (1 - Math.cos(ry)),
-          fur.position[1],
-          fur.position[2] - (delta / 2) * Math.sin(ry),
-        ];
-        updatedDims = { ...updatedDims, width: newWidthCm };
-      } else if (face === 'left' || face === 'right') {
+      if (face === 'left' || face === 'right') {
         // The planogram's horizontal axis maps to the furniture's local Z (depth).
-        // Local-near corner (0, 0, -depth/2) world offset after Y-rotation ry:
-        //   X: -depth/2 * sin(ry)   Z: -depth/2 * cos(ry)
-        // Keeping that world position fixed when depth changes:
-        //   Δpos[0] = +(Δdepth/2) * sin(ry)
-        //   Δpos[2] = -(Δdepth/2) * (1 - cos(ry))
-        const delta = newWidthCm - fur.dimensions.depth;
-        updatedPos = [
-          fur.position[0] + (delta / 2) * Math.sin(ry),
-          fur.position[1],
-          fur.position[2] - (delta / 2) * (1 - Math.cos(ry)),
-        ];
         updatedDims = { ...updatedDims, depth: newWidthCm };
       } else {
-        // top/bottom: treat as width
+        // front / back / top / bottom: horizontal axis maps to the furniture's width.
         updatedDims = { ...updatedDims, width: newWidthCm };
       }
     }
     if (newHeightCm !== undefined) {
       updatedDims = { ...updatedDims, height: newHeightCm };
     }
-    const updated = { ...fur, dimensions: updatedDims, position: updatedPos };
+    // position is intentionally left unchanged — the left/near edge stays fixed.
+    const updated = { ...fur, dimensions: updatedDims };
     updateFurniture(updated);
     if (projectId) cadApi.updateFurniture(projectId, fur.id, updated).catch(console.error);
   };

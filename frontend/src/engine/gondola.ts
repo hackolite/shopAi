@@ -791,44 +791,57 @@ export function getSeparatorPositions(shelf: Shelf): number[] {
  * resulting width would fall below `MIN_BOX_CM * 2`.
  */
 export function shrinkGondolaWidth(gondola: Gondola, shelfId?: string): Gondola {
+  // ── Pass 1: determine the target new width ────────────────────────────────
+  // Only the shelf(es) in scope (all when shelfId is undefined, or the
+  // specified shelf) contribute to the new width decision.  We take the
+  // minimum of their second-to-last separator positions so the column removed
+  // from the right is anchored to the left on every shelf.
   let newWidthCm = gondola.width_cm;
-
-  const shelves = gondola.shelves.map((shelf) => {
-    if (shelfId && shelf.id !== shelfId) return shelf;
-
+  for (const shelf of gondola.shelves) {
+    if (shelfId && shelf.id !== shelfId) continue;
     const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
     // Need at least 3 separators (left boundary + 1 internal + right boundary)
-    if (sorted.length < 3) return shelf;
-
-    // The separator that becomes the new right boundary is the one just before
-    // the current right boundary.
+    if (sorted.length < 3) continue;
     const newRightPos = sorted[sorted.length - 2].position_cm;
-    if (newRightPos < MIN_BOX_CM * 2) return shelf;
+    if (newRightPos < MIN_BOX_CM * 2) continue;
+    newWidthCm = Math.min(newWidthCm, newRightPos);
+  }
 
-    // Track the minimum new width across all affected shelves.
-    if (!shelfId || shelf.id === shelfId) {
-      newWidthCm = Math.min(newWidthCm, newRightPos);
-    }
+  if (newWidthCm >= gondola.width_cm) return gondola; // nothing can be shrunk
 
-    // Remove the last internal separator and move the right boundary to its position.
-    // We preserve the right boundary separator's ID by spreading from sorted[length-1].
-    const withoutLast = sorted.slice(0, -2); // all except last internal + right boundary
-    const newRightBoundary: Separator = { ...sorted[sorted.length - 1], position_cm: newRightPos, movable: false, type: 'virtual' };
+  // ── Pass 2: apply newWidthCm consistently to ALL shelves ─────────────────
+  // Every shelf's right boundary is moved to newWidthCm and any internal
+  // separators that now lie at or beyond newWidthCm are removed.  This
+  // guarantees all shelves stay in sync with the gondola's declared width
+  // (reduction from the right, anchored to the left).
+  const shelves = gondola.shelves.map((shelf) => {
+    const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
+    if (sorted.length < 2) return shelf; // malformed shelf, leave unchanged
+
+    // Keep all separators strictly left of newWidthCm (including the left
+    // boundary at 0), then append a right boundary at newWidthCm reusing the
+    // existing right boundary's ID so product placements remain valid.
+    const interior = sorted.slice(0, -1).filter(sep => sep.position_cm < newWidthCm);
+    const newRightBoundary: Separator = {
+      ...sorted[sorted.length - 1],
+      position_cm: newWidthCm,
+      movable: false,
+      type: 'virtual',
+    };
 
     return {
       ...shelf,
-      separators: [...withoutLast, newRightBoundary],
+      separators: [...interior, newRightBoundary],
     };
   });
 
-  if (newWidthCm >= gondola.width_cm) return gondola; // no shelf was changed
-
-  // Drop product placements that were in the removed region.
+  // Drop product placements whose right separator was removed.
   const productPlacements = gondola.productPlacements.filter((p) => {
     const shelf = shelves.find((s) => s.id === p.shelfId);
     if (!shelf) return true;
+    const leftSep  = shelf.separators.find((s) => s.id === p.leftSeparatorId);
     const rightSep = shelf.separators.find((s) => s.id === p.rightSeparatorId);
-    return rightSep !== undefined;
+    return leftSep !== undefined && rightSep !== undefined;
   });
 
   return { ...gondola, width_cm: newWidthCm, shelves, productPlacements };
@@ -867,8 +880,11 @@ export function extendGondolaWidth(gondola: Gondola, newWidthCm: number): Gondol
       );
 
       // Add internal separators in the new region at regular intervals.
+      // Start at oldWidthCm (the old right boundary) so that a separator is
+      // always placed there, creating a clean left edge for the first new box
+      // instead of merging it with the last existing column.
       const extraSeps: Separator[] = [];
-      let pos = oldWidthCm + colSpacing;
+      let pos = oldWidthCm;
       while (pos < newWidthCm - MIN_BOX_CM) {
         extraSeps.push({
           id: crypto.randomUUID(),

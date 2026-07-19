@@ -155,6 +155,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   const productByEan = new Map(products.map((p) => [p.ean, p] as const));
 
+  // ── Helper: resolve the currently selected separator object ─────────────────
+  const getSelectedSeparator = () => {
+    if (!selectedSep || !gondola) return null;
+    const shelf = gondola.shelves.find(s => s.id === selectedSep.shelfId);
+    const sep = shelf?.separators.find(s => s.id === selectedSep.sepId);
+    return sep?.movable ? { shelf: shelf!, sep } : null;
+  };
+
   // ── Derived gondola metrics ─────────────────────────────────────────────────
   const shelfCount = gondola?.shelves.length ?? 0;
   const maxBoxCount = gondola
@@ -644,13 +652,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
     ) { e.preventDefault(); redo(); return; }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (selectedSep && gondola) {
-        const shelf = gondola.shelves.find(s => s.id === selectedSep.shelfId);
-        const sep = shelf?.separators.find(s => s.id === selectedSep.sepId);
-        if (sep?.movable) {
+      if (selectedSep) {
+        const resolved = getSelectedSeparator();
+        if (resolved) {
           e.preventDefault();
           pushHistory();
-          applyGondola(cmdRemoveSeparator(gondola, selectedSep.shelfId, selectedSep.sepId));
+          applyGondola(cmdRemoveSeparator(gondola!, resolved.shelf.id, resolved.sep.id));
           setSelectedSep(null);
         }
         return;
@@ -993,9 +1000,8 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           )}
           {/* Separator actions */}
           {selectedSep && (() => {
-            const sepShelf = gondola.shelves.find(s => s.id === selectedSep.shelfId);
-            const sep = sepShelf?.separators.find(s => s.id === selectedSep.sepId);
-            if (!sep?.movable) return null;
+            const resolved = getSelectedSeparator();
+            if (!resolved) return null;
             return (
               <>
                 <div className="h-4 w-px bg-gray-700" />
@@ -1003,7 +1009,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 <button
                   onClick={() => {
                     pushHistory();
-                    applyGondola(cmdRemoveSeparator(gondola, selectedSep.shelfId, selectedSep.sepId));
+                    applyGondola(cmdRemoveSeparator(gondola, resolved.shelf.id, resolved.sep.id));
                     setSelectedSep(null);
                   }}
                   className="px-2 py-0.5 text-xs rounded bg-orange-800/50 hover:bg-orange-700/70 text-orange-200 transition-colors"

@@ -345,20 +345,29 @@ function PlanogramFaceOverlay({
     const colWidths  = getEffectiveColWidths(planogram);
     const rowHeights = getEffectiveRowHeights(planogram);
 
-    const uvX = Math.min(1, Math.max(0, event.uv.x));
-    let col = planogram.cols - 1;
-    let cumW = 0;
-    for (let i = 0; i < colWidths.length; i++) {
-      cumW += colWidths[i] / planogram.widthCm;
-      if (uvX <= cumW) { col = i; break; }
-    }
-
+    // Determine the row first so we can use per-row cell widths when mapping the
+    // UV X coordinate to a column.  After gondola operations (add/remove column,
+    // fuse, split) each row may have a different number of columns with non-uniform
+    // widths recorded in cellWidthOverrides; using the global equal-width fallback
+    // would map clicks to wrong (or non-existent) cells.
     const uvY = Math.min(1, Math.max(0, 1 - event.uv.y)); // flip: UV.y=1 is top, row 0 is top
     let row = planogram.rows - 1;
     let cumH = 0;
     for (let i = 0; i < rowHeights.length; i++) {
       cumH += rowHeights[i] / planogram.heightCm;
       if (uvY <= cumH) { row = i; break; }
+    }
+
+    // Use per-row column widths (cellWidthOverrides keyed as "{row}-{col}") with a
+    // fallback to the global colWidths so legacy planograms without overrides still work.
+    const uvX = Math.min(1, Math.max(0, event.uv.x));
+    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
+    let col = rowColCount - 1;
+    let cumW = 0;
+    for (let c = 0; c < rowColCount; c++) {
+      const cellW = planogram.cellWidthOverrides?.[`${row}-${c}`] ?? colWidths[c] ?? (planogram.widthCm / rowColCount);
+      cumW += cellW / planogram.widthCm;
+      if (uvX <= cumW) { col = c; break; }
     }
 
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);
@@ -513,10 +522,16 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
 
     // t ∈ [0,1]: normalised centre of the cell column using actual physical widths
     // so that resized columns place the proximity disc at the correct position.
+    // Use per-row cellWidthOverrides (set for every box by gondolaToLegacyPlanogram)
+    // so that columns created/modified by add-col, fuse, or split are placed correctly.
     const colWidths = getEffectiveColWidths(planogram);
+    const rowColCount = planogram.rowColCounts?.[cell.row] ?? planogram.cols;
     let cumW = 0;
-    for (let i = 0; i < cell.col; i++) cumW += colWidths[i];
-    const t = (cumW + colWidths[cell.col] / 2) / planogram.widthCm;
+    for (let i = 0; i < cell.col; i++) {
+      cumW += planogram.cellWidthOverrides?.[`${cell.row}-${i}`] ?? colWidths[i] ?? (planogram.widthCm / rowColCount);
+    }
+    const cellW = planogram.cellWidthOverrides?.[`${cell.row}-${cell.col}`] ?? colWidths[cell.col] ?? (planogram.widthCm / rowColCount);
+    const t = (cumW + cellW / 2) / planogram.widthCm;
 
     const cellXf =  t * W - W / 2;  // front: col=0 → local -X
     const cellXb = W / 2 - t * W;   // back: mirrored in X relative to front

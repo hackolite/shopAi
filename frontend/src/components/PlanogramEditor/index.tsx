@@ -1081,7 +1081,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const hasRight = removeEnd + 1 < rowColCount;
     const hasLeft = col > 0;
     // rightNeighbour lands at removeStart after the shift; leftNeighbour stays in place
-    const neighborNewCol  = hasRight ? removeStart    : col - 1;
+    const neighborNewCol = hasRight ? removeStart : col - 1;
 
     // Build complete explicit widths for every current cell in this row
     const explicitWidths: number[] = [];
@@ -1872,13 +1872,16 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           {(canSplit || canDeleteBox) && selectedKeys.size <= 1 && (
             <>
               <div className="h-4 w-px bg-gray-700" />
-              {canSplit && (
-                <button
-                  onClick={splitSelectedCell}
-                  className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
-                  title={`Diviser cette boîte fusionnée (${planogram.mergedSpans?.[selectedKey!] ?? 1} colonnes) en ${planogram.mergedSpans?.[selectedKey!] ?? 1} boîtes de largeur égale`}
-                >⊟ Diviser</button>
-              )}
+              {canSplit && (() => {
+                const splitSpan = planogram.mergedSpans?.[selectedKey!] ?? 1;
+                return (
+                  <button
+                    onClick={splitSelectedCell}
+                    className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
+                    title={`Diviser cette boîte fusionnée (${splitSpan} colonnes) en ${splitSpan} boîtes de largeur égale`}
+                  >⊟ Diviser</button>
+                );
+              })()}
               {canDeleteBox && (
                 <button
                   onClick={() => { if (selectedRow !== null && selectedCol !== null) deleteBox(selectedRow, selectedCol); }}
@@ -2401,7 +2404,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
             <span className="text-gray-600">· Cliquer cellule vide pour placer · Glisser depuis catalogue · Ctrl+clic multi-sélection</span>
           </>
         ) : (
-          <span>Sélectionnez un produit dans le catalogue · Ctrl+clic multi-sélection · Shift+clic plage · Glisser cellule occupée pour déplacer · Boîtes vides : × supprimer · ⊞ fusionner (multi) · ⊟ diviser (fusionnée)</span>
+          <span>
+            {'Sélectionnez un produit dans le catalogue · Ctrl+clic multi-sélection · Shift+clic plage'}
+            {' · Glisser cellule occupée pour déplacer'}
+            {' · Boîtes vides : × supprimer · ⊞ fusionner (multi-sélection) · ⊟ diviser (boîte fusionnée)'}
+          </span>
         )}
         <div className="flex-1" />
         <span className="text-gray-600">

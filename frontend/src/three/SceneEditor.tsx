@@ -472,6 +472,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
 
   const { selectZone } = useZoneStore();
   const { planogramDetails } = usePlanogramStore();
+  const setRequestOpenPlanogramId = usePlanogramStore((state) => state.setRequestOpenPlanogramId);
 
   // Detect product selection on this gondola (planogram cell click)
   const isProductSelected =
@@ -526,8 +527,16 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const semiCircleConfig: SemiConfig = computedSemiCircleConfig ?? defaultSemiCircleConfig;
   const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
 
-  const handleClick = (e: { stopPropagation: () => void }) => {
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    // Ctrl/Cmd+click → open the planogram in the editor (fallback for clicks that land on
+    // the gondola body outside the planogram overlay area, or when the overlay event is
+    // intercepted before reaching its handler).
+    if (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey) {
+      const planogramId = (Object.values(furniture.faces) as (string | null)[]).find(id => id !== null);
+      if (planogramId) setRequestOpenPlanogramId(planogramId);
+      return;
+    }
     if (!SELECTABLE_TOOLS.has(activeTool)) return;
     selectFurniture(furniture.id);
     selectZone(null);

@@ -165,6 +165,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [addRowDialog,   setAddRowDialog]   = useState<{ canAutoFix: boolean; topRowH: number; needed: number } | null>(null);
   const [clearAllConfirm, setClearAllConfirm] = useState(false);
 
+  // ── Context menu ──────────────────────────────────────────────────────────
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number; y: number;
+    di: number; bi: number;
+    box: Box;
+  } | null>(null);
+
   const saveTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadEan = useRef<string | null>(null);
@@ -612,6 +619,35 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (selectedKey === makeBoxKey(di, bi)) { setSelectedKey(null); setSelectedKeys(new Set()); }
   };
 
+  // ── Context menu merge/split ──────────────────────────────────────────────
+  const fuseWithNeighbor = (di: number, bi: number, direction: 'left' | 'right') => {
+    if (!gondola) return;
+    const rowBoxes = getRowBoxes(boxes, di);
+    const box = rowBoxes[bi];
+    const neighbor = direction === 'right' ? rowBoxes[bi + 1] : rowBoxes[bi - 1];
+    if (!box || !neighbor) return;
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    if (!shelf) return;
+    const leftBox  = direction === 'right' ? box : neighbor;
+    const rightBox = direction === 'right' ? neighbor : box;
+    pushHistory();
+    applyGondola(cmdFuseBoxes(gondola, shelf.id, leftBox.leftSeparatorId, rightBox.rightSeparatorId));
+    setSelectedKey(null); setSelectedKeys(new Set());
+    setCtxMenu(null);
+  };
+
+  const splitBox = (di: number, bi: number) => {
+    if (!gondola) return;
+    const box = findBox(boxes, di, bi);
+    if (!box) return;
+    const shelf = getShelfByDisplayIndex(gondola, di);
+    if (!shelf) return;
+    pushHistory();
+    applyGondola(cmdSplitBox(gondola, shelf.id, box.leftSeparatorId, box.rightSeparatorId, box.x_cm + box.width_cm / 2));
+    setSelectedKey(null); setSelectedKeys(new Set());
+    setCtxMenu(null);
+  };
+
   // ── Undo / Redo ───────────────────────────────────────────────────────────
   const undo = () => {
     setSelectedSep(null);
@@ -658,6 +694,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyRef.current = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { setCtxMenu(null); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if (((e.ctrlKey || e.metaKey) && e.key === 'y') ||
         ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')) {
@@ -693,7 +730,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     setSelectedHeaderCol(null); setSelectedHeaderRow(null); setSelectedSep(null);
     const key = makeBoxKey(di, bi);
     if (e.ctrlKey || e.metaKey) {
-      setSelectedKeys(prev => { const n = new Set(prev); if (n.has(key)) { n.delete(key); } else { n.add(key); } return n; });
+      setSelectedKeys(prev => {
+        const n = new Set(prev);
+        // Seed the multi-selection with the previously single-selected cell so that
+        // a simple "click A then Ctrl+click B" produces {A, B} and enables Fusionner.
+        if (selectedKey && !n.has(selectedKey)) n.add(selectedKey);
+        if (n.has(key)) { n.delete(key); } else { n.add(key); }
+        return n;
+      });
       setSelectedKey(key); setLastSelectedKey(key);
       return;
     }
@@ -768,7 +812,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const parsed = parseBoxKey(selectedKey);
     if (!parsed) return false;
     const box = findBox(boxes, parsed[0], parsed[1]);
-    return !!box && !box.placement && box.width_cm > 2 * MIN_BOX_CM;
+    return !!box && box.width_cm > 2 * MIN_BOX_CM;
   })();
 
   const canDeleteBox = (() => {
@@ -1008,7 +1052,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                           data-box-key={key}
                           draggable={!!box.placement}
                           onClick={e => handleBoxClick(di, bi, e)}
-                          onContextMenu={e => { e.preventDefault(); if (box.placement) clearBox(di, bi); }}
+                          onContextMenu={e => {
+                            e.preventDefault();
+                            setCtxMenu({ x: e.clientX, y: e.clientY, di, bi, box });
+                          }}
                           onDragStart={e => {
                             if (!box.placement || !prod) return;
                             internalDragSrcRef.current = { displayRow: di, boxIndex: bi, ean: box.placement.productId };
@@ -1169,8 +1216,77 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
           <span>Sélectionner un produit dans le catalogue · Ctrl+clic multi · Shift+clic plage · Glisser pour déplacer · ⊞ Fusionner · ⊟ Diviser</span>
         )}
         <div className="flex-1" />
-        <span className="text-gray-600">Clic droit/× vider · Suppr retirer · Ctrl+Z annuler · glisser séparateur pour redimensionner</span>
+        <span className="text-gray-600">Clic droit pour options · Suppr retirer · Ctrl+Z annuler · glisser séparateur pour redimensionner</span>
       </div>
+
+      {/* ── Context menu ── */}
+      {ctxMenu && (() => {
+        const { x, y, di, bi, box } = ctxMenu;
+        const rowBoxes = gondola ? getRowBoxes(boxes, di) : [];
+        const hasLeft  = bi > 0;
+        const hasRight = bi < rowBoxes.length - 1;
+        const canCtxSplit = box.width_cm > 2 * MIN_BOX_CM;
+        const canCtxFuseLeft  = hasLeft;
+        const canCtxFuseRight = hasRight;
+        return (
+          <>
+            {/* Backdrop to close on outside click */}
+            <div
+              className="fixed inset-0 z-40"
+              onMouseDown={() => setCtxMenu(null)}
+            />
+            <div
+              className="fixed z-50 bg-gray-800 border border-gray-600 rounded shadow-xl py-1 min-w-[180px] text-sm"
+              style={{ left: x, top: y }}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              {canCtxFuseLeft && (
+                <button
+                  className="w-full text-left px-3 py-1.5 text-violet-300 hover:bg-gray-700 flex items-center gap-2"
+                  onClick={() => fuseWithNeighbor(di, bi, 'left')}
+                >
+                  ⊞ <span>Fusionner avec la cellule gauche</span>
+                </button>
+              )}
+              {canCtxFuseRight && (
+                <button
+                  className="w-full text-left px-3 py-1.5 text-violet-300 hover:bg-gray-700 flex items-center gap-2"
+                  onClick={() => fuseWithNeighbor(di, bi, 'right')}
+                >
+                  ⊞ <span>Fusionner avec la cellule droite</span>
+                </button>
+              )}
+              {(canCtxFuseLeft || canCtxFuseRight) && canCtxSplit && (
+                <div className="border-t border-gray-700 my-1" />
+              )}
+              {canCtxSplit && (
+                <button
+                  className="w-full text-left px-3 py-1.5 text-violet-300 hover:bg-gray-700 flex items-center gap-2"
+                  onClick={() => splitBox(di, bi)}
+                >
+                  ⊟ <span>Diviser en deux</span>
+                </button>
+              )}
+              {box.placement && (
+                <>
+                  {(canCtxFuseLeft || canCtxFuseRight || canCtxSplit) && (
+                    <div className="border-t border-gray-700 my-1" />
+                  )}
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                    onClick={() => { clearBox(di, bi); setCtxMenu(null); }}
+                  >
+                    ✕ <span>Retirer le produit</span>
+                  </button>
+                </>
+              )}
+              {!canCtxFuseLeft && !canCtxFuseRight && !canCtxSplit && !box.placement && (
+                <div className="px-3 py-1.5 text-gray-500 text-xs">Aucune action disponible</div>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

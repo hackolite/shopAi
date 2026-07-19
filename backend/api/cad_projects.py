@@ -167,6 +167,9 @@ def export_project_endpoint(project_id: str):
 @router.delete("/{project_id}")
 def remove_project(project_id: str):
     delete_project(project_id)
+    # Release the per-project lock entry so it doesn't grow unbounded.
+    with _project_locks_guard:
+        _project_locks.pop(project_id, None)
     return {"deleted": True, "id": project_id}
 
 

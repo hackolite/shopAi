@@ -203,10 +203,14 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
           // concurrent POST /planograms requests can overwrite each other's file.
           const createdPlanograms: [string, string][] = [];
           for (const faceId of def.hasFaces) {
+            // left/right faces span the gondola's depth; all other faces
+            // (front, back, top, bottom) span the gondola's width.
             const isLeftRight = faceId === 'left' || faceId === 'right';
             const widthCm = isLeftRight
               ? created.dimensions.depth
               : created.dimensions.width;
+            // top/bottom faces have their "height" equal to the gondola's depth
+            // (how far back the shelf goes); vertical faces use the gondola height.
             const heightCm = faceId === 'top' || faceId === 'bottom'
               ? created.dimensions.depth
               : created.dimensions.height;

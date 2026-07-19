@@ -431,13 +431,19 @@ describe('cmdSplitBox', () => {
     expect(shelfBoxCount(newShelf)).toBe(3);
   });
 
-  it('removes product placement from the split box', () => {
+  it('moves product placement to the left sub-box after split', () => {
     const g = makeGondola();
     const shelf = g.shelves[1];
     const seps = sortedSeps(shelf);
     const g1 = cmdSetPlacement(g, shelf.id, seps[0].id, seps[1].id, 'X');
     const updated = cmdSplitBox(g1, shelf.id, seps[0].id, seps[1].id, 25);
-    expect(updated.productPlacements.filter((p) => p.shelfId === shelf.id)).toHaveLength(0);
+    const placements = updated.productPlacements.filter((p) => p.shelfId === shelf.id);
+    // Exactly one placement must survive, on the left sub-box.
+    expect(placements).toHaveLength(1);
+    expect(placements[0].leftSeparatorId).toBe(seps[0].id);
+    expect(placements[0].productId).toBe('X');
+    // The right separator of the surviving placement must be the new (split) separator.
+    expect(placements[0].rightSeparatorId).not.toBe(seps[1].id);
   });
 
   it('enforces MIN_BOX_CM on each half', () => {

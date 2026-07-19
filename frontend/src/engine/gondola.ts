@@ -746,11 +746,10 @@ export function shrinkGondolaWidth(gondola: Gondola, shelfId?: string): Gondola 
       newWidthCm = Math.min(newWidthCm, newRightPos);
     }
 
-    // Remove the last internal separator (it becomes the new right boundary)
-    // and update the old right boundary to the new position.
-    // Boundary separators use type 'virtual' with movable=false.
-    const withoutLast = sorted.slice(0, -2); // all except last two
-    const newRightBoundary: Separator = { ...sorted[sorted.length - 2], position_cm: newRightPos, movable: false, type: 'virtual' };
+    // Remove the last internal separator and move the right boundary to its position.
+    // We preserve the right boundary separator's ID by spreading from sorted[length-1].
+    const withoutLast = sorted.slice(0, -2); // all except last internal + right boundary
+    const newRightBoundary: Separator = { ...sorted[sorted.length - 1], position_cm: newRightPos, movable: false, type: 'virtual' };
 
     return {
       ...shelf,

@@ -540,22 +540,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const addCol = () => {
     if (!gondola || !canAddCol) return;
     pushHistory();
-    // Grow the gondola width by DEFAULT_SEP_SPACING_CM on all shelves (or selected shelf only).
-    if (selectedHeaderRow !== null) {
-      const shelf = getShelfByDisplayIndex(gondola, selectedHeaderRow);
-      if (!shelf) return;
-      const colWidth = DEFAULT_SEP_SPACING_CM;
-      const newWidthCm = gondola.width_cm + colWidth;
-      // Insert separator at old right boundary then extend
-      const g = extendGondolaWidth(gondola, newWidthCm);
-      applyGondola(g);
-      syncFurnitureDimension(newWidthCm);
-    } else {
-      const newWidthCm = gondola.width_cm + DEFAULT_SEP_SPACING_CM;
-      const g = extendGondolaWidth(gondola, newWidthCm);
-      applyGondola(g);
-      syncFurnitureDimension(newWidthCm);
-    }
+    // Grow the gondola width by DEFAULT_SEP_SPACING_CM on all shelves.
+    const newWidthCm = gondola.width_cm + DEFAULT_SEP_SPACING_CM;
+    const g = extendGondolaWidth(gondola, newWidthCm);
+    applyGondola(g);
+    syncFurnitureDimension(newWidthCm);
   };
 
   const removeCol = () => {

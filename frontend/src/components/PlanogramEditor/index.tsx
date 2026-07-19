@@ -1568,7 +1568,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                 <button
                   onClick={mergeSelectedCells}
                   className="px-2 py-0.5 text-xs rounded bg-violet-800/50 hover:bg-violet-700/70 text-violet-200 transition-colors"
-                  title={`Fusionner les ${selectedKeys.size} cellules vides contigus en une seule cellule plus large`}
+                  title={`Fusionner les ${selectedKeys.size} cellules vides contiguës en une seule cellule plus large`}
                 >⊞ Fusionner ({selectedKeys.size})</button>
               )}
             </>

@@ -272,7 +272,9 @@ export function cmdFuseBoxes(
   });
 }
 
-/** §4 Split facing: insert a new separator inside a box. */
+/** §4 Split facing: insert a new separator inside a box.
+ *  If the original box had a product placement, it is preserved on the left sub-box.
+ */
 export function cmdSplitBox(
   g: Gondola,
   shelfId: string,
@@ -291,16 +293,41 @@ export function cmdSplitBox(
   const rightPos = sorted[rIdx].position_cm;
   const clampedPos = Math.max(leftPos + MIN_BOX_CM, Math.min(rightPos - MIN_BOX_CM, splitPos));
 
-  // Remove the placement for the original box (user must re-assign products)
-  const newPlacements = g.productPlacements.filter(
+  // Remember any existing placement so we can move it to the left sub-box.
+  const existingPlacement = g.productPlacements.find(
+    (p) => p.shelfId === shelfId && p.leftSeparatorId === leftSepId && p.rightSeparatorId === rightSepId,
+  );
+
+  // Remove the placement for the original box before inserting the separator.
+  const placementsWithoutOld = g.productPlacements.filter(
     (p) => !(p.shelfId === shelfId && p.leftSeparatorId === leftSepId && p.rightSeparatorId === rightSepId),
   );
 
-  return cmdInsertSeparator(
-    { ...g, productPlacements: newPlacements },
+  const existingIds = new Set(sorted.map((s) => s.id));
+  const gAfterSplit = cmdInsertSeparator(
+    { ...g, productPlacements: placementsWithoutOld },
     shelfId,
     clampedPos,
   );
+
+  if (existingPlacement) {
+    // Find the newly created separator (its id was not in the original set).
+    const newShelf = gAfterSplit.shelves.find((s) => s.id === shelfId);
+    const newSep = newShelf?.separators.find((s) => !existingIds.has(s.id));
+    if (newSep) {
+      // Re-add the placement pointing to leftSepId → newSep (left sub-box).
+      // Preserve the original cellId so the placement keeps the same identity.
+      return {
+        ...gAfterSplit,
+        productPlacements: [
+          ...gAfterSplit.productPlacements,
+          { ...existingPlacement, rightSeparatorId: newSep.id },
+        ],
+      };
+    }
+  }
+
+  return gAfterSplit;
 }
 
 /** Place or replace a product in a box. */

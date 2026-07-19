@@ -754,7 +754,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     setSelectedKeys(new Set());
     setLastSelectedKey(key);
     const box = boxMap.get(key);
-    if (!box?.placement && selectedEan) { fillBox(di, bi, selectedEan); return; }
+    if (selectedEan) { fillBox(di, bi, selectedEan); return; }
     setSelectedKey(key === selectedKey ? null : key);
   };
 

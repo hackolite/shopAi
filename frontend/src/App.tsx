@@ -40,7 +40,7 @@ export default function App() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
 
-  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, clipboard, setClipboard, undo } = useSceneStore();
+  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId, planogramDetails } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, setFlyToFurnitureId } = useUIStore();
@@ -184,61 +184,75 @@ export default function App() {
 
   // ── Copy-paste helpers ────────────────────────────────────────────────────
   const copySelected = useCallback(() => {
-    if (!selectedFurnitureId || !scene) return;
-    const furniture = scene.furniture.find(f => f.id === selectedFurnitureId);
-    if (!furniture) return;
-    const planogramIds: Record<string, string> = {};
-    for (const [face, pid] of Object.entries(furniture.faces)) {
-      if (pid) planogramIds[face] = pid;
-    }
-    setClipboard({ furniture, planogramIds });
-  }, [selectedFurnitureId, scene, setClipboard]);
+    if (!scene) return;
+    // Collect the set of IDs to copy: multi-selection if available, else single selection.
+    const ids = selectedFurnitureIds.size > 0
+      ? [...selectedFurnitureIds]
+      : selectedFurnitureId ? [selectedFurnitureId] : [];
+    if (ids.length === 0) return;
+    const items = ids.flatMap(id => {
+      const furniture = scene.furniture.find(f => f.id === id);
+      if (!furniture) return [];
+      const planogramIds: Record<string, string> = {};
+      for (const [face, pid] of Object.entries(furniture.faces)) {
+        if (pid) planogramIds[face] = pid;
+      }
+      return [{ furniture, planogramIds }];
+    });
+    if (items.length > 0) setClipboard({ items });
+  }, [selectedFurnitureId, selectedFurnitureIds, scene, setClipboard]);
 
   const pasteClipboard = useCallback(async () => {
-    if (!clipboard) return;
-    const { furniture: src } = clipboard;
-    const newId = crypto.randomUUID();
+    if (!clipboard || clipboard.items.length === 0) return;
 
-    const newFurniture: FurnitureInstance = {
-      ...src,
-      id: newId,
-      name: `${src.name} (copie)`,
-      position: [src.position[0] + PASTE_OFFSET_CM, src.position[1], src.position[2] + PASTE_OFFSET_CM] as [number, number, number],
-      faces: Object.fromEntries(Object.keys(src.faces).map(face => [face, null])),
-      childIds: [],
-      parentId: null,
-    };
+    const lastCreatedId: string[] = [];
+    for (const { furniture: src, planogramIds } of clipboard.items) {
+      const newId = crypto.randomUUID();
 
-    try {
-      const created = await cadApi.addFurniture(projectId, newFurniture);
+      const newFurniture: FurnitureInstance = {
+        ...src,
+        id: newId,
+        name: `${src.name} (copie)`,
+        position: [src.position[0] + PASTE_OFFSET_CM, src.position[1], src.position[2] + PASTE_OFFSET_CM] as [number, number, number],
+        faces: Object.fromEntries(Object.keys(src.faces).map(face => [face, null])),
+        childIds: [],
+        parentId: null,
+      };
 
-      for (const [faceId, planogramId] of Object.entries(clipboard.planogramIds)) {
-        try {
-          const srcPlanogram = await cadApi.getPlanogram(projectId, planogramId);
-          const newPlanogram = {
-            ...srcPlanogram,
-            id: crypto.randomUUID(),
-            name: `${srcPlanogram.name} (copie)`,
-            furnitureId: newId,
-            cells: srcPlanogram.cells.map(cell => ({ ...cell, id: crypto.randomUUID() })),
-          };
-          const createdPlanogram = await cadApi.createPlanogram(projectId, newPlanogram);
-          setPlanogramDetail(createdPlanogram);
-          (created.faces as Record<string, string | null>)[faceId] = createdPlanogram.id;
-        } catch (err) {
-          console.error('Failed to clone planogram:', err);
+      try {
+        const created = await cadApi.addFurniture(projectId, newFurniture);
+
+        for (const [faceId, planogramId] of Object.entries(planogramIds)) {
+          try {
+            const srcPlanogram = await cadApi.getPlanogram(projectId, planogramId);
+            const newPlanogram = {
+              ...srcPlanogram,
+              id: crypto.randomUUID(),
+              name: `${srcPlanogram.name} (copie)`,
+              furnitureId: newId,
+              cells: srcPlanogram.cells.map(cell => ({ ...cell, id: crypto.randomUUID() })),
+            };
+            const createdPlanogram = await cadApi.createPlanogram(projectId, newPlanogram);
+            setPlanogramDetail(createdPlanogram);
+            (created.faces as Record<string, string | null>)[faceId] = createdPlanogram.id;
+          } catch (err) {
+            console.error('Failed to clone planogram:', err);
+          }
         }
+
+        await cadApi.updateFurniture(projectId, created.id, created);
+        addFurniture(created);
+        lastCreatedId.push(created.id);
+      } catch (err) {
+        console.error('Paste failed:', err);
       }
-
-      await cadApi.updateFurniture(projectId, created.id, created);
-      addFurniture(created);
-      selectFurniture(created.id);
-
-      const planoData = await cadApi.listPlanograms(projectId);
-      setPlanograms(planoData.planograms);
-    } catch (err) {
-      console.error('Paste failed:', err);
     }
+
+    // Select the last pasted item (or the single one)
+    if (lastCreatedId.length === 1) selectFurniture(lastCreatedId[0]);
+
+    const planoData = await cadApi.listPlanograms(projectId);
+    setPlanograms(planoData.planograms);
   }, [clipboard, projectId, addFurniture, selectFurniture, setPlanograms, setPlanogramDetail]);
 
   // ── Delete selected furniture ─────────────────────────────────────────────

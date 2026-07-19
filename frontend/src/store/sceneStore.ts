@@ -5,15 +5,21 @@ import type { Vec3 } from '../types/cad';
 /** Maximum number of undo steps to keep in memory. */
 const MAX_HISTORY = 50;
 
-export interface FurnitureClipboard {
+export interface FurnitureClipboardItem {
   furniture: FurnitureInstance;
   /** planogram IDs mapped by face name */
   planogramIds: Record<string, string>;
 }
 
+export interface FurnitureClipboard {
+  items: FurnitureClipboardItem[];
+}
+
 interface SceneState {
   scene: Scene | null;
   selectedFurnitureId: string | null;
+  /** Set of all currently selected furniture IDs (used for multi-selection via Ctrl+click). */
+  selectedFurnitureIds: Set<string>;
   selection: Selection;
   expandedNodes: Set<string>;
   loading: boolean;
@@ -22,6 +28,10 @@ interface SceneState {
   history: Scene[];
   setScene: (scene: Scene) => void;
   selectFurniture: (id: string | null) => void;
+  /** Toggle a furniture item in/out of the multi-selection set. */
+  toggleFurnitureSelection: (id: string) => void;
+  /** Clear the multi-selection set. */
+  clearFurnitureMultiSelection: () => void;
   setSelection: (selection: Selection) => void;
   updateFurniture: (furniture: FurnitureInstance) => void;
   updateStore: (store: StoreConfig) => void;
@@ -48,6 +58,7 @@ interface SceneState {
 export const useSceneStore = create<SceneState>((set) => ({
   scene: null,
   selectedFurnitureId: null,
+  selectedFurnitureIds: new Set<string>(),
   selection: { type: null },
   expandedNodes: new Set<string>(),
   loading: false,
@@ -58,8 +69,32 @@ export const useSceneStore = create<SceneState>((set) => ({
   selectFurniture: (id) =>
     set({
       selectedFurnitureId: id,
+      selectedFurnitureIds: new Set<string>(),
       selection: id ? { type: 'furniture', furnitureId: id } : { type: null },
     }),
+  toggleFurnitureSelection: (id) =>
+    set((state) => {
+      const next = new Set(state.selectedFurnitureIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        // Seed with the previously single-selected item so clicking A then Ctrl+clicking B
+        // produces a group {A, B}.
+        if (state.selectedFurnitureId && !next.has(state.selectedFurnitureId)) {
+          next.add(state.selectedFurnitureId);
+        }
+        next.add(id);
+      }
+      return {
+        selectedFurnitureIds: next,
+        selectedFurnitureId: next.size === 1 ? [...next][0] : null,
+        selection: next.size === 1
+          ? { type: 'furniture', furnitureId: [...next][0] }
+          : { type: null },
+      };
+    }),
+  clearFurnitureMultiSelection: () =>
+    set({ selectedFurnitureIds: new Set<string>() }),
   setSelection: (selection) =>
     set({
       selection,
@@ -125,6 +160,8 @@ export const useSceneStore = create<SceneState>((set) => ({
   removeFurniture: (id) =>
     set((state) => {
       if (!state.scene) return {};
+      const nextIds = new Set(state.selectedFurnitureIds);
+      nextIds.delete(id);
       return {
         history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
         scene: {
@@ -133,6 +170,7 @@ export const useSceneStore = create<SceneState>((set) => ({
         },
         selectedFurnitureId:
           state.selectedFurnitureId === id ? null : state.selectedFurnitureId,
+        selectedFurnitureIds: nextIds,
         selection:
           state.selection.type === 'furniture' && state.selection.furnitureId === id
             ? { type: null }

@@ -645,7 +645,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
   // Track whether the user actually moved/rotated during this drag interaction.
   // This prevents `handleMouseUp` from applying a snap-to-grid that would shift
   // the furniture when the user merely clicks the gizmo without dragging.
-  const hasMovedRef = useRef(false);
+  const hasMovedRef = useRef<boolean>(false);
 
   const handleMouseDown = useCallback(() => {
     hasMovedRef.current = false;
@@ -685,10 +685,10 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       // translationSnap already snaps the group CENTER to integer Three.js units
       // (= 100 cm boundaries) during dragging.  Applying snapToCm() again here
       // to the derived CORNER position creates a misaligned double-snap: the
-      // 100 cm grid for the corner is offset by W/2 from the grid for the centre,
+      // 100 cm grid for the corner is offset by W/2 from the grid for the center,
       // which can shift the furniture in the WRONG direction.  Instead, round to
-      // the nearest centimetre (1 cm precision) so the stored position faithfully
-      // reflects the snapped centre position with no additional offset.
+      // the nearest centimeter (1 cm precision) so the stored position faithfully
+      // reflects the snapped center position with no additional offset.
       const newPos: [number, number, number] = [
         Math.round((obj.position.x - W / 2) / CM_TO_UNIT),
         0,

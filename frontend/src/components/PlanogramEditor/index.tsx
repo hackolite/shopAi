@@ -122,6 +122,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const [selectedHeaderRow, setSelectedHeaderRow] = useState<number | null>(null);
   const [selectedHeaderCol, setSelectedHeaderCol] = useState<number | null>(null);
 
+  // Selected separator (for direct click-select-delete)
+  const [selectedSep, setSelectedSep] = useState<{ shelfId: string; sepId: string } | null>(null);
+
   // Drag
   const internalDragSrcRef = useRef<{ displayRow: number; boxIndex: number; ean: string } | null>(null);
   const [dragOver,         setDragOver]         = useState<BoxKey | null>(null);
@@ -151,6 +154,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const { scene } = useSceneStore();
 
   const productByEan = new Map(products.map((p) => [p.ean, p] as const));
+
+  // ── Helper: resolve the currently selected separator object ─────────────────
+  const getSelectedSeparator = () => {
+    if (!selectedSep || !gondola) return null;
+    const shelf = gondola.shelves.find(s => s.id === selectedSep.shelfId);
+    const sep = shelf?.separators.find(s => s.id === selectedSep.sepId);
+    return sep?.movable ? { shelf: shelf!, sep } : null;
+  };
 
   // ── Derived gondola metrics ─────────────────────────────────────────────────
   const shelfCount = gondola?.shelves.length ?? 0;
@@ -482,6 +493,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
 
   // ── Undo / Redo ───────────────────────────────────────────────────────────────
   const undo = () => {
+    setSelectedSep(null);
     setHistory(prev => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
@@ -500,6 +512,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   };
 
   const redo = () => {
+    setSelectedSep(null);
     setFuture(prev => {
       if (prev.length === 0) return prev;
       const next = prev[prev.length - 1];
@@ -639,6 +652,16 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
     ) { e.preventDefault(); redo(); return; }
     if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selectedSep) {
+        const resolved = getSelectedSeparator();
+        if (resolved) {
+          e.preventDefault();
+          pushHistory();
+          applyGondola(cmdRemoveSeparator(gondola!, resolved.shelf.id, resolved.sep.id));
+          setSelectedSep(null);
+        }
+        return;
+      }
       if (selectedKeys.size > 1) { clearSelectedBoxes(); }
       else if (selectedKey) {
         const parsed = parseBoxKey(selectedKey);
@@ -662,6 +685,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const handleBoxClick = (di: number, bi: number, e: React.MouseEvent) => {
     setSelectedHeaderCol(null);
     setSelectedHeaderRow(null);
+    setSelectedSep(null);
     const key = makeBoxKey(di, bi);
 
     if (e.ctrlKey || e.metaKey) {
@@ -701,11 +725,13 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const handleColHeaderClick = (c: number) => {
     setSelectedKey(null);
     setSelectedHeaderRow(null);
+    setSelectedSep(null);
     setSelectedHeaderCol(prev => prev === c ? null : c);
   };
   const handleRowHeaderClick = (r: number) => {
     setSelectedKey(null);
     setSelectedHeaderCol(null);
+    setSelectedSep(null);
     setSelectedHeaderRow(prev => prev === r ? null : r);
   };
 
@@ -972,6 +998,26 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
               )}
             </>
           )}
+          {/* Separator actions */}
+          {selectedSep && (() => {
+            const resolved = getSelectedSeparator();
+            if (!resolved) return null;
+            return (
+              <>
+                <div className="h-4 w-px bg-gray-700" />
+                <span className="text-xs text-orange-300">Séparateur sélectionné</span>
+                <button
+                  onClick={() => {
+                    pushHistory();
+                    applyGondola(cmdRemoveSeparator(gondola, resolved.shelf.id, resolved.sep.id));
+                    setSelectedSep(null);
+                  }}
+                  className="px-2 py-0.5 text-xs rounded bg-orange-800/50 hover:bg-orange-700/70 text-orange-200 transition-colors"
+                  title="Supprimer ce séparateur (Suppr)"
+                >🗑 Suppr. séparateur</button>
+              </>
+            );
+          })()}
           <button onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-700 text-gray-400 hover:text-white text-base transition-colors" title="Fermer">×</button>
         </div>
@@ -1254,12 +1300,29 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
                               <div
                                 style={{ position: 'absolute', left: 0, top: 0, width: `${RESIZE_HANDLE_PX}px`, height: '100%', cursor: 'col-resize', zIndex: 5 }}
                                 className={['transition-colors',
-                                  (selBoxIdx === bi - 1 || selBoxIdx === bi) && selDisplayRow === di
+                                  selectedSep?.sepId === box.leftSeparatorId && selectedSep?.shelfId === getShelfByDisplayIndex(gondola, di)?.id
+                                    ? 'bg-orange-500/70 hover:bg-orange-400/90'
+                                    : (selBoxIdx === bi - 1 || selBoxIdx === bi) && selDisplayRow === di
                                     ? 'bg-blue-500/40 hover:bg-blue-400/70'
                                     : 'bg-gray-800 hover:bg-blue-500/50'].join(' ')}
                                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startSepResize(e, di, bi - 1); }}
-                                onClick={(e) => e.stopPropagation()}
-                                title="Déplacer le séparateur"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const shelf = getShelfByDisplayIndex(gondola, di);
+                                  if (!shelf) return;
+                                  const sep = shelf.separators.find(s => s.id === box.leftSeparatorId);
+                                  if (!sep?.movable) return;
+                                  setSelectedSep(prev =>
+                                    prev?.sepId === sep.id && prev.shelfId === shelf.id
+                                      ? null
+                                      : { shelfId: shelf.id, sepId: sep.id }
+                                  );
+                                  setSelectedKey(null);
+                                  setSelectedKeys(new Set());
+                                  setSelectedHeaderRow(null);
+                                  setSelectedHeaderCol(null);
+                                }}
+                                title="Cliquer pour sélectionner · Glisser pour déplacer"
                               />
                             )}
                           </div>

@@ -175,7 +175,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const gondolaRef      = useRef<Gondola | null>(null);
 
   const { setActivePlanogram } = usePlanogramStore();
-  const { products, selectedEan, addRecentlyUsed, setProducts } = useCatalogStore();
+  const { products, selectedEan, addRecentlyUsed, setProducts, selectProduct } = useCatalogStore();
   const { scene } = useSceneStore();
   const productByEan = new Map(products.map(p => [p.ean, p] as const));
 
@@ -190,13 +190,32 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     ? gondola.width_cm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
       gondola.height_cm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
     : false;
-  const gondolaRemainingW = (gondola && furniture)
-    ? furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM - gondola.width_cm : Infinity;
-  const gondolaRemainingH = (gondola && furniture)
-    ? furniture.dimensions.height + OVERFLOW_TOLERANCE_CM - gondola.height_cm : Infinity;
-  const defaultRowH = gondola ? Math.max(MIN_BOX_CM, Math.min(DEFAULT_SHELF_HEIGHT_CM, gondolaRemainingH)) : 0;
-  const canAddRow = gondola ? gondolaRemainingH >= MIN_BOX_CM : false;
-  const canAddCol = gondola ? gondolaRemainingW >= MIN_BOX_CM : false;
+
+  // Absorber shelf for the pending add-row operation.
+  // When selectedHeaderRow > 0 the shelf physically above it gives up height;
+  // otherwise (no selection or top row) the top shelf absorbs.
+  const _addRowAbsorberShelf = (() => {
+    if (!gondola) return null;
+    if (selectedHeaderRow !== null && selectedHeaderRow > 0) {
+      return getShelfByDisplayIndex(gondola, selectedHeaderRow - 1) ?? null;
+    }
+    return gondola.shelves[gondola.shelves.length - 1] ?? null;
+  })();
+
+  // New row height = half the absorber shelf height, clamped to [MIN_BOX_CM, DEFAULT_SHELF_HEIGHT_CM].
+  // Adding a row redistributes existing height, so gondolaRemainingH is not the right input here.
+  const defaultRowH = _addRowAbsorberShelf
+    ? Math.max(MIN_BOX_CM, Math.min(DEFAULT_SHELF_HEIGHT_CM, _addRowAbsorberShelf.height_cm / 2))
+    : 0;
+
+  // Row can be added when the absorber shelf is tall enough to be split into two.
+  const canAddRow = _addRowAbsorberShelf
+    ? _addRowAbsorberShelf.height_cm > MIN_BOX_CM * 2
+    : false;
+
+  // Column can be added by inserting a separator within the existing gondola width;
+  // this never changes gondola.width_cm, so gondolaRemainingW is irrelevant here.
+  const canAddCol = gondola ? gondola.width_cm > MIN_BOX_CM * 2 : false;
 
   // ── px / cm conversion ────────────────────────────────────────────────────
   const pxPerCmX = BASE_PX_PER_CM_X * zoom;
@@ -392,6 +411,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     pushHistory();
     applyGondola(cmdSetPlacement(gondola, box.shelfId, box.leftSeparatorId, box.rightSeparatorId, ean));
     addRecentlyUsed(ean);
+    selectProduct(ean);
   };
 
   const clearBox = (di: number, bi: number) => {

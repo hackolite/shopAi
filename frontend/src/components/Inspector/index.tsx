@@ -150,6 +150,45 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
       }
 
       if (updated !== detail) {
+        // If gondola data is present, scale its geometry to match the new (smaller) face dimensions.
+        // The checks mirror the legacy-field scaling above: only clip when the planogram now exceeds
+        // the face boundary — we do not scale up when the furniture grows larger.
+        if (updated.gondola) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let scaledGondola: any = { ...updated.gondola };
+
+          if (detail.widthCm > faceWidth) {
+            const wScale = faceWidth / detail.widthCm;
+            scaledGondola = {
+              ...scaledGondola,
+              width_cm: faceWidth,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              shelves: scaledGondola.shelves?.map((shelf: any) => ({
+                ...shelf,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                separators: shelf.separators?.map((sep: any) => ({
+                  ...sep,
+                  position_cm: sep.position_cm * wScale,
+                })),
+              })),
+            };
+          }
+
+          if (detail.heightCm > faceHeight) {
+            const hScale = faceHeight / detail.heightCm;
+            scaledGondola = {
+              ...scaledGondola,
+              height_cm: faceHeight,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              shelves: scaledGondola.shelves?.map((shelf: any) => ({
+                ...shelf,
+                height_cm: shelf.height_cm * hScale,
+              })),
+            };
+          }
+
+          updated = { ...updated, gondola: scaledGondola };
+        }
         cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);
         syncPlanogram(updated);
       }

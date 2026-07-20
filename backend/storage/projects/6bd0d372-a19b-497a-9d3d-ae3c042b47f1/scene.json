@@ -1,0 +1,95 @@
+{
+  "store": {
+    "id": "2572b400-ac22-4a5e-b462-f66bef2e6d19",
+    "name": "repro",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "dimensions": {
+      "width": 5000.0,
+      "height": 400.0,
+      "depth": 3000.0
+    },
+    "walls": [],
+    "floorColor": "#1e2230",
+    "wallColor": "#404060",
+    "zones": []
+  },
+  "furniture": [
+    {
+      "id": "A",
+      "name": "A",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 1000.0,
+        "height": 200.0,
+        "depth": 100.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "PA",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "B",
+      "name": "B",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 1000.0,
+        "height": 200.0,
+        "depth": 100.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "PB",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    }
+  ]
+}

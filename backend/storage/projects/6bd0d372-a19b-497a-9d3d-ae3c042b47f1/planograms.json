@@ -1,0 +1,48 @@
+{
+  "planograms": [
+    {
+      "id": "PA",
+      "name": "PA",
+      "furnitureId": "A",
+      "face": "front",
+      "rows": 2,
+      "cols": 3,
+      "widthCm": 1000.0,
+      "heightCm": 200.0,
+      "cells": [],
+      "colWidthsCm": null,
+      "rowHeightsCm": null,
+      "cellWidthOverrides": null,
+      "cellHeightOverrides": null,
+      "rowColCounts": null,
+      "mergedSpans": null,
+      "gondola": null
+    },
+    {
+      "id": "PB",
+      "name": "PB",
+      "furnitureId": "B",
+      "face": "front",
+      "rows": 2,
+      "cols": 3,
+      "widthCm": 1000.0,
+      "heightCm": 200.0,
+      "cells": [
+        {
+          "id": "29a31b3d-8b4f-4405-9344-d1cf88b24a21",
+          "ean": "123",
+          "row": 0,
+          "col": 0,
+          "rotation": 0
+        }
+      ],
+      "colWidthsCm": null,
+      "rowHeightsCm": null,
+      "cellWidthOverrides": null,
+      "cellHeightOverrides": null,
+      "rowColCounts": null,
+      "mergedSpans": null,
+      "gondola": null
+    }
+  ]
+}

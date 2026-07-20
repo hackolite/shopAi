@@ -80,7 +80,7 @@
       ],
       "rotation": [
         0.0,
-        0.0,
+        180.0,
         0.0
       ],
       "dimensions": {
@@ -119,7 +119,7 @@
       ],
       "dimensions": {
         "depth": 60.0,
-        "width": 120.0,
+        "width": 135.0,
         "height": 200.0
       },
       "materialId": "metal_white",
@@ -571,6 +571,176 @@
       "childIds": [],
       "faces": {
         "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "52fe58b7-94e0-4ae6-b894-6178d10a3908",
+      "name": "Gondole simple",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        200.0,
+        0.0,
+        200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 100.0,
+        "width": 1015.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "106cea17-f28d-4d5d-a9b6-a14e61e532d9",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9e80f7fa-bbd4-42c0-813a-b201031c8778",
+      "name": "Gondole simple",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        200.0,
+        0.0,
+        200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 100.0,
+        "width": 1000.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6746bd35-c640-4d2d-bac0-fb7ee64ccbf8",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6f730660-5343-474a-b575-6149f807a849",
+      "name": "Gondole simple",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        200.0,
+        0.0,
+        200.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 100.0,
+        "width": 1000.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9b831fd6-22a6-4c3f-94d4-3636233c95f8",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "SimpleA",
+      "name": "SimpleA",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        -15.0,
+        0.0,
+        -9.18485099360515e-16
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 100.0,
+        "width": 315.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "PSimpleA",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "SimpleB",
+      "name": "SimpleB",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        3000.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "depth": 100.0,
+        "width": 300.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "PSimpleB",
         "back": null,
         "left": null,
         "right": null,

@@ -1,0 +1,40 @@
+{
+  "planograms": [
+    {
+      "id": "PA",
+      "name": "PA",
+      "furnitureId": "A",
+      "face": "front",
+      "rows": 2,
+      "cols": 3,
+      "widthCm": 300.0,
+      "heightCm": 200.0,
+      "cells": [],
+      "colWidthsCm": null,
+      "rowHeightsCm": null,
+      "cellWidthOverrides": null,
+      "cellHeightOverrides": null,
+      "rowColCounts": null,
+      "mergedSpans": null,
+      "gondola": null
+    },
+    {
+      "id": "PB",
+      "name": "PB",
+      "furnitureId": "B",
+      "face": "front",
+      "rows": 2,
+      "cols": 3,
+      "widthCm": 300.0,
+      "heightCm": 200.0,
+      "cells": [],
+      "colWidthsCm": null,
+      "rowHeightsCm": null,
+      "cellWidthOverrides": null,
+      "cellHeightOverrides": null,
+      "rowColCounts": null,
+      "mergedSpans": null,
+      "gondola": null
+    }
+  ]
+}

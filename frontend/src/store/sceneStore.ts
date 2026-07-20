@@ -104,6 +104,7 @@ export const useSceneStore = create<SceneState>((set) => ({
   updateFurniture: (furniture) =>
     set((state) => {
       if (!state.scene) return {};
+      console.debug('[sceneStore.updateFurniture]', furniture.id, 'rotation:', furniture.rotation);
       return {
         history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
         scene: {

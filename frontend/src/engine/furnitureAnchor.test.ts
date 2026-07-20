@@ -13,7 +13,7 @@ function rotY(v: Vec3, deg: number): Vec3 {
 
 // World position of the planogram column-0 edge given a furniture position,
 // dimensions, rotation and face. Mirrors SceneEditor's overlay anchoring:
-//   front/back/top → local −X edge, left/right → local −Z edge.
+//   front/top → local −X edge, back → local +X edge, left/right → local −Z edge.
 function anchorWorld(
   position: Vec3,
   dims: { width: number; depth: number },
@@ -28,7 +28,9 @@ function anchorWorld(
   const localEdge: Vec3 =
     face === 'left' || face === 'right'
       ? [0, 0, -dims.depth / 2] // local −Z edge
-      : [-dims.width / 2, 0, 0]; // local −X edge
+      : face === 'back'
+        ? [dims.width / 2, 0, 0] // local +X edge (mirrored back face)
+        : [-dims.width / 2, 0, 0]; // local −X edge
   const rotated = rotY(localEdge, rotDeg);
   return [center[0] + rotated[0], 0, center[2] + rotated[2]];
 }
@@ -82,5 +84,26 @@ describe('anchorFurniturePosition', () => {
     const at180 = anchorFurniturePosition(pos, 'front', 100, 110, 180);
     expect(at0).toEqual(pos); // unchanged
     expect(at180[0]).toBeCloseTo(pos[0] - 10, 6); // shifted by the full delta
+  });
+
+  it('back face is a mirror of the front: it anchors the +X edge (grows toward −X)', () => {
+    // Front keeps the −X edge fixed at 0° (no-op); back keeps the +X edge fixed and
+    // therefore shifts the min corner by the full width delta so the block grows −X.
+    const front = anchorFurniturePosition(pos, 'front', 100, 110, 0);
+    const back = anchorFurniturePosition(pos, 'back', 100, 110, 0);
+    expect(front).toEqual(pos);
+    expect(back[0]).toBeCloseTo(pos[0] - 10, 6);
+  });
+
+  describe.each([0, 90, 180, 270])('back face at %d°', (deg) => {
+    it('keeps the +X (column-0) edge world-anchored when adding a column', () => {
+      const oldW = 100;
+      const newW = 110;
+      const newPos = anchorFurniturePosition(pos, 'back', oldW, newW, deg);
+      const before = anchorWorld(pos, { width: oldW, depth: 40 }, deg, 'back');
+      const after = anchorWorld(newPos, { width: newW, depth: 40 }, deg, 'back');
+      expect(after[0]).toBeCloseTo(before[0], 6);
+      expect(after[2]).toBeCloseTo(before[2], 6);
+    });
   });
 });

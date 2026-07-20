@@ -41,11 +41,20 @@ function NumberField({ label, value, onChange, min }: NumberFieldProps) {
   // Always-current refs so the cleanup effect never captures stale closures.
   const localValRef = useRef(localVal);
   const onChangeRef = useRef(onChange);
+  // True only when the user has typed something that has not yet been committed
+  // (i.e. blur or unmount flush has not fired). Reset to false whenever the
+  // parent drives a value change (e.g. TransformControls rotation update) so
+  // the unmount cleanup never mistakes a stale localVal for a pending user edit.
+  const isDirtyRef = useRef(false);
   onChangeRef.current = onChange;
   localValRef.current = localVal;
 
   if (prevValue.current !== value) {
     prevValue.current = value;
+    // Parent changed the value — sync local display and clear the dirty flag so
+    // the unmount cleanup will not flush the now-stale localVal (which still holds
+    // the old string until React processes the setLocalVal state update).
+    isDirtyRef.current = false;
     setLocalVal(String(value));
   }
 
@@ -54,8 +63,15 @@ function NumberField({ label, value, onChange, min }: NumberFieldProps) {
   // on furniture selection) before onBlur has a chance to fire — without this guard
   // the user's pending rotation/position/dimension edit is silently discarded and
   // Zustand retains the pre-edit value, causing the 3D scene to revert on return.
+  //
+  // We only flush when isDirtyRef is true (user typed something) to avoid a subtle
+  // race: when an external update (e.g. TransformControls) changes `value`, React
+  // updates prevValue.current synchronously but localVal state lags one render
+  // behind. Without the guard the cleanup would see localVal="old" vs prevValue=new
+  // and wrongly call onChange(old), reverting the externally-applied rotation.
   useEffect(() => {
     return () => {
+      if (!isDirtyRef.current) return;
       const n = parseFloat(localValRef.current);
       if (!isNaN(n) && n !== prevValue.current) {
         console.debug('[NumberField] unmount flush:', prevValue.current, '→', n);
@@ -71,10 +87,10 @@ function NumberField({ label, value, onChange, min }: NumberFieldProps) {
         type="number"
         min={min}
         value={localVal}
-        onChange={(e) => setLocalVal(e.target.value)}
+        onChange={(e) => { setLocalVal(e.target.value); isDirtyRef.current = true; }}
         onBlur={() => {
           const n = parseFloat(localVal);
-          if (!isNaN(n)) onChange(n);
+          if (!isNaN(n)) { onChange(n); isDirtyRef.current = false; }
           else setLocalVal(String(value));
         }}
         className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"

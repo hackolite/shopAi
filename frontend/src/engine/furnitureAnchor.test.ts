@@ -11,9 +11,9 @@ function rotY(v: Vec3, deg: number): Vec3 {
   return [x * c + z * s, y, -x * s + z * c];
 }
 
-// World position of the planogram column-0 edge given a furniture position,
+// World position of the planogram's anchored edge given a furniture position,
 // dimensions, rotation and face. Mirrors SceneEditor's overlay anchoring:
-//   front/back/top → local −X edge, left/right → local −Z edge.
+//   front/top → local −X edge, back → local +X edge (mirror), left/right → local −Z edge.
 function anchorWorld(
   position: Vec3,
   dims: { width: number; depth: number },
@@ -28,7 +28,9 @@ function anchorWorld(
   const localEdge: Vec3 =
     face === 'left' || face === 'right'
       ? [0, 0, -dims.depth / 2] // local −Z edge
-      : [-dims.width / 2, 0, 0]; // local −X edge (front/back/top share the same anchor)
+      : face === 'back'
+        ? [dims.width / 2, 0, 0] // local +X edge (back is a mirror of the front)
+        : [-dims.width / 2, 0, 0]; // local −X edge (front/top)
   const rotated = rotY(localEdge, rotDeg);
   return [center[0] + rotated[0], 0, center[2] + rotated[2]];
 }
@@ -84,13 +86,22 @@ describe('anchorFurniturePosition', () => {
     expect(at180[0]).toBeCloseTo(pos[0] - 10, 6); // shifted by the full delta
   });
 
-  it('back face shares the front anchor: it keeps the −X edge fixed (grows toward +X)', () => {
-    // The same planogram is shown on every face, so the back is not mirrored: like the
-    // front it keeps the −X edge fixed at 0° (a no-op) and grows the block toward +X.
+  it('back face is a mirror: at 0° it grows toward −X (shifts by the full delta)', () => {
+    // The back overlay is a mirror of the front, so appending to the back planogram
+    // renders toward −X. The anchor keeps the +X edge fixed, which at 0° means the
+    // whole block shifts by the full delta toward −X (mirror of the front's 0° no-op).
     const front = anchorFurniturePosition(pos, 'front', 100, 110, 0);
     const back = anchorFurniturePosition(pos, 'back', 100, 110, 0);
-    expect(front).toEqual(pos);
-    expect(back).toEqual(pos);
+    expect(front).toEqual(pos); // front keeps the −X edge fixed → no-op at 0°
+    expect(back[0]).toBeCloseTo(pos[0] - 10, 6); // back keeps the +X edge fixed
+    expect(back[1]).toBe(pos[1]);
+    expect(back[2]).toBeCloseTo(pos[2], 6);
+  });
+
+  it('back face is a no-op at 180° (mirror of the front no-op at 0°)', () => {
+    const back = anchorFurniturePosition(pos, 'back', 100, 110, 180);
+    expect(back[0]).toBeCloseTo(pos[0], 6);
+    expect(back[2]).toBeCloseTo(pos[2], 6);
   });
 
   describe.each([0, 90, 180, 270])('back face at %d°', (deg) => {

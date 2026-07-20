@@ -19,9 +19,9 @@ import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { CADProduct, Planogram } from '../../types/cad';
 import type { Box, BoxKey, Gondola, Separator, Shelf } from '../../types/gondola';
 import { makeBoxKey, parseBoxKey } from '../../types/gondola';
+import { anchorFurniturePosition } from '../../engine/furnitureAnchor';
 import {
   computeBoxes,
-  buildBoxMap,
   getShelfByDisplayIndex,
   shelfBoxCount,
   sortedSeps,
@@ -130,7 +130,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   // ── Core gondola state ────────────────────────────────────────────────────
   const [gondola,  setGondola]  = useState<Gondola | null>(null);
   const [boxes,    setBoxes]    = useState<Box[]>([]);
-  const [boxMap,   setBoxMap]   = useState<Map<BoxKey, Box>>(new Map());
   const [planogramBase, setPlanogramBase] = useState<
     Omit<Planogram,'rows'|'cols'|'widthCm'|'heightCm'|'cells'|'colWidthsCm'|'rowHeightsCm'|'rowColCounts'|'cellWidthOverrides'|'cellHeightOverrides'|'mergedSpans'> & { gondola?: Gondola }
   | null>(null);
@@ -254,7 +253,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         const bs = computeBoxes(g);
         setGondola(g);
         setBoxes(bs);
-        setBoxMap(buildBoxMap(bs));
         const {
           rows: _rows, cols: _cols, widthCm: _widthCm, heightCm: _heightCm,
           cells: _cells, colWidthsCm: _colWidths, rowHeightsCm: _rowHeights,
@@ -291,7 +289,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const bs = computeBoxes(g);
     setGondola(g);
     setBoxes(bs);
-    setBoxMap(buildBoxMap(bs));
     setFuture([]);
     if (planogramBase) {
       const lp = gondolaToLegacyPlanogram(g, { ...planogramBase, gondola: g });
@@ -531,11 +528,11 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    *  Pass newWidthCm to update the horizontal dimension and/or newHeightCm to update the vertical dimension.
    *  At least one argument must be defined; passing neither is a no-op (defensive guard).
    *
-   *  Position anchoring: the furniture's stored position is NEVER modified here.
-   *  position[0] is the world-space left edge (X) and position[2] is the near edge (Z).
-   *  Keeping them fixed means the physical left/near corner of the gondola is always
-   *  anchored, regardless of Y-axis rotation — columns are always added/removed on the
-   *  right (larger-X / larger-Z) side in world space. */
+   *  Position anchoring: the planogram column-0 edge is kept fixed in *world* space
+   *  by compensating the furniture position for its Y-axis rotation (see
+   *  anchorFurniturePosition). This makes add/remove-column behave identically no
+   *  matter how the block is oriented — including when it is flipped 180° to face the
+   *  opposite aisle. At 0° rotation the position is left unchanged. */
   const syncFurnitureDimension = (newWidthCm?: number, newHeightCm?: number) => {
     if (!planogramBase || !scene) return;
     if (newWidthCm === undefined && newHeightCm === undefined) return; // defensive guard — callers always supply ≥1 arg
@@ -543,21 +540,29 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!fur) return;
     const face = planogramBase.face;
     let updatedDims = { ...fur.dimensions };
+    let updatedPosition = fur.position;
 
     if (newWidthCm !== undefined) {
-      if (face === 'left' || face === 'right') {
-        // The planogram's horizontal axis maps to the furniture's local Z (depth).
-        updatedDims = { ...updatedDims, depth: newWidthCm };
-      } else {
-        // front / back / top / bottom: horizontal axis maps to the furniture's width.
-        updatedDims = { ...updatedDims, width: newWidthCm };
-      }
+      const isDepthAxis = face === 'left' || face === 'right';
+      // The planogram's horizontal axis maps to the furniture's local Z (depth) for
+      // left/right faces, and to the furniture's local X (width) otherwise.
+      const oldHorizontalCm = isDepthAxis ? fur.dimensions.depth : fur.dimensions.width;
+      updatedDims = isDepthAxis
+        ? { ...updatedDims, depth: newWidthCm }
+        : { ...updatedDims, width: newWidthCm };
+      // Keep the column-0 edge anchored in world space across the resize.
+      updatedPosition = anchorFurniturePosition(
+        fur.position,
+        face,
+        oldHorizontalCm,
+        newWidthCm,
+        fur.rotation[1],
+      );
     }
     if (newHeightCm !== undefined) {
       updatedDims = { ...updatedDims, height: newHeightCm };
     }
-    // position is intentionally left unchanged — the left/near edge stays fixed.
-    const updated = { ...fur, dimensions: updatedDims };
+    const updated = { ...fur, dimensions: updatedDims, position: updatedPosition };
     updateFurniture(updated);
     if (projectId) cadApi.updateFurniture(projectId, fur.id, updated).catch(console.error);
   };
@@ -674,7 +679,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const last = prev[prev.length - 1];
       if (gondola) setFuture(f => [...f.slice(-20), gondola]);
       const bs = computeBoxes(last);
-      setGondola(last); setBoxes(bs); setBoxMap(buildBoxMap(bs));
+      setGondola(last); setBoxes(bs);
       if (planogramBase) {
         const lp = gondolaToLegacyPlanogram(last, { ...planogramBase, gondola: last });
         setActivePlanogram(lp); scheduleSave(lp);
@@ -694,7 +699,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       const next = prev[prev.length - 1];
       if (gondola) setHistory(h => [...h.slice(-20), gondola]);
       const bs = computeBoxes(next);
-      setGondola(next); setBoxes(bs); setBoxMap(buildBoxMap(bs));
+      setGondola(next); setBoxes(bs);
       if (planogramBase) {
         const lp = gondolaToLegacyPlanogram(next, { ...planogramBase, gondola: next });
         setActivePlanogram(lp); scheduleSave(lp);
@@ -781,7 +786,6 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     }
     setSelectedKeys(new Set());
     setLastSelectedKey(key);
-    const box = boxMap.get(key);
     if (selectedEan) { fillBox(di, bi, selectedEan); return; }
     setSelectedKey(key === selectedKey ? null : key);
   };

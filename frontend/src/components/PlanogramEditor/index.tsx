@@ -19,7 +19,6 @@ import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { CADProduct, Planogram, FaceId } from '../../types/cad';
 import type { Box, BoxKey, Gondola, Separator, Shelf } from '../../types/gondola';
 import { makeBoxKey, parseBoxKey } from '../../types/gondola';
-import { anchorFurniturePosition } from '../../engine/furnitureAnchor';
 import {
   computeBoxes,
   getShelfByDisplayIndex,
@@ -543,11 +542,14 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    *  Pass newWidthCm to update the horizontal dimension and/or newHeightCm to update the vertical dimension.
    *  At least one argument must be defined; passing neither is a no-op (defensive guard).
    *
-   *  Position anchoring: the planogram column-0 edge is kept fixed in *world* space
-   *  by compensating the furniture position for its Y-axis rotation (see
-   *  anchorFurniturePosition). This makes add/remove-column behave identically no
-   *  matter how the block is oriented — including when it is flipped 180° to face the
-   *  opposite aisle. At 0° rotation the position is left unchanged. */
+   *  The furniture `position` is intentionally left UNCHANGED. Editing a planogram
+   *  (adding/removing a column or row) must never move the physical block — the
+   *  furniture group is centred on `position + dimensions/2` and rotated about that
+   *  centre, so keeping `position` fixed anchors the block's local −X/−Z (column-0)
+   *  edge in world space while it simply grows/shrinks toward its opposite edge, for
+   *  every orientation. Previously the position was re-anchored based on the Y-axis
+   *  rotation, which made rotated gondolas (90/180/270°) jump when a column was added
+   *  or removed — perceived as furniture the user never edited moving on its own. */
   const syncFurnitureDimension = (newWidthCm?: number, newHeightCm?: number) => {
     if (!planogramBase || !scene) return;
     if (newWidthCm === undefined && newHeightCm === undefined) return; // defensive guard — callers always supply ≥1 arg
@@ -555,29 +557,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!fur) return;
     const face = planogramBase.face;
     let updatedDims = { ...fur.dimensions };
-    let updatedPosition = fur.position;
 
     if (newWidthCm !== undefined) {
       const isDepthAxis = face === 'left' || face === 'right';
       // The planogram's horizontal axis maps to the furniture's local Z (depth) for
       // left/right faces, and to the furniture's local X (width) otherwise.
-      const oldHorizontalCm = isDepthAxis ? fur.dimensions.depth : fur.dimensions.width;
       updatedDims = isDepthAxis
         ? { ...updatedDims, depth: newWidthCm }
         : { ...updatedDims, width: newWidthCm };
-      // Keep the column-0 edge anchored in world space across the resize.
-      updatedPosition = anchorFurniturePosition(
-        fur.position,
-        face,
-        oldHorizontalCm,
-        newWidthCm,
-        fur.rotation[1],
-      );
     }
     if (newHeightCm !== undefined) {
       updatedDims = { ...updatedDims, height: newHeightCm };
     }
-    const updated = { ...fur, dimensions: updatedDims, position: updatedPosition };
+    // Keep the furniture position fixed — only its dimensions change.
+    const updated = { ...fur, dimensions: updatedDims };
     updateFurniture(updated);
     if (projectId) cadApi.updateFurniture(projectId, fur.id, updated).catch(console.error);
   };

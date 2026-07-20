@@ -906,3 +906,140 @@ export function extendGondolaWidth(gondola: Gondola, newWidthCm: number): Gondol
     }),
   };
 }
+
+/**
+ * §4 Extend gondola width from the LEFT: grows the gondola to `newWidthCm`,
+ * inserting empty boxes in the new region `[0, newWidthCm - oldWidthCm)` on every
+ * shelf. Existing columns keep their content and are shifted right by the delta,
+ * so column 0 becomes the newly inserted empty box (insertion "au début / à
+ * gauche" of the planogram).
+ *
+ * This is the left-anchored mirror of `extendGondolaWidth`. It is used to keep the
+ * opposite gondola face in sync: when a column is appended to one face (on the
+ * right), the matching column is prepended to the opposite face (on the left) so
+ * both new columns land on the same physical end of the gondola.
+ *
+ * Existing product placements are fully preserved: separators keep their IDs, so
+ * placements stay attached to the same boxes as they shift right.
+ *
+ * No-op when `newWidthCm <= gondola.width_cm`.
+ */
+export function extendGondolaWidthLeft(gondola: Gondola, newWidthCm: number): Gondola {
+  if (newWidthCm <= gondola.width_cm + MIN_BOX_CM / 2) return gondola;
+
+  const oldWidthCm = gondola.width_cm;
+  const shiftAmt = newWidthCm - oldWidthCm;
+
+  return {
+    ...gondola,
+    width_cm: newWidthCm,
+    shelves: gondola.shelves.map((shelf) => {
+      const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
+      if (sorted.length < 2) return shelf;
+
+      // Estimate column spacing from the first existing column on this shelf.
+      const firstColWidth = sorted[1].position_cm - sorted[0].position_cm;
+      const colSpacing = Math.max(MIN_BOX_CM, firstColWidth);
+
+      // Shift every existing separator right by the added width. The old left
+      // boundary (now at shiftAmt) is demoted to a movable internal separator so
+      // it forms a clean right edge for the last new box; a fresh left boundary is
+      // added at 0.
+      const shifted: Separator[] = sorted.map((sep, idx) => ({
+        ...sep,
+        position_cm: sep.position_cm + shiftAmt,
+        // The former left boundary becomes an internal separator; all others keep
+        // their movability (the former right boundary stays a fixed boundary).
+        movable: idx === 0 ? true : sep.movable,
+        type: idx === 0 ? 'virtual' : sep.type,
+      }));
+
+      // New left boundary at 0.
+      const newLeftBoundary: Separator = {
+        id: crypto.randomUUID(),
+        position_cm: 0,
+        type: 'virtual',
+        movable: false,
+      };
+
+      // Add internal separators in the new region `(0, shiftAmt)` at regular
+      // intervals so the inserted region is split into evenly sized empty boxes.
+      const extraSeps: Separator[] = [];
+      let pos = colSpacing;
+      while (pos < shiftAmt - MIN_BOX_CM) {
+        extraSeps.push({
+          id: crypto.randomUUID(),
+          position_cm: pos,
+          type: 'virtual',
+          movable: true,
+        });
+        pos += colSpacing;
+      }
+
+      return {
+        ...shelf,
+        separators: [newLeftBoundary, ...extraSeps, ...shifted],
+      };
+    }),
+  };
+}
+
+/**
+ * §4 Shrink gondola width from the LEFT: removes the leftmost column(s) from every
+ * shelf until the gondola reaches `targetWidthCm`, shifting the remaining columns
+ * left and keeping the right boundary anchored. This is the left-anchored mirror
+ * of `shrinkGondolaWidth`, used to keep the opposite gondola face in sync when a
+ * column is removed from the right of the active face.
+ *
+ * Product placements whose left or right separator is removed are discarded.
+ * No-op when `targetWidthCm >= gondola.width_cm`.
+ */
+export function shrinkGondolaWidthLeft(gondola: Gondola, targetWidthCm: number): Gondola {
+  const delta = gondola.width_cm - targetWidthCm;
+  if (delta <= MIN_BOX_CM / 2) return gondola;
+
+  const shelves = gondola.shelves.map((shelf) => {
+    const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
+    if (sorted.length < 2) return shelf;
+
+    // Keep all separators strictly right of `delta` (they become the surviving
+    // interior + right boundary once shifted left), plus a fresh left boundary at 0.
+    const survivors = sorted
+      .slice(1) // drop the current left boundary
+      .filter((sep) => sep.position_cm > delta)
+      .map((sep) => ({
+        ...sep,
+        position_cm: sep.position_cm - delta,
+      }));
+
+    if (survivors.length === 0) return shelf; // nothing left to keep — leave unchanged
+
+    const newLeftBoundary: Separator = {
+      ...sorted[0],
+      position_cm: 0,
+      movable: false,
+      type: 'virtual',
+    };
+    // Ensure the right-most survivor is a fixed boundary at the target width.
+    const last = survivors[survivors.length - 1];
+    survivors[survivors.length - 1] = {
+      ...last,
+      position_cm: targetWidthCm,
+      movable: false,
+      type: 'virtual',
+    };
+
+    return { ...shelf, separators: [newLeftBoundary, ...survivors] };
+  });
+
+  // Drop product placements whose left or right separator was removed.
+  const productPlacements = gondola.productPlacements.filter((p) => {
+    const shelf = shelves.find((s) => s.id === p.shelfId);
+    if (!shelf) return true;
+    const leftSep = shelf.separators.find((s) => s.id === p.leftSeparatorId);
+    const rightSep = shelf.separators.find((s) => s.id === p.rightSeparatorId);
+    return leftSep !== undefined && rightSep !== undefined;
+  });
+
+  return { ...gondola, width_cm: targetWidthCm, shelves, productPlacements };
+}

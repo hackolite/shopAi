@@ -16,7 +16,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useSceneStore } from '../../store/sceneStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
-import type { CADProduct, Planogram } from '../../types/cad';
+import type { CADProduct, Planogram, FaceId } from '../../types/cad';
 import type { Box, BoxKey, Gondola, Separator, Shelf } from '../../types/gondola';
 import { makeBoxKey, parseBoxKey } from '../../types/gondola';
 import { anchorFurniturePosition } from '../../engine/furnitureAnchor';
@@ -41,7 +41,9 @@ import {
   findBox,
   getRowBoxes,
   extendGondolaWidth,
+  extendGondolaWidthLeft,
   shrinkGondolaWidth,
+  shrinkGondolaWidthLeft,
   extendGondolaHeight,
   DEFAULT_SHELF_HEIGHT_CM,
   DEFAULT_SEP_SPACING_CM,
@@ -56,6 +58,19 @@ const SHELF_RESIZE_H = 6;        // px – height of shelf resize strip
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4;
 const ZOOM_STEP = 0.2;
+
+// Opposite gondola face for each face. Adding a column to one face appends it on
+// the right; the matching column is inserted on the LEFT of the opposite face so
+// both new columns land on the same physical end of the gondola (the back face is
+// rendered as a true mirror of the front — see SceneEditor overlay logic).
+const OPPOSITE_FACE: Record<FaceId, FaceId> = {
+  front: 'back',
+  back:  'front',
+  left:  'right',
+  right: 'left',
+  top:   'bottom',
+  bottom: 'top',
+};
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Épicerie':  '#F5C518',
@@ -182,7 +197,7 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const pushHistoryRef  = useRef<() => void>(() => {});
   const gondolaRef      = useRef<Gondola | null>(null);
 
-  const { setActivePlanogram } = usePlanogramStore();
+  const { setActivePlanogram, syncPlanogram } = usePlanogramStore();
   const { products, selectedEan, addRecentlyUsed, setProducts, selectProduct } = useCatalogStore();
   const { scene, updateFurniture } = useSceneStore();
   const productByEan = new Map(products.map(p => [p.ean, p] as const));
@@ -575,6 +590,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const g = extendGondolaWidth(gondola, newWidthCm);
     applyGondola(g);
     syncFurnitureDimension(newWidthCm);
+    // Keep the opposite gondola face in sync: insert the matching column on its
+    // LEFT so both new columns sit at the same physical end of the gondola.
+    syncOppositeFaceWidth(newWidthCm);
   };
 
   const removeCol = () => {
@@ -587,6 +605,37 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (g === gondola) return; // nothing changed
     applyGondola(g);
     syncFurnitureDimension(g.width_cm);
+    // Keep the opposite gondola face in sync: remove the matching column from its
+    // LEFT so both faces keep the same number of columns and the same width.
+    syncOppositeFaceWidth(g.width_cm);
+  };
+
+  /** Mirror an add/remove-column width change onto the opposite gondola face's
+   *  planogram, inserting/removing the column on its LEFT edge. Growing appends a
+   *  column on the active face (right) but prepends on the opposite face (left) so
+   *  both new columns land on the same physical end of the gondola. The opposite
+   *  planogram is loaded, transformed, persisted and refreshed in the store; the
+   *  active face is left untouched. No-op when there is no opposite planogram. */
+  const syncOppositeFaceWidth = (targetWidthCm: number) => {
+    if (!planogramBase || !projectId || !scene) return;
+    const fur = scene.furniture.find(f => f.id === planogramBase.furnitureId);
+    if (!fur) return;
+    const oppFace = OPPOSITE_FACE[planogramBase.face];
+    const oppId = fur.faces?.[oppFace];
+    if (!oppId || oppId === planogramBase.id) return;
+
+    cadApi.getPlanogram(projectId, oppId)
+      .then((opp) => {
+        const oppGondola: Gondola = opp.gondola ?? legacyCellsToSeparators(opp);
+        const transformed = targetWidthCm > oppGondola.width_cm
+          ? extendGondolaWidthLeft(oppGondola, targetWidthCm)   // add: prepend a column
+          : shrinkGondolaWidthLeft(oppGondola, targetWidthCm);  // remove: drop leftmost column
+        if (transformed === oppGondola) return; // nothing to do
+        const oppLp = gondolaToLegacyPlanogram(transformed, { ...opp, gondola: transformed });
+        syncPlanogram(oppLp);
+        return cadApi.updatePlanogram(projectId, oppId, oppLp);
+      })
+      .catch(console.error);
   };
 
   // ── Fuse / split ──────────────────────────────────────────────────────────

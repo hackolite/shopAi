@@ -26,7 +26,9 @@ import {
   sortedSeps,
   extendGondolaHeight,
   extendGondolaWidth,
+  extendGondolaWidthLeft,
   shrinkGondolaWidth,
+  shrinkGondolaWidthLeft,
   DEFAULT_SEP_SPACING_CM,
   MIN_BOX_CM,
 } from './gondola';
@@ -853,5 +855,146 @@ describe('shrinkGondolaWidth', () => {
     const g3 = shrinkGondolaWidth(g2);
     // The rightmost box (30–45) is now gone; placement must be removed.
     expect(g3.productPlacements).toHaveLength(0);
+  });
+});
+
+// ─── §4 extendGondolaWidthLeft ────────────────────────────────────────────────
+
+describe('extendGondolaWidthLeft', () => {
+  it('adds exactly one new column at the left when growing by DEFAULT_SEP_SPACING_CM', () => {
+    // Start with a 3-column gondola, each column 15 cm wide.
+    const g: Gondola = {
+      id: 'g', width_cm: 45, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45])],
+      productPlacements: [],
+    };
+    const updated = extendGondolaWidthLeft(g, 45 + DEFAULT_SEP_SPACING_CM);
+    expect(updated.width_cm).toBeCloseTo(60);
+    const positions = [...updated.shelves[0].separators]
+      .sort((a, b) => a.position_cm - b.position_cm)
+      .map(s => s.position_cm);
+    // A new left boundary at 0, then the shifted original separators.
+    expect(positions).toEqual([0, 15, 30, 45, 60]);
+  });
+
+  it('shifts existing columns right and keeps the right boundary at newWidthCm', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 45, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45])],
+      productPlacements: [],
+    };
+    const updated = extendGondolaWidthLeft(g, 60);
+    const sorted = [...updated.shelves[0].separators].sort((a, b) => a.position_cm - b.position_cm);
+    // Left boundary at 0, right boundary at 60.
+    expect(sorted[0].position_cm).toBe(0);
+    expect(sorted[sorted.length - 1].position_cm).toBeCloseTo(60);
+    // The former left boundary (id sep-s-0) has moved to position 15 (shift = 15).
+    const formerLeft = updated.shelves[0].separators.find(s => s.id === 'sep-s-0');
+    expect(formerLeft?.position_cm).toBeCloseTo(15);
+    expect(formerLeft?.movable).toBe(true); // demoted to internal separator
+  });
+
+  it('is a no-op when newWidthCm does not exceed gondola width', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 60, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 30, 60])],
+      productPlacements: [],
+    };
+    expect(extendGondolaWidthLeft(g, 60)).toBe(g);
+    expect(extendGondolaWidthLeft(g, 50)).toBe(g);
+  });
+
+  it('preserves product placements, keeping them attached to their (shifted) boxes', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 45, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45])],
+      productPlacements: [],
+    };
+    // Place a product in the leftmost box (0–15 cm).
+    const seps = [...g.shelves[0].separators].sort((a, b) => a.position_cm - b.position_cm);
+    const g2 = cmdSetPlacement(g, 's', seps[0].id, seps[1].id, 'EAN1');
+    const updated = extendGondolaWidthLeft(g2, 60);
+    // Placement is preserved (same separator IDs still exist).
+    expect(updated.productPlacements).toHaveLength(1);
+    const boxes = computeBoxes(updated);
+    // The box carrying EAN1 must now start at 15 cm (shifted right by the new column).
+    const placed = boxes.find(b => b.placement?.productId === 'EAN1');
+    expect(placed?.x_cm).toBeCloseTo(15);
+  });
+
+  it('applies to all shelves consistently', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 30, height_cm: 50, depth_cm: 45,
+      shelves: [
+        makeShelf('s1', 25, [0, 15, 30]),   // 2 columns @ 15 cm
+        makeShelf('s2', 25, [0, 10, 20, 30]), // 3 columns @ 10 cm
+      ],
+      productPlacements: [],
+    };
+    const updated = extendGondolaWidthLeft(g, 45);
+    expect(updated.width_cm).toBeCloseTo(45);
+    for (const shelf of updated.shelves) {
+      const sorted = [...shelf.separators].sort((a, b) => a.position_cm - b.position_cm);
+      expect(sorted[sorted.length - 1].position_cm).toBeCloseTo(45);
+      expect(sorted[0].position_cm).toBe(0);
+    }
+  });
+});
+
+// ─── §4 shrinkGondolaWidthLeft ────────────────────────────────────────────────
+
+describe('shrinkGondolaWidthLeft', () => {
+  it('removes the leftmost column and shifts remaining columns left', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 60, height_cm: 50, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45, 60])],
+      productPlacements: [],
+    };
+    const updated = shrinkGondolaWidthLeft(g, 45);
+    expect(updated.width_cm).toBeCloseTo(45);
+    const positions = [...updated.shelves[0].separators]
+      .sort((a, b) => a.position_cm - b.position_cm)
+      .map(s => s.position_cm);
+    expect(positions).toEqual([0, 15, 30, 45]);
+  });
+
+  it('is a no-op when targetWidthCm is not smaller than the gondola width', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 45, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45])],
+      productPlacements: [],
+    };
+    expect(shrinkGondolaWidthLeft(g, 45)).toBe(g);
+    expect(shrinkGondolaWidthLeft(g, 50)).toBe(g);
+  });
+
+  it('drops product placements whose leftmost box was removed', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 45, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45])],
+      productPlacements: [],
+    };
+    // Place a product in the leftmost box (0–15 cm).
+    const seps = [...g.shelves[0].separators].sort((a, b) => a.position_cm - b.position_cm);
+    const g2 = cmdSetPlacement(g, 's', seps[0].id, seps[1].id, 'EAN1');
+    expect(g2.productPlacements).toHaveLength(1);
+    const g3 = shrinkGondolaWidthLeft(g2, 30);
+    // The leftmost box (0–15) is now gone; placement must be removed.
+    expect(g3.productPlacements).toHaveLength(0);
+  });
+
+  it('round-trips with extendGondolaWidthLeft (add then remove restores width)', () => {
+    const g: Gondola = {
+      id: 'g', width_cm: 45, height_cm: 30, depth_cm: 45,
+      shelves: [makeShelf('s', 30, [0, 15, 30, 45])],
+      productPlacements: [],
+    };
+    const grown = extendGondolaWidthLeft(g, 60);
+    const shrunk = shrinkGondolaWidthLeft(grown, 45);
+    expect(shrunk.width_cm).toBeCloseTo(45);
+    const positions = [...shrunk.shelves[0].separators]
+      .sort((a, b) => a.position_cm - b.position_cm)
+      .map(s => s.position_cm);
+    expect(positions).toEqual([0, 15, 30, 45]);
   });
 });

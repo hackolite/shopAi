@@ -1821,6 +1821,55 @@ function CameraFlyToFurniture() {
   return null;
 }
 
+/**
+ * Preserves the user's 3D camera viewpoint across SceneEditor remounts.
+ *
+ * Opening the planogram editor unmounts the 3D <Canvas>; returning remounts it and
+ * would otherwise snap the camera back to its default position/target. That reset made
+ * a gondola the user had orbited around to face the scene look as though it had turned
+ * around on its own ("de dos") even though its rotation never changed. We therefore
+ * restore the last saved viewpoint on mount and save it after every orbit/pan/zoom
+ * gesture. This does NOT move furniture or auto-frame anything — it only keeps the
+ * exact viewpoint the user already had.
+ */
+function CameraPosePersistence() {
+  const { camera, controls } = useThree();
+  const cameraPose    = useUIStore((s) => s.cameraPose);
+  const setCameraPose = useUIStore((s) => s.setCameraPose);
+  const restoredRef   = useRef(false);
+
+  // Restore the saved viewpoint once, as soon as the controls are available.
+  useEffect(() => {
+    if (restoredRef.current || !controls || !cameraPose) return;
+    restoredRef.current = true;
+    camera.position.set(cameraPose.position[0], cameraPose.position[1], cameraPose.position[2]);
+    // @ts-expect-error drei controls
+    controls.target?.set?.(cameraPose.target[0], cameraPose.target[1], cameraPose.target[2]);
+    // @ts-expect-error drei controls
+    controls.update?.();
+  }, [controls, camera, cameraPose]);
+
+  // Persist the viewpoint whenever the user finishes an orbit/pan/zoom gesture.
+  useEffect(() => {
+    if (!controls) return;
+    const handleEnd = () => {
+      // @ts-expect-error drei controls
+      const t = controls.target;
+      setCameraPose({
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        target: t ? [t.x, t.y, t.z] : [25, 0, 15],
+      });
+    };
+    // @ts-expect-error drei controls
+    controls.addEventListener?.('end', handleEnd);
+    return () => {
+      // @ts-expect-error drei controls
+      controls.removeEventListener?.('end', handleEnd);
+    };
+  }, [controls, camera, setCameraPose]);
+
+  return null;
+}
 
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
@@ -1947,6 +1996,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId}
         />
         <CameraFlyToFurniture />
+        <CameraPosePersistence />
       </MeshRegistryCtx.Provider>
     </ResizeDragCtx.Provider>
   );

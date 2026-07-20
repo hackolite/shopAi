@@ -3,10 +3,11 @@
 // When a planogram column is added or removed, the linked gondola furniture grows
 // or shrinks along one horizontal axis. The planogram overlay is aligned to a
 // fixed *physical* edge of the block (see SceneEditor overlay logic):
-//   • front / top face  → horizontal axis is the furniture's local X, and
-//     column 0 sits at the local −X edge.
-//   • back face         → mirror of the front: horizontal axis is local X, and
-//     column 0 sits at the local +X edge (new columns grow toward −X).
+//   • front / back / top face → horizontal axis is the furniture's local X, and
+//     column 0 sits at the local −X edge (new columns grow toward +X). The same
+//     planogram is shown on every face, so the back uses the identical −X anchor as the
+//     front; its overlay texture is flipped to cancel the plane's π rotation so columns
+//     stay at the same physical X position on both faces.
 //   • left / right faces → horizontal axis is the furniture's local Z, and
 //     column 0 sits at the local −Z edge.
 //
@@ -53,11 +54,8 @@ export function anchorFurniturePosition(
     // Horizontal axis = local Z, anchor the local −Z edge.
     return [px + s * half, py, pz - (1 - c) * half];
   }
-  if (face === 'back') {
-    // The back overlay is a horizontal mirror of the front (column 0 on the +X edge),
-    // so keep the local +X edge world-fixed and grow new columns toward −X.
-    return [px - (1 + c) * half, py, pz + s * half];
-  }
-  // front / top: horizontal axis = local X, anchor the local −X edge.
+  // front / back / top: horizontal axis = local X, anchor the local −X edge so new
+  // columns grow toward +X. The back overlay is flipped to keep columns at the same
+  // physical X as the front, so it shares this anchor rather than mirroring it.
   return [px - (1 - c) * half, py, pz - s * half];
 }

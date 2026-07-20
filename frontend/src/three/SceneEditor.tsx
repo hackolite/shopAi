@@ -322,18 +322,13 @@ function PlanogramFaceOverlay({
     }
 
     const tex = new THREE.CanvasTexture(canvas);
-    // Back face: the overlay plane is rotated π about Y (see position/rotation
-    // below), which mirrors it horizontally.  Flip the texture horizontally so the
-    // column progression runs the same *physical* direction as the front face —
-    // both faces stay anchored to the gondola's fixed (-X) edge and new columns
-    // grow toward the same (+X) side of the block.
-    if (face === 'back') {
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.repeat.x = -1;
-      tex.offset.x = 1;
-    }
+    // The back overlay plane is rotated π about Y (see position/rotation below), so
+    // it renders as a natural horizontal mirror of the front face — exactly like the
+    // left/right faces mirror each other.  We intentionally do NOT flip the texture:
+    // column 0 stays on the back viewer's left and new columns grow toward the back
+    // viewer's right (the physically opposite side of the front face).
     return tex;
-  }, [planogram, products, selectedCellId, loadedImages, face]);
+  }, [planogram, products, selectedCellId, loadedImages]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -371,9 +366,9 @@ function PlanogramFaceOverlay({
 
     // Use per-row column widths (cellWidthOverrides keyed as "{row}-{col}") with a
     // fallback to the global colWidths so legacy planograms without overrides still work.
-    // The back-face texture is mirrored horizontally (see the texture memo), so its
-    // click UV must be flipped to map back to the underlying (unmirrored) columns.
-    const uvX = Math.min(1, Math.max(0, face === 'back' ? 1 - event.uv.x : event.uv.x));
+    // The back-face overlay is a natural horizontal mirror (rotated π, un-mirrored
+    // texture), so a click's UV maps directly to the underlying columns like the front.
+    const uvX = Math.min(1, Math.max(0, event.uv.x));
     const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
     let col = rowColCount - 1;
     let cumW = 0;
@@ -404,7 +399,7 @@ function PlanogramFaceOverlay({
       planogramId: planogram.id,
       cellIds: [cell.id],
     });
-  }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId, face]);
+  }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId]);
 
   if (!texture || !planogram) return null;
 
@@ -422,6 +417,7 @@ function PlanogramFaceOverlay({
   // For front/back/top faces the horizontal axis is the gondola's X axis (face width = W).
   // For left/right faces the horizontal axis is the gondola's Z axis (face width = D).
   const xOffFrontBack = (planoW - W) / 2; // negative → shift toward -X (left)
+  const xOffBackRight = (W - planoW) / 2; // positive → right-align the mirrored back overlay to +X
   const zOffSide      = (D - planoW) / 2; // positive → shift toward +Z (gondola front = viewer left)
 
   // Compute position and rotation for each face (top- and left-aligned on the gondola face)
@@ -434,13 +430,12 @@ function PlanogramFaceOverlay({
       rotation = [0, 0, 0];
       break;
     case 'back':
-      // The back plane is rotated π about Y so it faces the opposite aisle.  Its
-      // texture is mirrored horizontally (see the texture memo) so the planogram is
-      // anchored to the *same* physical (-X) edge of the gondola as the front face:
-      // column 0 sits at -X on both faces and new columns grow toward +X.  This keeps
-      // column add/remove a progression on the same side of the block — new columns
-      // appear on the user's right at the front and on the left of the opposite side.
-      position = [xOffFrontBack, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
+      // The back plane is rotated π about Y so it faces the opposite aisle, making it
+      // a natural horizontal mirror of the front face (like left/right mirror each
+      // other).  Right-aligning to the +X edge puts column 0 on the back viewer's left
+      // and grows new columns toward the back viewer's right — i.e. the physically
+      // opposite (-X) side of the block from the front face's growth direction.
+      position = [xOffBackRight, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
       rotation = [0, Math.PI, 0];
       break;
     case 'left':
@@ -549,7 +544,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     const t = (cumW + cellW / 2) / planogram.widthCm;
 
     const cellXf =  t * W - W / 2;  // front: col=0 → local -X
-    const cellXb =  t * W - W / 2;  // back: now anchored to the same physical (-X) edge as front
+    const cellXb =  W / 2 - t * W;  // back: mirrored — col=0 → local +X (back viewer's left)
     const cellZr = D / 2 - t * D;   // right: col=0 → local +Z
     const cellZl = t * D - D / 2;   // left: mirrored in Z relative to right
     return {

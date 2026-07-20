@@ -59,6 +59,9 @@ let _persistedCameraState: {
   target: [number, number, number];
 } | null = null;
 
+/** Default OrbitControls look-at point (store centre). */
+const DEFAULT_ORBIT_TARGET: [number, number, number] = [25, 0, 15];
+
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
 const MeshRegistryCtx = createContext<RegisterFn>(() => {});
@@ -1842,8 +1845,12 @@ function CameraStateSync({ savedPosition }: { savedPosition?: [number, number, n
   const { camera, get } = useThree();
 
   // Restore the camera position before the first paint so there is no visible
-  // jump.  OrbitControls picks up its internal spherical from camera.position
-  // on the very first update() call, so just setting position is sufficient.
+  // jump.  OrbitControls picks up its internal spherical coordinates from
+  // camera.position on its very first update() call, so setting position here
+  // is sufficient.
+  // The empty dependency array is intentional: this effect must run exactly
+  // once on mount to restore the saved state; re-running it when savedPosition
+  // or camera changes would fight OrbitControls and cause jumps.
   useLayoutEffect(() => {
     if (!savedPosition) return;
     camera.position.set(savedPosition[0], savedPosition[1], savedPosition[2]);
@@ -1858,7 +1865,7 @@ function CameraStateSync({ savedPosition }: { savedPosition?: [number, number, n
       position: [camera.position.x, camera.position.y, camera.position.z],
       target: ctrl?.target
         ? [ctrl.target.x, ctrl.target.y, ctrl.target.z]
-        : [25, 0, 15],
+        : DEFAULT_ORBIT_TARGET,
     };
   });
 
@@ -1882,7 +1889,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // a prop when its reference hasn't changed, which prevents OrbitControls from
   // resetting the target back to this value after the user has panned/orbited.
   const initialOrbitTarget = useRef<[number, number, number]>(
-    _persistedCameraState?.target ?? [25, 0, 15]
+    _persistedCameraState?.target ?? DEFAULT_ORBIT_TARGET
   );
 
   const registerGroup = useCallback<RegisterFn>((id, group) => {

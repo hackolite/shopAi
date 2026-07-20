@@ -321,8 +321,19 @@ function PlanogramFaceOverlay({
       }
     }
 
-    return new THREE.CanvasTexture(canvas);
-  }, [planogram, products, selectedCellId, loadedImages]);
+    const tex = new THREE.CanvasTexture(canvas);
+    // Back face: the overlay plane is rotated π about Y (see position/rotation
+    // below), which mirrors it horizontally.  Flip the texture horizontally so the
+    // column progression runs the same *physical* direction as the front face —
+    // both faces stay anchored to the gondola's fixed (-X) edge and new columns
+    // grow toward the same (+X) side of the block.
+    if (face === 'back') {
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.repeat.x = -1;
+      tex.offset.x = 1;
+    }
+    return tex;
+  }, [planogram, products, selectedCellId, loadedImages, face]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -360,7 +371,9 @@ function PlanogramFaceOverlay({
 
     // Use per-row column widths (cellWidthOverrides keyed as "{row}-{col}") with a
     // fallback to the global colWidths so legacy planograms without overrides still work.
-    const uvX = Math.min(1, Math.max(0, event.uv.x));
+    // The back-face texture is mirrored horizontally (see the texture memo), so its
+    // click UV must be flipped to map back to the underlying (unmirrored) columns.
+    const uvX = Math.min(1, Math.max(0, face === 'back' ? 1 - event.uv.x : event.uv.x));
     const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
     let col = rowColCount - 1;
     let cumW = 0;
@@ -391,7 +404,7 @@ function PlanogramFaceOverlay({
       planogramId: planogram.id,
       cellIds: [cell.id],
     });
-  }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId]);
+  }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId, face]);
 
   if (!texture || !planogram) return null;
 
@@ -421,10 +434,13 @@ function PlanogramFaceOverlay({
       rotation = [0, 0, 0];
       break;
     case 'back':
-      // Back face is mirrored in X (rotation π around Y).  To keep the planogram
-      // at the same physical side of the gondola as the front face, the X offset
-      // is negated so that column 0 sits at the gondola's -X side on both faces.
-      position = [-xOffFrontBack, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
+      // The back plane is rotated π about Y so it faces the opposite aisle.  Its
+      // texture is mirrored horizontally (see the texture memo) so the planogram is
+      // anchored to the *same* physical (-X) edge of the gondola as the front face:
+      // column 0 sits at -X on both faces and new columns grow toward +X.  This keeps
+      // column add/remove a progression on the same side of the block — new columns
+      // appear on the user's right at the front and on the left of the opposite side.
+      position = [xOffFrontBack, yOffset, -(D / 2 + OVERLAY_Z_OFFSET)];
       rotation = [0, Math.PI, 0];
       break;
     case 'left':
@@ -533,7 +549,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     const t = (cumW + cellW / 2) / planogram.widthCm;
 
     const cellXf =  t * W - W / 2;  // front: col=0 → local -X
-    const cellXb = W / 2 - t * W;   // back: mirrored in X relative to front
+    const cellXb =  t * W - W / 2;  // back: now anchored to the same physical (-X) edge as front
     const cellZr = D / 2 - t * D;   // right: col=0 → local +Z
     const cellZl = t * D - D / 2;   // left: mirrored in Z relative to right
     return {

@@ -19,7 +19,6 @@ import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { CADProduct, Planogram, FaceId } from '../../types/cad';
 import type { Box, BoxKey, Gondola, Separator, Shelf } from '../../types/gondola';
 import { makeBoxKey, parseBoxKey } from '../../types/gondola';
-import { anchorFurniturePosition } from '../../engine/furnitureAnchor';
 import {
   computeBoxes,
   getShelfByDisplayIndex,
@@ -543,11 +542,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
    *  Pass newWidthCm to update the horizontal dimension and/or newHeightCm to update the vertical dimension.
    *  At least one argument must be defined; passing neither is a no-op (defensive guard).
    *
-   *  Position anchoring: the planogram column-0 edge is kept fixed in *world* space
-   *  by compensating the furniture position for its Y-axis rotation (see
-   *  anchorFurniturePosition). This makes add/remove-column behave identically no
-   *  matter how the block is oriented — including when it is flipped 180° to face the
-   *  opposite aisle. At 0° rotation the position is left unchanged. */
+   *  The furniture's `position` is NEVER changed here — editing a planogram only
+   *  resizes the linked block, it must not move or pivot it in the scene (which was
+   *  especially noticeable on rotated or back-face gondolas). Only the affected
+   *  dimension is updated; the block grows/shrinks about its fixed position. */
   const syncFurnitureDimension = (newWidthCm?: number, newHeightCm?: number) => {
     if (!planogramBase || !scene) return;
     if (newWidthCm === undefined && newHeightCm === undefined) return; // defensive guard — callers always supply ≥1 arg
@@ -555,29 +553,20 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     if (!fur) return;
     const face = planogramBase.face;
     let updatedDims = { ...fur.dimensions };
-    let updatedPosition = fur.position;
 
     if (newWidthCm !== undefined) {
       const isDepthAxis = face === 'left' || face === 'right';
       // The planogram's horizontal axis maps to the furniture's local Z (depth) for
       // left/right faces, and to the furniture's local X (width) otherwise.
-      const oldHorizontalCm = isDepthAxis ? fur.dimensions.depth : fur.dimensions.width;
       updatedDims = isDepthAxis
         ? { ...updatedDims, depth: newWidthCm }
         : { ...updatedDims, width: newWidthCm };
-      // Keep the column-0 edge anchored in world space across the resize.
-      updatedPosition = anchorFurniturePosition(
-        fur.position,
-        face,
-        oldHorizontalCm,
-        newWidthCm,
-        fur.rotation[1],
-      );
     }
     if (newHeightCm !== undefined) {
       updatedDims = { ...updatedDims, height: newHeightCm };
     }
-    const updated = { ...fur, dimensions: updatedDims, position: updatedPosition };
+    // Position intentionally left unchanged — do not move non-edited/rotated gondolas.
+    const updated = { ...fur, dimensions: updatedDims };
     updateFurniture(updated);
     if (projectId) cadApi.updateFurniture(projectId, fur.id, updated).catch(console.error);
   };

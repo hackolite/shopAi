@@ -273,10 +273,22 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   };
 
   const setRotY = (v: number) => {
-   const snapped = Math.round(v / 90) * 90;
-   const r = [...furniture.rotation] as [number, number, number];
-   r[1] = snapped;
-   save({ ...furniture, rotation: r });
+    const snapped  = Math.round(v / 90) * 90;
+    const W_cm     = furniture.dimensions.width;
+    const D_cm     = furniture.dimensions.depth;
+    const oldRotN  = ((furniture.rotation[1] % 360) + 360) % 360;
+    const newRotN  = ((snapped               % 360) + 360) % 360;
+    const [px, py, pz] = furniture.position;
+
+    // Keep the visual min corner anchored in world space (mirrors TransformProxy).
+    const minX = (oldRotN === 90 || oldRotN === 270) ? px + (W_cm - D_cm) / 2 : px;
+    const minZ = (oldRotN === 90 || oldRotN === 270) ? pz - (W_cm - D_cm) / 2 : pz;
+    const newPx = (newRotN === 90 || newRotN === 270) ? minX - (W_cm - D_cm) / 2 : minX;
+    const newPz = (newRotN === 90 || newRotN === 270) ? minZ + (W_cm - D_cm) / 2 : minZ;
+
+    const r = [...furniture.rotation] as [number, number, number];
+    r[1] = snapped;
+    save({ ...furniture, rotation: r, position: [newPx, py, newPz] });
   };
 
   const faceEntries = Object.entries(furniture.faces) as [FaceId, string | null][];

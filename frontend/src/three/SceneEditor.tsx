@@ -693,12 +693,44 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
     }
 
     if (mode === 'rotate') {
-      const newRotY = (obj.rotation.y * 180) / Math.PI;
+      const W_cm = furniture.dimensions.width;
+      const H_cm = furniture.dimensions.height;
+      const D_cm = furniture.dimensions.depth;
+      const W = W_cm * CM_TO_UNIT;
+      const H = H_cm * CM_TO_UNIT;
+      const D = D_cm * CM_TO_UNIT;
+
+      const newRotY    = (obj.rotation.y * 180) / Math.PI;
       const snappedRotY = Math.round(newRotY / 90) * 90;
+
+      // After a 90°/270° rotation the visual bounding box swaps W and D, which
+      // shifts the gondola's floor footprint into the aisle space.  To prevent
+      // this we anchor the visual min corner (bottom-left when viewed from above)
+      // in world space: the stored position is updated so the corner stays put
+      // regardless of the new rotation.  0°↔180° leave the footprint the same
+      // size, so those rotations are also handled correctly (no drift).
+      const oldRotN  = ((furniture.rotation[1] % 360) + 360) % 360;
+      const newRotN  = ((snappedRotY            % 360) + 360) % 360;
+      const [px, py, pz] = furniture.position;
+
+      // Visual min corner for the old rotation:
+      //   0°/180° → min corner = stored position (px, pz)
+      //   90°/270° → min corner = (px + (W−D)/2, pz − (W−D)/2)
+      const minX = (oldRotN === 90 || oldRotN === 270) ? px + (W_cm - D_cm) / 2 : px;
+      const minZ = (oldRotN === 90 || oldRotN === 270) ? pz - (W_cm - D_cm) / 2 : pz;
+
+      // New stored position that keeps the visual min corner at (minX, minZ):
+      const newPx = (newRotN === 90 || newRotN === 270) ? minX - (W_cm - D_cm) / 2 : minX;
+      const newPz = (newRotN === 90 || newRotN === 270) ? minZ + (W_cm - D_cm) / 2 : minZ;
+
+      // Apply snap to Three.js immediately (before the React re-render).
       obj.rotation.y = snappedRotY * (Math.PI / 180);
+      obj.position.set(newPx * CM_TO_UNIT + W / 2, H / 2, newPz * CM_TO_UNIT + D / 2);
+
       const updated = {
         ...furniture,
         rotation: [furniture.rotation[0], snappedRotY, furniture.rotation[2]] as [number, number, number],
+        position: [newPx, py, newPz] as [number, number, number],
       };
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);

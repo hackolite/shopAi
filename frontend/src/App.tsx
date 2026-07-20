@@ -42,8 +42,8 @@ export default function App() {
 
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, toggleFurnitureSelection, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId, planogramDetails } = usePlanogramStore();
-  const { viewMode, setViewMode, setActiveTool, setFlyToFurnitureId } = useUIStore();
+  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
+  const { viewMode, setViewMode, setActiveTool } = useUIStore();
   const { setZones } = useZoneStore();
 
   // ── Load project list ─────────────────────────────────────────────────────
@@ -171,13 +171,10 @@ export default function App() {
   }, [requestOpenPlanogramId]);
 
   const closePlanogram = () => {
-    // When returning to 3D, fly the camera to face the planogram that was just edited
-    if (activePlanogramId) {
-      const planogram = planogramDetails.get(activePlanogramId);
-      if (planogram?.furnitureId) {
-        setFlyToFurnitureId(planogram.furnitureId, planogram.face ?? null);
-      }
-    }
+    // Returning to 3D must NOT move the camera: flying to the edited furniture
+    // reframes the whole scene and makes untouched furniture (e.g. a gondola the
+    // user rotated to face the scene) appear to have turned around, even though
+    // its rotation is unchanged. Keep the user's current viewpoint intact.
     setActivePlanogramId(null);
     setViewMode('3d');
   };

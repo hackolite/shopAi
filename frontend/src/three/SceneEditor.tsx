@@ -1,6 +1,6 @@
-import { Suspense, useState, useRef, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
+import { Suspense, useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext, useMemo } from 'react';
 import type React from 'react';
-import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
+import { Canvas, useThree, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
@@ -48,6 +48,19 @@ const HANDLE_EMISSIVE = '#664400';
 const ZONE_AUTOSAVE_DEBOUNCE_MS = 800;
 /** Video bitrate (bps) used when recording the 3D scene. */
 const RECORDING_BITRATE = 8_000_000;
+
+// ─── Camera state persistence across Canvas remounts ──────────────────────────
+// When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
+// unmounts and remounts, which resets the THREE.js camera to its initial
+// position [25,15,35].  We save the camera position + OrbitControls target
+// here (updated every frame) so they can be restored on the next mount.
+let _persistedCameraState: {
+  position: [number, number, number];
+  target: [number, number, number];
+} | null = null;
+
+/** Default OrbitControls look-at point (store centre). */
+const DEFAULT_ORBIT_TARGET: [number, number, number] = [25, 0, 15];
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -1822,6 +1835,44 @@ function CameraFlyToFurniture() {
 }
 
 
+/**
+ * Persists the THREE.js camera position and OrbitControls target every frame
+ * into a module-level variable, and restores them on mount.  This ensures that
+ * switching from 3D→planogram→3D view keeps the user's exact camera viewpoint
+ * instead of jumping back to the Canvas default position [25,15,35].
+ */
+function CameraStateSync({ savedPosition }: { savedPosition?: [number, number, number] | null }) {
+  const { camera, get } = useThree();
+
+  // Restore the camera position before the first paint so there is no visible
+  // jump.  OrbitControls picks up its internal spherical coordinates from
+  // camera.position on its very first update() call, so setting position here
+  // is sufficient.
+  // The empty dependency array is intentional: this effect must run exactly
+  // once on mount to restore the saved state; re-running it when savedPosition
+  // or camera changes would fight OrbitControls and cause jumps.
+  useLayoutEffect(() => {
+    if (!savedPosition) return;
+    camera.position.set(savedPosition[0], savedPosition[1], savedPosition[2]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the latest camera state on every frame so we always have the most
+  // recent position/target regardless of when the Canvas unmounts.
+  useFrame(() => {
+    const ctrl = get().controls as { target?: THREE.Vector3 } | null;
+    _persistedCameraState = {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      target: ctrl?.target
+        ? [ctrl.target.x, ctrl.target.y, ctrl.target.z]
+        : DEFAULT_ORBIT_TARGET,
+    };
+  });
+
+  return null;
+}
+
+
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool } = useUIStore();
@@ -1832,6 +1883,14 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const [isResizeDragging, setIsResizeDragging] = useState(false);
   // Whether the yellow store boundary is currently selected by the user.
   const [storeBoundarySelected, setStoreBoundarySelected] = useState(false);
+
+  // Stable initial orbit target — computed once on mount from persisted state so
+  // the same array reference is used on every re-render.  R3F skips re-applying
+  // a prop when its reference hasn't changed, which prevents OrbitControls from
+  // resetting the target back to this value after the user has panned/orbited.
+  const initialOrbitTarget = useRef<[number, number, number]>(
+    _persistedCameraState?.target ?? DEFAULT_ORBIT_TARGET
+  );
 
   const registerGroup = useCallback<RegisterFn>((id, group) => {
     if (group) {
@@ -1942,10 +2001,12 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         */}
         <OrbitControls
           makeDefault
-          target={[25, 0, 15]}
+          target={initialOrbitTarget.current}
           enabled={!isResizeDragging}
           enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId}
         />
+        {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
+        <CameraStateSync savedPosition={_persistedCameraState?.position} />
         <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>
     </ResizeDragCtx.Provider>

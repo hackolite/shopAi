@@ -42,8 +42,8 @@ export default function App() {
 
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, toggleFurnitureSelection, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId, planogramDetails } = usePlanogramStore();
-  const { viewMode, setViewMode, setActiveTool, setFlyToFurnitureId } = useUIStore();
+  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
+  const { viewMode, setViewMode, setActiveTool } = useUIStore();
   const { setZones } = useZoneStore();
 
   // ── Load project list ─────────────────────────────────────────────────────
@@ -171,13 +171,6 @@ export default function App() {
   }, [requestOpenPlanogramId]);
 
   const closePlanogram = () => {
-    // When returning to 3D, fly the camera to face the planogram that was just edited
-    if (activePlanogramId) {
-      const planogram = planogramDetails.get(activePlanogramId);
-      if (planogram?.furnitureId) {
-        setFlyToFurnitureId(planogram.furnitureId, planogram.face ?? null);
-      }
-    }
     setActivePlanogramId(null);
     setViewMode('3d');
   };

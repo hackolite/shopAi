@@ -777,10 +777,10 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyRef.current = (e: KeyboardEvent) => {
     if (e.key === 'Escape') { setCtxMenu(null); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); return; }
     if (((e.ctrlKey || e.metaKey) && e.key === 'y') ||
         ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')) {
-      e.preventDefault(); redo(); return;
+      e.preventDefault(); e.stopPropagation(); redo(); return;
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       if (selectedSep) {

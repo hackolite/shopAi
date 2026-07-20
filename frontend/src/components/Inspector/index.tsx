@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
@@ -38,10 +38,31 @@ interface NumberFieldProps {
 function NumberField({ label, value, onChange, min }: NumberFieldProps) {
   const [localVal, setLocalVal] = useState<string>(String(value));
   const prevValue = useRef(value);
+  // Always-current refs so the cleanup effect never captures stale closures.
+  const localValRef = useRef(localVal);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  localValRef.current = localVal;
+
   if (prevValue.current !== value) {
     prevValue.current = value;
     setLocalVal(String(value));
   }
+
+  // Flush any uncommitted typed value when the component unmounts.
+  // This handles the case where the parent FurnitureInspector unmounts (key change
+  // on furniture selection) before onBlur has a chance to fire — without this guard
+  // the user's pending rotation/position/dimension edit is silently discarded and
+  // Zustand retains the pre-edit value, causing the 3D scene to revert on return.
+  useEffect(() => {
+    return () => {
+      const n = parseFloat(localValRef.current);
+      if (!isNaN(n) && n !== prevValue.current) {
+        console.debug('[NumberField] unmount flush:', prevValue.current, '→', n);
+        onChangeRef.current(n);
+      }
+    };
+  }, []); // intentionally empty: only fires on unmount
 
   return (
     <div className="flex items-center gap-2">
@@ -72,17 +93,39 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   const { updateFurniture } = useSceneStore();
   const { planograms, planogramDetails, syncPlanogram, setPlanogramDetail, setPlanograms } = usePlanogramStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Last value passed to save() that has not yet been persisted to the backend. */
+  const pendingSave = useRef<FurnitureInstance | null>(null);
   const [creatingFace, setCreatingFace] = useState<FaceId | null>(null);
 
   const save = (updated: FurnitureInstance) => {
+    console.debug('[Inspector.save] scheduling backend save for', updated.id, 'rotation:', updated.rotation);
     updateFurniture(updated);
+    pendingSave.current = updated;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
+      console.debug('[Inspector.save] timer fired for', updated.id, 'rotation:', updated.rotation);
       if (projectId) {
         cadApi.updateFurniture(projectId, updated.id, updated).catch(console.error);
       }
+      pendingSave.current = null;
     }, 500);
   };
+
+  // On unmount, cancel the debounce timer and immediately flush any pending
+  // backend save, so a furniture change is never silently lost when the
+  // Inspector switches to a different gondola (key change).
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      const pending = pendingSave.current;
+      if (pending && projectId) {
+        console.debug('[Inspector] unmount flush to backend for', pending.id, 'rotation:', pending.rotation);
+        cadApi.updateFurniture(projectId, pending.id, pending).catch(console.error);
+      }
+    };
+  // projectId is captured to avoid sending to the wrong project if it changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const setPos = (axis: 0 | 1 | 2, v: number) => {
     const p = [...furniture.position] as [number, number, number];

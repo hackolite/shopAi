@@ -25,6 +25,7 @@ const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = 
 ];
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
+  { id: 'floor',    label: '📐 Plan' },
   { id: '3d',        label: '3D'  },
   { id: 'planogram', label: 'PLN' },
   { id: 'split',     label: '⊞'  },

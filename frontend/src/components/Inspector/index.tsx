@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
+import { useUIStore } from '../../store/uiStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram } from '../../types/cad';
@@ -91,10 +92,12 @@ interface FurnitureInspectorProps {
 function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: FurnitureInspectorProps) {
   const { updateFurniture } = useSceneStore();
   const { planograms, planogramDetails, syncPlanogram, setPlanogramDetail, setPlanograms } = usePlanogramStore();
+  const { viewMode } = useUIStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Last value passed to save() that has not yet been persisted to the backend. */
   const pendingSave = useRef<FurnitureInstance | null>(null);
   const [creatingFace, setCreatingFace] = useState<FaceId | null>(null);
+  const [mounting, setMounting] = useState(false);
 
   const save = (updated: FurnitureInstance) => {
     updateFurniture(updated);
@@ -261,6 +264,34 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
 
   const faceEntries = Object.entries(furniture.faces) as [FaceId, string | null][];
 
+  /** Update rows or cols of an existing planogram and persist to backend. */
+  const handleUpdatePlanogramGrid = (planogramId: string, field: 'rows' | 'cols', value: number) => {
+    const detail = planogramDetails.get(planogramId);
+    if (!detail || value < 1) return;
+    const updated: Planogram = {
+      ...detail,
+      [field]: value,
+      // Trim cells that are out of range when shrinking.
+      cells: detail.cells.filter((c) =>
+        (field === 'rows' ? c.row < value : c.col < value)
+      ),
+    };
+    syncPlanogram(updated);
+    if (projectId) cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);
+  };
+
+  /** Mount the furniture into 3D (irreversible). */
+  const handleMount = async () => {
+    if (furniture.mounted !== false) return;
+    setMounting(true);
+    try {
+      const updated = { ...furniture, mounted: true };
+      save(updated);
+    } finally {
+      setMounting(false);
+    }
+  };
+
   const handleDeleteFace = async (faceId: FaceId, planogramId: string) => {
    if (projectId) {
      try {
@@ -403,54 +434,107 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
           <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
             Planogrammes
           </h4>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {faceEntries.map(([faceId, planogramId]) => {
               const overflow = planogramId ? isFaceOverflowing(faceId, planogramId) : false;
+              const detail = planogramId ? planogramDetails.get(planogramId) : null;
               return (
-                <div
-                  key={faceId}
-                  className={[
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-gray-300 transition-colors',
-                    overflow
-                      ? 'bg-red-900/30 border border-red-700/50'
-                      : 'bg-gray-800',
-                  ].join(' ')}
-                  title={overflow ? '⚠ Le planogramme dépasse les dimensions de la gondole' : undefined}
-                >
-                  <span>{overflow ? '🔴' : '🗂️'}</span>
-                  <span className="flex-1">{FACE_LABELS[faceId]}</span>
-                  {planogramId ? (
-                    <>
-                      {overflow && <span className="text-red-400 font-semibold">DÉBORD</span>}
+                <div key={faceId} className="space-y-1">
+                  <div
+                    className={[
+                      'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-gray-300 transition-colors',
+                      overflow
+                        ? 'bg-red-900/30 border border-red-700/50'
+                        : 'bg-gray-800',
+                    ].join(' ')}
+                    title={overflow ? '⚠ Le planogramme dépasse les dimensions de la gondole' : undefined}
+                  >
+                    <span>{overflow ? '🔴' : '🗂️'}</span>
+                    <span className="flex-1">{FACE_LABELS[faceId]}</span>
+                    {planogramId ? (
+                      <>
+                        {overflow && <span className="text-red-400 font-semibold">DÉBORD</span>}
+                        <button
+                          onClick={() => onOpenPlanogram(planogramId)}
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          Ouvrir →
+                        </button>
+                        <button
+                          onClick={() => { handleDeleteFace(faceId, planogramId).catch(console.error); }}
+                          title="Supprimer le planogramme"
+                          className="text-gray-500 hover:text-red-400"
+                        >
+                          🗑
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        onClick={() => onOpenPlanogram(planogramId)}
-                        className="text-blue-400 hover:text-blue-300"
+                        onClick={() => { void handleCreateFace(faceId); }}
+                        disabled={creatingFace !== null}
+                        title="Créer un planogramme pour cette face"
+                        className="text-gray-500 hover:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
-                        Ouvrir →
+                        {creatingFace === faceId ? '⟳' : '＋'}
                       </button>
-                      <button
-                        onClick={() => { handleDeleteFace(faceId, planogramId).catch(console.error); }}
-                        title="Supprimer le planogramme"
-                        className="text-gray-500 hover:text-red-400"
-                      >
-                        🗑
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => { void handleCreateFace(faceId); }}
-                      disabled={creatingFace !== null}
-                      title="Créer un planogramme pour cette face"
-                      className="text-gray-500 hover:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {creatingFace === faceId ? '⟳' : '＋'}
-                    </button>
+                    )}
+                  </div>
+                  {/* Rows / Cols quick-edit (visible when furniture is à plat or in floor mode) */}
+                  {planogramId && detail && (furniture.mounted === false || viewMode === 'floor') && (
+                    <div className="flex items-center gap-2 px-2 pb-1">
+                      <span className="text-xs text-gray-600 w-16 shrink-0">Lignes</span>
+                      <input
+                        type="number" min={1} max={20}
+                        defaultValue={detail.rows}
+                        key={`rows-${planogramId}-${detail.rows}`}
+                        onBlur={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (!isNaN(v) && v >= 1) handleUpdatePlanogramGrid(planogramId, 'rows', v);
+                        }}
+                        className="flex-1 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+                      />
+                      <span className="text-xs text-gray-600 shrink-0">Cols</span>
+                      <input
+                        type="number" min={1} max={50}
+                        defaultValue={detail.cols}
+                        key={`cols-${planogramId}-${detail.cols}`}
+                        onBlur={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (!isNaN(v) && v >= 1) handleUpdatePlanogramGrid(planogramId, 'cols', v);
+                        }}
+                        className="flex-1 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+                      />
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
         </section>
+      )}
+
+      {/* Mount / À plat status */}
+      {furniture.mounted === false ? (
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 px-2 py-2 rounded bg-amber-900/25 border border-amber-700/40 text-xs text-amber-300">
+            <span className="text-base leading-none">▭</span>
+            <span>Ce meuble est <strong>à plat</strong> — visible uniquement dans le plan 2D.</span>
+          </div>
+          <button
+            onClick={() => { void handleMount(); }}
+            disabled={mounting}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors"
+          >
+            {mounting ? <span className="animate-spin">⟳</span> : <span>🏗</span>}
+            Monter en 3D
+          </button>
+          <p className="text-xs text-gray-600 text-center">Cette action est irréversible.</p>
+        </section>
+      ) : (
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-blue-900/20 border border-blue-700/30 text-xs text-blue-400">
+          <span>🏗</span>
+          <span>Monté en 3D</span>
+        </div>
       )}
 
       {/* Visibility / Lock */}

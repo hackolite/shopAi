@@ -10,6 +10,7 @@ import SceneHierarchy from './components/SceneHierarchy';
 import CatalogPanel from './components/CatalogPanel';
 import Inspector from './components/Inspector';
 import PlanogramEditor from './components/PlanogramEditor';
+import FloorPlanEditor from './components/FloorPlanEditor';
 import NameDialog from './components/NameDialog';
 import ExportDialog from './components/ExportDialog';
 import ImportDialog from './components/ImportDialog';
@@ -430,6 +431,10 @@ export default function App() {
 
         {/* ── Main viewport ──────────────────────────────────────────────── */}
         <main className="flex-1 relative overflow-hidden">
+          {viewMode === 'floor' && (
+            <FloorPlanEditor projectId={projectId} />
+          )}
+
           {viewMode === '3d' && (
             <SceneEditor projectId={projectId} />
           )}

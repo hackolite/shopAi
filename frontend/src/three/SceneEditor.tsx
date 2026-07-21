@@ -1931,7 +1931,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   if (!scene) return null;
 
   const selectedFurniture = selectedFurnitureId
-    ? scene.furniture.find(f => f.id === selectedFurnitureId) ?? null
+    ? (scene.furniture.find(f => f.id === selectedFurnitureId && f.mounted !== false) ?? null)
     : null;
 
   // Clicking the store boundary deselects furniture/zones and selects the boundary.
@@ -1975,7 +1975,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         <FloorZoneLayer />
         <MeasureTool store={scene.store} />
 
-        {scene.furniture.map((f) => (
+        {scene.furniture.filter((f) => f.mounted !== false).map((f) => (
           <FurnitureMesh key={f.id} furniture={f} />
         ))}
 

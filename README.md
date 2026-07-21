@@ -311,6 +311,30 @@ L'image d'un produit s'ajoute via le bouton 📷 dans l'éditeur de planogramme 
 | **Stockage** | Base64 data-URL inline dans `catalog.json` → champ `product.imageUrl` |
 | **Endpoint API** | `POST /{project_id}/catalog/products/{ean}/image` (multipart `file`) |
 
+#### Résolution recommandée (pixels par centimètre)
+
+L'image est affichée en `object-contain` dans la case du planogramme. La taille en pixels d'une case dépend de l'échelle d'affichage :
+
+| Zoom | px / cm horizontal | px / cm vertical |
+|------|--------------------|-----------------|
+| ×0,4 (min) | 0,88 px/cm | 0,56 px/cm |
+| **×1 (normal)** | **2,2 px/cm** | **1,4 px/cm** |
+| ×2 | 4,4 px/cm | 2,8 px/cm |
+| ×4 (max) | 8,8 px/cm | 5,6 px/cm |
+
+**Résolution minimale recommandée** : **3 px/cm** (couvre le zoom normal avec une légère marge).  
+**Résolution idéale** : **9–10 px/cm** (net jusqu'au zoom maximum ×4, pas de flou visible).
+
+**Exemples concrets** pour une case de 15 × 40 cm (case standard gondole) :
+
+| Qualité | Formule | Taille image |
+|---------|---------|--------------|
+| Minimum (zoom ×1) | 15 × 2,2 = 33 px · 40 × 1,4 = 56 px | ≥ **33 × 56 px** |
+| Recommandé (zoom ×4) | 15 × 9 = 135 px · 40 × 6 = 240 px | ≥ **135 × 240 px** |
+| Confort général | — | **200 × 200 px** (carré, ratio auto-ajusté par object-contain) |
+
+> 💡 **Conseil pratique** : une image carrée de **200 × 200 px à 300 × 300 px** est suffisante pour tous les cas d'usage. Au-delà, le gain visuel est imperceptible mais le poids de `catalog.json` augmente inutilement.
+
 > ⚠️ Les images sont encodées en base64 et stockées **dans le JSON du catalogue**. Un catalogue avec de nombreux produits illustrés peut donc devenir volumineux. Pour les environnements de production, migrer vers un stockage fichier ou objet (S3, etc.) est recommandé.
 
 **Codes d'erreur retournés par l'API** :

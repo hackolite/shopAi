@@ -104,6 +104,36 @@ const OVERLAY_OPACITY  = 0.85;
 /** Canvas pixel resolution (along the longer axis) for planogram face textures. */
 const OVERLAY_CANVAS_PX = 320;
 
+// ─── Shared drag-plane hit-test utility ──────────────────────────────────────
+/**
+ * Projects client-space screen coordinates onto a world-space plane using a
+ * raycaster and writes the intersection point into `out`.
+ *
+ * @returns true if the ray intersects the plane, false otherwise.
+ *
+ * This utility is used by every resize/drag component (StoreBoundaryResizeHandles,
+ * FurnitureResizeHandles, FloorZoneMesh, FloorZoneResizeHandles) to avoid
+ * duplicating the same NDC-conversion + ray-cast logic in each.
+ */
+function getWorldHitPoint(
+  gl: { domElement: HTMLElement },
+  raycaster: THREE.Raycaster,
+  camera: THREE.Camera,
+  plane: THREE.Plane,
+  clientX: number,
+  clientY: number,
+  ndc: THREE.Vector2,
+  out: THREE.Vector3,
+): boolean {
+  const rect = gl.domElement.getBoundingClientRect();
+  ndc.set(
+    ((clientX - rect.left) / rect.width)  *  2 - 1,
+    -((clientY - rect.top) / rect.height) *  2 + 1,
+  );
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray.intersectPlane(plane, out) !== null;
+}
+
 /** Returns per-column widths in cm, falling back to equal distribution. */
 function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
   return p.colWidthsCm?.length === p.cols
@@ -540,11 +570,11 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   };
 
   // Compute per-cell semi-circle config when a product cell is selected.
-  // The cell lookup is O(n) but only runs when isProductSelected is true and
-  // planogram cells are typically small (<200 items), so no memoisation needed.
+  // Memoised so that unrelated state changes (e.g. another furniture moving) do
+  // not trigger a repeat O(n) cell lookup.
   type SemiConfig = Record<string, { pos: [number, number, number]; rot: [number, number, number] }>;
 
-  const computedSemiCircleConfig: SemiConfig | null = (() => {
+  const computedSemiCircleConfig = useMemo<SemiConfig | null>(() => {
     if (!isProductSelected || !selection.planogramId || !selection.cellIds?.length) return null;
     const planogram = planogramDetails.get(selection.planogramId);
     const cell = planogram?.cells.find((c) => c.id === selection.cellIds![0]);
@@ -573,7 +603,11 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
       right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr] as [number, number, number], rot: SEMI_ROT.right },
       left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl] as [number, number, number], rot: SEMI_ROT.left  },
     };
-  })();
+  // Deps explanation: W, H, D are included intentionally — resizing the furniture shifts
+  // the disc positions so the config must be recomputed when dimensions change.
+  // `selection.cellIds` is an array whose reference changes on every selection update;
+  // using it directly is correct because any selection change should retrigger the lookup.
+  }, [isProductSelected, selection.planogramId, selection.cellIds, planogramDetails, W, H, D]);
 
   const semiCircleConfig: SemiConfig = computedSemiCircleConfig ?? defaultSemiCircleConfig;
   const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
@@ -897,16 +931,6 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
   const _delta = useRef(new THREE.Vector3());
   const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
 
-  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
-    const rect = gl.domElement.getBoundingClientRect();
-    _ndc.current.set(
-      ((clientX - rect.left) / rect.width)  *  2 - 1,
-      -((clientY - rect.top) / rect.height) *  2 + 1,
-    );
-    raycaster.setFromCamera(_ndc.current, camera);
-    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
-  }, [gl, raycaster, camera, dragPlane]);
-
   const startDrag = useCallback((
     axis: 'width' | 'depth',
     sign: 1 | -1,
@@ -914,14 +938,14 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
     clientY: number,
     pointerId: number,
   ) => {
-    if (!getHitPoint(clientX, clientY, dragStart.current)) return;
+    if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, dragStart.current)) return;
     baseStoreRef.current = curStoreRef.current;
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
     setResizeDragging(true);
-  }, [getHitPoint, setResizeDragging]);
+  }, [gl, raycaster, camera, dragPlane, setResizeDragging]);
 
   useEffect(() => {
     let rafId = 0;
@@ -937,7 +961,7 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
         const bPosX = base.position?.[0] ?? 0;
         const bPosZ = base.position?.[2] ?? 0;
 
-        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
         const sign  = dragSign.current;
 
@@ -1022,7 +1046,7 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateStore, projectId, setResizeDragging]);
+  }, [gl, raycaster, camera, dragPlane, updateStore, projectId, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -1088,16 +1112,6 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
   const _delta  = useRef(new THREE.Vector3());
   const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
 
-  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
-    const rect = gl.domElement.getBoundingClientRect();
-    _ndc.current.set(
-      ((clientX - rect.left) / rect.width)  *  2 - 1,
-      -((clientY - rect.top) / rect.height) *  2 + 1,
-    );
-    raycaster.setFromCamera(_ndc.current, camera);
-    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
-  }, [gl, raycaster, camera, dragPlane]);
-
   const startDrag = useCallback((
     axis: 'width' | 'depth',
     sign: 1 | -1,
@@ -1105,14 +1119,14 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
     clientY: number,
     pointerId: number,
   ) => {
-    if (!getHitPoint(clientX, clientY, dragStart.current)) return;
+    if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, dragStart.current)) return;
     baseFurnitureRef.current = curFurnitureRef.current;
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
     setResizeDragging(true);
-  }, [getHitPoint, setResizeDragging]);
+  }, [gl, raycaster, camera, dragPlane, setResizeDragging]);
 
   useEffect(() => {
     let rafId = 0;
@@ -1128,7 +1142,7 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
         const bPosX = base.position[0];
         const bPosZ = base.position[2];
 
-        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
         const sign  = dragSign.current;
 
@@ -1198,7 +1212,7 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateFurniture, projectId, setResizeDragging]);
+  }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -1281,16 +1295,6 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const _hit  = useRef(new THREE.Vector3());
   const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
 
-  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
-    const rect = gl.domElement.getBoundingClientRect();
-    _ndc.current.set(
-      ((clientX - rect.left) / rect.width)  *  2 - 1,
-      -((clientY - rect.top) / rect.height) *  2 + 1,
-    );
-    raycaster.setFromCamera(_ndc.current, camera);
-    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
-  }, [gl, raycaster, camera, dragPlane]);
-
   useEffect(() => {
     let rafId = 0;
 
@@ -1300,7 +1304,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const base = baseZoneRef.current;
-        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
         updateZone({ ...base, x: base.x + dx / CM_TO_UNIT, z: base.z + dz / CM_TO_UNIT });
@@ -1322,7 +1326,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateZone]);
+  }, [gl, raycaster, camera, dragPlane, updateZone]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -1331,7 +1335,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     e.stopPropagation();
     selectZone(zone.id);
     selectFurniture(null);
-    if (!getHitPoint(e.clientX, e.clientY, dragStart.current)) return;
+    if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, e.clientX, e.clientY, _ndc.current, dragStart.current)) return;
     baseZoneRef.current = curZoneRef.current;
     isDragging.current  = true;
     gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
@@ -1424,16 +1428,6 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
   const _delta = useRef(new THREE.Vector3());
   const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
 
-  const getHitPoint = useCallback((clientX: number, clientY: number, out: THREE.Vector3): boolean => {
-    const rect = gl.domElement.getBoundingClientRect();
-    _ndc.current.set(
-      ((clientX - rect.left) / rect.width)  *  2 - 1,
-      -((clientY - rect.top) / rect.height) *  2 + 1,
-    );
-    raycaster.setFromCamera(_ndc.current, camera);
-    return raycaster.ray.intersectPlane(dragPlane, out) !== null;
-  }, [gl, raycaster, camera, dragPlane]);
-
   const startDrag = useCallback((
     axis: 'width' | 'depth',
     sign: 1 | -1,
@@ -1441,14 +1435,14 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
     clientY: number,
     pointerId: number,
   ) => {
-    if (!getHitPoint(clientX, clientY, dragStart.current)) return;
+    if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, dragStart.current)) return;
     baseZoneRef.current  = curZoneRef.current;
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
     pointerIdRef.current = pointerId;
     setResizeDragging(true);
-  }, [getHitPoint, setResizeDragging]);
+  }, [gl, raycaster, camera, dragPlane, setResizeDragging]);
 
   useEffect(() => {
     let rafId = 0;
@@ -1462,7 +1456,7 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
         const bW   = base.width  * CM_TO_UNIT;
         const bD   = base.depth  * CM_TO_UNIT;
 
-        if (!getHitPoint(clientX, clientY, _hit.current)) return;
+        if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
         const sign  = dragSign.current;
 
@@ -1518,7 +1512,7 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, getHitPoint, updateZone, setResizeDragging]);
+  }, [gl, raycaster, camera, dragPlane, updateZone, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 

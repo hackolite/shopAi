@@ -46,7 +46,7 @@ export interface FurnitureDefinition {
 }
 
 // ─── Floor zones ──────────────────────────────────────────────────────────────
-export type ZoneType = 'entrance' | 'exit';
+export type ZoneType = 'entrance' | 'exit' | 'supply';
 
 export interface FloorZone {
   id: string;
@@ -56,6 +56,10 @@ export interface FloorZone {
   z: number;
   width: number;
   depth: number;
+  /** Number of rows in the supply grid (only used when type === 'supply'). */
+  rows?: number;
+  /** Number of columns in the supply grid (only used when type === 'supply'). */
+  cols?: number;
 }
 
 // ─── Store / Scene ────────────────────────────────────────────────────────────

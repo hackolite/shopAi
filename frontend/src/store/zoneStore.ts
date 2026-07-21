@@ -9,10 +9,11 @@ interface ZoneState {
   /** True once zones have been initialised from the backend scene. */
   zonesLoaded: boolean;
   /**
-   * Add a zone of the given type.  If a zone of that type already exists it is
-   * selected instead of creating a duplicate.
+   * Add a zone of the given type.  For entrance/exit, if a zone of that type
+   * already exists it is selected instead of creating a duplicate.
+   * Supply zones can be added multiple times.
    *
-   * @param type       'entrance' | 'exit'
+   * @param type       'entrance' | 'exit' | 'supply'
    * @param storeWidth Store width in cm (used to centre the new zone).
    * @param storeDepth Store depth in cm (used to position the exit at the far wall).
    */
@@ -26,6 +27,8 @@ interface ZoneState {
 
 const DEFAULT_ZONE_WIDTH_CM = 200;
 const DEFAULT_ZONE_DEPTH_CM = 100;
+const DEFAULT_SUPPLY_ROWS = 3;
+const DEFAULT_SUPPLY_COLS = 4;
 /** Snap grid step in centimetres – matches the 1 m floor grid. */
 const SNAP_GRID_CM = 100;
 
@@ -39,19 +42,27 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
   zonesLoaded: false,
 
   addZone: (type, storeWidth, storeDepth) => {
-    // If a zone of this type already exists, just select it.
-    const existing = get().zones.find((z) => z.type === type);
-    if (existing) {
-      set({ selectedZoneId: existing.id });
-      return;
+    // For entrance/exit: only one allowed — select existing if present.
+    if (type !== 'supply') {
+      const existing = get().zones.find((z) => z.type === type);
+      if (existing) {
+        set({ selectedZoneId: existing.id });
+        return;
+      }
     }
 
-    const label = type === 'entrance' ? 'Entrée' : 'Sortie sans achat';
+    const label =
+      type === 'entrance' ? 'Entrée'
+      : type === 'exit'   ? 'Sortie sans achat'
+      :                     'Fournitures';
+
     const x = snapToCm(storeWidth / 2 - DEFAULT_ZONE_WIDTH_CM / 2);
     const z =
       type === 'entrance'
         ? 0
-        : snapToCm(Math.max(0, storeDepth - DEFAULT_ZONE_DEPTH_CM));
+        : type === 'exit'
+          ? snapToCm(Math.max(0, storeDepth - DEFAULT_ZONE_DEPTH_CM))
+          : snapToCm(storeDepth / 2 - DEFAULT_ZONE_DEPTH_CM / 2);
 
     const zone: FloorZone = {
       id: crypto.randomUUID(),
@@ -61,6 +72,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
       z,
       width: DEFAULT_ZONE_WIDTH_CM,
       depth: DEFAULT_ZONE_DEPTH_CM,
+      ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),
     };
 
     set((state) => ({ zones: [...state.zones, zone], selectedZoneId: zone.id }));

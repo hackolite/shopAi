@@ -3,9 +3,10 @@ import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useUIStore } from '../../store/uiStore';
+import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
-import type { FurnitureInstance, FaceId, Planogram } from '../../types/cad';
+import type { FurnitureInstance, FaceId, Planogram, FloorZone } from '../../types/cad';
 import { extendGondolaWidth, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
 
 /** Minimum cm growth required before extending a linked planogram to fill new gondola space. */
@@ -563,14 +564,82 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   );
 }
 
+// ─── Supply zone inspector ────────────────────────────────────────────────────
+function SupplyZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string | null }) {
+  const { updateZone } = useZoneStore();
+  const { scene } = useSceneStore();
+
+  const save = (updated: FloorZone) => {
+    updateZone(updated);
+    if (projectId && scene) {
+      const zones = useZoneStore.getState().zones.map((z) => (z.id === updated.id ? updated : z));
+      cadApi.updateStore(projectId, { ...scene.store, zones }).catch(console.error);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Fournitures</h4>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 w-16 shrink-0">Lignes</label>
+          <input
+            type="number"
+            min={1}
+            value={zone.rows ?? 1}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10);
+              if (!isNaN(n) && n >= 1) save({ ...zone, rows: n });
+            }}
+            className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 w-16 shrink-0">Colonnes</label>
+          <input
+            type="number"
+            min={1}
+            value={zone.cols ?? 1}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10);
+              if (!isNaN(n) && n >= 1) save({ ...zone, cols: n });
+            }}
+            className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+          />
+        </div>
+      </div>
+      <div className="space-y-1 pt-1 border-t border-gray-800 text-xs text-gray-400">
+        <div className="flex justify-between">
+          <span className="text-gray-500">Largeur</span>
+          <span>{zone.width} cm</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Profondeur</span>
+          <span>{zone.depth} cm</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-500">Cellules</span>
+          <span>{(zone.rows ?? 1) * (zone.cols ?? 1)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps) {
   const { scene, selectedFurnitureId, selection } = useSceneStore();
   const { activePlanogram, selectedCellIds, planograms, planogramDetails } = usePlanogramStore();
   const { products } = useCatalogStore();
+  const { zones, selectedZoneId } = useZoneStore();
 
   const selectedFurniture = scene?.furniture.find(
     (f) => f.id === selectedFurnitureId,
   ) ?? null;
+
+  const selectedZone = selectedZoneId
+    ? (zones.find((z) => z.id === selectedZoneId) ?? null)
+    : null;
+  const selectedSupplyZone = selectedZone?.type === 'supply' ? selectedZone : null;
 
   const selectedPlanogram =
     selection.type === 'planogram_cell' && selection.planogramId
@@ -611,7 +680,15 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
           />
         )}
 
-        {!selectedFurniture && (selectedCell || selectedEanProduct) && (
+        {!selectedFurniture && selectedSupplyZone && (
+          <SupplyZoneInspector
+            key={selectedSupplyZone.id}
+            zone={selectedSupplyZone}
+            projectId={projectId}
+          />
+        )}
+
+        {!selectedFurniture && !selectedSupplyZone && (selectedCell || selectedEanProduct) && (
           <div className="space-y-3">
             {selectedCell && (
               <>
@@ -678,7 +755,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
           </div>
         )}
 
-        {!selectedFurniture && !selectedCell && !selectedEanProduct && (
+        {!selectedFurniture && !selectedSupplyZone && !selectedCell && !selectedEanProduct && (
           <div className="space-y-4">
             <p className="text-xs text-gray-600 italic">
               Sélectionnez un meuble ou un produit dans la scène.

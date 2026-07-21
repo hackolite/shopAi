@@ -73,6 +73,7 @@ class Wall(CADBaseModel):
 class ZoneTypeEnum(str, Enum):
     entrance = "entrance"
     exit = "exit"
+    supply = "supply"
 
 
 class FloorZone(CADBaseModel):
@@ -83,6 +84,8 @@ class FloorZone(CADBaseModel):
     z: float
     width: float
     depth: float
+    rows: int | None = None
+    cols: int | None = None
 
 
 class Store(CADBaseModel):

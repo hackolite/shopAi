@@ -438,7 +438,9 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
     return f;
   }) ?? [];
 
-  const displayZones = zones.map((z) => {
+  const displayZones = zones
+    .filter((z) => z.type !== 'supply')
+    .map((z) => {
     if (!livePos || !drag) return z;
     if ((drag.kind === 'zone-move' || drag.kind === 'zone-resize') && drag.zoneId === z.id) {
       return { ...z, x: livePos.x, z: livePos.z, ...(livePos.w !== undefined ? { width: livePos.w } : {}), ...(livePos.d !== undefined ? { depth: livePos.d } : {}) };

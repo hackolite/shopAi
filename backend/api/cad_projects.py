@@ -200,46 +200,50 @@ def get_scene(project_id: str):
 
 @router.put("/{project_id}/scene/store")
 def update_store(project_id: str, payload: dict[str, Any] = Body(...)):
-    scene = _load_scene(project_id)
-    scene.store = _merge_model(Store, scene.store, payload)
-    _save_scene(project_id, scene)
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        scene.store = _merge_model(Store, scene.store, payload)
+        _save_scene(project_id, scene)
     return scene.store.model_dump(mode="json")
 
 
 @router.post("/{project_id}/scene/furniture")
 def add_furniture(project_id: str, payload: dict[str, Any] = Body(...)):
-    scene = _load_scene(project_id)
     data = dict(payload)
     data.setdefault("id", str(uuid4()))
     data.setdefault("childIds", [])
     data.setdefault("faces", {face: None for face in ["front", "back", "left", "right", "top", "bottom"]})
     furniture = FurnitureInstance.model_validate(data)
-    if any(item.id == furniture.id for item in scene.furniture):
-        raise HTTPException(status_code=409, detail=f"Furniture '{furniture.id}' already exists")
-    scene.furniture.append(furniture)
-    _save_scene(project_id, scene)
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        if any(item.id == furniture.id for item in scene.furniture):
+            raise HTTPException(status_code=409, detail=f"Furniture '{furniture.id}' already exists")
+        scene.furniture.append(furniture)
+        _save_scene(project_id, scene)
     return furniture.model_dump(mode="json")
 
 
 @router.put("/{project_id}/scene/furniture/{furniture_id}")
 def update_furniture(project_id: str, furniture_id: str, payload: dict[str, Any] = Body(...)):
-    scene = _load_scene(project_id)
-    index = _find_index(scene.furniture, "id", furniture_id)
-    updated = _merge_model(FurnitureInstance, scene.furniture[index], {**payload, "id": furniture_id})
-    scene.furniture[index] = updated
-    _save_scene(project_id, scene)
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        index = _find_index(scene.furniture, "id", furniture_id)
+        updated = _merge_model(FurnitureInstance, scene.furniture[index], {**payload, "id": furniture_id})
+        scene.furniture[index] = updated
+        _save_scene(project_id, scene)
     return updated.model_dump(mode="json")
 
 
 @router.delete("/{project_id}/scene/furniture/{furniture_id}")
 def remove_furniture(project_id: str, furniture_id: str):
-    scene = _load_scene(project_id)
-    index = _find_index(scene.furniture, "id", furniture_id)
-    planograms = _load_planograms(project_id)
-    remaining_planograms = [planogram for planogram in planograms if planogram.furnitureId != furniture_id]
-    scene.furniture.pop(index)
-    _save_scene(project_id, scene)
-    _save_planograms(project_id, remaining_planograms)
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        index = _find_index(scene.furniture, "id", furniture_id)
+        planograms = _load_planograms(project_id)
+        remaining_planograms = [planogram for planogram in planograms if planogram.furnitureId != furniture_id]
+        scene.furniture.pop(index)
+        _save_scene(project_id, scene)
+        _save_planograms(project_id, remaining_planograms)
     return {"deleted": True, "id": furniture_id}
 
 
@@ -389,41 +393,43 @@ def get_planogram(project_id: str, planogram_id: str):
 
 @router.put("/{project_id}/planograms/{planogram_id}")
 def update_planogram(project_id: str, planogram_id: str, payload: dict[str, Any] = Body(...)):
-    scene = _load_scene(project_id)
-    planograms = _load_planograms(project_id)
-    index = _find_index(planograms, "id", planogram_id)
     data = dict(payload)
     if "cells" in data:
         data["cells"] = [{**cell, "id": cell.get("id", str(uuid4()))} for cell in data["cells"]]
-    updated = _merge_model(Planogram, planograms[index], {**data, "id": planogram_id})
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        planograms = _load_planograms(project_id)
+        index = _find_index(planograms, "id", planogram_id)
+        updated = _merge_model(Planogram, planograms[index], {**data, "id": planogram_id})
 
-    original = planograms[index]
-    if original.furnitureId != updated.furnitureId or original.face != updated.face:
-        for furniture in scene.furniture:
-            for face, linked_planogram_id in furniture.faces.items():
-                if linked_planogram_id == planogram_id:
-                    furniture.faces[face] = None
-        furniture_index = _find_index(scene.furniture, "id", updated.furnitureId)
-        scene.furniture[furniture_index].faces[updated.face.value] = updated.id
-        _save_scene(project_id, scene)
+        original = planograms[index]
+        if original.furnitureId != updated.furnitureId or original.face != updated.face:
+            for furniture in scene.furniture:
+                for face, linked_planogram_id in furniture.faces.items():
+                    if linked_planogram_id == planogram_id:
+                        furniture.faces[face] = None
+            furniture_index = _find_index(scene.furniture, "id", updated.furnitureId)
+            scene.furniture[furniture_index].faces[updated.face.value] = updated.id
+            _save_scene(project_id, scene)
 
-    planograms[index] = updated
-    _save_planograms(project_id, planograms)
+        planograms[index] = updated
+        _save_planograms(project_id, planograms)
     return updated.model_dump(mode="json")
 
 
 @router.delete("/{project_id}/planograms/{planogram_id}")
 def remove_planogram(project_id: str, planogram_id: str):
-    scene = _load_scene(project_id)
-    planograms = _load_planograms(project_id)
-    index = _find_index(planograms, "id", planogram_id)
-    planograms.pop(index)
-    for furniture in scene.furniture:
-        for face, linked_planogram_id in furniture.faces.items():
-            if linked_planogram_id == planogram_id:
-                furniture.faces[face] = None
-    _save_planograms(project_id, planograms)
-    _save_scene(project_id, scene)
+    with _get_project_lock(project_id):
+        scene = _load_scene(project_id)
+        planograms = _load_planograms(project_id)
+        index = _find_index(planograms, "id", planogram_id)
+        planograms.pop(index)
+        for furniture in scene.furniture:
+            for face, linked_planogram_id in furniture.faces.items():
+                if linked_planogram_id == planogram_id:
+                    furniture.faces[face] = None
+        _save_planograms(project_id, planograms)
+        _save_scene(project_id, scene)
     return {"deleted": True, "id": planogram_id}
 
 

@@ -80,17 +80,20 @@ shopAi/
 
 ### Furniture Types (Furniture Library)
 
-| Type | Name | Default Dimensions |
-|------|------|--------------------|
-| `gondola_single` | Gondole simple | 120 × 60 × 200 cm |
-| `gondola_double` | Gondole double face | 120 × 80 × 200 cm |
-| `end_gondola` | Tête de gondole | 100 × 60 × 200 cm |
-| `pallet` | Palette | 120 × 80 × 20 cm |
-| `fridge` | Frigo | 100 × 80 × 210 cm |
-| `display` | Présentoir | 60 × 40 × 180 cm |
-| `register` | Caisse | 80 × 60 × 90 cm |
-| `wall` | Mur | 500 × 20 × 300 cm |
-| `partition` | Cloison | 200 × 10 × 200 cm |
+Toutes les dimensions sont en **centimètres** (`largeur × profondeur × hauteur`).
+
+| Type | Nom | Dimensions par défaut | Faces avec planogramme |
+|------|-----|-----------------------|------------------------|
+| `gondola_single` | Gondole simple | 120 × 60 × 200 cm | `front` |
+| `gondola_double` | Gondole double face | 120 × 80 × 200 cm | `front`, `back`, `left`, `right` |
+| `end_gondola` | Tête de gondole | 80 × 60 × 180 cm | `front`, `back`, `left`, `right` |
+| `pallet` | Palette | 120 × 80 × 20 cm | `front`, `back`, `left`, `right` |
+| `fridge` | Frigo vertical | 100 × 80 × 210 cm | `front` |
+| `fridge_horizontal` | Frigo horizontal | 300 × 300 × 100 cm | `top` |
+| `display` | Présentoir | 60 × 40 × 180 cm | `front` |
+| `register` | Caisse | 80 × 60 × 90 cm | _(aucune)_ |
+| `wall` | Mur | 500 × 20 × 300 cm | `front` |
+| `partition` | Cloison | 200 × 10 × 200 cm | `front`, `back` |
 
 ### Category Colours
 
@@ -231,3 +234,85 @@ Future modules are architecturally prepared but not yet implemented:
 | PostgreSQL migration | 🔲 Ready (UUID-based, no SQL-specific code) |
 | PDF / Excel export | 🔲 Stub |
 | Multi-user / collaboration | 🔲 Stub |
+
+---
+
+## Tailles de référence & cohérence
+
+### Tailles des cellules de planogramme
+
+Chaque planogramme est découpé en cases (*boxes*) dont la taille dépend du meuble auquel il est attaché. Les dimensions sont toujours en **centimètres**.
+
+#### Valeurs par défaut du moteur gondole
+
+| Constante | Valeur | Description |
+|-----------|--------|-------------|
+| `DEFAULT_SHELF_HEIGHT_CM` | **30 cm** | Hauteur d'une étagère à la création |
+| `DEFAULT_SEP_SPACING_CM` | **15 cm** | Écartement entre séparateurs (= largeur de case par défaut) |
+| `MIN_BOX_CM` | **2 cm** | Largeur minimale d'une case (impossible de rétrécir en dessous) |
+| `DEFAULT_GONDOLA_DEPTH_CM` | **45 cm** | Profondeur gondole par défaut (moteur interne) |
+| `OVERFLOW_TOLERANCE_CM` | **0.5 cm** | Tolérance avant d'afficher l'avertissement débordement ⚠ |
+
+> **Rendu pixel** : à zoom = 1, le planogramme est affiché à **2,2 px/cm** horizontalement et **1,4 px/cm** verticalement. Le zoom va de ×0,4 à ×4.
+
+#### Projet démo `retail_cad` — tailles réelles des cases
+
+| Meuble | Face | Planogramme | Lignes × Colonnes | Case (larg × haut) |
+|--------|------|-------------|-------------------|---------------------|
+| Gondoles A–J (120 × 200 cm) | `front` / `back` | 120 × 200 cm | 5 × 8 | **15 × 40 cm** |
+| Gondoles A–J (120 × 200 cm) | `left` / `right` | 60 × 200 cm | 5 × 4 | **15 × 40 cm** |
+| Têtes de gondole (80 × 180 cm) | `front` / `back` | 80 × 180 cm | 4 × 2 | **40 × 45 cm** |
+| Têtes de gondole (80 × 180 cm) | `left` / `right` | 60 × 180 cm | 4 × 2 | **30 × 45 cm** |
+| Frigos 1–2 (100 × 210 cm) | `front` | 100 × 210 cm | 6 × 5 | **20 × 35 cm** |
+
+---
+
+### Cohérence planogramme ↔ gondole
+
+La dimension du planogramme doit toujours correspondre exactement à la face du meuble auquel il est lié :
+
+| Face | Dimension horizontale du PLN | Dimension verticale du PLN |
+|------|------------------------------|---------------------------|
+| `front` / `back` | = `furniture.dimensions.width` | = `furniture.dimensions.height` |
+| `left` / `right` | = `furniture.dimensions.depth` | = `furniture.dimensions.height` |
+| `top` | = `furniture.dimensions.width` | = `furniture.dimensions.depth` |
+
+**Vérification automatique** : si `planogram.widthCm > furniture.width + 0.5 cm` ou `planogram.heightCm > furniture.height + 0.5 cm`, le planogramme affiche une alerte en rouge dans l'éditeur.
+
+**Validation cas démo** :
+- Gondole 120 × 200 cm, face `front` → PLN 120 × 200 cm, 8 cols × 15 cm = 120 ✅, 5 rows × 40 cm = 200 ✅
+- Gondole 120 × 200 cm, face `left` → PLN 60 × 200 cm (profondeur 60 cm), 4 cols × 15 cm = 60 ✅
+- Frigo 100 × 210 cm, face `front` → PLN 100 × 210 cm, 5 cols × 20 cm = 100 ✅
+
+---
+
+### Tailles des produits (catalogue)
+
+Toutes les dimensions produit sont stockées en **centimètres**.
+
+| Champ | Plage (démo 200 produits) | Valeurs présentes |
+|-------|---------------------------|-------------------|
+| `widthCm` | 4 – 14 cm | 4, 6, 7, 9, 10, 14 cm |
+| `heightCm` | 6 – 18 cm | 6, 8, 15, 16, 18 cm |
+| `depthCm` | 3 – 8 cm | — |
+
+**Cohérence produits → cases** : les produits du catalogue démo (max 14 cm de large, max 18 cm de haut) entrent dans toutes les cases du démo (min 15 × 30 cm). L'éditeur affiche un badge ⚠ **débordement** en rouge si un produit dépasse la case qui lui est assignée (tolérance 0,5 cm).
+
+---
+
+### Upload d'images produit
+
+L'image d'un produit s'ajoute via le bouton 📷 dans l'éditeur de planogramme ou via l'API.
+
+| Paramètre | Valeur |
+|-----------|--------|
+| **Taille maximale** | **5 Mo** |
+| **Formats acceptés** | JPEG, PNG, WebP, GIF, SVG |
+| **Stockage** | Base64 data-URL inline dans `catalog.json` → champ `product.imageUrl` |
+| **Endpoint API** | `POST /{project_id}/catalog/products/{ean}/image` (multipart `file`) |
+
+> ⚠️ Les images sont encodées en base64 et stockées **dans le JSON du catalogue**. Un catalogue avec de nombreux produits illustrés peut donc devenir volumineux. Pour les environnements de production, migrer vers un stockage fichier ou objet (S3, etc.) est recommandé.
+
+**Codes d'erreur retournés par l'API** :
+- `413` — fichier supérieur à 5 Mo
+- `415` — format non supporté (seuls JPEG, PNG, WebP, GIF, SVG sont acceptés)

@@ -6,8 +6,8 @@
       "name": "Gondole simple",
       "category": "gondola",
       "defaultDimensions": {
-        "width": 1000,
-        "depth": 100,
+        "width": 120,
+        "depth": 60,
         "height": 200
       },
       "hasFaces": [
@@ -22,8 +22,8 @@
       "name": "Gondole double",
       "category": "gondola",
       "defaultDimensions": {
-        "width": 1000,
-        "depth": 100,
+        "width": 120,
+        "depth": 80,
         "height": 200
       },
       "hasFaces": [
@@ -41,9 +41,9 @@
       "name": "Palette promo",
       "category": "display",
       "defaultDimensions": {
-        "width": 300,
-        "depth": 300,
-        "height": 100
+        "width": 120,
+        "depth": 80,
+        "height": 20
       },
       "hasFaces": [
         "front",
@@ -60,9 +60,9 @@
       "name": "Frigo vertical",
       "category": "cold_storage",
       "defaultDimensions": {
-        "width": 1000,
-        "depth": 100,
-        "height": 200
+        "width": 100,
+        "depth": 80,
+        "height": 210
       },
       "hasFaces": [
         "front"
@@ -108,9 +108,9 @@
       "name": "Caisse",
       "category": "checkout",
       "defaultDimensions": {
-        "width": 300,
-        "depth": 100,
-        "height": 100
+        "width": 80,
+        "depth": 60,
+        "height": 90
       },
       "hasFaces": [],
       "defaultMaterial": "plastic_black",
@@ -139,8 +139,8 @@
       "category": "structure",
       "defaultDimensions": {
         "width": 200,
-        "depth": 15,
-        "height": 240
+        "depth": 10,
+        "height": 200
       },
       "hasFaces": [
         "front",

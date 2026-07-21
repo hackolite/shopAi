@@ -603,7 +603,10 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
       right: { pos: [ W / 2,  -H / 2 + 0.02,  cellZr] as [number, number, number], rot: SEMI_ROT.right },
       left:  { pos: [-W / 2,  -H / 2 + 0.02,  cellZl] as [number, number, number], rot: SEMI_ROT.left  },
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Deps explanation: W, H, D are included intentionally — resizing the furniture shifts
+  // the disc positions so the config must be recomputed when dimensions change.
+  // `selection.cellIds` is an array whose reference changes on every selection update;
+  // using it directly is correct because any selection change should retrigger the lookup.
   }, [isProductSelected, selection.planogramId, selection.cellIds, planogramDetails, W, H, D]);
 
   const semiCircleConfig: SemiConfig = computedSemiCircleConfig ?? defaultSemiCircleConfig;

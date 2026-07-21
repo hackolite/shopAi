@@ -157,23 +157,22 @@ export default function App() {
   }, [projectId]);
 
   // ── Open planogram ────────────────────────────────────────────────────────
-  const openPlanogram = (planogramId: string) => {
+  const openPlanogram = useCallback((planogramId: string) => {
     setActivePlanogramId(planogramId);
     setViewMode(viewMode === 'split' ? 'split' : 'planogram');
-  };
+  }, [viewMode, setViewMode]);
 
   // ── React to Ctrl+click open-planogram requests from the 3D overlay ─────────
   useEffect(() => {
     if (!requestOpenPlanogramId) return;
     setRequestOpenPlanogramId(null);
     openPlanogram(requestOpenPlanogramId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestOpenPlanogramId]);
+  }, [requestOpenPlanogramId, openPlanogram, setRequestOpenPlanogramId]);
 
-  const closePlanogram = () => {
+  const closePlanogram = useCallback(() => {
     setActivePlanogramId(null);
     setViewMode('3d');
-  };
+  }, [setViewMode]);
 
   // ── Copy-paste helpers ────────────────────────────────────────────────────
   const copySelected = useCallback(() => {

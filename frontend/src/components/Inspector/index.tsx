@@ -58,7 +58,6 @@ function NumberField({ label, value, onChange, min }: NumberFieldProps) {
     return () => {
       const n = parseFloat(localValRef.current);
       if (!isNaN(n) && n !== prevValue.current) {
-        console.debug('[NumberField] unmount flush:', prevValue.current, '→', n);
         onChangeRef.current(n);
       }
     };
@@ -98,12 +97,10 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   const [creatingFace, setCreatingFace] = useState<FaceId | null>(null);
 
   const save = (updated: FurnitureInstance) => {
-    console.debug('[Inspector.save] scheduling backend save for', updated.id, 'rotation:', updated.rotation);
     updateFurniture(updated);
     pendingSave.current = updated;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      console.debug('[Inspector.save] timer fired for', updated.id, 'rotation:', updated.rotation);
       if (projectId) {
         cadApi.updateFurniture(projectId, updated.id, updated).catch(console.error);
       }
@@ -119,7 +116,6 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
       if (saveTimer.current) clearTimeout(saveTimer.current);
       const pending = pendingSave.current;
       if (pending && projectId) {
-        console.debug('[Inspector] unmount flush to backend for', pending.id, 'rotation:', pending.rotation);
         cadApi.updateFurniture(projectId, pending.id, pending).catch(console.error);
       }
     };

@@ -693,9 +693,17 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
     }
 
     if (mode === 'rotate') {
-      const newRotY = (obj.rotation.y * 180) / Math.PI;
+      // Use the quaternion to extract the Y-rotation angle instead of reading
+      // obj.rotation.y directly.  Three.js represents the 180° quaternion
+      // (0,1,0,0) back as Euler (π, 0, π) in XYZ order, so rotation.y reads
+      // as 0 at exactly 180°, which would silently save the wrong value.
+      // `2 * atan2(q.y, q.w)` recovers the correct angle for any pure-Y rotation.
+      const q = obj.quaternion;
+      const rotYRad = 2 * Math.atan2(q.y, q.w);
+      const newRotY = rotYRad * (180 / Math.PI);
       const snappedRotY = Math.round(newRotY / 90) * 90;
-      obj.rotation.y = snappedRotY * (Math.PI / 180);
+      // Reset to a clean Euler so R3F reconciliation doesn't fight the (π,0,π) state.
+      obj.rotation.set(0, snappedRotY * (Math.PI / 180), 0);
       const updated = {
         ...furniture,
         rotation: [furniture.rotation[0], snappedRotY, furniture.rotation[2]] as [number, number, number],

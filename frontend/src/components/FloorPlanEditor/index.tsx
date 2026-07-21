@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
@@ -99,8 +99,13 @@ function clientToSvg(svg: SVGSVGElement, clientX: number, clientY: number): { x:
 // ─── Resize handle positions ──────────────────────────────────────────────────
 
 function handlePos(handle: Handle, x: number, y: number, w: number, h: number) {
-  const mid = { nw: [x, y], n: [x + w / 2, y], ne: [x + w, y], e: [x + w, y + h / 2], se: [x + w, y + h], s: [x + w / 2, y + h], sw: [x, y + h], w: [x, y + h / 2] };
-  return mid[handle];
+  const positions: Record<Handle, [number, number]> = {
+    nw: [x, y], n: [x + w / 2, y], ne: [x + w, y],
+    e: [x + w, y + h / 2],
+    se: [x + w, y + h], s: [x + w / 2, y + h], sw: [x, y + h],
+    w: [x, y + h / 2],
+  };
+  return positions[handle];
 }
 
 const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -195,15 +200,15 @@ function FurnitureRect({ furniture, isSelected, onSelect, onMoveStart, onResizeS
       )}
 
       {/* Resize handles (only when selected) */}
-      {isSelected && HANDLES.map((h_) => {
-        const [hx, hy] = handlePos(h_, x, y, w, h);
+      {isSelected && HANDLES.map((handleKey) => {
+        const [hx, hy] = handlePos(handleKey, x, y, w, h);
         return (
           <circle
-            key={h_}
+            key={handleKey}
             cx={hx} cy={hy} r={Math.min(5, Math.max(2, w * 0.04))}
             fill="white" stroke="#3B82F6" strokeWidth={1.5}
-            style={{ cursor: HANDLE_CURSOR[h_] }}
-            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, furniture, h_); }}
+            style={{ cursor: HANDLE_CURSOR[handleKey] }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, furniture, handleKey); }}
           />
         );
       })}
@@ -261,15 +266,15 @@ function ZoneRect({ zone, isSelected, onSelect, onMoveStart, onResizeStart }: Zo
           {zone.label}
         </text>
       )}
-      {isSelected && HANDLES.map((h_) => {
-        const [hx, hy] = handlePos(h_, zone.x, zone.z, zone.width, zone.depth);
+      {isSelected && HANDLES.map((handleKey) => {
+        const [hx, hy] = handlePos(handleKey, zone.x, zone.z, zone.width, zone.depth);
         return (
           <circle
-            key={h_}
+            key={handleKey}
             cx={hx} cy={hy} r={Math.min(5, Math.max(2, zone.width * 0.04))}
             fill="white" stroke={fill} strokeWidth={1.5}
-            style={{ cursor: HANDLE_CURSOR[h_] }}
-            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, zone, h_); }}
+            style={{ cursor: HANDLE_CURSOR[handleKey] }}
+            onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e, zone, handleKey); }}
           />
         );
       })}
@@ -443,13 +448,16 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
 
   // ── Grid lines ────────────────────────────────────────────────────────────
 
-  const gridLines: JSX.Element[] = [];
-  for (let gx = 0; gx <= storeW; gx += SNAP_CM) {
-    gridLines.push(<line key={`vx${gx}`} x1={gx} y1={0} x2={gx} y2={storeD} stroke="#334155" strokeWidth={gx % 500 === 0 ? 1.5 : 0.5} />);
-  }
-  for (let gz = 0; gz <= storeD; gz += SNAP_CM) {
-    gridLines.push(<line key={`hz${gz}`} x1={0} y1={gz} x2={storeW} y2={gz} stroke="#334155" strokeWidth={gz % 500 === 0 ? 1.5 : 0.5} />);
-  }
+  const gridLines = useMemo(() => {
+    const lines: React.ReactElement[] = [];
+    for (let gx = 0; gx <= storeW; gx += SNAP_CM) {
+      lines.push(<line key={`vx${gx}`} x1={gx} y1={0} x2={gx} y2={storeD} stroke="#334155" strokeWidth={gx % 500 === 0 ? 1.5 : 0.5} />);
+    }
+    for (let gz = 0; gz <= storeD; gz += SNAP_CM) {
+      lines.push(<line key={`hz${gz}`} x1={0} y1={gz} x2={storeW} y2={gz} stroke="#334155" strokeWidth={gz % 500 === 0 ? 1.5 : 0.5} />);
+    }
+    return lines;
+  }, [storeW, storeD]);
 
   // ── Padding/margin around the store ──────────────────────────────────────
   const PAD = 150;

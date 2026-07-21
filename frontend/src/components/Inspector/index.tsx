@@ -268,13 +268,14 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   const handleUpdatePlanogramGrid = (planogramId: string, field: 'rows' | 'cols', value: number) => {
     const detail = planogramDetails.get(planogramId);
     if (!detail || value < 1) return;
+    const newRows = field === 'rows' ? value : detail.rows;
+    const newCols = field === 'cols' ? value : detail.cols;
     const updated: Planogram = {
       ...detail,
-      [field]: value,
-      // Trim cells that are out of range when shrinking.
-      cells: detail.cells.filter((c) =>
-        (field === 'rows' ? c.row < value : c.col < value)
-      ),
+      rows: newRows,
+      cols: newCols,
+      // Trim cells that fall outside the new grid bounds.
+      cells: detail.cells.filter((c) => c.row < newRows && c.col < newCols),
     };
     syncPlanogram(updated);
     if (projectId) cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);

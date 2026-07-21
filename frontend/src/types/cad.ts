@@ -26,6 +26,9 @@ export interface FurnitureInstance {
   materialId: string;
   visible: boolean;
   locked: boolean;
+  /** False = furniture is placed flat on the 2D floor plan but not yet rendered in 3D.
+   *  True (default) = the furniture is "mounted" and visible in the 3D scene. */
+  mounted: boolean;
   parentId: string | null;
   childIds: string[];
   faces: Partial<Record<FaceId, string | null>>;

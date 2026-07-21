@@ -123,6 +123,7 @@ class FurnitureInstance(CADBaseModel):
     materialId: str | None = None
     visible: bool = True
     locked: bool = False
+    mounted: bool = True
     parentId: str | None = None
     childIds: list[str] = Field(default_factory=list)
     faces: dict[str, str | None] = Field(

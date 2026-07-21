@@ -88,6 +88,13 @@ function FurnitureRow({
         <span className="shrink-0">{getEmoji(furniture.type)}</span>
         <span className="flex-1 truncate">{furniture.name}</span>
 
+        {/* Mounted / flat indicator */}
+        {furniture.mounted === false ? (
+          <span className="text-amber-500 shrink-0 text-xs" title="À plat — non monté en 3D">▭</span>
+        ) : (
+          <span className="text-blue-500 shrink-0 text-xs" title="Monté en 3D">🏗</span>
+        )}
+
         {/* Lock icon */}
         {furniture.locked && (
           <span className="text-gray-500 shrink-0">🔒</span>
@@ -188,6 +195,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
       materialId: def.defaultMaterial,
       visible:    true,
       locked:     false,
+      mounted:    false,
       parentId:   null,
       childIds:   [],
       faces:      {},

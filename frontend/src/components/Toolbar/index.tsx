@@ -167,7 +167,7 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
       {/* ── Separator ── */}
       <div className="h-5 w-px bg-gray-800" />
 
-      {/* ── Zone buttons (Entrée / Sortie) ── */}
+      {/* ── Zone buttons (Entrée / Sortie / Fournitures) ── */}
       <div className="flex items-center gap-1">
         <button
           title="Ajouter / sélectionner la zone Entrée"
@@ -194,6 +194,14 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
         >
           <span>🟠</span>
           <span className="hidden sm:inline">Sortie</span>
+        </button>
+        <button
+          title="Ajouter une zone Fournitures (grille au sol)"
+          onClick={() => addZone('supply', storeW, storeD)}
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700"
+        >
+          <span>🟣</span>
+          <span className="hidden sm:inline">Fournitures</span>
         </button>
       </div>
 

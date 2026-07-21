@@ -1264,6 +1264,7 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
 const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
   entrance: { fill: '#22c55e', border: '#16a34a' },
   exit:     { fill: '#f97316', border: '#ea580c' },
+  supply:   { fill: '#a855f7', border: '#7c3aed' },
 };
 const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 
@@ -1360,6 +1361,37 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     [bx,      lineY, bz],
   ];
 
+  // Build interior grid lines for supply zones.
+  const supplyGridLines: JSX.Element[] = [];
+  if (zone.type === 'supply') {
+    const rows = Math.max(1, zone.rows ?? 1);
+    const cols = Math.max(1, zone.cols ?? 1);
+    const gridLineY = lineY + 0.001;
+    const gridColor = isSelected ? '#ffffff' : color.border;
+    for (let c = 1; c < cols; c++) {
+      const gx = bx + (W / cols) * c;
+      supplyGridLines.push(
+        <Line
+          key={`col${c}`}
+          points={[[gx, gridLineY, bz], [gx, gridLineY, bz + D]] as [number, number, number][]}
+          color={gridColor}
+          lineWidth={1}
+        />,
+      );
+    }
+    for (let r = 1; r < rows; r++) {
+      const gz = bz + (D / rows) * r;
+      supplyGridLines.push(
+        <Line
+          key={`row${r}`}
+          points={[[bx, gridLineY, gz], [bx + W, gridLineY, gz]] as [number, number, number][]}
+          color={gridColor}
+          lineWidth={1}
+        />,
+      );
+    }
+  }
+
   return (
     <group>
       {/* Semi-transparent fill plane */}
@@ -1392,6 +1424,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         color={isSelected ? '#ffffff' : color.border}
         lineWidth={isSelected ? 3 : 2}
       />
+
+      {/* Interior grid lines (supply zones only) */}
+      {supplyGridLines}
 
       {/* Label — 3D sprite so it is captured by canvas.captureStream */}
       <TextSprite3D

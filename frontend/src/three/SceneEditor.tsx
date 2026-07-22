@@ -8,7 +8,7 @@ import { useUIStore } from '../store/uiStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useCatalogStore } from '../store/catalogStore';
 import { useZoneStore } from '../store/zoneStore';
-import type { FloorZone } from '../types/cad';
+import type { FloorZone, Planogram } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -670,11 +670,13 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         />
       </mesh>
 
-      {/* Top face cap — colored to match the floor rectangle for easy furniture-type recognition */}
-      {(() => {
+      {/* Top face cap — colored to match the floor rectangle for easy furniture-type recognition.
+          Hidden when a planogram is assigned to the top face (the overlay covers it instead).
+          Raised by OVERLAY_Z_OFFSET to avoid z-fighting with the box's top face. */}
+      {!furniture.faces.top && (() => {
         const topFill = getUnmountedColor(furniture.type).fill;
         return (
-          <mesh position={[0, H / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh position={[0, H / 2 + OVERLAY_Z_OFFSET, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[W, D]} />
             <meshStandardMaterial
               color={isSelected ? '#4a9eff' : topFill}
@@ -1128,6 +1130,71 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
 }
 
 
+// ─── Planogram resize helpers ─────────────────────────────────────────────────
+
+/**
+ * Return a copy of `planogram` with all horizontal measurements scaled to
+ * `newWidthCm`.  Scales colWidthsCm, cellWidthOverrides, and the gondola
+ * separator positions proportionally so the layout is preserved.
+ */
+function scalePlanogramWidth(planogram: Planogram, newWidthCm: number): Planogram {
+  if (planogram.widthCm <= 0 || Math.abs(newWidthCm - planogram.widthCm) < 0.01) return planogram;
+  const scale = newWidthCm / planogram.widthCm;
+
+  const colWidthsCm = planogram.colWidthsCm?.map(w => Math.round(w * scale * 10) / 10);
+  const cellWidthOverrides = planogram.cellWidthOverrides
+    ? Object.fromEntries(
+        Object.entries(planogram.cellWidthOverrides).map(([k, v]) => [k, Math.round(v * scale * 10) / 10]),
+      )
+    : undefined;
+
+  let gondola = planogram.gondola;
+  if (gondola) {
+    gondola = {
+      ...gondola,
+      width_cm: newWidthCm,
+      shelves: gondola.shelves.map(shelf => ({
+        ...shelf,
+        separators: shelf.separators.map(sep => ({
+          ...sep,
+          position_cm: Math.round(sep.position_cm * scale * 10) / 10,
+        })),
+      })),
+    };
+  }
+
+  return { ...planogram, widthCm: newWidthCm, colWidthsCm, cellWidthOverrides, gondola };
+}
+
+/**
+ * After a furniture resize, update all linked planogram dimensions to stay in
+ * sync with the new furniture footprint.  Only planograms whose physical width
+ * has changed (>0.5 cm difference) are updated.
+ *
+ * Mapping: front/back/top planograms ↔ furniture width;
+ *          left/right planograms      ↔ furniture depth.
+ */
+function syncPlanogramFacesOnResize(
+  furniture: FurnitureInstance,
+  projectId: string,
+  planogramDetails: Map<string, Planogram>,
+  syncPlanogram: (p: Planogram) => void,
+): void {
+  const { width, depth } = furniture.dimensions;
+  for (const [faceId, planogramId] of Object.entries(furniture.faces)) {
+    if (!planogramId) continue;
+    const planogram = planogramDetails.get(planogramId);
+    if (!planogram) continue;
+    const isDepthAxis = faceId === 'left' || faceId === 'right';
+    const newWidthCm = isDepthAxis ? depth : width;
+    if (Math.abs(newWidthCm - planogram.widthCm) < 0.5) continue;
+    const scaled = scalePlanogramWidth(planogram, newWidthCm);
+    syncPlanogram(scaled);
+    cadApi.updatePlanogram(projectId, planogramId, scaled).catch(console.error);
+  }
+}
+
+
 // ─── Furniture resize handles (width / depth) ─────────────────────────────────
 /** Furniture types that can be resized via 3D drag handles in scale mode. */
 const RESIZABLE_FURNITURE_TYPES = new Set(['wall', 'partition', 'register']);
@@ -1141,6 +1208,7 @@ interface FurnitureResizeHandlesProps {
 
 function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandlesProps) {
   const { updateFurniture } = useSceneStore();
+  const { planogramDetails, syncPlanogram } = usePlanogramStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
 
@@ -1158,6 +1226,12 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
   const baseFurnitureRef = useRef<FurnitureInstance>(furniture);
   const curFurnitureRef  = useRef<FurnitureInstance>(furniture);
   curFurnitureRef.current = furniture;
+
+  // Keep planogram state fresh so the effect closure always reads the latest values.
+  const planogramDetailsRef = useRef(planogramDetails);
+  planogramDetailsRef.current = planogramDetails;
+  const syncPlanogramRef = useRef(syncPlanogram);
+  syncPlanogramRef.current = syncPlanogram;
 
   const _ndc    = useRef(new THREE.Vector2());
   const _hit    = useRef(new THREE.Vector3());
@@ -1254,7 +1328,10 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
         dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
       };
       updateFurniture(snapped);
-      if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+      if (projectId) {
+        cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+        syncPlanogramFacesOnResize(snapped, projectId, planogramDetailsRef.current, syncPlanogramRef.current);
+      }
     };
 
     gl.domElement.addEventListener('pointermove', onMove);
@@ -1828,6 +1905,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
 // ─── Unmounted furniture resize handles ───────────────────────────────────────
 function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: FurnitureInstance; projectId: string | null }) {
   const { updateFurniture } = useSceneStore();
+  const { planogramDetails, syncPlanogram } = usePlanogramStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
 
@@ -1844,6 +1922,12 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   const baseFurnRef   = useRef<FurnitureInstance>(furniture);
   const curFurnRef    = useRef<FurnitureInstance>(furniture);
   curFurnRef.current  = furniture;
+
+  // Keep planogram state fresh so the effect closure always reads the latest values.
+  const planogramDetailsRef = useRef(planogramDetails);
+  planogramDetailsRef.current = planogramDetails;
+  const syncPlanogramRef = useRef(syncPlanogram);
+  syncPlanogramRef.current = syncPlanogram;
 
   const _ndc   = useRef(new THREE.Vector2());
   const _hit   = useRef(new THREE.Vector3());
@@ -1918,14 +2002,15 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
 
       const cur      = curFurnRef.current;
       const snapDim  = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
-      updateFurniture({
+      const snapped: FurnitureInstance = {
         ...cur,
         position:   [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
         dimensions: { ...cur.dimensions, width: snapDim(cur.dimensions.width), depth: snapDim(cur.dimensions.depth) },
-      });
+      };
+      updateFurniture(snapped);
       if (projectId) {
-        const final = curFurnRef.current;
-        cadApi.updateFurniture(projectId, final.id, final).catch(console.error);
+        cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+        syncPlanogramFacesOnResize(snapped, projectId, planogramDetailsRef.current, syncPlanogramRef.current);
       }
     };
 

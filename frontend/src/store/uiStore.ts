@@ -16,6 +16,8 @@ interface UIState {
   flyToFurnitureId: string | null;
   /** When set together with flyToFurnitureId, the camera will face this specific face. */
   flyToFurnitureFace: string | null;
+  /** Whether a video recording is currently in progress. Shared so other views can show indicator. */
+  recording: boolean;
   setActivePanel: (panel: ActivePanel) => void;
   setActiveTool: (tool: ActiveTool) => void;
   setViewMode: (mode: ViewMode) => void;
@@ -23,6 +25,7 @@ interface UIState {
   toggleSidebarRight: () => void;
   setBevMode: (v: boolean) => void;
   setFlyToFurnitureId: (id: string | null, face?: string | null) => void;
+  setRecording: (v: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -34,6 +37,7 @@ export const useUIStore = create<UIState>((set) => ({
   bevMode: false,
   flyToFurnitureId: null,
   flyToFurnitureFace: null,
+  recording: false,
   setActivePanel: (panel) => set({ activePanel: panel }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setViewMode: (mode) => set({ viewMode: mode }),
@@ -42,4 +46,5 @@ export const useUIStore = create<UIState>((set) => ({
     set((state) => ({ sidebarRight: !state.sidebarRight })),
   setBevMode: (bevMode) => set({ bevMode }),
   setFlyToFurnitureId: (id, face = null) => set({ flyToFurnitureId: id, flyToFurnitureFace: face }),
+  setRecording: (recording) => set({ recording }),
 }));

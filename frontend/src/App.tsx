@@ -43,7 +43,7 @@ export default function App() {
   const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, toggleFurnitureSelection, undo } = useSceneStore();
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
-  const { viewMode, setViewMode, setActiveTool } = useUIStore();
+  const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones } = useZoneStore();
 
   // ── Load project list ─────────────────────────────────────────────────────
@@ -430,53 +430,77 @@ export default function App() {
 
         {/* ── Main viewport ──────────────────────────────────────────────── */}
         <main className="flex-1 relative overflow-hidden">
-          {viewMode === '3d' && (
+          {/*
+            SceneEditor is ALWAYS mounted so the WebGL canvas (and any active
+            MediaRecorder stream) persists across view-mode changes.
+            In planogram-only mode it is placed behind the PLN panel and hidden
+            with opacity:0 + pointer-events:none so the GL context stays alive.
+            In split mode it occupies the left half; in 3D mode the full area.
+          */}
+          <div
+            className={
+              viewMode === 'split'
+                ? 'absolute top-0 left-0 h-full border-r border-gray-800'
+                : 'absolute inset-0'
+            }
+            style={{
+              width: viewMode === 'split' ? '50%' : undefined,
+              opacity: viewMode === 'planogram' ? 0 : 1,
+              pointerEvents: viewMode === 'planogram' ? 'none' : 'auto',
+              zIndex: viewMode === 'planogram' ? 0 : 1,
+            }}
+          >
             <SceneEditor projectId={projectId} />
-          )}
+          </div>
 
-          {viewMode === 'planogram' && (
-            activePlanogramId ? (
-              <PlanogramEditor
-                projectId={projectId}
-                planogramId={activePlanogramId}
-                onClose={closePlanogram}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center w-full h-full gap-3">
-                <span className="text-4xl">🗂️</span>
-                <p className="text-gray-500 text-sm">
-                  Click a planogram face in the Scene panel to open it
-                </p>
-                <button
-                  className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"
-                  onClick={() => setViewMode('3d')}
-                >
-                  ← Back to 3D view
-                </button>
-              </div>
-            )
-          )}
-
-          {viewMode === 'split' && (
-            <div className="flex h-full">
-              <div className="flex-1 border-r border-gray-800">
-                <SceneEditor projectId={projectId} />
-              </div>
-              <div className="flex-1">
-                {activePlanogramId ? (
-                  <PlanogramEditor
-                    projectId={projectId}
-                    planogramId={activePlanogramId}
-                    onClose={closePlanogram}
-                  />
+          {/* Planogram panel — shown on top in PLN mode, right half in split mode */}
+          {(viewMode === 'planogram' || viewMode === 'split') && (
+            <div
+              className="absolute top-0 h-full"
+              style={{
+                left: viewMode === 'split' ? '50%' : 0,
+                right: 0,
+                zIndex: 2,
+              }}
+            >
+              {activePlanogramId ? (
+                <PlanogramEditor
+                  projectId={projectId}
+                  planogramId={activePlanogramId}
+                  onClose={closePlanogram}
+                />
+              ) : (
+                viewMode === 'planogram' ? (
+                  <div className="flex flex-col items-center justify-center w-full h-full gap-3 bg-gray-950">
+                    <span className="text-4xl">🗂️</span>
+                    <p className="text-gray-500 text-sm">
+                      Click a planogram face in the Scene panel to open it
+                    </p>
+                    <button
+                      className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                      onClick={() => setViewMode('3d')}
+                    >
+                      ← Back to 3D view
+                    </button>
+                  </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center justify-center h-full bg-gray-950">
                     <p className="text-gray-600 text-sm">
                       Select a planogram face to edit
                     </p>
                   </div>
-                )}
-              </div>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Global "On Air" recording indicator — visible in all view modes */}
+          {recording && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/90 border border-red-700 text-red-300 text-xs font-semibold select-none">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
+                On Air
+              </span>
             </div>
           )}
         </main>

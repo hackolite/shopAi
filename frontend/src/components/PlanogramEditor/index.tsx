@@ -209,9 +209,18 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
   const furniture = gondola
     ? scene?.furniture.find(f => planogramBase && f.id === planogramBase.furnitureId)
     : null;
-  const isOverflowing = gondola && furniture
-    ? gondola.width_cm  > furniture.dimensions.width  + OVERFLOW_TOLERANCE_CM ||
-      gondola.height_cm > furniture.dimensions.height + OVERFLOW_TOLERANCE_CM
+  const isOverflowing = gondola && furniture && planogramBase
+    ? (() => {
+        const face = planogramBase.face;
+        const isDepthAxis   = face === 'left' || face === 'right';
+        const isTopBottom   = face === 'top'  || face === 'bottom';
+        const allowedWidth  = isDepthAxis  ? furniture.dimensions.depth  : furniture.dimensions.width;
+        const allowedHeight = isTopBottom  ? furniture.dimensions.depth  : furniture.dimensions.height;
+        return (
+          gondola.width_cm  > allowedWidth  + OVERFLOW_TOLERANCE_CM ||
+          gondola.height_cm > allowedHeight + OVERFLOW_TOLERANCE_CM
+        );
+      })()
     : false;
 
   // Absorber shelf for the pending add-row operation.
@@ -575,7 +584,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       );
     }
     if (newHeightCm !== undefined) {
-      updatedDims = { ...updatedDims, height: newHeightCm };
+      // The planogram's vertical axis maps to the furniture's local Z (depth) for
+      // top/bottom faces, and to the furniture's local Y (height) for vertical faces.
+      const isTopBottom = face === 'top' || face === 'bottom';
+      updatedDims = isTopBottom
+        ? { ...updatedDims, depth: newHeightCm }
+        : { ...updatedDims, height: newHeightCm };
     }
     const updated = { ...fur, dimensions: updatedDims, position: updatedPosition };
     updateFurniture(updated);
@@ -1033,7 +1047,19 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
       {/* Overflow warning */}
       {isOverflowing && (
         <div className="flex items-center gap-2 px-4 py-1.5 bg-red-900/30 border-b border-red-700/50 text-xs text-red-300 shrink-0">
-          🔴 Ce planogramme ({gondola.width_cm}×{gondola.height_cm} cm) dépasse la gondole ({furniture?.dimensions.width ?? '?'}×{furniture?.dimensions.height ?? '?'} cm).
+          🔴 Ce planogramme ({gondola.width_cm}×{gondola.height_cm} cm) dépasse la gondole ({
+            planogramBase && furniture ? (
+              (planogramBase.face === 'left' || planogramBase.face === 'right')
+                ? furniture.dimensions.depth
+                : furniture.dimensions.width
+            ) : '?'
+          }×{
+            planogramBase && furniture ? (
+              (planogramBase.face === 'top' || planogramBase.face === 'bottom')
+                ? furniture.dimensions.depth
+                : furniture.dimensions.height
+            ) : '?'
+          } cm).
         </div>
       )}
 

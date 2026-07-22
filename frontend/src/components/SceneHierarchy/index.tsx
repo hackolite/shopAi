@@ -12,6 +12,7 @@ const FURNITURE_EMOJI: Record<string, string> = {
   fridge_horizontal: '❄️',
   register:          '🏧',
   wall:              '🧱',
+  floor_grid:        '⬛',
 };
 
 // Face display names — centralised here so they can be replaced with a

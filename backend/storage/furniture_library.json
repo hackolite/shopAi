@@ -148,6 +148,22 @@
       ],
       "defaultMaterial": "solid_blue",
       "description": "Cloison légère pour séparer des zones"
+    },
+    {
+      "id": "floor_grid",
+      "type": "floor_grid",
+      "name": "Grille au sol",
+      "category": "display",
+      "defaultDimensions": {
+        "width": 200,
+        "depth": 150,
+        "height": 5
+      },
+      "hasFaces": [
+        "top"
+      ],
+      "defaultMaterial": "wood_dark",
+      "description": "Grille de présentation au sol — planogramme plat rempli de produits catalogue"
     }
   ]
 }

@@ -1132,19 +1132,26 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
 
 // ─── Planogram resize helpers ─────────────────────────────────────────────────
 
+/** Round to one decimal place (0.1 cm precision) for stored planogram measurements. */
+const roundCm = (v: number) => Math.round(v * 10) / 10;
+/** Ignore sub-millimetre floating-point noise inside scalePlanogramWidth. */
+const SCALE_NOOP_THRESHOLD_CM = 0.01;
+/** Skip planogram sync when furniture resize changed a dimension by less than this. */
+const SYNC_MIN_CHANGE_CM = 0.5;
+
 /**
  * Return a copy of `planogram` with all horizontal measurements scaled to
  * `newWidthCm`.  Scales colWidthsCm, cellWidthOverrides, and the gondola
  * separator positions proportionally so the layout is preserved.
  */
 function scalePlanogramWidth(planogram: Planogram, newWidthCm: number): Planogram {
-  if (planogram.widthCm <= 0 || Math.abs(newWidthCm - planogram.widthCm) < 0.01) return planogram;
+  if (planogram.widthCm <= 0 || Math.abs(newWidthCm - planogram.widthCm) < SCALE_NOOP_THRESHOLD_CM) return planogram;
   const scale = newWidthCm / planogram.widthCm;
 
-  const colWidthsCm = planogram.colWidthsCm?.map(w => Math.round(w * scale * 10) / 10);
+  const colWidthsCm = planogram.colWidthsCm?.map(w => roundCm(w * scale));
   const cellWidthOverrides = planogram.cellWidthOverrides
     ? Object.fromEntries(
-        Object.entries(planogram.cellWidthOverrides).map(([k, v]) => [k, Math.round(v * scale * 10) / 10]),
+        Object.entries(planogram.cellWidthOverrides).map(([k, v]) => [k, roundCm(v * scale)]),
       )
     : undefined;
 
@@ -1157,7 +1164,7 @@ function scalePlanogramWidth(planogram: Planogram, newWidthCm: number): Planogra
         ...shelf,
         separators: shelf.separators.map(sep => ({
           ...sep,
-          position_cm: Math.round(sep.position_cm * scale * 10) / 10,
+          position_cm: roundCm(sep.position_cm * scale),
         })),
       })),
     };
@@ -1169,7 +1176,7 @@ function scalePlanogramWidth(planogram: Planogram, newWidthCm: number): Planogra
 /**
  * After a furniture resize, update all linked planogram dimensions to stay in
  * sync with the new furniture footprint.  Only planograms whose physical width
- * has changed (>0.5 cm difference) are updated.
+ * has changed (>SYNC_MIN_CHANGE_CM) are updated.
  *
  * Mapping: front/back/top planograms ↔ furniture width;
  *          left/right planograms      ↔ furniture depth.
@@ -1187,7 +1194,7 @@ function syncPlanogramFacesOnResize(
     if (!planogram) continue;
     const isDepthAxis = faceId === 'left' || faceId === 'right';
     const newWidthCm = isDepthAxis ? depth : width;
-    if (Math.abs(newWidthCm - planogram.widthCm) < 0.5) continue;
+    if (Math.abs(newWidthCm - planogram.widthCm) < SYNC_MIN_CHANGE_CM) continue;
     const scaled = scalePlanogramWidth(planogram, newWidthCm);
     syncPlanogram(scaled);
     cadApi.updatePlanogram(projectId, planogramId, scaled).catch(console.error);

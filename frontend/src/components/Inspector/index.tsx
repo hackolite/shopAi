@@ -255,12 +255,10 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
         // Furniture grew deeper (or taller) — extend the gondola height to fill the new space with an empty row.
         const gondola = detail.gondola ?? legacyCellsToSeparators(detail);
         const extraHeight = faceHeight - gondola.height_cm;
-        if (extraHeight > DIMENSION_CHANGE_TOLERANCE_CM) {
-          const extended = extendGondolaHeight(gondola, extraHeight);
-          const extUpdated = gondolaToLegacyPlanogram(extended, { ...detail, gondola: extended });
-          cadApi.updatePlanogram(projectId, planogramId, extUpdated).catch(console.error);
-          syncPlanogram(extUpdated);
-        }
+        const extended = extendGondolaHeight(gondola, extraHeight);
+        const extUpdated = gondolaToLegacyPlanogram(extended, { ...detail, gondola: extended });
+        cadApi.updatePlanogram(projectId, planogramId, extUpdated).catch(console.error);
+        syncPlanogram(extUpdated);
       }
     }
   };

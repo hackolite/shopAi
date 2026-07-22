@@ -670,6 +670,23 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         />
       </mesh>
 
+      {/* Top face cap — colored to match the floor rectangle for easy furniture-type recognition */}
+      {(() => {
+        const topFill = getUnmountedColor(furniture.type).fill;
+        return (
+          <mesh position={[0, H / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[W, D]} />
+            <meshStandardMaterial
+              color={isSelected ? '#4a9eff' : topFill}
+              emissive={isSelected ? '#1a3a6a' : '#000000'}
+              emissiveIntensity={isSelected ? 0.35 : 0}
+              roughness={0.45}
+              metalness={0.2}
+            />
+          </mesh>
+        );
+      })()}
+
       {/* Floor grid: interior row/col lines on the top face */}
       {furniture.type === 'floor_grid' && (() => {
         const topPlanogramId = furniture.faces.top ?? null;

@@ -43,10 +43,10 @@
       "defaultDimensions": {
         "width": 120,
         "depth": 80,
-        "height": 20
+        "height": 200
       },
       "hasFaces": [
-        "top"
+        "front"
       ],
       "defaultMaterial": "wood_dark",
       "description": "Palette de masse pour zones promotionnelles"

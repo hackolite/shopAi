@@ -542,7 +542,9 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
     const shelf = getShelfByDisplayIndex(gondola, selectedHeaderRow ?? 0);
     if (!shelf) return;
     pushHistory();
-    applyGondola(cmdRemoveShelf(gondola, shelf.id));
+    const g = cmdRemoveShelf(gondola, shelf.id);
+    applyGondola(g);
+    syncFurnitureDimension(undefined, g.height_cm);
     if (selectedHeaderRow !== null) setSelectedHeaderRow(Math.min(selectedHeaderRow, shelfCount - 2));
   };
 
@@ -748,9 +750,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         setActivePlanogram(lp); scheduleSave(lp);
       }
       // `gondola` is captured from the outer scope at call time (pre-undo state).
-      // Sync furniture width whenever the undo restores a different gondola width.
+      // Sync furniture width/height whenever the undo restores a different gondola dimension.
       if (gondola && last.width_cm !== gondola.width_cm) {
         syncFurnitureDimension(last.width_cm);
+      }
+      if (gondola && last.height_cm !== gondola.height_cm) {
+        syncFurnitureDimension(undefined, last.height_cm);
       }
       return prev.slice(0, -1);
     });
@@ -768,9 +773,12 @@ export default function PlanogramEditor({ projectId, planogramId, onClose }: Pla
         setActivePlanogram(lp); scheduleSave(lp);
       }
       // `gondola` is captured from the outer scope at call time (pre-redo state).
-      // Sync furniture width whenever the redo restores a different gondola width.
+      // Sync furniture width/height whenever the redo restores a different gondola dimension.
       if (gondola && next.width_cm !== gondola.width_cm) {
         syncFurnitureDimension(next.width_cm);
+      }
+      if (gondola && next.height_cm !== gondola.height_cm) {
+        syncFurnitureDimension(undefined, next.height_cm);
       }
       return prev.slice(0, -1);
     });

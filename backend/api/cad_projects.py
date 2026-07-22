@@ -323,11 +323,15 @@ def import_catalog(project_id: str, payload: CatalogImportPayload):
     (the default) the catalog is completely replaced.
     """
     imported: list[Product] = []
-    for raw in payload.products:
+    for index, raw in enumerate(payload.products):
         try:
             imported.append(Product.model_validate(raw))
         except Exception as exc:
-            raise HTTPException(status_code=422, detail=f"Invalid product entry: {exc}") from exc
+            ean = raw.get("ean", "<unknown>") if isinstance(raw, dict) else "<unknown>"
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid product at index {index} (EAN: {ean}): {exc}",
+            ) from exc
 
     if payload.merge:
         catalog = _load_catalog(project_id)

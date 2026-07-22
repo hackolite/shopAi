@@ -29,6 +29,7 @@ const FURNITURE_FILL: Record<string, string> = {
   register:          '#10B981',  // emerald
   wall:              '#6B7280',  // gray
   partition:         '#9CA3AF',  // light gray
+  floor_grid:        '#A855F7',  // purple
 };
 
 function getFurnitureColor(type: string) {

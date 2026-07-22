@@ -94,6 +94,7 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   const { updateFurniture } = useSceneStore();
   const { planograms, planogramDetails, syncPlanogram, setPlanogramDetail, setPlanograms } = usePlanogramStore();
   const { viewMode } = useUIStore();
+  const { products: catalogProducts } = useCatalogStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Last value passed to save() that has not yet been persisted to the backend. */
   const pendingSave = useRef<FurnitureInstance | null>(null);
@@ -287,6 +288,32 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
     if (furniture.mounted !== false) return;
     setMounting(true);
     try {
+      // For floor_grid: fill the top face planogram randomly with catalog products.
+      if (furniture.type === 'floor_grid' && furniture.faces.top && projectId) {
+        const planogramId = furniture.faces.top;
+        const detail = planogramDetails.get(planogramId);
+        if (detail && catalogProducts.length > 0) {
+          const total = detail.rows * detail.cols;
+          // Build a shuffled list of EANs (repeat catalog cyclically then shuffle)
+          const eans = Array.from({ length: total }, (_, i) =>
+            catalogProducts[i % catalogProducts.length].ean,
+          );
+          for (let i = eans.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [eans[i], eans[j]] = [eans[j], eans[i]];
+          }
+          const cells = Array.from({ length: total }, (_, idx) => ({
+            id: crypto.randomUUID(),
+            ean: eans[idx],
+            row: Math.floor(idx / detail.cols),
+            col: idx % detail.cols,
+            rotation: 0 as const,
+          }));
+          const updated = { ...detail, cells };
+          syncPlanogram(updated);
+          await cadApi.updatePlanogram(projectId, planogramId, updated);
+        }
+      }
       const updated = { ...furniture, mounted: true };
       save(updated);
     } finally {
@@ -481,8 +508,8 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
                       </button>
                     )}
                   </div>
-                  {/* Rows / Cols quick-edit (visible when furniture is à plat or in floor mode) */}
-                  {planogramId && detail && (furniture.mounted === false || viewMode === 'floor') && (
+                  {/* Rows / Cols quick-edit (visible when furniture is à plat, in floor mode, or floor_grid type) */}
+                  {planogramId && detail && (furniture.mounted === false || viewMode === 'floor' || furniture.type === 'floor_grid') && (
                     <div className="flex items-center gap-2 px-2 pb-1">
                       <span className="text-xs text-gray-600 w-16 shrink-0">Lignes</span>
                       <input

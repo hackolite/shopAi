@@ -77,6 +77,7 @@ const FURNITURE_COLORS: Record<string, string> = {
   fridge_horizontal: '#a8c8e0',
   register:          '#c4905a',
   wall:              '#9b9b9b',
+  floor_grid:        '#7c3aed',
 };
 
 function getFurnitureColor(type: string): string {
@@ -668,6 +669,40 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
           metalness={isGondolaStyle ? 0.5 : 0.25}
         />
       </mesh>
+
+      {/* Floor grid: interior row/col lines on the top face */}
+      {furniture.type === 'floor_grid' && (() => {
+        const topPlanogramId = furniture.faces.top ?? null;
+        const topPlanogram   = topPlanogramId ? planogramDetails.get(topPlanogramId) : null;
+        const rows      = topPlanogram?.rows ?? 3;
+        const cols      = topPlanogram?.cols ?? 4;
+        const gridY     = H / 2 + 0.005;
+        const gridColor = isSelected ? '#ffffff' : '#c084fc';
+        const lines: JSX.Element[] = [];
+        for (let c = 1; c < cols; c++) {
+          const gx = c * (W / cols) - W / 2;
+          lines.push(
+            <Line
+              key={`fg-col${c}`}
+              points={[[gx, gridY, -D / 2], [gx, gridY, D / 2]] as [number, number, number][]}
+              color={gridColor}
+              lineWidth={1}
+            />,
+          );
+        }
+        for (let r = 1; r < rows; r++) {
+          const gz = r * (D / rows) - D / 2;
+          lines.push(
+            <Line
+              key={`fg-row${r}`}
+              points={[[-W / 2, gridY, gz], [W / 2, gridY, gz]] as [number, number, number][]}
+              color={gridColor}
+              lineWidth={1}
+            />,
+          );
+        }
+        return <group>{lines}</group>;
+      })()}
 
       {/* Customer proximity semi-circle — 2 m radius, shown when a product cell on this
           gondola is selected. Flat edge = gondola face; arc extends into the aisle. */}

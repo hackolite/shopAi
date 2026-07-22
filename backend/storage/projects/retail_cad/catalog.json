@@ -266,7 +266,7 @@
     },
     {
       "ean": "3700000000025",
-      "name": "Confiture fraise aux légumes 250g",
+      "name": "Confiture fraise 250g",
       "brand": "Nestlé",
       "category": "Épicerie",
       "widthCm": 9.0,
@@ -299,7 +299,7 @@
     },
     {
       "ean": "3700000000028",
-      "name": "Soupe légumes aux légumes 250g",
+      "name": "Soupe de légumes 250g",
       "brand": "Maille",
       "category": "Épicerie",
       "widthCm": 9.0,
@@ -1179,7 +1179,7 @@
     },
     {
       "ean": "3700000000108",
-      "name": "Brosse à dents fraîcheur 75ml",
+      "name": "Brosse à dents fraîcheur",
       "brand": "Colgate",
       "category": "Hygiène",
       "widthCm": 4.0,
@@ -1267,7 +1267,7 @@
     },
     {
       "ean": "3700000000116",
-      "name": "Brosse à dents peaux sensibles 75ml",
+      "name": "Brosse à dents peaux sensibles",
       "brand": "Colgate",
       "category": "Hygiène",
       "widthCm": 4.0,
@@ -1355,7 +1355,7 @@
     },
     {
       "ean": "3700000000124",
-      "name": "Brosse à dents nutrition 75ml",
+      "name": "Brosse à dents nutrition",
       "brand": "Colgate",
       "category": "Hygiène",
       "widthCm": 4.0,
@@ -1443,7 +1443,7 @@
     },
     {
       "ean": "3700000000132",
-      "name": "Brosse à dents coco 75ml",
+      "name": "Brosse à dents coco",
       "brand": "Colgate",
       "category": "Hygiène",
       "widthCm": 4.0,

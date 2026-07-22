@@ -2079,13 +2079,15 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
         const cosRy  = Math.cos(curRy);
         const sinRy  = Math.sin(curRy);
         if (dragAxis.current === 'width') {
+          // Mirror of the drag handler: shift origin in the negative local-width direction.
           const dW = snappedW - base.dimensions.width;
-          snappedPos[0] = base.position[0] + dW * cosRy;
-          snappedPos[2] = base.position[2] + dW * sinRy;
+          snappedPos[0] = base.position[0] - dW * cosRy;
+          snappedPos[2] = base.position[2] - dW * sinRy;
         } else {
+          // Mirror of the drag handler: shift origin in the negative local-depth direction.
           const dD = snappedD - base.dimensions.depth;
-          snappedPos[0] = base.position[0] - dD * sinRy;
-          snappedPos[2] = base.position[2] + dD * cosRy;
+          snappedPos[0] = base.position[0] + dD * sinRy;
+          snappedPos[2] = base.position[2] - dD * cosRy;
         }
       }
 

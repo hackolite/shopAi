@@ -15,9 +15,9 @@ import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
-/** Snap grid step in centimetres (1 m). */
-const SNAP_CM   = 100;
-/** Snap grid step in Three.js units (1 unit = 100 cm → 1 m = 1 unit). */
+/** Snap grid step in centimetres (0.5 m). */
+const SNAP_CM   = 50;
+/** Snap grid step in Three.js units (1 unit = 100 cm → 0.5 m = 0.5 unit). */
 const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 /** Minimum furniture dimension allowed after a resize (cm). */
 const MIN_DIM_CM = 20;
@@ -1174,12 +1174,34 @@ function scalePlanogramWidth(planogram: Planogram, newWidthCm: number): Planogra
 }
 
 /**
+ * Return a copy of `planogram` with all vertical measurements scaled to
+ * `newHeightCm`.  Scales rowHeightsCm and cellHeightOverrides proportionally
+ * so the layout is preserved.  Used when a furniture's depth changes and the
+ * top-face planogram must fill the new top surface.
+ */
+function scalePlanogramHeight(planogram: Planogram, newHeightCm: number): Planogram {
+  if (planogram.heightCm <= 0 || Math.abs(newHeightCm - planogram.heightCm) < SCALE_NOOP_THRESHOLD_CM) return planogram;
+  const scale = newHeightCm / planogram.heightCm;
+
+  const rowHeightsCm = planogram.rowHeightsCm?.map(h => roundCm(h * scale));
+  const cellHeightOverrides = planogram.cellHeightOverrides
+    ? Object.fromEntries(
+        Object.entries(planogram.cellHeightOverrides).map(([k, v]) => [k, roundCm(v * scale)]),
+      )
+    : undefined;
+
+  return { ...planogram, heightCm: newHeightCm, rowHeightsCm, cellHeightOverrides };
+}
+
+/**
  * After a furniture resize, update all linked planogram dimensions to stay in
  * sync with the new furniture footprint.  Only planograms whose physical width
- * has changed (>SYNC_MIN_CHANGE_CM) are updated.
+ * or height has changed (>SYNC_MIN_CHANGE_CM) are updated.
  *
  * Mapping: front/back/top planograms ↔ furniture width;
  *          left/right planograms      ↔ furniture depth.
+ * Additionally, the top face planogram height is synced to furniture depth
+ * so the planogram overlay fills the entire top surface.
  */
 function syncPlanogramFacesOnResize(
   furniture: FurnitureInstance,
@@ -1194,10 +1216,21 @@ function syncPlanogramFacesOnResize(
     if (!planogram) continue;
     const isDepthAxis = faceId === 'left' || faceId === 'right';
     const newWidthCm = isDepthAxis ? depth : width;
-    if (Math.abs(newWidthCm - planogram.widthCm) < SYNC_MIN_CHANGE_CM) continue;
-    const scaled = scalePlanogramWidth(planogram, newWidthCm);
-    syncPlanogram(scaled);
-    cadApi.updatePlanogram(projectId, planogramId, scaled).catch(console.error);
+
+    let updated = planogram;
+    if (Math.abs(newWidthCm - updated.widthCm) >= SYNC_MIN_CHANGE_CM) {
+      updated = scalePlanogramWidth(updated, newWidthCm);
+    }
+
+    // For the top face, also keep heightCm in sync with the furniture depth so
+    // the planogram overlay covers the full top surface when the furniture is mounted.
+    if (faceId === 'top' && Math.abs(depth - updated.heightCm) >= SYNC_MIN_CHANGE_CM) {
+      updated = scalePlanogramHeight(updated, depth);
+    }
+
+    if (updated === planogram) continue;
+    syncPlanogram(updated);
+    cadApi.updatePlanogram(projectId, planogramId, updated).catch(console.error);
   }
 }
 

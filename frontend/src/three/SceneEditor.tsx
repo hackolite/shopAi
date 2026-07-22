@@ -1770,21 +1770,34 @@ const BEV_MAX_POLAR_ANGLE = 0.01;
 /**
  * Renders an unmounted furniture item as a draggable/selectable floor rectangle,
  * similar to how FloorZoneMesh renders a zone.
+ *
+ * The rectangle is rendered in a group centred at the furniture's world centre and
+ * rotated by the furniture's Y-rotation so that the "front/back/left/right" face
+ * labels always reflect the physical orientation of the piece.
  */
 function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: FurnitureInstance; projectId: string | null }) {
   const { selectedFurnitureId, selectFurniture, updateFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
+  const registerGroup = useContext(MeshRegistryCtx);
   const [hovered, setHovered] = useState(false);
 
   const isSelected = selectedFurnitureId === furniture.id;
-  const W = furniture.dimensions.width  * CM_TO_UNIT;
-  const D = furniture.dimensions.depth  * CM_TO_UNIT;
+  const W  = furniture.dimensions.width  * CM_TO_UNIT;
+  const D  = furniture.dimensions.depth  * CM_TO_UNIT;
+  // World-space centre of the rectangle (group origin)
   const cx = furniture.position[0] * CM_TO_UNIT + W / 2;
   const cz = furniture.position[2] * CM_TO_UNIT + D / 2;
+  const ry = furniture.rotation[1] * (Math.PI / 180);
 
   const color = getUnmountedColor(furniture.type);
+
+  // Register this group in the MeshRegistry so TransformControls (rotate mode)
+  // can target it via the same mechanism used for mounted furniture.
+  const setGroupRef = useCallback((node: THREE.Group | null) => {
+    registerGroup(furniture.id, node);
+  }, [furniture.id, registerGroup]);
 
   const isDragging   = useRef(false);
   const dragStart    = useRef(new THREE.Vector3());
@@ -1838,6 +1851,8 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (activeTool === 'measure') return;
+    // Let TransformControls handle rotation — do not start a drag in rotate mode.
+    if (activeTool === 'rotate') return;
     e.stopPropagation();
     selectFurniture(furniture.id);
     selectZone(null);
@@ -1850,26 +1865,37 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (activeTool === 'measure') return;
     e.stopPropagation();
+    // In rotate mode, clicking still selects the piece (pointer down doesn't do it above).
+    if (activeTool === 'rotate') {
+      selectFurniture(furniture.id);
+      selectZone(null);
+    }
   };
 
-  const bx = furniture.position[0] * CM_TO_UNIT;
-  const bz = furniture.position[2] * CM_TO_UNIT;
-
+  // Border in local space (relative to the group centre).
   const borderPts: [number, number, number][] = [
-    [bx,      UNMOUNTED_LINE_Y, bz],
-    [bx + W,  UNMOUNTED_LINE_Y, bz],
-    [bx + W,  UNMOUNTED_LINE_Y, bz + D],
-    [bx,      UNMOUNTED_LINE_Y, bz + D],
-    [bx,      UNMOUNTED_LINE_Y, bz],
+    [-W / 2, UNMOUNTED_LINE_Y, -D / 2],
+    [ W / 2, UNMOUNTED_LINE_Y, -D / 2],
+    [ W / 2, UNMOUNTED_LINE_Y,  D / 2],
+    [-W / 2, UNMOUNTED_LINE_Y,  D / 2],
+    [-W / 2, UNMOUNTED_LINE_Y, -D / 2],
+  ];
+
+  // Highlighted border for the "front" edge so the user instantly sees orientation.
+  const frontEdgePts: [number, number, number][] = [
+    [-W / 2, UNMOUNTED_LINE_Y,  D / 2],
+    [ W / 2, UNMOUNTED_LINE_Y,  D / 2],
   ];
 
   if (!furniture.visible) return null;
 
   return (
-    <group>
+    // Group centred at the furniture's world centre, rotated by furniture Y-rotation.
+    // All children use local coordinates relative to this centre.
+    <group ref={setGroupRef} position={[cx, 0, cz]} rotation={[0, ry, 0]}>
       {/* Semi-transparent fill plane */}
       <mesh
-        position={[cx, UNMOUNTED_MESH_Y, cz]}
+        position={[0, UNMOUNTED_MESH_Y, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={handlePointerDown}
         onClick={handleClick}
@@ -1877,7 +1903,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
           if (activeTool === 'measure') return;
           e.stopPropagation();
           setHovered(true);
-          document.body.style.cursor = 'move';
+          document.body.style.cursor = activeTool === 'rotate' ? 'pointer' : 'move';
         }}
         onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
       >
@@ -1898,13 +1924,27 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
         lineWidth={isSelected ? 3 : 2}
       />
 
-      {/* Name label */}
+      {/* Front-edge highlight (thicker, accent colour) so orientation is unambiguous */}
+      <Line
+        points={frontEdgePts}
+        color="#facc15"
+        lineWidth={isSelected ? 4 : 3}
+      />
+
+      {/* Name label — centred */}
       <TextSprite3D
         text={furniture.name}
-        position={[cx, UNMOUNTED_LABEL_Y, cz]}
+        position={[0, UNMOUNTED_LABEL_Y, 0]}
         isSelected={isSelected}
         scale={1.2}
       />
+
+      {/* Face labels — placed at the midpoint of each edge so the assembler
+          knows which face is which regardless of furniture orientation. */}
+      <TextSprite3D text="front" position={[0,        UNMOUNTED_LABEL_Y,  D / 2]} scale={0.65} />
+      <TextSprite3D text="back"  position={[0,        UNMOUNTED_LABEL_Y, -D / 2]} scale={0.65} />
+      <TextSprite3D text="right" position={[ W / 2,   UNMOUNTED_LABEL_Y,  0]}     scale={0.65} />
+      <TextSprite3D text="left"  position={[-W / 2,   UNMOUNTED_LABEL_Y,  0]}     scale={0.65} />
     </group>
   );
 }
@@ -2493,6 +2533,10 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     (storeBoundarySelected || (activeTool === 'scale' && !selectedFurnitureId && !selectedZoneId));
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
+  // Rotate mode for unmounted furniture: use the same TransformProxy targeting the
+  // unmounted group that was registered in MeshRegistryCtx.
+  const showUnmountedRotate = activeTool === 'rotate' && selectedUnmounted != null && transformTarget != null;
+
   return (
     <ResizeDragCtx.Provider value={setIsResizeDragging}>
       <MeshRegistryCtx.Provider value={registerGroup}>
@@ -2520,8 +2564,9 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           <UnmountedFurnitureMesh key={f.id} furniture={f} projectId={projectId} />
         ))}
 
-        {/* Resize handles for the selected unmounted furniture */}
-        {selectedUnmounted && (
+        {/* Resize handles for the selected unmounted furniture — hidden in rotate mode
+            to avoid conflicting with TransformControls. */}
+        {selectedUnmounted && activeTool !== 'rotate' && (
           <UnmountedFurnitureResizeHandles furniture={selectedUnmounted} projectId={projectId} />
         )}
 
@@ -2530,6 +2575,16 @@ function SceneContent({ projectId }: { projectId: string | null }) {
             furniture={selectedFurniture}
             transformTarget={transformTarget}
             mode={tMode}
+            projectId={projectId}
+          />
+        )}
+
+        {/* Rotate gizmo for selected unmounted (2D) furniture */}
+        {showUnmountedRotate && (
+          <TransformProxy
+            furniture={selectedUnmounted}
+            transformTarget={transformTarget}
+            mode="rotate"
             projectId={projectId}
           />
         )}
@@ -2567,6 +2622,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 function SceneEditor({ projectId }: { projectId: string | null }) {
   const { scene } = useSceneStore();
   const { zones, zonesLoaded } = useZoneStore();
+  const { setRecording: setUIRecording } = useUIStore();
 
   // Keep a stable ref to the latest scene so the save timer closure is always fresh.
   const sceneRef = useRef(scene);
@@ -2603,13 +2659,15 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     mr.start();
     mediaRecorderRef.current = mr;
     setRecording(true);
-  }, []);
+    setUIRecording(true);
+  }, [setUIRecording]);
 
   const stopRecording = useCallback(() => {
     mediaRecorderRef.current?.stop();
     mediaRecorderRef.current = null;
     setRecording(false);
-  }, []);
+    setUIRecording(false);
+  }, [setUIRecording]);
 
   // Auto-save zones whenever they change after the initial load from the backend.
   useEffect(() => {

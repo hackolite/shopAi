@@ -1652,7 +1652,19 @@ function getUnmountedColor(type: string): { fill: string; border: string } {
   return UNMOUNTED_COLORS[type] ?? { fill: '#64748B', border: '#475569' };
 }
 
-const UNMOUNTED_HANDLE_Y = GRID_Y_OFFSET + 0.06;
+/** Y position of the semi-transparent fill plane for unmounted furniture. */
+const UNMOUNTED_MESH_Y    = GRID_Y_OFFSET + 0.016;
+/** Small Z offset between the fill plane and its border outline to prevent z-fighting. */
+const UNMOUNTED_LINE_Y    = UNMOUNTED_MESH_Y + 0.001;
+/** Vertical offset of the name label above the floor rectangle. */
+const UNMOUNTED_LABEL_Y   = UNMOUNTED_MESH_Y + 0.12;
+/** Y level of the unmounted furniture resize handles. */
+const UNMOUNTED_HANDLE_Y  = GRID_Y_OFFSET + 0.06;
+/** Height multiplier and base offset used to compute the BEV camera elevation. */
+const BEV_HEIGHT_SCALE    = 1.2;
+const BEV_HEIGHT_BASE     = 5;
+/** Maximum polar angle (radians) for OrbitControls in BEV mode — nearly 0 = straight down. */
+const BEV_MAX_POLAR_ANGLE = 0.01;
 
 /**
  * Renders an unmounted furniture item as a draggable/selectable floor rectangle,
@@ -1670,7 +1682,6 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   const D = furniture.dimensions.depth  * CM_TO_UNIT;
   const cx = furniture.position[0] * CM_TO_UNIT + W / 2;
   const cz = furniture.position[2] * CM_TO_UNIT + D / 2;
-  const y  = GRID_Y_OFFSET + 0.016;
 
   const color = getUnmountedColor(furniture.type);
 
@@ -1742,14 +1753,13 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
 
   const bx = furniture.position[0] * CM_TO_UNIT;
   const bz = furniture.position[2] * CM_TO_UNIT;
-  const lineY = y + 0.001;
 
   const borderPts: [number, number, number][] = [
-    [bx,      lineY, bz],
-    [bx + W,  lineY, bz],
-    [bx + W,  lineY, bz + D],
-    [bx,      lineY, bz + D],
-    [bx,      lineY, bz],
+    [bx,      UNMOUNTED_LINE_Y, bz],
+    [bx + W,  UNMOUNTED_LINE_Y, bz],
+    [bx + W,  UNMOUNTED_LINE_Y, bz + D],
+    [bx,      UNMOUNTED_LINE_Y, bz + D],
+    [bx,      UNMOUNTED_LINE_Y, bz],
   ];
 
   if (!furniture.visible) return null;
@@ -1758,7 +1768,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
     <group>
       {/* Semi-transparent fill plane */}
       <mesh
-        position={[cx, y, cz]}
+        position={[cx, UNMOUNTED_MESH_Y, cz]}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={handlePointerDown}
         onClick={handleClick}
@@ -1790,7 +1800,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       {/* Name label */}
       <TextSprite3D
         text={furniture.name}
-        position={[cx, y + 0.12, cz]}
+        position={[cx, UNMOUNTED_LABEL_Y, cz]}
         isSelected={isSelected}
         scale={1.2}
       />
@@ -2270,7 +2280,7 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
       const cx = ox + w / 2;
       const cz = oz + d / 2;
       // Place camera directly above the store centre at a height that shows the whole footprint.
-      const height = Math.max(w, d) * 1.2 + 5;
+      const height = Math.max(w, d) * BEV_HEIGHT_SCALE + BEV_HEIGHT_BASE;
       camera.position.set(cx, height, cz);
       camera.lookAt(cx, 0, cz);
       // @ts-expect-error drei controls
@@ -2433,7 +2443,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           target={initialOrbitTarget.current}
           enabled={!isResizeDragging}
           enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId && !bevMode}
-          maxPolarAngle={bevMode ? 0.01 : Math.PI}
+          maxPolarAngle={bevMode ? BEV_MAX_POLAR_ANGLE : Math.PI}
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
         <CameraStateSync savedPosition={_persistedCameraState?.position} />

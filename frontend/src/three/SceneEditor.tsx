@@ -1632,6 +1632,313 @@ function FloorZoneLayer() {
   );
 }
 
+// ─── Unmounted furniture floor rectangles ─────────────────────────────────────
+
+/** Color config for unmounted furniture floor rectangles. */
+const UNMOUNTED_COLORS: Record<string, { fill: string; border: string }> = {
+  gondola_single:    { fill: '#3B82F6', border: '#2563EB' },
+  gondola_double:    { fill: '#8B5CF6', border: '#6D28D9' },
+  fridge:            { fill: '#06B6D4', border: '#0891B2' },
+  fridge_horizontal: { fill: '#0EA5E9', border: '#0284C7' },
+  pallet:            { fill: '#F59E0B', border: '#D97706' },
+  display:           { fill: '#EC4899', border: '#DB2777' },
+  register:          { fill: '#10B981', border: '#059669' },
+  wall:              { fill: '#6B7280', border: '#4B5563' },
+  partition:         { fill: '#9CA3AF', border: '#6B7280' },
+  floor_grid:        { fill: '#A855F7', border: '#7C3AED' },
+};
+
+function getUnmountedColor(type: string): { fill: string; border: string } {
+  return UNMOUNTED_COLORS[type] ?? { fill: '#64748B', border: '#475569' };
+}
+
+const UNMOUNTED_HANDLE_Y = GRID_Y_OFFSET + 0.06;
+
+/**
+ * Renders an unmounted furniture item as a draggable/selectable floor rectangle,
+ * similar to how FloorZoneMesh renders a zone.
+ */
+function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: FurnitureInstance; projectId: string | null }) {
+  const { selectedFurnitureId, selectFurniture, updateFurniture } = useSceneStore();
+  const { selectZone } = useZoneStore();
+  const { activeTool } = useUIStore();
+  const { gl, raycaster, camera } = useThree();
+  const [hovered, setHovered] = useState(false);
+
+  const isSelected = selectedFurnitureId === furniture.id;
+  const W = furniture.dimensions.width  * CM_TO_UNIT;
+  const D = furniture.dimensions.depth  * CM_TO_UNIT;
+  const cx = furniture.position[0] * CM_TO_UNIT + W / 2;
+  const cz = furniture.position[2] * CM_TO_UNIT + D / 2;
+  const y  = GRID_Y_OFFSET + 0.016;
+
+  const color = getUnmountedColor(furniture.type);
+
+  const isDragging   = useRef(false);
+  const dragStart    = useRef(new THREE.Vector3());
+  const baseFurnRef  = useRef<FurnitureInstance>(furniture);
+  const curFurnRef   = useRef<FurnitureInstance>(furniture);
+  curFurnRef.current = furniture;
+
+  const _ndc  = useRef(new THREE.Vector2());
+  const _hit  = useRef(new THREE.Vector3());
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseFurnRef.current;
+        if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
+        const dx = _hit.current.x - dragStart.current.x;
+        const dz = _hit.current.z - dragStart.current.z;
+        updateFurniture({ ...base, position: [base.position[0] + dx / CM_TO_UNIT, base.position[1], base.position[2] + dz / CM_TO_UNIT] });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+      const cur = curFurnRef.current;
+      const snapped: FurnitureInstance = {
+        ...cur,
+        position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
+      };
+      updateFurniture(snapped);
+      if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId]);
+
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (activeTool === 'measure') return;
+    e.stopPropagation();
+    selectFurniture(furniture.id);
+    selectZone(null);
+    if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, e.clientX, e.clientY, _ndc.current, dragStart.current)) return;
+    baseFurnRef.current = curFurnRef.current;
+    isDragging.current  = true;
+    gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
+  };
+
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (activeTool === 'measure') return;
+    e.stopPropagation();
+  };
+
+  const bx = furniture.position[0] * CM_TO_UNIT;
+  const bz = furniture.position[2] * CM_TO_UNIT;
+  const lineY = y + 0.001;
+
+  const borderPts: [number, number, number][] = [
+    [bx,      lineY, bz],
+    [bx + W,  lineY, bz],
+    [bx + W,  lineY, bz + D],
+    [bx,      lineY, bz + D],
+    [bx,      lineY, bz],
+  ];
+
+  if (!furniture.visible) return null;
+
+  return (
+    <group>
+      {/* Semi-transparent fill plane */}
+      <mesh
+        position={[cx, y, cz]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onPointerDown={handlePointerDown}
+        onClick={handleClick}
+        onPointerOver={(e) => {
+          if (activeTool === 'measure') return;
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = 'move';
+        }}
+        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
+      >
+        <planeGeometry args={[W, D]} />
+        <meshBasicMaterial
+          color={color.fill}
+          transparent
+          opacity={isSelected ? 0.65 : hovered ? 0.5 : 0.35}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Border outline */}
+      <Line
+        points={borderPts}
+        color={isSelected ? '#ffffff' : color.border}
+        lineWidth={isSelected ? 3 : 2}
+      />
+
+      {/* Name label */}
+      <TextSprite3D
+        text={furniture.name}
+        position={[cx, y + 0.12, cz]}
+        isSelected={isSelected}
+        scale={1.2}
+      />
+    </group>
+  );
+}
+
+// ─── Unmounted furniture resize handles ───────────────────────────────────────
+function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: FurnitureInstance; projectId: string | null }) {
+  const { updateFurniture } = useSceneStore();
+  const { gl, raycaster, camera } = useThree();
+  const setResizeDragging = useContext(ResizeDragCtx);
+
+  const W  = furniture.dimensions.width  * CM_TO_UNIT;
+  const D  = furniture.dimensions.depth  * CM_TO_UNIT;
+  const px = furniture.position[0] * CM_TO_UNIT;
+  const pz = furniture.position[2] * CM_TO_UNIT;
+
+  const isDragging    = useRef(false);
+  const dragAxis      = useRef<'width' | 'depth'>('width');
+  const dragSign      = useRef<1 | -1>(1);
+  const dragStart     = useRef(new THREE.Vector3());
+  const pointerIdRef  = useRef(-1);
+  const baseFurnRef   = useRef<FurnitureInstance>(furniture);
+  const curFurnRef    = useRef<FurnitureInstance>(furniture);
+  curFurnRef.current  = furniture;
+
+  const _ndc   = useRef(new THREE.Vector2());
+  const _hit   = useRef(new THREE.Vector3());
+  const _delta = useRef(new THREE.Vector3());
+  const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
+
+  const startDrag = useCallback((
+    axis: 'width' | 'depth',
+    sign: 1 | -1,
+    clientX: number,
+    clientY: number,
+    pointerId: number,
+  ) => {
+    if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, dragStart.current)) return;
+    baseFurnRef.current  = curFurnRef.current;
+    isDragging.current   = true;
+    dragAxis.current     = axis;
+    dragSign.current     = sign;
+    pointerIdRef.current = pointerId;
+    setResizeDragging(true);
+  }, [gl, raycaster, camera, dragPlane, setResizeDragging]);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const onMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const base = baseFurnRef.current;
+        const bW   = base.dimensions.width  * CM_TO_UNIT;
+        const bD   = base.dimensions.depth  * CM_TO_UNIT;
+
+        if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
+        const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
+        const sign  = dragSign.current;
+
+        let newWidth = base.dimensions.width;
+        let newDepth = base.dimensions.depth;
+        let newX     = base.position[0];
+        let newZ     = base.position[2];
+
+        if (dragAxis.current === 'width') {
+          const move = delta.x * sign;
+          const nW   = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
+          const dW   = nW - bW;
+          newWidth   = nW / CM_TO_UNIT;
+          if (sign === -1) newX = base.position[0] - dW / CM_TO_UNIT;
+        } else {
+          const move = delta.z * sign;
+          const nD   = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
+          const dD   = nD - bD;
+          newDepth   = nD / CM_TO_UNIT;
+          if (sign === -1) newZ = base.position[2] - dD / CM_TO_UNIT;
+        }
+
+        updateFurniture({ ...base, position: [newX, base.position[1], newZ], dimensions: { ...base.dimensions, width: newWidth, depth: newDepth } });
+      });
+    };
+
+    const onUp = () => {
+      if (!isDragging.current) return;
+      cancelAnimationFrame(rafId);
+      isDragging.current = false;
+      setResizeDragging(false);
+
+      if (pointerIdRef.current >= 0) {
+        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        pointerIdRef.current = -1;
+      }
+
+      const cur      = curFurnRef.current;
+      const snapDim  = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
+      updateFurniture({
+        ...cur,
+        position:   [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
+        dimensions: { ...cur.dimensions, width: snapDim(cur.dimensions.width), depth: snapDim(cur.dimensions.depth) },
+      });
+      if (projectId) {
+        const final = curFurnRef.current;
+        cadApi.updateFurniture(projectId, final.id, final).catch(console.error);
+      }
+    };
+
+    gl.domElement.addEventListener('pointermove', onMove);
+    gl.domElement.addEventListener('pointerup',   onUp);
+    return () => {
+      cancelAnimationFrame(rafId);
+      gl.domElement.removeEventListener('pointermove', onMove);
+      gl.domElement.removeEventListener('pointerup',   onUp);
+    };
+  }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId, setResizeDragging]);
+
+  useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
+
+  const cx = px + W / 2;
+  const cz = pz + D / 2;
+
+  const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
+    { axis: 'width',  sign:  1, hx: cx + W / 2, hz: cz,         cursor: 'ew-resize' },
+    { axis: 'width',  sign: -1, hx: cx - W / 2, hz: cz,         cursor: 'ew-resize' },
+    { axis: 'depth',  sign:  1, hx: cx,          hz: cz + D / 2, cursor: 'ns-resize' },
+    { axis: 'depth',  sign: -1, hx: cx,          hz: cz - D / 2, cursor: 'ns-resize' },
+  ];
+
+  return (
+    <group>
+      {handles.map(({ axis, sign, hx, hz, cursor }) => (
+        <HandleMesh
+          key={`${axis}${sign}`}
+          position={[hx, UNMOUNTED_HANDLE_Y, hz]}
+          axis={axis}
+          sign={sign}
+          cursor={cursor}
+          onStartDrag={startDrag}
+        />
+      ))}
+    </group>
+  );
+}
+
 // ─── Measure tool types ────────────────────────────────────────────────────────
 interface MeasureLine {
   id: string;
@@ -1944,10 +2251,43 @@ function CameraStateSync({ savedPosition }: { savedPosition?: [number, number, n
   return null;
 }
 
+/**
+ * When BEV mode is activated, snaps the camera to a top-down position above the
+ * store centre. The OrbitControls maxPolarAngle restriction (set in SceneContent)
+ * then prevents the user from rotating away from the top-down view.
+ */
+function BEVCameraController({ store }: { store: import('../types/cad').StoreConfig }) {
+  const { camera, controls } = useThree();
+  const bevMode = useUIStore((s) => s.bevMode);
+  const prevBev = useRef(false);
+
+  useEffect(() => {
+    if (bevMode && !prevBev.current) {
+      const w = store.dimensions.width  * CM_TO_UNIT;
+      const d = store.dimensions.depth  * CM_TO_UNIT;
+      const ox = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+      const oz = (store.position?.[2] ?? 0) * CM_TO_UNIT;
+      const cx = ox + w / 2;
+      const cz = oz + d / 2;
+      // Place camera directly above the store centre at a height that shows the whole footprint.
+      const height = Math.max(w, d) * 1.2 + 5;
+      camera.position.set(cx, height, cz);
+      camera.lookAt(cx, 0, cz);
+      // @ts-expect-error drei controls
+      controls?.target?.set(cx, 0, cz);
+      // @ts-expect-error drei controls
+      controls?.update?.();
+    }
+    prevBev.current = bevMode;
+  }, [bevMode, store, camera, controls]);
+
+  return null;
+}
+
 
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
-  const { activeTool } = useUIStore();
+  const { activeTool, bevMode } = useUIStore();
   const { selectedZoneId, removeZone, selectZone } = useZoneStore();
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
@@ -2000,8 +2340,14 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 
   if (!scene) return null;
 
+  // Selected mounted furniture (has TransformProxy + FurnitureResizeHandles)
   const selectedFurniture = selectedFurnitureId
     ? (scene.furniture.find(f => f.id === selectedFurnitureId && f.mounted !== false) ?? null)
+    : null;
+
+  // Selected unmounted furniture (has UnmountedFurnitureResizeHandles)
+  const selectedUnmounted = selectedFurnitureId
+    ? (scene.furniture.find(f => f.id === selectedFurnitureId && f.mounted === false) ?? null)
     : null;
 
   // Clicking the store boundary deselects furniture/zones and selects the boundary.
@@ -2045,9 +2391,20 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         <FloorZoneLayer />
         <MeasureTool store={scene.store} />
 
+        {/* Mounted furniture rendered as full 3D objects */}
         {scene.furniture.filter((f) => f.mounted !== false).map((f) => (
           <FurnitureMesh key={f.id} furniture={f} />
         ))}
+
+        {/* Unmounted furniture rendered as draggable floor rectangles */}
+        {scene.furniture.filter((f) => f.mounted === false).map((f) => (
+          <UnmountedFurnitureMesh key={f.id} furniture={f} projectId={projectId} />
+        ))}
+
+        {/* Resize handles for the selected unmounted furniture */}
+        {selectedUnmounted && (
+          <UnmountedFurnitureResizeHandles furniture={selectedUnmounted} projectId={projectId} />
+        )}
 
         {showTransform && (
           <TransformProxy
@@ -2069,16 +2426,18 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         {/*
           Orbit controls: fully disabled while any resize drag is in progress so
           that the camera does not spin / pan at the same time.  Rotation is also
-          disabled whenever furniture or a zone is selected.
+          disabled whenever furniture or a zone is selected, or in BEV mode.
         */}
         <OrbitControls
           makeDefault
           target={initialOrbitTarget.current}
           enabled={!isResizeDragging}
-          enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId}
+          enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId && !bevMode}
+          maxPolarAngle={bevMode ? 0.01 : Math.PI}
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
         <CameraStateSync savedPosition={_persistedCameraState?.position} />
+        <BEVCameraController store={scene.store} />
         <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>
     </ResizeDragCtx.Provider>

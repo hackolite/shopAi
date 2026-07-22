@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
-import { useSceneStore } from '../../store/sceneStore';
-import { useZoneStore } from '../../store/zoneStore';
 import type { ActiveTool, ViewMode } from '../../store/uiStore';
 
 interface ToolbarProps {
@@ -25,24 +23,15 @@ const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = 
 ];
 
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
-  { id: 'floor',    label: '📐 Plan' },
   { id: '3d',        label: '3D'  },
   { id: 'planogram', label: 'PLN' },
   { id: 'split',     label: '⊞'  },
 ];
 
 export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onSave, onSaveAs, onExport, onImport }: ToolbarProps) {
-  const { activeTool, setActiveTool, viewMode, setViewMode } = useUIStore();
-  const scene = useSceneStore((s) => s.scene);
-  const { addZone, zones } = useZoneStore();
+  const { activeTool, setActiveTool, viewMode, setViewMode, bevMode, setBevMode } = useUIStore();
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [loadMenuOpen, setLoadMenuOpen] = useState(false);
-
-  const storeW = scene?.store.dimensions.width  ?? 2000;
-  const storeD = scene?.store.dimensions.depth  ?? 1500;
-
-  const hasEntrance = zones.some((z) => z.type === 'entrance');
-  const hasExit     = zones.some((z) => z.type === 'exit');
 
   const closeMenus = () => { setFileMenuOpen(false); setLoadMenuOpen(false); };
 
@@ -167,35 +156,22 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
       {/* ── Separator ── */}
       <div className="h-5 w-px bg-gray-800" />
 
-      {/* ── Zone buttons (Entrée / Sortie) ── */}
-      <div className="flex items-center gap-1">
+      {/* ── BEV toggle ── */}
+      {(viewMode === '3d' || viewMode === 'split') && (
         <button
-          title="Ajouter / sélectionner la zone Entrée"
-          onClick={() => addZone('entrance', storeW, storeD)}
+          title="Vue de dessus (Bird's Eye View)"
+          onClick={() => setBevMode(!bevMode)}
           className={[
             'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
-            hasEntrance
-              ? 'bg-green-700 text-white'
+            bevMode
+              ? 'bg-indigo-600 text-white'
               : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
           ].join(' ')}
         >
-          <span>🟢</span>
-          <span className="hidden sm:inline">Entrée</span>
+          <span>🔭</span>
+          <span className="hidden sm:inline">BEV</span>
         </button>
-        <button
-          title="Ajouter / sélectionner la zone Sortie sans achat"
-          onClick={() => addZone('exit', storeW, storeD)}
-          className={[
-            'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
-            hasExit
-              ? 'bg-orange-700 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
-          ].join(' ')}
-        >
-          <span>🟠</span>
-          <span className="hidden sm:inline">Sortie</span>
-        </button>
-      </div>
+      )}
 
       {/* ── Separator ── */}
       <div className="h-5 w-px bg-gray-800" />

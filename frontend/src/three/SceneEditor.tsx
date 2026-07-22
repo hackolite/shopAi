@@ -1956,19 +1956,20 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
 
+  const ry = furniture.rotation[1] * (Math.PI / 180);
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
   const D  = furniture.dimensions.depth  * CM_TO_UNIT;
   const px = furniture.position[0] * CM_TO_UNIT;
   const pz = furniture.position[2] * CM_TO_UNIT;
 
-  const isDragging    = useRef(false);
-  const dragAxis      = useRef<'width' | 'depth'>('width');
-  const dragSign      = useRef<1 | -1>(1);
-  const dragStart     = useRef(new THREE.Vector3());
-  const pointerIdRef  = useRef(-1);
-  const baseFurnRef   = useRef<FurnitureInstance>(furniture);
-  const curFurnRef    = useRef<FurnitureInstance>(furniture);
-  curFurnRef.current  = furniture;
+  const isDragging       = useRef(false);
+  const dragAxis         = useRef<'width' | 'depth'>('width');
+  const dragSign         = useRef<1 | -1>(1);
+  const dragStart        = useRef(new THREE.Vector3());
+  const pointerIdRef     = useRef(-1);
+  const baseFurnRef      = useRef<FurnitureInstance>(furniture);
+  const curFurnRef       = useRef<FurnitureInstance>(furniture);
+  curFurnRef.current     = furniture;
 
   // Keep planogram state fresh so the effect closure always reads the latest values.
   const planogramDetailsRef = useRef(planogramDetails);
@@ -1976,9 +1977,9 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   const syncPlanogramRef = useRef(syncPlanogram);
   syncPlanogramRef.current = syncPlanogram;
 
-  const _ndc   = useRef(new THREE.Vector2());
-  const _hit   = useRef(new THREE.Vector3());
-  const _delta = useRef(new THREE.Vector3());
+  const _ndc    = useRef(new THREE.Vector2());
+  const _hit    = useRef(new THREE.Vector3());
+  const _delta  = useRef(new THREE.Vector3());
   const dragPlane = useMemo(() => new THREE.Plane(UP_VEC3, 0), []);
 
   const startDrag = useCallback((
@@ -2005,34 +2006,52 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
       const { clientX, clientY } = e;
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const base = baseFurnRef.current;
-        const bW   = base.dimensions.width  * CM_TO_UNIT;
-        const bD   = base.dimensions.depth  * CM_TO_UNIT;
+        const base  = baseFurnRef.current;
+        const bW    = base.dimensions.width  * CM_TO_UNIT;
+        const bD    = base.dimensions.depth  * CM_TO_UNIT;
+        const bPosX = base.position[0];
+        const bPosZ = base.position[2];
 
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const delta = _delta.current.copy(_hit.current).sub(dragStart.current);
         const sign  = dragSign.current;
 
-        let newWidth = base.dimensions.width;
-        let newDepth = base.dimensions.depth;
-        let newX     = base.position[0];
-        let newZ     = base.position[2];
+        // Project the world-space delta onto the furniture's local axes so that
+        // resizing works correctly regardless of the furniture's Y-rotation.
+        const baseRy   = base.rotation[1] * (Math.PI / 180);
+        const cosRy    = Math.cos(baseRy);
+        const sinRy    = Math.sin(baseRy);
+        // Local width axis in world space: (cosRy, sinRy) in XZ
+        // Local depth axis in world space: (-sinRy, cosRy) in XZ
+        const deltaW   = delta.x * cosRy + delta.z * sinRy;
+        const deltaD   = -delta.x * sinRy + delta.z * cosRy;
+
+        const newDims = { ...base.dimensions };
+        const newPos: [number, number, number] = [bPosX, base.position[1], bPosZ];
 
         if (dragAxis.current === 'width') {
-          const move = delta.x * sign;
-          const nW   = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
-          const dW   = nW - bW;
-          newWidth   = nW / CM_TO_UNIT;
-          if (sign === -1) newX = base.position[0] - dW / CM_TO_UNIT;
+          const move = deltaW * sign;
+          const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
+          newDims.width = newW / CM_TO_UNIT;
+          if (sign === -1) {
+            // Keep the opposite (right) edge fixed: shift origin along local width axis.
+            const dW = newW - bW;
+            newPos[0] = bPosX - (dW / CM_TO_UNIT) * cosRy;
+            newPos[2] = bPosZ - (dW / CM_TO_UNIT) * sinRy;
+          }
         } else {
-          const move = delta.z * sign;
-          const nD   = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
-          const dD   = nD - bD;
-          newDepth   = nD / CM_TO_UNIT;
-          if (sign === -1) newZ = base.position[2] - dD / CM_TO_UNIT;
+          const move = deltaD * sign;
+          const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
+          newDims.depth = newD / CM_TO_UNIT;
+          if (sign === -1) {
+            // Keep the opposite (far) edge fixed: shift origin along local depth axis.
+            const dD = newD - bD;
+            newPos[0] = bPosX + (dD / CM_TO_UNIT) * sinRy;
+            newPos[2] = bPosZ - (dD / CM_TO_UNIT) * cosRy;
+          }
         }
 
-        updateFurniture({ ...base, position: [newX, base.position[1], newZ], dimensions: { ...base.dimensions, width: newWidth, depth: newDepth } });
+        updateFurniture({ ...base, dimensions: newDims, position: newPos });
       });
     };
 
@@ -2047,12 +2066,33 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
         pointerIdRef.current = -1;
       }
 
-      const cur      = curFurnRef.current;
-      const snapDim  = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
+      const cur  = curFurnRef.current;
+      const sign = dragSign.current;
+      const base = baseFurnRef.current;
+
+      const snappedW = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.width));
+      const snappedD = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.depth));
+      const snappedPos: [number, number, number] = [...cur.position];
+
+      if (sign === -1) {
+        const curRy  = cur.rotation[1] * (Math.PI / 180);
+        const cosRy  = Math.cos(curRy);
+        const sinRy  = Math.sin(curRy);
+        if (dragAxis.current === 'width') {
+          const dW = snappedW - base.dimensions.width;
+          snappedPos[0] = base.position[0] + dW * cosRy;
+          snappedPos[2] = base.position[2] + dW * sinRy;
+        } else {
+          const dD = snappedD - base.dimensions.depth;
+          snappedPos[0] = base.position[0] - dD * sinRy;
+          snappedPos[2] = base.position[2] + dD * cosRy;
+        }
+      }
+
       const snapped: FurnitureInstance = {
         ...cur,
-        position:   [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
-        dimensions: { ...cur.dimensions, width: snapDim(cur.dimensions.width), depth: snapDim(cur.dimensions.depth) },
+        position:   snappedPos,
+        dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
       };
       updateFurniture(snapped);
       if (projectId) {
@@ -2072,14 +2112,30 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
+  // Handle positions in world space — account for furniture rotation (Y axis),
+  // identical to FurnitureResizeHandles so the behaviour is the same for all gondola types.
+  const cosR = Math.cos(ry);
+  const sinR = Math.sin(ry);
   const cx = px + W / 2;
   const cz = pz + D / 2;
 
+  // Rotate a local-space offset around the furniture centre.
+  const rotLocal = (lx: number, lz: number): [number, number] => {
+    const rx2 = lx * cosR - lz * sinR;
+    const rz2 = lx * sinR + lz * cosR;
+    return [cx + rx2, cz + rz2];
+  };
+
+  const [rhPosX, rhPosZ] = rotLocal( W / 2, 0);      // right edge midpoint
+  const [lhPosX, lhPosZ] = rotLocal(-W / 2, 0);      // left edge midpoint
+  const [fhPosX, fhPosZ] = rotLocal(0,  D / 2);      // far edge midpoint
+  const [nhPosX, nhPosZ] = rotLocal(0, -D / 2);      // near edge midpoint
+
   const handles: { axis: 'width' | 'depth'; sign: 1 | -1; hx: number; hz: number; cursor: string }[] = [
-    { axis: 'width',  sign:  1, hx: cx + W / 2, hz: cz,         cursor: 'ew-resize' },
-    { axis: 'width',  sign: -1, hx: cx - W / 2, hz: cz,         cursor: 'ew-resize' },
-    { axis: 'depth',  sign:  1, hx: cx,          hz: cz + D / 2, cursor: 'ns-resize' },
-    { axis: 'depth',  sign: -1, hx: cx,          hz: cz - D / 2, cursor: 'ns-resize' },
+    { axis: 'width',  sign:  1, hx: rhPosX, hz: rhPosZ, cursor: 'ew-resize' },
+    { axis: 'width',  sign: -1, hx: lhPosX, hz: lhPosZ, cursor: 'ew-resize' },
+    { axis: 'depth',  sign:  1, hx: fhPosX, hz: fhPosZ, cursor: 'ns-resize' },
+    { axis: 'depth',  sign: -1, hx: nhPosX, hz: nhPosZ, cursor: 'ns-resize' },
   ];
 
   return (

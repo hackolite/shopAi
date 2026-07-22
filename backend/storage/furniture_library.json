@@ -47,7 +47,9 @@
       },
       "hasFaces": [
         "front",
-        "top"
+        "back",
+        "left",
+        "right"
       ],
       "defaultMaterial": "wood_dark",
       "description": "Palette de masse pour zones promotionnelles"

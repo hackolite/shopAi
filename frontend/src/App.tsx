@@ -499,7 +499,7 @@ export default function App() {
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/90 border border-red-700 text-red-300 text-xs font-semibold select-none">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
-                ⏺ Enregistrement en cours
+                On Air
               </span>
             </div>
           )}

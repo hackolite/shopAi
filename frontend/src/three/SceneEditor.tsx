@@ -2033,21 +2033,33 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
           const move = deltaW * sign;
           const newW = Math.max(MIN_DIM_CM * CM_TO_UNIT, bW + move);
           newDims.width = newW / CM_TO_UNIT;
-          if (sign === -1) {
-            // Keep the opposite (right) edge fixed: shift origin along local width axis.
-            const dW = newW - bW;
-            newPos[0] = bPosX - (dW / CM_TO_UNIT) * cosRy;
-            newPos[2] = bPosZ - (dW / CM_TO_UNIT) * sinRy;
+          // Keep the opposite edge fixed at any rotation angle.
+          // position encodes center as (pos + dim/2), so shifting the center by dW/2
+          // along the local width axis requires updating pos in axis-aligned space.
+          const dW = (newW - bW) / CM_TO_UNIT; // cm
+          if (sign === 1) {
+            // Keep local −X (left) edge fixed.
+            newPos[0] = bPosX - (dW / 2) * (1 - cosRy);
+            newPos[2] = bPosZ + (dW / 2) * sinRy;
+          } else {
+            // Keep local +X (right) edge fixed.
+            newPos[0] = bPosX - (dW / 2) * (1 + cosRy);
+            newPos[2] = bPosZ - (dW / 2) * sinRy;
           }
         } else {
           const move = deltaD * sign;
           const newD = Math.max(MIN_DIM_CM * CM_TO_UNIT, bD + move);
           newDims.depth = newD / CM_TO_UNIT;
-          if (sign === -1) {
-            // Keep the opposite (far) edge fixed: shift origin along local depth axis.
-            const dD = newD - bD;
-            newPos[0] = bPosX + (dD / CM_TO_UNIT) * sinRy;
-            newPos[2] = bPosZ - (dD / CM_TO_UNIT) * cosRy;
+          // Keep the opposite edge fixed at any rotation angle.
+          const dD = (newD - bD) / CM_TO_UNIT; // cm
+          if (sign === 1) {
+            // Keep local −Z (near) edge fixed.
+            newPos[0] = bPosX - (dD / 2) * sinRy;
+            newPos[2] = bPosZ - (dD / 2) * (1 - cosRy);
+          } else {
+            // Keep local +Z (far) edge fixed.
+            newPos[0] = bPosX + (dD / 2) * sinRy;
+            newPos[2] = bPosZ - (dD / 2) * (1 + cosRy);
           }
         }
 
@@ -2074,20 +2086,29 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
       const snappedD = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.depth));
       const snappedPos: [number, number, number] = [...cur.position];
 
-      if (sign === -1) {
-        const curRy  = cur.rotation[1] * (Math.PI / 180);
-        const cosRy  = Math.cos(curRy);
-        const sinRy  = Math.sin(curRy);
+      {
+        const curRy = cur.rotation[1] * (Math.PI / 180);
+        const cosRy = Math.cos(curRy);
+        const sinRy = Math.sin(curRy);
         if (dragAxis.current === 'width') {
-          // Mirror of the drag handler: shift origin in the negative local-width direction.
+          // Mirror of the drag handler: keep the opposite edge fixed at any rotation.
           const dW = snappedW - base.dimensions.width;
-          snappedPos[0] = base.position[0] - dW * cosRy;
-          snappedPos[2] = base.position[2] - dW * sinRy;
+          if (sign === 1) {
+            snappedPos[0] = base.position[0] - (dW / 2) * (1 - cosRy);
+            snappedPos[2] = base.position[2] + (dW / 2) * sinRy;
+          } else {
+            snappedPos[0] = base.position[0] - (dW / 2) * (1 + cosRy);
+            snappedPos[2] = base.position[2] - (dW / 2) * sinRy;
+          }
         } else {
-          // Mirror of the drag handler: shift origin in the negative local-depth direction.
           const dD = snappedD - base.dimensions.depth;
-          snappedPos[0] = base.position[0] + dD * sinRy;
-          snappedPos[2] = base.position[2] - dD * cosRy;
+          if (sign === 1) {
+            snappedPos[0] = base.position[0] - (dD / 2) * sinRy;
+            snappedPos[2] = base.position[2] - (dD / 2) * (1 - cosRy);
+          } else {
+            snappedPos[0] = base.position[0] + (dD / 2) * sinRy;
+            snappedPos[2] = base.position[2] - (dD / 2) * (1 + cosRy);
+          }
         }
       }
 

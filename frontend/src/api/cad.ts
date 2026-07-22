@@ -126,6 +126,12 @@ export const cadApi = {
       method: 'DELETE',
     }),
 
+  importCatalog: (id: string, products: CADProduct[], merge = false) =>
+    request<{ imported: number; total: number }>(`${BASE}/${id}/catalog/import`, {
+      method: 'POST',
+      body: JSON.stringify({ products, merge }),
+    }),
+
   uploadProductImage: (id: string, ean: string, file: File) => {
     const form = new FormData();
     form.append('file', file);

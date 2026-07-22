@@ -128,6 +128,7 @@ Toutes les dimensions sont en **centimètres** (`largeur × profondeur × hauteu
 | POST | `/{id}/catalog/products` | Add product |
 | PUT | `/{id}/catalog/products/{ean}` | Update product |
 | DELETE | `/{id}/catalog/products/{ean}` | Delete product |
+| POST | `/{id}/catalog/import` | **Import catalog from JSON** (see format below) |
 | GET | `/{id}/planograms` | List planograms (summaries) |
 | POST | `/{id}/planograms` | Create planogram |
 | GET | `/{id}/planograms/{pid}` | Full planogram with cells |
@@ -148,6 +149,68 @@ Toutes les dimensions sont en **centimètres** (`largeur × profondeur × hauteu
 Original voxel viewer endpoints remain fully functional for the `demo_store` project.
 
 Interactive docs: **http://localhost:8000/docs**
+
+---
+
+## Catalog JSON Import Format
+
+The **📂 Importer JSON** button in the Catalog panel (and the `POST /{id}/catalog/import` API
+endpoint) accepts a JSON file in one of two shapes:
+
+### Shape 1 — bare array
+
+```json
+[
+  {
+    "ean": "3760000000001",
+    "name": "Pâtes penne bio 500g",
+    "brand": "Barilla",
+    "category": "Épicerie",
+    "widthCm": 11.0,
+    "depthCm": 6.0,
+    "heightCm": 22.0,
+    "weightG": 500.0,
+    "imageUrl": null
+  }
+]
+```
+
+### Shape 2 — `{ products: [...] }` wrapper
+
+```json
+{
+  "products": [
+    {
+      "ean": "3760000000001",
+      "name": "Pâtes penne bio 500g",
+      "brand": "Barilla",
+      "category": "Épicerie",
+      "widthCm": 11.0,
+      "depthCm": 6.0,
+      "heightCm": 22.0,
+      "weightG": 500.0,
+      "imageUrl": null
+    }
+  ]
+}
+```
+
+### Field reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ean` | string | ✅ | EAN barcode (unique identifier) |
+| `name` | string | ✅ | Product name |
+| `brand` | string | ✅ | Brand / manufacturer |
+| `category` | string | ✅ | Category — should match one of: `Épicerie`, `Boissons`, `Frais`, `Hygiène`, `Bébé`, `Promotion` |
+| `widthCm` | number | ✅ | Product width in **cm** |
+| `depthCm` | number | ✅ | Product depth in **cm** |
+| `heightCm` | number | ✅ | Product height in **cm** |
+| `weightG` | number | ✅ | Product weight in **grams** |
+| `imageUrl` | string \| null | optional | URL or `data:` URI for the product thumbnail |
+
+> **Note:** importing replaces the entire catalog by default. To keep existing products and only
+> add/overwrite the imported ones, add `"merge": true` at the root of the JSON (API only).
 
 ---
 

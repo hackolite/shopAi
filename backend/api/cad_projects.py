@@ -309,6 +309,43 @@ async def upload_product_image(project_id: str, ean: str, file: UploadFile = Fil
     return {"ean": ean, "imageUrl": data_url}
 
 
+class CatalogImportPayload(BaseModel):
+    products: list[dict[str, Any]]
+    merge: bool = False
+
+
+@router.post("/{project_id}/catalog/import")
+def import_catalog(project_id: str, payload: CatalogImportPayload):
+    """Replace (or merge) the project catalog with an imported JSON product list.
+
+    When ``merge=True`` existing products are kept; imported products with a
+    matching EAN overwrite them and new EANs are appended.  When ``merge=False``
+    (the default) the catalog is completely replaced.
+    """
+    imported: list[Product] = []
+    for index, raw in enumerate(payload.products):
+        try:
+            imported.append(Product.model_validate(raw))
+        except Exception as exc:
+            ean = raw.get("ean", "<unknown>") if isinstance(raw, dict) else "<unknown>"
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid product at index {index} (EAN: {ean}): {exc}",
+            ) from exc
+
+    if payload.merge:
+        catalog = _load_catalog(project_id)
+        by_ean: dict[str, Product] = {p.ean: p for p in catalog.products}
+        for product in imported:
+            by_ean[product.ean] = product
+        catalog = Catalog(products=list(by_ean.values()))
+    else:
+        catalog = Catalog(products=imported)
+
+    _save_catalog(project_id, catalog)
+    return {"imported": len(imported), "total": len(catalog.products)}
+
+
 @router.get("/{project_id}/catalog/search")
 def search_catalog(project_id: str, q: str):
     query = q.strip().lower()

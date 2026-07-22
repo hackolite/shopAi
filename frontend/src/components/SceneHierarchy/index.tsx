@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
+import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram, PlanogramCell } from '../../types/cad';
 
@@ -149,10 +150,16 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
     useSceneStore();
   const { planograms, setPlanograms, setPlanogramDetail } = usePlanogramStore();
   const catalogProducts = useCatalogStore((s) => s.products);
+  const { addZone, zones } = useZoneStore();
 
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [library, setLibrary] = useState<FurnitureDefinition[]>([]);
   const [addLoading, setAddLoading] = useState(false);
+
+  const storeW = scene?.store.dimensions.width  ?? 2000;
+  const storeD = scene?.store.dimensions.depth  ?? 1500;
+  const hasEntrance = zones.some((z) => z.type === 'entrance');
+  const hasExit     = zones.some((z) => z.type === 'exit');
 
   // Pre-build planogram name map
   const planogramNames = new Map<string, string>(
@@ -347,6 +354,47 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
             ))}
           </div>
         )}
+      </div>
+
+      {/* Zone buttons (Entrée / Sortie / Fournitures) */}
+      <div className="border-t border-gray-800 p-2 shrink-0 space-y-1">
+        <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-1">Zones</p>
+        <button
+          title="Ajouter / sélectionner la zone Entrée"
+          onClick={() => addZone('entrance', storeW, storeD)}
+          className={[
+            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors',
+            hasEntrance
+              ? 'bg-green-800/60 text-green-300 border border-green-700'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700',
+          ].join(' ')}
+        >
+          <span>🟢</span>
+          <span>Entrée</span>
+          {hasEntrance && <span className="ml-auto text-green-500 text-xs">✓</span>}
+        </button>
+        <button
+          title="Ajouter / sélectionner la zone Sortie sans achat"
+          onClick={() => addZone('exit', storeW, storeD)}
+          className={[
+            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors',
+            hasExit
+              ? 'bg-orange-800/60 text-orange-300 border border-orange-700'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700',
+          ].join(' ')}
+        >
+          <span>🟠</span>
+          <span>Sortie</span>
+          {hasExit && <span className="ml-auto text-orange-400 text-xs">✓</span>}
+        </button>
+        <button
+          title="Ajouter une zone de fournitures"
+          onClick={() => addZone('supply', storeW, storeD)}
+          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700"
+        >
+          <span>🟣</span>
+          <span>Fournitures</span>
+        </button>
       </div>
     </div>
   );

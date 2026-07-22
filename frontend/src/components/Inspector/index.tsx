@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
-import { useUIStore } from '../../store/uiStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
@@ -93,7 +92,6 @@ interface FurnitureInspectorProps {
 function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: FurnitureInspectorProps) {
   const { updateFurniture } = useSceneStore();
   const { planograms, planogramDetails, syncPlanogram, setPlanogramDetail, setPlanograms } = usePlanogramStore();
-  const { viewMode } = useUIStore();
   const { products: catalogProducts } = useCatalogStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Last value passed to save() that has not yet been persisted to the backend. */
@@ -508,8 +506,8 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
                       </button>
                     )}
                   </div>
-                  {/* Rows / Cols quick-edit (visible when furniture is à plat, in floor mode, or floor_grid type) */}
-                  {planogramId && detail && (furniture.mounted === false || viewMode === 'floor' || furniture.type === 'floor_grid') && (
+                  {/* Rows / Cols quick-edit (visible when furniture is à plat or floor_grid type) */}
+                  {planogramId && detail && (furniture.mounted === false || furniture.type === 'floor_grid') && (
                     <div className="flex items-center gap-2 px-2 pb-1">
                       <span className="text-xs text-gray-600 w-16 shrink-0">Lignes</span>
                       <input
@@ -547,7 +545,7 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
         <section className="space-y-2">
           <div className="flex items-center gap-2 px-2 py-2 rounded bg-amber-900/25 border border-amber-700/40 text-xs text-amber-300">
             <span className="text-base leading-none">▭</span>
-            <span>Ce meuble est <strong>à plat</strong> — visible uniquement dans le plan 2D.</span>
+            <span>Ce meuble est <strong>à plat</strong> — visible dans la scène 3D comme un rectangle au sol.</span>
           </div>
           <button
             onClick={() => { void handleMount(); }}

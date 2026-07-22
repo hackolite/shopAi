@@ -74,7 +74,7 @@
       "category": "cold_storage",
       "defaultDimensions": {
         "width": 300,
-        "depth": 300,
+        "depth": 100,
         "height": 100
       },
       "hasFaces": [

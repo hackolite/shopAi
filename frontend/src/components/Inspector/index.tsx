@@ -6,7 +6,7 @@ import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram, FloorZone } from '../../types/cad';
-import { extendGondolaWidth, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
+import { extendGondolaWidth, extendGondolaHeight, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
 
 /** Minimum cm growth required before extending a linked planogram to fill new gondola space. */
 const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
@@ -247,6 +247,16 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
         const gondola = detail.gondola ?? legacyCellsToSeparators(detail);
         const extended = extendGondolaWidth(gondola, faceWidth);
         if (extended !== gondola) {
+          const extUpdated = gondolaToLegacyPlanogram(extended, { ...detail, gondola: extended });
+          cadApi.updatePlanogram(projectId, planogramId, extUpdated).catch(console.error);
+          syncPlanogram(extUpdated);
+        }
+      } else if (faceHeight > detail.heightCm + DIMENSION_CHANGE_TOLERANCE_CM) {
+        // Furniture grew deeper (or taller) — extend the gondola height to fill the new space with an empty row.
+        const gondola = detail.gondola ?? legacyCellsToSeparators(detail);
+        const extraHeight = faceHeight - gondola.height_cm;
+        if (extraHeight > DIMENSION_CHANGE_TOLERANCE_CM) {
+          const extended = extendGondolaHeight(gondola, extraHeight);
           const extUpdated = gondolaToLegacyPlanogram(extended, { ...detail, gondola: extended });
           cadApi.updatePlanogram(projectId, planogramId, extUpdated).catch(console.error);
           syncPlanogram(extUpdated);

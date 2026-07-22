@@ -18,6 +18,7 @@ from models.project import ProjectSettings
 _log = logging.getLogger(__name__)
 
 STORAGE_ROOT = Path(__file__).resolve().parent.parent / "storage" / "projects"
+_DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "storage" / "default_catalog.json"
 _ALLOWED_FILENAMES = frozenset({
     "project.json",
     "scene.json",
@@ -160,6 +161,17 @@ def get_project_metadata(project_id: str) -> dict[str, Any]:
     return metadata
 
 
+def _load_default_catalog() -> dict[str, Any]:
+    """Return the 200-product default catalog, or an empty catalog as fallback."""
+    if _DEFAULT_CATALOG_PATH.exists():
+        try:
+            with _DEFAULT_CATALOG_PATH.open(encoding="utf-8") as fh:
+                return json.load(fh)
+        except Exception:
+            _log.warning("Failed to load default catalog from %s", _DEFAULT_CATALOG_PATH)
+    return {"products": []}
+
+
 def create_project(id: str, name: str) -> dict[str, Any]:
     _validate_project_id(id)
     _ensure_storage_root()
@@ -187,7 +199,7 @@ def create_project(id: str, name: str) -> dict[str, Any]:
             },
             "furniture": [],
         },
-        "catalog.json": {"products": []},
+        "catalog.json": _load_default_catalog(),
         "planograms.json": {"planograms": []},
         "materials.json": {"materials": []},
         "settings.json": ProjectSettings().model_dump(mode="json"),

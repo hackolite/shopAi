@@ -6,6 +6,11 @@ import { CM_TO_UNIT } from '../constants';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
+function clampCm(value: number, min: number, max: number): number {
+  const rounded = Math.round(value);
+  return Math.max(min, Math.min(max, rounded));
+}
+
 function WaypointMarker({
   id,
   label,
@@ -13,8 +18,10 @@ function WaypointMarker({
   z,
   radiusCm,
   optional,
-  storeWidthCm,
-  storeDepthCm,
+  minXCm,
+  maxXCm,
+  minZCm,
+  maxZCm,
 }: {
   id: string;
   label: string;
@@ -22,8 +29,10 @@ function WaypointMarker({
   z: number;
   radiusCm: number;
   optional: boolean;
-  storeWidthCm: number | null;
-  storeDepthCm: number | null;
+  minXCm: number;
+  maxXCm: number;
+  minZCm: number;
+  maxZCm: number;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
@@ -39,12 +48,6 @@ function WaypointMarker({
     groupRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
   });
 
-  const clampCm = (value: number, max: number | null) => {
-    const rounded = Math.round(value);
-    if (max == null) return rounded;
-    return Math.max(0, Math.min(max, rounded));
-  };
-
   const endDrag = () => {
     dragStateRef.current = null;
   };
@@ -56,10 +59,6 @@ function WaypointMarker({
     <group
       ref={groupRef}
       position={[x * CM_TO_UNIT, 0.9, z * CM_TO_UNIT]}
-      onClick={(event) => {
-        event.stopPropagation();
-        selectWaypoint(id);
-      }}
       onPointerDown={(event) => {
         event.stopPropagation();
         selectWaypoint(id);
@@ -80,8 +79,8 @@ function WaypointMarker({
         event.stopPropagation();
         const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
         if (!hit) return;
-        const nextX = clampCm(hit.x / CM_TO_UNIT + dragState.offsetXCm, storeWidthCm);
-        const nextZ = clampCm(hit.z / CM_TO_UNIT + dragState.offsetZCm, storeDepthCm);
+        const nextX = clampCm(hit.x / CM_TO_UNIT + dragState.offsetXCm, minXCm, maxXCm);
+        const nextZ = clampCm(hit.z / CM_TO_UNIT + dragState.offsetZCm, minZCm, maxZCm);
         updateWaypoint(id, { x: nextX, z: nextZ });
       }}
       onPointerUp={(event) => {
@@ -164,8 +163,11 @@ export function SimulationLayer() {
   const result = useSimulationStore((state) => state.result);
   const [frameIndex, setFrameIndex] = useState(0);
   const startedAt = useRef<number | null>(null);
-  const storeWidthCm = scene?.store.dimensions.width ?? null;
-  const storeDepthCm = scene?.store.dimensions.depth ?? null;
+  const storePos = scene?.store.position ?? [0, 0, 0];
+  const minXCm = storePos[0];
+  const minZCm = storePos[2];
+  const maxXCm = minXCm + (scene?.store.dimensions.width ?? 0);
+  const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
 
   useEffect(() => {
     setFrameIndex(0);
@@ -197,8 +199,10 @@ export function SimulationLayer() {
         <WaypointMarker
           key={waypoint.id}
           {...waypoint}
-          storeWidthCm={storeWidthCm}
-          storeDepthCm={storeDepthCm}
+          minXCm={minXCm}
+          maxXCm={maxXCm}
+          minZCm={minZCm}
+          maxZCm={maxZCm}
         />
       ))}
       {currentFrame?.agents.map((agent) => (

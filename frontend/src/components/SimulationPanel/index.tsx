@@ -202,6 +202,16 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const pendingTick = useRef(false);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSimulationSignature = useRef<string | null>(null);
+  const latestSessionId = useRef<string | null>(null);
+  const latestProjectId = useRef<string | null>(null);
+
+  useEffect(() => {
+    latestSessionId.current = liveSessionId;
+  }, [liveSessionId]);
+
+  useEffect(() => {
+    latestProjectId.current = projectId;
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -218,6 +228,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (!projectId || !scene) return;
     setRunning(true);
     try {
+      if (liveSessionId) {
+        await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
+      }
       const signature = snapshotSimulationInput(scene, config);
       const live = await cadApi.startLiveSimulation(projectId, scene, config);
       setLiveSessionId(live.sessionId);
@@ -264,6 +277,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setPlaying,
     setResult,
     setRunning,
+    liveSessionId,
   ]);
 
   const stopSimulation = useCallback(async () => {
@@ -302,6 +316,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !playing || paused) return;
+    pendingTick.current = false;
     if (tickTimer.current) clearInterval(tickTimer.current);
     tickTimer.current = setInterval(() => {
       if (pendingTick.current) return;
@@ -356,6 +371,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => () => {
     if (tickTimer.current) clearInterval(tickTimer.current);
     if (updateTimer.current) clearTimeout(updateTimer.current);
+    if (latestProjectId.current && latestSessionId.current) {
+      void cadApi.stopLiveSimulation(latestProjectId.current, latestSessionId.current).catch(console.error);
+    }
   }, []);
 
   return (

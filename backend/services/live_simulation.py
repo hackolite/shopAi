@@ -24,6 +24,9 @@ if simsvc.jps is None:  # pragma: no cover - validated at runtime in endpoints
 else:
     jps = simsvc.jps
 
+MAX_LIVE_FRAMES = 600
+MAX_WAYPOINT_SAMPLES = 1200
+
 
 @dataclass
 class _LiveAgentRoute:
@@ -34,11 +37,13 @@ class _LiveAgentRoute:
 
 
 class LiveSimulationSession:
-    def __init__(self, scene: SceneData, config: SimulationConfig):
+    def __init__(self, project_id: str, scene: SceneData, config: SimulationConfig):
         if jps is None:
             raise RuntimeError("JuPedSim is not installed on the backend")
         self.id = str(uuid4())
+        self.project_id = project_id
         self.lock = threading.Lock()
+        self.last_accessed_at = time()
         self.scene = scene
         self.config = config
         self.rng = random.Random(int(config.randomSeed))
@@ -100,6 +105,7 @@ class LiveSimulationSession:
         self.exit_stage_ids = {}
         self.waypoint_by_stage_id = {}
         self.waypoint_runtimes = {}
+        self.next_arrival_at = None
         self.metrics_waypoints = [*self.entries, *self.transit_waypoints, *self.exits]
         self.stage_to_token = {}
         self.token_to_stage = {}
@@ -290,6 +296,8 @@ class LiveSimulationSession:
         self.frames.append(
             SimulationFrame(timeSeconds=round(self.time_seconds, 2), agents=frame_agents)
         )
+        if len(self.frames) > MAX_LIVE_FRAMES:
+            self.frames = self.frames[-MAX_LIVE_FRAMES:]
         waypoint_loads: list[int] = []
         for waypoint in self.metrics_waypoints:
             stage_id = self.waypoint_stage_ids.get(waypoint.id)
@@ -307,6 +315,8 @@ class LiveSimulationSession:
                     releasedAgents=released_agents,
                 )
             )
+            if len(self.waypoint_series[waypoint.id]) > MAX_WAYPOINT_SAMPLES:
+                self.waypoint_series[waypoint.id] = self.waypoint_series[waypoint.id][-MAX_WAYPOINT_SAMPLES:]
         if waypoint_loads:
             self.average_load_accumulator += sum(waypoint_loads) / len(waypoint_loads)
             self.average_load_samples += 1
@@ -314,6 +324,7 @@ class LiveSimulationSession:
 
     def tick(self, steps: int = 1) -> SimulationResult:
         with self.lock:
+            self.last_accessed_at = time()
             if self.paused:
                 return self.snapshot()
             n_steps = max(1, int(steps))
@@ -343,11 +354,13 @@ class LiveSimulationSession:
 
     def set_paused(self, paused: bool) -> SimulationResult:
         with self.lock:
+            self.last_accessed_at = time()
             self.paused = paused
             return self.snapshot()
 
     def update(self, scene: SceneData, config: SimulationConfig) -> SimulationResult:
         with self.lock:
+            self.last_accessed_at = time()
             carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]] = []
             for agent in self.sim.agents():
                 route = self.agent_routes.get(int(agent.id))
@@ -411,8 +424,8 @@ class LiveSimulationManager:
         self._sessions: dict[str, LiveSimulationSession] = {}
         self._lock = threading.Lock()
 
-    def start(self, scene: SceneData, config: SimulationConfig) -> tuple[str, SimulationResult]:
-        session = LiveSimulationSession(scene, config)
+    def start(self, project_id: str, scene: SceneData, config: SimulationConfig) -> tuple[str, SimulationResult]:
+        session = LiveSimulationSession(project_id, scene, config)
         with self._lock:
             self._sessions[session.id] = session
         return session.id, session.snapshot()
@@ -434,7 +447,7 @@ class LiveSimulationManager:
             stale = [
                 sid
                 for sid, session in self._sessions.items()
-                if (session.frames and session.frames[-1].timeSeconds < cutoff)
+                if session.last_accessed_at < cutoff
             ]
             for sid in stale:
                 self._sessions.pop(sid, None)

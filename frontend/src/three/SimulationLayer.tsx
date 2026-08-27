@@ -373,7 +373,7 @@ export function SimulationLayer() {
     cachedFrameAIdx.current = -1;
     cachedAgentMapA.current = new Map();
     setAgentSlots(new Map());
-  }, [result, playing]);
+  }, [playing]);
 
   useFrame((state) => {
     if (!result || result.frames.length <= 1 || !playing || paused) return;

@@ -88,7 +88,7 @@ def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:
     assert payload["frames"], "simulation should emit frames"
     assert payload["waypoints"], "simulation should emit waypoint metrics"
     assert payload["summary"]["spawnedCustomers"] > 0
-    assert payload["summary"]["averageRetentionSeconds"] >= 0
+    assert payload["summary"]["averageConfiguredRetentionSeconds"] >= 0
     assert payload["waypoints"][0]["samples"], "waypoint samples should be present"
 
     populated_frame = next(frame for frame in payload["frames"] if frame["agents"])

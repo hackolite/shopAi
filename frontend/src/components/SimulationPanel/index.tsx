@@ -90,6 +90,7 @@ function WaypointEditor({
               type: nextType,
               optional: nextType === 'transit' ? waypoint.optional : false,
               visitProbability: nextType === 'transit' ? waypoint.visitProbability : 1,
+              retentionSeconds: nextType === 'transit' ? waypoint.retentionSeconds : 0,
             });
           }}
           className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none"
@@ -108,13 +109,15 @@ function WaypointEditor({
         step={10}
         onChange={(value) => updateWaypoint(waypoint.id, { radiusCm: value })}
       />
-      <NumberField
-        label="Rétention (s)"
-        value={waypoint.retentionSeconds}
-        min={0}
-        step={0.5}
-        onChange={(value) => updateWaypoint(waypoint.id, { retentionSeconds: Math.max(0, value) })}
-      />
+      {isTransit && (
+        <NumberField
+          label="Rétention (s)"
+          value={waypoint.retentionSeconds}
+          min={0}
+          step={0.5}
+          onChange={(value) => updateWaypoint(waypoint.id, { retentionSeconds: Math.max(0, value) })}
+        />
+      )}
       <label className="flex items-center justify-between text-xs text-gray-300">
         <span className="text-gray-500">{isTransit ? 'Optionnel' : `${typeLabel} obligatoire`}</span>
         <input
@@ -306,7 +309,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             <div className="flex justify-between"><span>Encore actifs</span><span>{selectedSummary.activeCustomers}</span></div>
             <div className="flex justify-between"><span>Charge moyenne waypoint</span><span>{selectedSummary.averageWaypointLoad.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Pic waypoint</span><span>{selectedSummary.maxWaypointLoad}</span></div>
-            <div className="flex justify-between"><span>Rétention moyenne (s)</span><span>{selectedSummary.averageRetentionSeconds.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>Rétention configurée moy. (s)</span><span>{selectedSummary.averageConfiguredRetentionSeconds.toFixed(2)}</span></div>
           </section>
         )}
       </div>

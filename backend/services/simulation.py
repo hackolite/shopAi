@@ -247,7 +247,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 activeCustomers=0,
                 averageWaypointLoad=0.0,
                 maxWaypointLoad=0,
-                averageRetentionSeconds=0.0,
+                averageConfiguredRetentionSeconds=0.0,
             ),
         )
 
@@ -351,7 +351,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             for waypoint in metrics_waypoints:
                 if waypoint.type == "exit":
                     current_agents = 0
-                    released_agents = completed
+                    released_agents = 0
                 else:
                     stage_id = waypoint_stage_ids.get(waypoint.id)
                     if stage_id is None:
@@ -401,7 +401,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             waypointType=waypoint.type,
             retentionSeconds=float(waypoint.retentionSeconds),
             maxActiveAgents=max((sample.activeAgents for sample in waypoint_series[waypoint.id]), default=0),
-            releasedAgents=max((sample.releasedAgents for sample in waypoint_series[waypoint.id]), default=0),
+            releasedAgents=(
+                max((sample.releasedAgents for sample in waypoint_series[waypoint.id]), default=0)
+                if waypoint.type != "exit"
+                else 0
+            ),
             samples=waypoint_series[waypoint.id],
         )
         for waypoint in metrics_waypoints
@@ -417,6 +421,6 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             2,
         ),
         maxWaypointLoad=max_waypoint_load,
-        averageRetentionSeconds=round(sum(all_retentions) / len(all_retentions), 2) if all_retentions else 0.0,
+        averageConfiguredRetentionSeconds=round(sum(all_retentions) / len(all_retentions), 2) if all_retentions else 0.0,
     )
     return SimulationResult(frames=frames, waypoints=waypoint_metrics, summary=summary)

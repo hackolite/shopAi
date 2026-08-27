@@ -107,7 +107,7 @@ class SimulationSummary(CADBaseModel):
     activeCustomers: int
     averageWaypointLoad: float
     maxWaypointLoad: int
-    averageRetentionSeconds: float
+    averageConfiguredRetentionSeconds: float
 
 
 class SimulationResult(CADBaseModel):

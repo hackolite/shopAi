@@ -136,7 +136,7 @@ export interface SimulationSummary {
   activeCustomers: number;
   averageWaypointLoad: number;
   maxWaypointLoad: number;
-  averageRetentionSeconds: number;
+  averageConfiguredRetentionSeconds: number;
 }
 
 export interface SimulationResult {

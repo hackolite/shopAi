@@ -79,10 +79,12 @@ describe('advancePlaybackClock', () => {
     expect(next).toBeCloseTo(4.0 + 1.6 * 0.1, 6);
   });
 
-  it('keeps moving forward without freezing when the buffer runs low', () => {
-    // Render time is already past the ideal point but rate stays positive.
-    const next = advancePlaybackClock(4.95, 0.1, 5, options);
-    expect(next).toBeGreaterThan(4.95);
+  it('keeps moving forward at the minimum rate when the buffer is exhausted', () => {
+    // Render time is well past the ideal point, so the rate floors at minRate
+    // but never reaches zero: motion continues instead of freezing.
+    const previous = 5.05;
+    const next = advancePlaybackClock(previous, 0.1, 5, options);
+    expect(next).toBeGreaterThanOrEqual(previous + options.minRate * 0.1);
   });
 
   it('never advances past the extrapolation ceiling', () => {

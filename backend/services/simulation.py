@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass
@@ -34,6 +35,8 @@ BOUNDARY_CLEARANCE_EPSILON_CM = 0.1
 WAYPOINT_SUGGESTION_MIN_DISTANCE_CM = 1.0
 ENTRY_FALLBACK_MARGIN_CM = 120.0
 EXIT_FALLBACK_MARGIN_CM = 120.0
+AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
+SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 
 
 @dataclass
@@ -309,23 +312,63 @@ def _validate_waypoint_constraints(waypoints: list[SimulationWaypoint], walkable
             _raise_waypoint_constraint_violation(waypoint, walkable)
 
 
-def _spawn_from_entry(waypoint: SimulationWaypoint, walkable: Polygon, rng: random.Random) -> tuple[float, float]:
+def _min_entry_radius_cm(agent_count: int) -> float:
+    """Return the minimum entry waypoint radius (cm) to fit `agent_count` agents
+    without overlap, arranged in concentric rings around the center.
+
+    The formula packs agents in a disc: radius ≥ sqrt(N) × agent_spacing so that
+    the disc area is large enough for all agents placed at SPAWN_SPACING_CM apart.
+    """
+    if agent_count <= 1:
+        return AGENT_DIAMETER_CM
+    return math.ceil(math.sqrt(agent_count)) * SPAWN_SPACING_CM
+
+
+def _candidate_clears_occupied(
+    candidate: tuple[float, float],
+    occupied: list[tuple[float, float]],
+) -> bool:
+    min_dist_m = _cm_to_m(SPAWN_SPACING_CM)
+    return all(
+        math.hypot(candidate[0] - ox, candidate[1] - oz) >= min_dist_m
+        for ox, oz in occupied
+    )
+
+
+def _spawn_from_entry(
+    waypoint: SimulationWaypoint,
+    walkable: Polygon,
+    rng: random.Random,
+    occupied_positions: list[tuple[float, float]] | None = None,
+) -> tuple[float, float]:
     center_x, center_z = _safe_waypoint_point(
         waypoint,
         walkable,
         clearance_cm=AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM,
     )
-    radius_m = _cm_to_m(max(20.0, waypoint.radiusCm))
+    occupied = occupied_positions or []
+    # Use at least enough radius to avoid overlaps with already-occupied slots.
+    min_radius_cm = _min_entry_radius_cm(len(occupied) + 1)
+    radius_m = _cm_to_m(max(min_radius_cm, waypoint.radiusCm))
     spawnable = _walkable_with_clearance(walkable, AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM) or walkable
-    for _ in range(120):
+    for _ in range(240):
         angle = rng.uniform(0, math.tau)
-        radius = radius_m * math.sqrt(rng.random())
+        r = radius_m * math.sqrt(rng.random())
         candidate = (
-            center_x + math.cos(angle) * radius,
-            center_z + math.sin(angle) * radius,
+            center_x + math.cos(angle) * r,
+            center_z + math.sin(angle) * r,
         )
-        if _point_in_walkable(candidate, spawnable):
+        if _point_in_walkable(candidate, spawnable) and _candidate_clears_occupied(candidate, occupied):
             return candidate
+    # Fallback: ignore spacing constraint but stay in walkable area.
+    # Log a warning so operators know the spacing guarantee was relaxed.
+    logging.getLogger(__name__).warning(
+        "spawn_from_entry: could not find a non-overlapping position for waypoint '%s' "
+        "after 240 attempts (%d agents already placed this step). "
+        "Falling back to unconstrained position — 'agent too close to agent' may occur.",
+        waypoint.label,
+        len(occupied),
+    )
     return _random_point_in_polygon(spawnable, rng)
 
 
@@ -445,6 +488,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
+        step_spawn_positions: dict[str, list[tuple[float, float]]] = {}
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             selected_entry = entries[spawned % len(entries)]
@@ -458,7 +502,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = sim.add_journey(journey)
-            spawn_position = _spawn_from_entry(selected_entry, walkable, rng)
+            occupied = step_spawn_positions.setdefault(selected_entry.id, [])
+            spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
+            occupied.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
             sim.add_agent(
                 _build_agent_params(

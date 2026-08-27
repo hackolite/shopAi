@@ -251,3 +251,49 @@ def test_run_simulation_allows_transit_waypoint_with_large_radius_in_accessible_
     )
 
     assert response.status_code == 200, response.text
+
+
+def test_simultaneous_spawn_no_agent_overlap() -> None:
+    """Several agents spawned from the same entry must not overlap."""
+    import math
+    import services.simulation as sim_svc
+
+    walkable = sim_svc._build_walkable_geometry(
+        sim_svc.SceneData.model_validate(
+            {
+                "store": {
+                    "id": "s1",
+                    "name": "Test",
+                    "dimensions": {"width": 5000, "depth": 5000, "height": 300},
+                    "zones": [],
+                    "walls": [],
+                },
+                "furniture": [],
+                "walls": [],
+            }
+        )
+    )
+    entry = sim_svc.SimulationWaypoint(
+        id="e1",
+        label="Entrée",
+        type="entry",
+        x=2500.0,
+        z=200.0,
+        radiusCm=120.0,
+    )
+    rng = __import__("random").Random(0)
+    n_agents = 8
+    positions: list[tuple[float, float]] = []
+    for _ in range(n_agents):
+        pos = sim_svc._spawn_from_entry(entry, walkable, rng, positions)
+        positions.append(pos)
+
+    min_dist_m = sim_svc._cm_to_m(sim_svc.SPAWN_SPACING_CM)
+    for i, a in enumerate(positions):
+        for j, b in enumerate(positions):
+            if i >= j:
+                continue
+            dist = math.hypot(a[0] - b[0], a[1] - b[1])
+            assert dist >= min_dist_m - 1e-6, (
+                f"Agents {i} and {j} too close: {dist:.4f} m < {min_dist_m:.4f} m"
+            )

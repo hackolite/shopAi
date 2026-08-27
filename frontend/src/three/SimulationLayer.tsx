@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -224,46 +224,78 @@ function WaypointMarker({
   );
 }
 
-function AgentVision({
-  xCm,
-  zCm,
-  headingX,
-  headingZ,
-  visionAngleDeg,
-  visionRangeCm,
-}: {
-  xCm: number;
-  zCm: number;
-  headingX: number;
-  headingZ: number;
-  visionAngleDeg: number;
-  visionRangeCm: number;
-}) {
-  const heading = Math.atan2(headingX, headingZ);
-  const thetaLength = THREE.MathUtils.degToRad(visionAngleDeg);
-  const thetaStart = -thetaLength / 2;
+// Per-agent colour palette: [darkCenter, lightRing/cone]
+const AGENT_PALETTE: Array<[string, string]> = [
+  ['#b91c1c', '#fca5a5'],
+  ['#1d4ed8', '#93c5fd'],
+  ['#15803d', '#86efac'],
+  ['#b45309', '#fcd34d'],
+  ['#7e22ce', '#d8b4fe'],
+  ['#0e7490', '#67e8f9'],
+  ['#c2410c', '#fdba74'],
+  ['#be185d', '#f9a8d4'],
+  ['#4d7c0f', '#bef264'],
+  ['#0f766e', '#5eead4'],
+  ['#3730a3', '#a5b4fc'],
+  ['#a16207', '#fef08a'],
+];
 
-  return (
-    <group position={[xCm * CM_TO_UNIT, 0, zCm * CM_TO_UNIT]} rotation={[0, heading, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-        <circleGeometry args={[visionRangeCm * CM_TO_UNIT, 28, thetaStart, thetaLength]} />
-        <meshBasicMaterial color="#38bdf8" transparent opacity={0.16} depthWrite={false} />
-      </mesh>
-      <mesh position={[0, 0.24, 0]} castShadow>
-        <sphereGeometry args={[0.12, 16, 16]} />
-        <meshStandardMaterial color="#f8fafc" emissive="#38bdf8" emissiveIntensity={0.35} />
-      </mesh>
-      <Line
-        points={[
-          [0, 0.05, 0],
-          [headingX * visionRangeCm * CM_TO_UNIT, 0.05, headingZ * visionRangeCm * CM_TO_UNIT],
-        ]}
-        color="#7dd3fc"
-        lineWidth={1.5}
-      />
-    </group>
-  );
+// Radius of the anti-collision envelope (1 m diameter → 50 cm radius)
+const ANTICOLLISION_RADIUS_CM = 50;
+
+interface AgentMarkerHandle {
+  setPosition(x: number, z: number): void;
+  setConeHeading(y: number): void;
 }
+
+const AgentMarker = forwardRef<AgentMarkerHandle, { colorDark: string; colorLight: string }>(
+  function AgentMarker({ colorDark, colorLight }, ref) {
+    const groupRef = useRef<THREE.Group>(null);
+    const coneGroupRef = useRef<THREE.Group>(null);
+
+    useImperativeHandle(ref, () => ({
+      setPosition(x: number, z: number) {
+        if (groupRef.current) {
+          groupRef.current.position.x = x;
+          groupRef.current.position.z = z;
+        }
+      },
+      setConeHeading(y: number) {
+        if (coneGroupRef.current) {
+          coneGroupRef.current.rotation.y = y;
+        }
+      },
+    }));
+
+    const visionRangeCm = 220;
+    const thetaLength = THREE.MathUtils.degToRad(70);
+    const thetaStart = -thetaLength / 2;
+    const envelopeOuter = ANTICOLLISION_RADIUS_CM * CM_TO_UNIT;
+    const envelopeInner = envelopeOuter * 0.82;
+
+    return (
+      <group ref={groupRef}>
+        {/* Anti-collision envelope ring */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+          <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
+          <meshBasicMaterial color={colorLight} transparent opacity={0.55} depthWrite={false} />
+        </mesh>
+        {/* Centre body sphere */}
+        <mesh position={[0, 0.22, 0]}>
+          <sphereGeometry args={[0.11, 20, 20]} />
+          <meshStandardMaterial color={colorDark} emissive={colorDark} emissiveIntensity={0.4} />
+        </mesh>
+        {/* Direction cone sector — rotates with heading */}
+        <group ref={coneGroupRef}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
+            <circleGeometry args={[visionRangeCm * CM_TO_UNIT, 28, thetaStart, thetaLength]} />
+            <meshBasicMaterial color={colorLight} transparent opacity={0.18} depthWrite={false} />
+          </mesh>
+        </group>
+      </group>
+    );
+  },
+);
 
 function SuggestedWaypointMarker({
   xCm,
@@ -307,43 +339,96 @@ export function SimulationLayer() {
   const invalidWaypointIds = useSimulationStore((state) => state.invalidWaypointIds);
   const invalidWaypointSuggestion = useSimulationStore((state) => state.invalidWaypointSuggestion);
   const result = useSimulationStore((state) => state.result);
-  const [frameIndex, setFrameIndex] = useState(0);
-  const startedAt = useRef<number | null>(null);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
   const minXCm = storePos[0];
   const minZCm = storePos[2];
   const maxXCm = minXCm + (scene?.store.dimensions.width ?? 0);
   const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
+
+  // --- Smooth agent playback (no React state per frame) ---
+  const startedAt = useRef<number | null>(null);
+  const prevAgentIds = useRef<Set<number>>(new Set());
+  const colorAssignments = useRef<Map<number, number>>(new Map());
+  const nextColorCounter = useRef(0);
+  const agentRefs = useRef<Map<number, AgentMarkerHandle>>(new Map());
+  const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
+    () => new Map(),
+  );
+
   useEffect(() => {
-    setFrameIndex(0);
     startedAt.current = null;
+    prevAgentIds.current = new Set();
+    colorAssignments.current = new Map();
+    nextColorCounter.current = 0;
+    setAgentSlots(new Map());
   }, [result]);
 
   useFrame((state) => {
     if (!result || result.frames.length <= 1) return;
+
     if (startedAt.current == null) startedAt.current = state.clock.elapsedTime;
     const elapsed = state.clock.elapsedTime - startedAt.current;
-    const lastFrame = result.frames[result.frames.length - 1];
-    const totalDuration = lastFrame?.timeSeconds ?? 0;
-    const loopedElapsed = totalDuration > 0 ? elapsed % totalDuration : elapsed;
-    let nextIndex = result.frames.findIndex((frame) => frame.timeSeconds >= loopedElapsed);
-    if (nextIndex < 0) nextIndex = result.frames.length - 1;
-    setFrameIndex((current) => (current === nextIndex ? current : nextIndex));
-  });
+    const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
+    const t = totalDuration > 0 ? elapsed % totalDuration : elapsed;
 
-  const currentFrame = useMemo(() => {
-    if (!result || result.frames.length === 0) return null;
-    return result.frames[Math.min(frameIndex, result.frames.length - 1)];
-  }, [frameIndex, result]);
+    // Binary-search for the frame just after t
+    let lo = 0;
+    let hi = result.frames.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (result.frames[mid].timeSeconds <= t) lo = mid + 1;
+      else hi = mid;
+    }
+    const bIdx = lo;
+    const aIdx = Math.max(0, bIdx - 1);
+    const frameA = result.frames[aIdx];
+    const frameB = result.frames[bIdx];
+
+    // Linear interpolation factor [0, 1]
+    const dt = frameB.timeSeconds - frameA.timeSeconds;
+    const alpha = dt > 0 ? Math.min(1, (t - frameA.timeSeconds) / dt) : 0;
+
+    // Build fast lookup for frame A
+    const agentMapA = new Map(frameA.agents.map((a) => [a.id, a]));
+
+    // Detect agent set change
+    const currentIds = new Set(frameB.agents.map((a) => a.id));
+    const idsChanged =
+      currentIds.size !== prevAgentIds.current.size ||
+      frameB.agents.some((a) => !prevAgentIds.current.has(a.id));
+
+    if (idsChanged) {
+      prevAgentIds.current = currentIds;
+      const newSlots = new Map<number, { colorDark: string; colorLight: string }>();
+      for (const id of currentIds) {
+        if (!colorAssignments.current.has(id)) {
+          colorAssignments.current.set(id, nextColorCounter.current % AGENT_PALETTE.length);
+          nextColorCounter.current++;
+        }
+        const [dark, light] = AGENT_PALETTE[colorAssignments.current.get(id)!];
+        newSlots.set(id, { colorDark: dark, colorLight: light });
+      }
+      setAgentSlots(newSlots);
+    }
+
+    // Imperatively update Three.js objects — no React re-render
+    for (const agentB of frameB.agents) {
+      const agentA = agentMapA.get(agentB.id) ?? agentB;
+      const x = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
+      const z = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
+      const heading = Math.atan2(agentB.headingX, agentB.headingZ);
+      agentRefs.current.get(agentB.id)?.setPosition(x, z);
+      agentRefs.current.get(agentB.id)?.setConeHeading(heading);
+    }
+  });
+  // --- end smooth playback ---
+
   const suggestedWaypoint = useMemo(() => {
     if (!invalidWaypointSuggestion) return null;
     const waypoint = config.waypoints.find((item) => item.id === invalidWaypointSuggestion.waypointId);
     if (!waypoint || !invalidWaypointIds.includes(waypoint.id)) return null;
-    return {
-      xCm: invalidWaypointSuggestion.xCm,
-      zCm: invalidWaypointSuggestion.zCm,
-    };
+    return { xCm: invalidWaypointSuggestion.xCm, zCm: invalidWaypointSuggestion.zCm };
   }, [config.waypoints, invalidWaypointIds, invalidWaypointSuggestion]);
 
   if (!config.enabled) return null;
@@ -362,14 +447,19 @@ export function SimulationLayer() {
           maxZCm={maxZCm}
         />
       ))}
-      {currentFrame?.agents.map((agent) => (
-        <AgentVision key={agent.id} {...agent} />
+      {[...agentSlots.entries()].map(([id, { colorDark, colorLight }]) => (
+        <AgentMarker
+          key={id}
+          ref={(handle) => {
+            if (handle) agentRefs.current.set(id, handle);
+            else agentRefs.current.delete(id);
+          }}
+          colorDark={colorDark}
+          colorLight={colorLight}
+        />
       ))}
       {suggestedWaypoint && (
-        <SuggestedWaypointMarker
-          xCm={suggestedWaypoint.xCm}
-          zCm={suggestedWaypoint.zCm}
-        />
+        <SuggestedWaypointMarker xCm={suggestedWaypoint.xCm} zCm={suggestedWaypoint.zCm} />
       )}
     </>
   );

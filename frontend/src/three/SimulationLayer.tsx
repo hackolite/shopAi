@@ -248,6 +248,10 @@ const AGENT_VISION_RANGE_CM = 220;
 const RENDER_BUFFER_SECONDS = 0.22;
 const MAX_EXTRAPOLATION_SECONDS = 0.2;
 const INSTANCED_AGENT_THRESHOLD = 40;
+const POSE_SMOOTHING_HZ = 12;
+const MOVEMENT_HEADING_MIN_CM = 0.35;
+const MAX_HEADING_TURN_RATE_RAD_S = Math.PI * 2.5;
+const MIN_EXTRAPOLATION_DT_SECONDS = 1 / 30;
 
 interface AgentPose {
   x: number;
@@ -258,6 +262,12 @@ interface AgentPose {
 interface AgentMarkerHandle {
   setPosition(x: number, z: number): void;
   setConeHeading(y: number): void;
+}
+
+function steerAngle(current: number, target: number, maxDelta: number): number {
+  const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  const clampedDelta = Math.max(-maxDelta, Math.min(maxDelta, wrappedDelta));
+  return current + clampedDelta;
 }
 
 const AgentMarker = forwardRef<AgentMarkerHandle, { colorDark: string; colorLight: string }>(
@@ -395,6 +405,7 @@ function InstancedAgents({
       lastPoseById.current.set(id, pose);
       matrixUpdated = true;
     }
+
     if (matrixUpdated) {
       envelopeRef.current.instanceMatrix.needsUpdate = true;
       bodyRef.current.instanceMatrix.needsUpdate = true;
@@ -572,7 +583,17 @@ export function SimulationLayer() {
 
     // Linear interpolation factor [0, 1]
     const dt = frameB.timeSeconds - frameA.timeSeconds;
-    const alpha = dt > 0 ? Math.min(1, (t - frameA.timeSeconds) / dt) : 0;
+    let alpha = 0;
+    if (dt > 0) {
+      const rawAlpha = (t - frameA.timeSeconds) / dt;
+      if (rawAlpha <= 1) {
+        alpha = Math.max(0, rawAlpha);
+      } else {
+        const extrapolatedTime = Math.max(0, t - frameB.timeSeconds);
+        const extrapolationSeconds = Math.min(MAX_EXTRAPOLATION_SECONDS, extrapolatedTime);
+        alpha = 1 + (extrapolationSeconds / Math.max(dt, MIN_EXTRAPOLATION_DT_SECONDS));
+      }
+    }
 
     // Detect agent set change: new arrivals OR departures
     const currentIds = new Set(frameB.agents.map((a) => a.id));
@@ -606,16 +627,43 @@ export function SimulationLayer() {
     }
 
     // Imperatively update Three.js objects — no React re-render
+    const smoothingAlpha = 1 - Math.exp(-POSE_SMOOTHING_HZ * Math.max(0, delta));
+    const minMovementUnits = MOVEMENT_HEADING_MIN_CM * CM_TO_UNIT;
+    const minMovementUnitsSq = minMovementUnits * minMovementUnits;
+    const maxTurnDelta = MAX_HEADING_TURN_RATE_RAD_S * Math.max(0, delta);
     for (const agentB of frameB.agents) {
       const agentA = cachedAgentMapA.current.get(agentB.id) ?? agentB;
+      const previousPose = agentPoses.current.get(agentB.id);
 
-      const x = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
-      const z = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
+      const targetX = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
+      const targetZ = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
+      const x = previousPose ? previousPose.x + (targetX - previousPose.x) * smoothingAlpha : targetX;
+      const z = previousPose ? previousPose.z + (targetZ - previousPose.z) * smoothingAlpha : targetZ;
 
-      // Interpolate heading vector then derive angle
-      const hx = agentA.headingX + (agentB.headingX - agentA.headingX) * alpha;
-      const hz = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
-      const heading = Math.atan2(-hz, hx);
+      const renderedMotionDx = previousPose ? x - previousPose.x : 0;
+      const renderedMotionDz = previousPose ? z - previousPose.z : 0;
+      const movementMagnitudeSq = renderedMotionDx * renderedMotionDx + renderedMotionDz * renderedMotionDz;
+
+      let targetHeading: number;
+      if (movementMagnitudeSq >= minMovementUnitsSq) {
+        targetHeading = Math.atan2(-renderedMotionDz, renderedMotionDx);
+      } else {
+        const frameMotionDx = (agentB.xCm - agentA.xCm) * CM_TO_UNIT;
+        const frameMotionDz = (agentB.zCm - agentA.zCm) * CM_TO_UNIT;
+        const frameMovementMagnitudeSq = frameMotionDx * frameMotionDx + frameMotionDz * frameMotionDz;
+        if (frameMovementMagnitudeSq >= minMovementUnitsSq) {
+          targetHeading = Math.atan2(-frameMotionDz, frameMotionDx);
+        } else {
+          targetHeading = Math.atan2(
+            -(agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha),
+            agentA.headingX + (agentB.headingX - agentA.headingX) * alpha,
+          );
+        }
+      }
+
+      const heading = previousPose
+        ? steerAngle(previousPose.heading, targetHeading, maxTurnDelta)
+        : targetHeading;
 
       agentPoses.current.set(agentB.id, { x, z, heading });
       if (!useInstancedAgentsRef.current) {

@@ -47,8 +47,22 @@ export default function App() {
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
-  const { setZones } = useZoneStore();
-  const { setConfig: setSimulationConfig, setResult: setSimulationResult } = useSimulationStore();
+  const { setZones, selectedZoneId } = useZoneStore();
+  const {
+    setConfig: setSimulationConfig,
+    setResult: setSimulationResult,
+    selectedWaypointId,
+    historyLength: simulationHistoryLength,
+    selectWaypoint: selectSimulationWaypoint,
+    undo: undoSimulation,
+  } = useSimulationStore((state) => ({
+    setConfig: state.setConfig,
+    setResult: state.setResult,
+    selectedWaypointId: state.selectedWaypointId,
+    historyLength: state.history.length,
+    selectWaypoint: state.selectWaypoint,
+    undo: state.undo,
+  }));
 
   // ── Load project list ─────────────────────────────────────────────────────
   const refreshProjectList = useCallback(async () => {
@@ -310,7 +324,14 @@ export default function App() {
       // Ctrl/Cmd+Z → undo
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
         e.preventDefault();
-        undo();
+        if (
+          simulationHistoryLength > 0 &&
+          (selectedWaypointId || (rightTab === 'simulation' && !selectedFurnitureId && !selectedZoneId))
+        ) {
+          undoSimulation();
+        } else {
+          undo();
+        }
         return;
       }
 
@@ -323,6 +344,7 @@ export default function App() {
 
       if (e.key === 'Escape') {
         selectFurniture(null);
+        selectSimulationWaypoint(null);
         return;
       }
 
@@ -354,7 +376,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, saveProject]);
+  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, selectedFurnitureId, selectedZoneId, simulationHistoryLength, rightTab, saveProject]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

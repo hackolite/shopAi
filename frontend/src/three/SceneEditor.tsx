@@ -8,6 +8,7 @@ import { useUIStore } from '../store/uiStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useCatalogStore } from '../store/catalogStore';
 import { useZoneStore } from '../store/zoneStore';
+import { useSimulationStore } from '../store/simulationStore';
 import type { FloorZone, Planogram } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
@@ -2562,6 +2563,10 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
   const { selectedZoneId, removeZone, selectZone } = useZoneStore();
+  const { selectedWaypointId, selectWaypoint } = useSimulationStore((state) => ({
+    selectedWaypointId: state.selectedWaypointId,
+    selectWaypoint: state.selectWaypoint,
+  }));
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
   const [transformTarget, setTransformTarget] = useState<THREE.Group | null>(null);
@@ -2595,8 +2600,11 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 
   // Deselect the boundary whenever furniture or a zone is explicitly selected.
   useEffect(() => {
-    if (selectedFurnitureId || selectedZoneId) setStoreBoundarySelected(false);
-  }, [selectedFurnitureId, selectedZoneId]);
+    if (selectedFurnitureId || selectedZoneId) {
+      setStoreBoundarySelected(false);
+      if (selectedWaypointId) selectWaypoint(null);
+    }
+  }, [selectedFurnitureId, selectedZoneId, selectedWaypointId, selectWaypoint]);
 
   // Delete selected zone with the Delete/Backspace key
   useEffect(() => {
@@ -2627,6 +2635,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const handleSelectBoundary = () => {
     selectFurniture(null);
     selectZone(null);
+    selectWaypoint(null);
     setStoreBoundarySelected(true);
   };
 
@@ -2720,8 +2729,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         <OrbitControls
           makeDefault
           target={initialOrbitTarget.current}
-          enabled={!isResizeDragging}
-          enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId && !bevMode}
+          enabled={!isResizeDragging && !selectedWaypointId}
+          enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId && !selectedWaypointId && !bevMode}
           maxPolarAngle={bevMode ? BEV_MAX_POLAR_ANGLE : Math.PI}
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}

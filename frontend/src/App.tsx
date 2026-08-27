@@ -49,7 +49,6 @@ export default function App() {
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones, selectedZoneId } = useZoneStore();
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
-  const setSimulationResult = useSimulationStore((state) => state.setResult);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const simulationHistoryLength = useSimulationStore((state) => state.history.length);
   const selectSimulationWaypoint = useSimulationStore((state) => state.selectWaypoint);
@@ -104,9 +103,6 @@ export default function App() {
     void loadProjectData(projectId);
   }, [projectId, loadProjectData]);
 
-  useEffect(() => {
-    setSimulationResult(null);
-  }, [scene, projectId, setSimulationResult]);
 
   // ── Switch to a project ───────────────────────────────────────────────────
   const switchProject = useCallback((id: string) => {

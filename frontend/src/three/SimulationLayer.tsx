@@ -36,6 +36,7 @@ function WaypointMarker({
   x,
   z,
   radiusCm,
+  type,
   optional,
   canDrag,
   minXCm,
@@ -49,6 +50,7 @@ function WaypointMarker({
   x: number;
   z: number;
   radiusCm: number;
+  type: 'entry' | 'transit' | 'exit';
   optional: boolean;
   canDrag: boolean;
   minXCm: number;
@@ -164,7 +166,7 @@ function WaypointMarker({
       <mesh ref={coneRef} rotation={[Math.PI, 0, 0]} renderOrder={1000}>
         <coneGeometry args={[0.32, 0.85, 20]} />
         <meshStandardMaterial
-          color={selected ? '#60a5fa' : optional ? '#f59e0b' : '#22c55e'}
+          color={selected ? '#60a5fa' : type === 'entry' ? '#22c55e' : type === 'exit' ? '#fb923c' : optional ? '#f59e0b' : '#38bdf8'}
           emissive="#1f2937"
           depthTest={false}
           depthWrite={false}
@@ -173,7 +175,7 @@ function WaypointMarker({
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, markerBaseY - 0.95, 0]} renderOrder={999}>
         <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
         <meshBasicMaterial
-          color={selected ? '#93c5fd' : optional ? '#fbbf24' : '#4ade80'}
+          color={selected ? '#93c5fd' : type === 'entry' ? '#4ade80' : type === 'exit' ? '#fdba74' : optional ? '#fbbf24' : '#67e8f9'}
           transparent
           opacity={0.85}
           depthTest={false}
@@ -182,7 +184,7 @@ function WaypointMarker({
       </mesh>
       <Html center position={[0, markerBaseY + 0.45, 0]} distanceFactor={10}>
         <div className="rounded bg-gray-950/85 px-2 py-1 text-[10px] font-medium text-white shadow-lg whitespace-nowrap">
-          {label}{optional ? ' · optionnel' : ''}
+          {label}{type === 'entry' ? ' · entrée' : type === 'exit' ? ' · sortie' : optional ? ' · optionnel' : ''}
         </div>
       </Html>
     </group>

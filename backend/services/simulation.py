@@ -12,7 +12,6 @@ except ImportError:  # pragma: no cover - handled at runtime
 from shapely.geometry import MultiPolygon, Point, Polygon
 
 from models.project import (
-    FloorZone,
     FurnitureInstance,
     SceneData,
     SimulationAgentFrame,
@@ -20,27 +19,28 @@ from models.project import (
     SimulationFrame,
     SimulationResult,
     SimulationSummary,
-    QueueSample,
-    CheckoutMetrics,
+    SimulationWaypoint,
+    WaypointSample,
+    WaypointMetrics,
 )
 
 CM_TO_M = 0.01
 M_TO_CM = 100.0
-DEFAULT_ZONE_WIDTH_CM = 240.0
-DEFAULT_ZONE_DEPTH_CM = 140.0
 DEFAULT_SNAPSHOT_INTERVAL_S = 0.5
 SIMULATION_DT_S = 0.1
-SPAWN_RADIUS_CM = 25.0
 OBSTACLE_CLEARANCE_CM = 5.0
+ENTRY_FALLBACK_MARGIN_CM = 120.0
+EXIT_FALLBACK_MARGIN_CM = 120.0
 
 
 @dataclass
-class _CheckoutRuntime:
-    register: FurnitureInstance
+class _WaypointRuntime:
+    waypoint: SimulationWaypoint
     stage_id: int
     stage: object
-    service_ready_at: float = 0.0
-    served_customers: int = 0
+    release_interval_s: float
+    release_ready_at: float = 0.0
+    released_agents: int = 0
 
 
 def _cm_to_m(value: float) -> float:
@@ -51,59 +51,68 @@ def _m_to_cm(value: float) -> float:
     return float(value) * M_TO_CM
 
 
-def _zone_polygon(zone: FloorZone) -> Polygon:
-    return Polygon(
-        [
-            (_cm_to_m(zone.x), _cm_to_m(zone.z)),
-            (_cm_to_m(zone.x + zone.width), _cm_to_m(zone.z)),
-            (_cm_to_m(zone.x + zone.width), _cm_to_m(zone.z + zone.depth)),
-            (_cm_to_m(zone.x), _cm_to_m(zone.z + zone.depth)),
-        ]
+def _default_entry_waypoint(scene: SceneData) -> SimulationWaypoint:
+    store = scene.store
+    store_width = float(store.dimensions["width"])
+    return SimulationWaypoint(
+        id="default-entry",
+        label="Entrée",
+        type="entry",
+        x=max(ENTRY_FALLBACK_MARGIN_CM, store_width / 2),
+        z=ENTRY_FALLBACK_MARGIN_CM,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
     )
 
 
-def _default_zone(scene: SceneData, zone_type: str) -> FloorZone:
+def _default_exit_waypoint(scene: SceneData) -> SimulationWaypoint:
     store = scene.store
     store_width = float(store.dimensions["width"])
     store_depth = float(store.dimensions["depth"])
-    x = max(0.0, store_width / 2 - DEFAULT_ZONE_WIDTH_CM / 2)
-    z = 0.0 if zone_type == "entrance" else max(0.0, store_depth - DEFAULT_ZONE_DEPTH_CM)
-    return FloorZone(
-        id=f"default-{zone_type}",
-        type=zone_type,
-        label="Entrée" if zone_type == "entrance" else "Sortie",
-        x=x,
-        z=z,
-        width=min(DEFAULT_ZONE_WIDTH_CM, store_width),
-        depth=min(DEFAULT_ZONE_DEPTH_CM, store_depth),
+    return SimulationWaypoint(
+        id="default-exit",
+        label="Sortie",
+        type="exit",
+        x=max(EXIT_FALLBACK_MARGIN_CM, store_width / 2),
+        z=max(EXIT_FALLBACK_MARGIN_CM, store_depth - EXIT_FALLBACK_MARGIN_CM),
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
     )
 
 
-def _find_zone(scene: SceneData, zone_type: str) -> FloorZone:
-    zone = next((zone for zone in scene.store.zones if zone.type.value == zone_type), None)
-    return zone or _default_zone(scene, zone_type)
+def _partition_waypoints(
+    scene: SceneData,
+    config: SimulationConfig,
+) -> tuple[list[SimulationWaypoint], list[SimulationWaypoint], list[SimulationWaypoint]]:
+    entries = [waypoint for waypoint in config.waypoints if waypoint.type == "entry"]
+    exits = [waypoint for waypoint in config.waypoints if waypoint.type == "exit"]
+    transit = [waypoint for waypoint in config.waypoints if waypoint.type == "transit"]
+    if not entries:
+        entries = [_default_entry_waypoint(scene)]
+    if not exits:
+        exits = [_default_exit_waypoint(scene)]
+    return entries, transit, exits
 
 
-def _rotated_forward(rotation_deg: float) -> tuple[float, float]:
-    radians = math.radians(rotation_deg)
-    return (math.sin(radians), math.cos(radians))
+def _waypoint_point(waypoint: SimulationWaypoint) -> tuple[float, float]:
+    return (_cm_to_m(waypoint.x), _cm_to_m(waypoint.z))
 
 
-def _register_service_position(register: FurnitureInstance) -> tuple[float, float]:
-    fx, fz = _rotated_forward(float(register.rotation[1]))
-    cx = float(register.position[0])
-    cz = float(register.position[2])
-    reach = float(register.dimensions["depth"]) / 2 + 40.0
-    return (cx + fx * reach, cz + fz * reach)
-
-
-def _register_queue_positions(register: FurnitureInstance, queue_slots: int, spacing_cm: float) -> list[tuple[float, float]]:
-    service_x, service_z = _register_service_position(register)
-    fx, fz = _rotated_forward(float(register.rotation[1]))
-    return [
-        (_cm_to_m(service_x + fx * spacing_cm * index), _cm_to_m(service_z + fz * spacing_cm * index))
-        for index in range(max(1, queue_slots))
-    ]
+def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
+    half = _cm_to_m(max(40.0, waypoint.radiusCm)) / 2
+    x, z = _safe_waypoint_point(waypoint, walkable)
+    return Polygon(
+        [
+            (x - half, z - half),
+            (x + half, z - half),
+            (x + half, z + half),
+            (x - half, z + half),
+        ]
+    )
 
 
 def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> Polygon | None:
@@ -161,6 +170,37 @@ def _build_walkable_geometry(scene: SceneData) -> Polygon:
     return walkable
 
 
+def _point_in_walkable(point: tuple[float, float], walkable: Polygon) -> bool:
+    return walkable.contains(Point(point)) or walkable.touches(Point(point))
+
+
+def _safe_waypoint_point(waypoint: SimulationWaypoint, walkable: Polygon) -> tuple[float, float]:
+    point = _waypoint_point(waypoint)
+    if _point_in_walkable(point, walkable):
+        return point
+    projected = walkable.boundary.interpolate(walkable.boundary.project(Point(point)))
+    projected_point = (projected.x, projected.y)
+    if _point_in_walkable(projected_point, walkable):
+        return projected_point
+    fallback = walkable.representative_point()
+    return (fallback.x, fallback.y)
+
+
+def _spawn_from_entry(waypoint: SimulationWaypoint, walkable: Polygon, rng: random.Random) -> tuple[float, float]:
+    center_x, center_z = _safe_waypoint_point(waypoint, walkable)
+    radius_m = _cm_to_m(max(20.0, waypoint.radiusCm))
+    for _ in range(120):
+        angle = rng.uniform(0, math.tau)
+        radius = radius_m * math.sqrt(rng.random())
+        candidate = (
+            center_x + math.cos(angle) * radius,
+            center_z + math.sin(angle) * radius,
+        )
+        if _point_in_walkable(candidate, walkable):
+            return candidate
+    return _random_point_in_polygon(walkable, rng)
+
+
 def _random_point_in_polygon(polygon: Polygon, rng: random.Random) -> tuple[float, float]:
     min_x, min_y, max_x, max_y = polygon.bounds
     for _ in range(500):
@@ -200,75 +240,53 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     if not config.enabled:
         return SimulationResult(
             frames=[],
-            checkouts=[],
+            waypoints=[],
             summary=SimulationSummary(
                 spawnedCustomers=0,
                 completedCustomers=0,
                 activeCustomers=0,
-                averageQueueLength=0.0,
-                maxQueueLength=0,
+                averageWaypointLoad=0.0,
+                maxWaypointLoad=0,
+                averageRetentionSeconds=0.0,
             ),
         )
 
     rng = random.Random(int(config.randomSeed))
     walkable = _build_walkable_geometry(scene)
+    entries, transit_waypoints, exits = _partition_waypoints(scene, config)
     sim = jps.Simulation(
         model=jps.CollisionFreeSpeedModel(),
         geometry=walkable,
         dt=SIMULATION_DT_S,
     )
 
-    entrance_zone = _find_zone(scene, "entrance")
-    exit_zone = _find_zone(scene, "exit")
-    entrance_polygon = _zone_polygon(entrance_zone).intersection(walkable)
-    exit_polygon = _zone_polygon(exit_zone)
-    if entrance_polygon.is_empty:
-        entrance_polygon = walkable
-
-    exit_stage = sim.add_exit_stage(exit_polygon)
+    exit_stage_ids: dict[str, int] = {}
     waypoint_stage_ids: dict[str, int] = {}
-    waypoint_by_stage_id: dict[int, object] = {}
-    ordered_waypoints = list(config.waypoints)
-    for waypoint in ordered_waypoints:
-        stage_id = sim.add_waypoint_stage(
-            (_cm_to_m(waypoint.x), _cm_to_m(waypoint.z)),
-            _cm_to_m(waypoint.radiusCm),
-        )
-        waypoint_stage_ids[waypoint.id] = stage_id
-        waypoint_by_stage_id[stage_id] = waypoint
-
-    registers = [
-        furniture
-        for furniture in scene.furniture
-        if furniture.type == "register" and furniture.visible and furniture.mounted is not False
-    ]
-    if not registers:
-        registers = [
-            FurnitureInstance(
-                id="synthetic-register",
-                name="Sortie",
-                type="register",
-                libraryId="register",
-                position=[float(exit_zone.x + exit_zone.width / 2), 0.0, float(max(0.0, exit_zone.z - 60.0))],
-                rotation=[0.0, 180.0, 0.0],
-                dimensions={"width": 80.0, "depth": 60.0, "height": 90.0},
-                visible=True,
-                locked=True,
-                mounted=True,
-                parentId=None,
-                childIds=[],
-                faces={face: None for face in ("front", "back", "left", "right", "top", "bottom")},
+    waypoint_by_stage_id: dict[int, SimulationWaypoint] = {}
+    waypoint_runtimes: dict[str, _WaypointRuntime] = {}
+    metrics_waypoints = [*entries, *transit_waypoints, *exits]
+    for waypoint in metrics_waypoints:
+        if waypoint.type == "exit":
+            stage_id = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
+            exit_stage_ids[waypoint.id] = stage_id
+        elif waypoint.retentionSeconds > 0:
+            stage_id = sim.add_queue_stage([_safe_waypoint_point(waypoint, walkable)])
+            runtime = _WaypointRuntime(
+                waypoint=waypoint,
+                stage_id=stage_id,
+                stage=sim.get_stage(stage_id),
+                release_interval_s=float(waypoint.retentionSeconds),
             )
-        ]
-
-    checkout_runtimes: list[_CheckoutRuntime] = []
-    for register in registers:
-        stage_id = sim.add_queue_stage(
-            _register_queue_positions(register, int(config.queueSlots), float(config.queueSpacingCm))
-        )
-        checkout_runtimes.append(
-            _CheckoutRuntime(register=register, stage_id=stage_id, stage=sim.get_stage(stage_id))
-        )
+            waypoint_runtimes[waypoint.id] = runtime
+            waypoint_stage_ids[waypoint.id] = stage_id
+            waypoint_by_stage_id[stage_id] = waypoint
+        else:
+            stage_id = sim.add_waypoint_stage(
+                _safe_waypoint_point(waypoint, walkable),
+                _cm_to_m(max(40.0, waypoint.radiusCm)),
+            )
+            waypoint_stage_ids[waypoint.id] = stage_id
+            waypoint_by_stage_id[stage_id] = waypoint
 
     arrival_times: list[float] = []
     arrival_rate = max(0.0, float(config.arrivalRatePerSecond))
@@ -285,34 +303,29 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     completed = 0
     steps_per_snapshot = max(1, round(DEFAULT_SNAPSHOT_INTERVAL_S / SIMULATION_DT_S))
     frames: list[SimulationFrame] = []
-    queue_series: dict[str, list[QueueSample]] = {runtime.register.id: [] for runtime in checkout_runtimes}
-    average_queue_accumulator = 0.0
-    average_queue_samples = 0
-    max_queue_length = 0
+    waypoint_series: dict[str, list[WaypointSample]] = {waypoint.id: [] for waypoint in metrics_waypoints}
+    average_load_accumulator = 0.0
+    average_load_samples = 0
+    max_waypoint_load = 0
 
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
-            register_runtime = checkout_runtimes[spawned % len(checkout_runtimes)]
-            selected_stage_ids: list[int] = []
-            for waypoint in ordered_waypoints:
+            selected_entry = entries[spawned % len(entries)]
+            selected_stage_ids: list[int] = [waypoint_stage_ids[selected_entry.id]]
+            for waypoint in transit_waypoints:
                 if not waypoint.optional or rng.random() <= float(waypoint.visitProbability):
                     selected_stage_ids.append(waypoint_stage_ids[waypoint.id])
-            selected_stage_ids.extend([register_runtime.stage_id, exit_stage])
+            selected_exit = exits[spawned % len(exits)]
+            selected_stage_ids.append(exit_stage_ids[selected_exit.id])
             journey = jps.JourneyDescription(selected_stage_ids)
             for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = sim.add_journey(journey)
-            spawn_position = _random_point_in_polygon(entrance_polygon, rng)
-            spawn_position = (
-                spawn_position[0] + rng.uniform(-_cm_to_m(SPAWN_RADIUS_CM), _cm_to_m(SPAWN_RADIUS_CM)),
-                spawn_position[1] + rng.uniform(-_cm_to_m(SPAWN_RADIUS_CM), _cm_to_m(SPAWN_RADIUS_CM)),
-            )
-            if not walkable.contains(Point(spawn_position)):
-                spawn_position = _random_point_in_polygon(entrance_polygon, rng)
+            spawn_position = _spawn_from_entry(selected_entry, walkable, rng)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
-            agent_id = sim.add_agent(
+            sim.add_agent(
                 _build_agent_params(
                     journey_id=journey_id,
                     stage_id=selected_stage_ids[0],
@@ -323,37 +336,43 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             spawned += 1
             arrival_index += 1
 
-        for runtime in checkout_runtimes:
+        for runtime in waypoint_runtimes.values():
             queue_length = int(runtime.stage.count_targeting())
-            if queue_length > 0 and current_time >= runtime.service_ready_at:
+            if queue_length > 0 and current_time >= runtime.release_ready_at:
                 runtime.stage.pop(1)
-                runtime.served_customers += 1
-                service_time = max(
-                    1.0,
-                    rng.gauss(float(config.serviceTimeSeconds), float(config.serviceTimeJitterSeconds)),
-                )
-                runtime.service_ready_at = current_time + service_time
+                runtime.released_agents += 1
+                runtime.release_ready_at = current_time + runtime.release_interval_s
 
         sim.iterate()
         completed += len(sim.removed_agents())
 
         if step_index % steps_per_snapshot == 0:
-            queue_lengths: list[int] = []
-            for runtime in checkout_runtimes:
-                queue_length = int(runtime.stage.count_targeting())
-                queue_lengths.append(queue_length)
-                queue_series[runtime.register.id].append(
-                    QueueSample(
+            waypoint_loads: list[int] = []
+            for waypoint in metrics_waypoints:
+                if waypoint.type == "exit":
+                    current_agents = 0
+                    released_agents = completed
+                else:
+                    stage_id = waypoint_stage_ids.get(waypoint.id)
+                    if stage_id is None:
+                        continue
+                    stage = sim.get_stage(stage_id)
+                    current_agents = int(stage.count_targeting())
+                    runtime = waypoint_runtimes.get(waypoint.id)
+                    released_agents = runtime.released_agents if runtime is not None else 0
+                waypoint_loads.append(current_agents)
+                waypoint_series[waypoint.id].append(
+                    WaypointSample(
                         timeSeconds=round(current_time, 2),
-                        queueLength=queue_length,
-                        servedCustomers=runtime.served_customers,
+                        activeAgents=current_agents,
+                        releasedAgents=released_agents,
                     )
                 )
-            if queue_lengths:
-                sample_average = sum(queue_lengths) / len(queue_lengths)
-                average_queue_accumulator += sample_average
-                average_queue_samples += 1
-                max_queue_length = max(max_queue_length, max(queue_lengths))
+            if waypoint_loads:
+                sample_average = sum(waypoint_loads) / len(waypoint_loads)
+                average_load_accumulator += sample_average
+                average_load_samples += 1
+                max_waypoint_load = max(max_waypoint_load, max(waypoint_loads))
 
             frame_agents: list[SimulationAgentFrame] = []
             for agent in sim.agents():
@@ -375,25 +394,29 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 )
             frames.append(SimulationFrame(timeSeconds=round(current_time, 2), agents=frame_agents))
 
-    checkouts = [
-        CheckoutMetrics(
-            registerId=runtime.register.id,
-            registerName=runtime.register.name,
-            queueLengthMax=max((sample.queueLength for sample in queue_series[runtime.register.id]), default=0),
-            servedCustomers=runtime.served_customers,
-            samples=queue_series[runtime.register.id],
+    waypoint_metrics = [
+        WaypointMetrics(
+            waypointId=waypoint.id,
+            waypointLabel=waypoint.label,
+            waypointType=waypoint.type,
+            retentionSeconds=float(waypoint.retentionSeconds),
+            maxActiveAgents=max((sample.activeAgents for sample in waypoint_series[waypoint.id]), default=0),
+            releasedAgents=max((sample.releasedAgents for sample in waypoint_series[waypoint.id]), default=0),
+            samples=waypoint_series[waypoint.id],
         )
-        for runtime in checkout_runtimes
+        for waypoint in metrics_waypoints
     ]
+    all_retentions = [float(waypoint.retentionSeconds) for waypoint in transit_waypoints if waypoint.retentionSeconds > 0]
 
     summary = SimulationSummary(
         spawnedCustomers=spawned,
         completedCustomers=completed,
         activeCustomers=int(sim.agent_count()),
-        averageQueueLength=round(
-            average_queue_accumulator / average_queue_samples if average_queue_samples else 0.0,
+        averageWaypointLoad=round(
+            average_load_accumulator / average_load_samples if average_load_samples else 0.0,
             2,
         ),
-        maxQueueLength=max_queue_length,
+        maxWaypointLoad=max_waypoint_load,
+        averageRetentionSeconds=round(sum(all_retentions) / len(all_retentions), 2) if all_retentions else 0.0,
     )
-    return SimulationResult(frames=frames, checkouts=checkouts, summary=summary)
+    return SimulationResult(frames=frames, waypoints=waypoint_metrics, summary=summary)

@@ -51,6 +51,9 @@ function WaypointEditor({
 }) {
   const { updateWaypoint, removeWaypoint, selectWaypoint, selectedWaypointId } = useSimulationStore();
   const selected = selectedWaypointId === waypoint.id;
+  const waypointType = waypoint.type ?? 'transit';
+  const isTransit = waypointType === 'transit';
+  const typeLabel = waypointType === 'entry' ? 'Entrée' : waypointType === 'exit' ? 'Sortie' : 'Point';
 
   return (
     <div
@@ -77,6 +80,25 @@ function WaypointEditor({
           Suppr.
         </button>
       </div>
+      <label className="flex items-center gap-2 text-xs text-gray-300">
+        <span className="w-28 shrink-0 text-gray-500">Type</span>
+        <select
+          value={waypointType}
+          onChange={(event) => {
+            const nextType = event.target.value as SimulationWaypoint['type'];
+            updateWaypoint(waypoint.id, {
+              type: nextType,
+              optional: nextType === 'transit' ? waypoint.optional : false,
+              visitProbability: nextType === 'transit' ? waypoint.visitProbability : 1,
+            });
+          }}
+          className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none"
+        >
+          <option value="entry">Entrée (apparition)</option>
+          <option value="transit">Transit</option>
+          <option value="exit">Sortie (disparition)</option>
+        </select>
+      </label>
       <NumberField label="X (cm)" value={waypoint.x} onChange={(value) => updateWaypoint(waypoint.id, { x: value })} />
       <NumberField label="Z (cm)" value={waypoint.z} onChange={(value) => updateWaypoint(waypoint.id, { z: value })} />
       <NumberField
@@ -86,16 +108,24 @@ function WaypointEditor({
         step={10}
         onChange={(value) => updateWaypoint(waypoint.id, { radiusCm: value })}
       />
+      <NumberField
+        label="Rétention (s)"
+        value={waypoint.retentionSeconds}
+        min={0}
+        step={0.5}
+        onChange={(value) => updateWaypoint(waypoint.id, { retentionSeconds: Math.max(0, value) })}
+      />
       <label className="flex items-center justify-between text-xs text-gray-300">
-        <span className="text-gray-500">Optionnel</span>
+        <span className="text-gray-500">{isTransit ? 'Optionnel' : `${typeLabel} obligatoire`}</span>
         <input
           type="checkbox"
-          checked={waypoint.optional}
+          checked={isTransit ? waypoint.optional : false}
           onChange={(event) => updateWaypoint(waypoint.id, { optional: event.target.checked })}
+          disabled={!isTransit}
           className="accent-blue-500"
         />
       </label>
-      {waypoint.optional && (
+      {isTransit && waypoint.optional && (
         <NumberField
           label="Probabilité"
           value={waypoint.visitProbability}
@@ -167,7 +197,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-gray-800 px-3 py-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Simulation flux clients</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Simulation flux piétons</h3>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto p-3">
         <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
@@ -221,34 +251,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             step={0.05}
             onChange={(value) => patchConfig({ speedVariation: Math.max(0, value) })}
           />
-          <NumberField
-            label="Service caisse"
-            value={config.serviceTimeSeconds}
-            min={1}
-            step={0.5}
-            onChange={(value) => patchConfig({ serviceTimeSeconds: Math.max(1, value) })}
-          />
-          <NumberField
-            label="Jitter caisse"
-            value={config.serviceTimeJitterSeconds}
-            min={0}
-            step={0.5}
-            onChange={(value) => patchConfig({ serviceTimeJitterSeconds: Math.max(0, value) })}
-          />
-          <NumberField
-            label="Places queue"
-            value={config.queueSlots}
-            min={1}
-            step={1}
-            onChange={(value) => patchConfig({ queueSlots: Math.max(1, Math.round(value)) })}
-          />
-          <NumberField
-            label="Espacement cm"
-            value={config.queueSpacingCm}
-            min={40}
-            step={10}
-            onChange={(value) => patchConfig({ queueSpacingCm: Math.max(40, value) })}
-          />
           <button
             onClick={() => void runSimulation()}
             disabled={running || !config.enabled}
@@ -261,15 +263,29 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Points de passage</h4>
-            <button
-              onClick={() => addWaypoint()}
-              className="rounded bg-gray-800 px-2 py-1 text-xs text-blue-300 hover:bg-gray-700"
-            >
-              + Ajouter
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => addWaypoint('entry')}
+                className="rounded bg-gray-800 px-2 py-1 text-xs text-emerald-300 hover:bg-gray-700"
+              >
+                + Entrée
+              </button>
+              <button
+                onClick={() => addWaypoint('transit')}
+                className="rounded bg-gray-800 px-2 py-1 text-xs text-blue-300 hover:bg-gray-700"
+              >
+                + Transit
+              </button>
+              <button
+                onClick={() => addWaypoint('exit')}
+                className="rounded bg-gray-800 px-2 py-1 text-xs text-orange-300 hover:bg-gray-700"
+              >
+                + Sortie
+              </button>
+            </div>
           </div>
           <p className="text-xs text-gray-500">
-            Les cônes de vision suivent chaque piéton simulé vers son prochain point de passage.
+            Entrée = apparition, Sortie = disparition, Transit = passage intermédiaire avec temps de rétention.
           </p>
           <div className="space-y-2">
             {config.waypoints.length === 0 ? (
@@ -286,10 +302,11 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           <section className="space-y-2 rounded border border-emerald-800/40 bg-emerald-950/20 p-3 text-xs text-emerald-100">
             <h4 className="font-semibold uppercase tracking-wider text-emerald-300">Résumé</h4>
             <div className="flex justify-between"><span>Entrés</span><span>{selectedSummary.spawnedCustomers}</span></div>
-            <div className="flex justify-between"><span>Passés caisse / sortis</span><span>{selectedSummary.completedCustomers}</span></div>
+            <div className="flex justify-between"><span>Sortis</span><span>{selectedSummary.completedCustomers}</span></div>
             <div className="flex justify-between"><span>Encore actifs</span><span>{selectedSummary.activeCustomers}</span></div>
-            <div className="flex justify-between"><span>Queue moyenne</span><span>{selectedSummary.averageQueueLength.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Pic de queue</span><span>{selectedSummary.maxQueueLength}</span></div>
+            <div className="flex justify-between"><span>Charge moyenne waypoint</span><span>{selectedSummary.averageWaypointLoad.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>Pic waypoint</span><span>{selectedSummary.maxWaypointLoad}</span></div>
+            <div className="flex justify-between"><span>Rétention moyenne (s)</span><span>{selectedSummary.averageRetentionSeconds.toFixed(2)}</span></div>
           </section>
         )}
       </div>

@@ -224,7 +224,7 @@ def test_run_simulation_allows_transit_waypoint_with_large_radius_in_accessible_
                         "type": "transit",
                         "label": "Allée centrale",
                         "x": 2500.0,
-                        "z": 1500.0,
+                        "z": 2000.0,
                         "radiusCm": 120.0,
                         "optional": False,
                         "visitProbability": 1.0,

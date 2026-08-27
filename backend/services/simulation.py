@@ -138,7 +138,12 @@ def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> 
     depth = float(furniture.dimensions["depth"])
     half_w = width / 2
     half_d = depth / 2
-    center = (float(furniture.position[0]), float(furniture.position[2]))
+    # furniture.position is the bottom-left corner of the bounding box (Three.js convention).
+    # The rotation pivot is the geometric centre, so we compute it explicitly.
+    center = (
+        float(furniture.position[0]) + half_w,
+        float(furniture.position[2]) + half_d,
+    )
     rotation = math.radians(float(furniture.rotation[1]))
     corners = [
         (-half_w, -half_d),
@@ -165,12 +170,16 @@ def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> 
 
 def _build_walkable_geometry(scene: SceneData) -> Polygon:
     store = scene.store
+    store_x_m = _cm_to_m(float(store.position[0]))
+    store_z_m = _cm_to_m(float(store.position[2]))
+    width_m = _cm_to_m(float(store.dimensions["width"]))
+    depth_m = _cm_to_m(float(store.dimensions["depth"]))
     store_polygon = Polygon(
         [
-            (0.0, 0.0),
-            (_cm_to_m(float(store.dimensions["width"])), 0.0),
-            (_cm_to_m(float(store.dimensions["width"])), _cm_to_m(float(store.dimensions["depth"]))),
-            (0.0, _cm_to_m(float(store.dimensions["depth"]))),
+            (store_x_m, store_z_m),
+            (store_x_m + width_m, store_z_m),
+            (store_x_m + width_m, store_z_m + depth_m),
+            (store_x_m, store_z_m + depth_m),
         ]
     )
     walkable = store_polygon

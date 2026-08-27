@@ -433,7 +433,6 @@ def test_live_simulation_lifecycle_pause_and_hot_update() -> None:
     scene["furniture"] = []
     config = {
         "arrivalRatePerSecond": 0.6,
-        "durationSeconds": 60,
         "maxCustomers": 20,
         "randomSeed": 9,
         "waypoints": [
@@ -564,7 +563,6 @@ def test_live_simulation_allows_multiple_customer_exits() -> None:
     scene["furniture"] = []
     config = {
         "arrivalRatePerSecond": 1.2,
-        "durationSeconds": 60,
         "maxCustomers": 25,
         "randomSeed": 17,
         "waypoints": [

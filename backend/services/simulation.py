@@ -237,23 +237,32 @@ def _safe_waypoint_point(
 
 
 def _raise_waypoint_constraint_violation(waypoint: SimulationWaypoint, walkable: Polygon) -> None:
-    suggested_x, suggested_z = _safe_waypoint_point(
-        waypoint,
+    constrained_walkable = _walkable_with_clearance(
         walkable,
-        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+        _waypoint_constraint_clearance_cm(waypoint),
     )
+    suggested_x: float | None = None
+    suggested_z: float | None = None
+    message = (
+        f'Le point "{waypoint.label}" est trop proche des limites de circulation. '
+        "Déplacez-le au plus près vers la correction proposée."
+    )
+    if constrained_walkable is not None:
+        suggested_x, suggested_z = _closest_walkable_point(_waypoint_point(waypoint), constrained_walkable)
+    else:
+        message = (
+            f'Le point "{waypoint.label}" est trop proche des limites de circulation '
+            "et aucun emplacement valide n'est disponible avec la marge requise."
+        )
     raise SimulationConstraintViolation(
         {
-            "message": (
-                f'Le point "{waypoint.label}" est trop proche des limites de circulation. '
-                "Déplacez-le au plus près vers la correction proposée."
-            ),
+            "message": message,
             "waypointId": waypoint.id,
             "waypointLabel": waypoint.label,
             "currentXcm": round(float(waypoint.x), 2),
             "currentZcm": round(float(waypoint.z), 2),
-            "suggestedXcm": round(_m_to_cm(suggested_x), 2),
-            "suggestedZcm": round(_m_to_cm(suggested_z), 2),
+            "suggestedXcm": round(_m_to_cm(suggested_x), 2) if suggested_x is not None else None,
+            "suggestedZcm": round(_m_to_cm(suggested_z), 2) if suggested_z is not None else None,
             "minimumClearanceCm": round(_waypoint_constraint_clearance_cm(waypoint), 2),
         }
     )

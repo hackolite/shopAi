@@ -90,6 +90,8 @@ def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:
     assert payload["frames"], "simulation should emit frames"
     assert payload["waypoints"], "simulation should emit waypoint metrics"
     assert payload["summary"]["spawnedCustomers"] > 0
+    assert payload["summary"]["completedCustomers"] == payload["summary"]["spawnedCustomers"]
+    assert payload["summary"]["activeCustomers"] == 0
     assert payload["summary"]["averageConfiguredRetentionSeconds"] >= 0
     assert payload["waypoints"][0]["samples"], "waypoint samples should be present"
 
@@ -97,6 +99,59 @@ def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:
     first_agent = populated_frame["agents"][0]
     assert first_agent["visionAngleDeg"] == 60.0
     assert first_agent["visionRangeCm"] == 180.0
+
+
+def test_exit_polygon_is_projected_to_the_walkable_boundary() -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+
+    polygon = simulation_service._waypoint_exit_polygon(waypoint, walkable)
+
+    centroid = polygon.centroid
+    assert centroid.x == 25.0
+    assert centroid.y == 30.0
+
+
+def test_run_simulation_with_default_waypoints() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/run",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.2,
+                "durationSeconds": 10,
+                "maxCustomers": 4,
+                "randomSeed": 5,
+                "waypoints": [],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["summary"]["spawnedCustomers"] > 0
+    assert payload["summary"]["completedCustomers"] == payload["summary"]["spawnedCustomers"]
+    assert payload["summary"]["activeCustomers"] == 0
 
 
 def test_run_simulation_reports_closest_waypoint_correction() -> None:

@@ -170,11 +170,8 @@ def _queue_slot_positions(
 
 def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
     radius_m = _cm_to_m(max(40.0, waypoint.radiusCm))
-    x, z = _safe_waypoint_point(
-        waypoint,
-        walkable,
-        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
-    )
+    boundary_point = walkable.boundary.interpolate(walkable.boundary.project(Point(_waypoint_point(waypoint))))
+    x, z = boundary_point.x, boundary_point.y
     return Point(x, z).buffer(radius_m, resolution=16)
 
 
@@ -299,8 +296,9 @@ def _suggest_distinct_walkable_point(
 
 def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
     if waypoint.type == "exit":
-        extent_cm = max(40.0, float(waypoint.radiusCm))
-        return extent_cm + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
+        # The visible exit marker is now an approach waypoint; the actual removal
+        # stage is projected onto the nearest boundary so any chosen exit can work.
+        return 0.0
     if waypoint.type == "transit":
         # Transit waypoints are purely navigational guides, not spawn points.
         # Only require the centre to be strictly inside the walkable area – no
@@ -606,8 +604,17 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     metrics_waypoints = [*entries, *transit_waypoints, *exits]
     for waypoint in metrics_waypoints:
         if waypoint.type == "exit":
-            stage_id = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
-            exit_stage_ids[waypoint.id] = stage_id
+            approach_stage_id = sim.add_waypoint_stage(
+                _safe_waypoint_point(
+                    waypoint,
+                    walkable,
+                    clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+                ),
+                _cm_to_m(max(40.0, waypoint.radiusCm)),
+            )
+            waypoint_stage_ids[waypoint.id] = approach_stage_id
+            waypoint_by_stage_id[approach_stage_id] = waypoint
+            exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
         elif waypoint.retentionSeconds > 0:
             stage_id = sim.add_queue_stage(
                 _queue_slot_positions(waypoint, walkable)
@@ -666,6 +673,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 if not waypoint.optional or rng.random() <= float(waypoint.visitProbability):
                     selected_stage_ids.append(waypoint_stage_ids[waypoint.id])
             selected_exit = exits[spawned % len(exits)]
+            selected_stage_ids.append(waypoint_stage_ids[selected_exit.id])
             selected_stage_ids.append(exit_stage_ids[selected_exit.id])
             journey = jps.JourneyDescription(selected_stage_ids)
             for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
@@ -697,17 +705,13 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         if step_index % steps_per_snapshot == 0:
             waypoint_loads: list[int] = []
             for waypoint in metrics_waypoints:
-                if waypoint.type == "exit":
-                    current_agents = 0
-                    released_agents = 0
-                else:
-                    stage_id = waypoint_stage_ids.get(waypoint.id)
-                    if stage_id is None:
-                        continue
-                    stage = sim.get_stage(stage_id)
-                    current_agents = int(stage.count_targeting())
-                    runtime = waypoint_runtimes.get(waypoint.id)
-                    released_agents = runtime.released_agents if runtime is not None else 0
+                stage_id = waypoint_stage_ids.get(waypoint.id)
+                if stage_id is None:
+                    continue
+                stage = sim.get_stage(stage_id)
+                current_agents = int(stage.count_targeting())
+                runtime = waypoint_runtimes.get(waypoint.id)
+                released_agents = runtime.released_agents if runtime is not None else 0
                 waypoint_loads.append(current_agents)
                 waypoint_series[waypoint.id].append(
                     WaypointSample(

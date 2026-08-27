@@ -29,6 +29,8 @@ M_TO_CM = 100.0
 DEFAULT_SNAPSHOT_INTERVAL_S = 0.5
 SIMULATION_DT_S = 0.1
 OBSTACLE_CLEARANCE_CM = 5.0
+AGENT_RADIUS_CM = 25.0
+BOUNDARY_CLEARANCE_EPSILON_CM = 0.1
 ENTRY_FALLBACK_MARGIN_CM = 120.0
 EXIT_FALLBACK_MARGIN_CM = 120.0
 
@@ -41,6 +43,12 @@ class _WaypointRuntime:
     release_interval_s: float
     release_ready_at: float = 0.0
     released_agents: int = 0
+
+
+class SimulationConstraintViolation(ValueError):
+    def __init__(self, detail: dict[str, object]):
+        super().__init__(str(detail.get("message", "Simulation constraint violation")))
+        self.detail = detail
 
 
 def _cm_to_m(value: float) -> float:
@@ -104,7 +112,11 @@ def _waypoint_point(waypoint: SimulationWaypoint) -> tuple[float, float]:
 
 def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
     half = _cm_to_m(max(40.0, waypoint.radiusCm)) / 2
-    x, z = _safe_waypoint_point(waypoint, walkable)
+    x, z = _safe_waypoint_point(
+        waypoint,
+        walkable,
+        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+    )
     return Polygon(
         [
             (x - half, z - half),
@@ -174,8 +186,25 @@ def _point_in_walkable(point: tuple[float, float], walkable: Polygon) -> bool:
     return walkable.contains(Point(point)) or walkable.touches(Point(point))
 
 
-def _safe_waypoint_point(waypoint: SimulationWaypoint, walkable: Polygon) -> tuple[float, float]:
-    point = _waypoint_point(waypoint)
+def _normalize_polygon(geometry) -> Polygon | None:
+    if geometry.is_empty:
+        return None
+    geometry = geometry.buffer(0)
+    if geometry.is_empty:
+        return None
+    if isinstance(geometry, MultiPolygon):
+        geometry = max(geometry.geoms, key=lambda geom: geom.area)
+    return geometry if isinstance(geometry, Polygon) else None
+
+
+def _walkable_with_clearance(walkable: Polygon, clearance_cm: float) -> Polygon | None:
+    clearance_m = _cm_to_m(max(0.0, clearance_cm))
+    if clearance_m <= 0:
+        return walkable
+    return _normalize_polygon(walkable.buffer(-clearance_m))
+
+
+def _closest_walkable_point(point: tuple[float, float], walkable: Polygon) -> tuple[float, float]:
     if _point_in_walkable(point, walkable):
         return point
     projected = walkable.boundary.interpolate(walkable.boundary.project(Point(point)))
@@ -186,9 +215,69 @@ def _safe_waypoint_point(waypoint: SimulationWaypoint, walkable: Polygon) -> tup
     return (fallback.x, fallback.y)
 
 
+def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
+    if waypoint.type == "exit":
+        extent_cm = max(40.0, float(waypoint.radiusCm)) / 2
+    elif waypoint.type == "entry":
+        extent_cm = 0.0
+    else:
+        extent_cm = max(40.0, float(waypoint.radiusCm)) if waypoint.retentionSeconds <= 0 else 0.0
+    return extent_cm + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
+
+
+def _safe_waypoint_point(
+    waypoint: SimulationWaypoint,
+    walkable: Polygon,
+    clearance_cm: float = 0.0,
+) -> tuple[float, float]:
+    point = _waypoint_point(waypoint)
+    constrained_walkable = _walkable_with_clearance(walkable, clearance_cm)
+    target_walkable = constrained_walkable or walkable
+    return _closest_walkable_point(point, target_walkable)
+
+
+def _raise_waypoint_constraint_violation(waypoint: SimulationWaypoint, walkable: Polygon) -> None:
+    suggested_x, suggested_z = _safe_waypoint_point(
+        waypoint,
+        walkable,
+        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+    )
+    raise SimulationConstraintViolation(
+        {
+            "message": (
+                f'Le point "{waypoint.label}" est trop proche des limites de circulation. '
+                "Déplacez-le au plus près vers la correction proposée."
+            ),
+            "waypointId": waypoint.id,
+            "waypointLabel": waypoint.label,
+            "currentXcm": round(float(waypoint.x), 2),
+            "currentZcm": round(float(waypoint.z), 2),
+            "suggestedXcm": round(_m_to_cm(suggested_x), 2),
+            "suggestedZcm": round(_m_to_cm(suggested_z), 2),
+            "minimumClearanceCm": round(_waypoint_constraint_clearance_cm(waypoint), 2),
+        }
+    )
+
+
+def _validate_waypoint_constraints(waypoints: list[SimulationWaypoint], walkable: Polygon) -> None:
+    for waypoint in waypoints:
+        point = _waypoint_point(waypoint)
+        constrained_walkable = _walkable_with_clearance(
+            walkable,
+            _waypoint_constraint_clearance_cm(waypoint),
+        )
+        if constrained_walkable is None or not _point_in_walkable(point, constrained_walkable):
+            _raise_waypoint_constraint_violation(waypoint, walkable)
+
+
 def _spawn_from_entry(waypoint: SimulationWaypoint, walkable: Polygon, rng: random.Random) -> tuple[float, float]:
-    center_x, center_z = _safe_waypoint_point(waypoint, walkable)
+    center_x, center_z = _safe_waypoint_point(
+        waypoint,
+        walkable,
+        clearance_cm=AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM,
+    )
     radius_m = _cm_to_m(max(20.0, waypoint.radiusCm))
+    spawnable = _walkable_with_clearance(walkable, AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM) or walkable
     for _ in range(120):
         angle = rng.uniform(0, math.tau)
         radius = radius_m * math.sqrt(rng.random())
@@ -196,9 +285,9 @@ def _spawn_from_entry(waypoint: SimulationWaypoint, walkable: Polygon, rng: rand
             center_x + math.cos(angle) * radius,
             center_z + math.sin(angle) * radius,
         )
-        if _point_in_walkable(candidate, walkable):
+        if _point_in_walkable(candidate, spawnable):
             return candidate
-    return _random_point_in_polygon(walkable, rng)
+    return _random_point_in_polygon(spawnable, rng)
 
 
 def _random_point_in_polygon(polygon: Polygon, rng: random.Random) -> tuple[float, float]:
@@ -223,7 +312,7 @@ def _build_agent_params(
         journey_id=journey_id,
         stage_id=stage_id,
         desired_speed=desired_speed,
-        radius=_cm_to_m(25.0),
+        radius=_cm_to_m(AGENT_RADIUS_CM),
         time_gap=1.0,
     )
 
@@ -254,6 +343,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     rng = random.Random(int(config.randomSeed))
     walkable = _build_walkable_geometry(scene)
     entries, transit_waypoints, exits = _partition_waypoints(scene, config)
+    _validate_waypoint_constraints([*entries, *transit_waypoints, *exits], walkable)
     sim = jps.Simulation(
         model=jps.CollisionFreeSpeedModel(),
         geometry=walkable,
@@ -270,7 +360,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             stage_id = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
             exit_stage_ids[waypoint.id] = stage_id
         elif waypoint.retentionSeconds > 0:
-            stage_id = sim.add_queue_stage([_safe_waypoint_point(waypoint, walkable)])
+            stage_id = sim.add_queue_stage(
+                [_safe_waypoint_point(waypoint, walkable, clearance_cm=AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM)]
+            )
             runtime = _WaypointRuntime(
                 waypoint=waypoint,
                 stage_id=stage_id,
@@ -282,7 +374,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             waypoint_by_stage_id[stage_id] = waypoint
         else:
             stage_id = sim.add_waypoint_stage(
-                _safe_waypoint_point(waypoint, walkable),
+                _safe_waypoint_point(
+                    waypoint,
+                    walkable,
+                    clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+                ),
                 _cm_to_m(max(40.0, waypoint.radiusCm)),
             )
             waypoint_stage_ids[waypoint.id] = stage_id

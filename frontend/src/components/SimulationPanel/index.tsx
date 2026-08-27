@@ -14,6 +14,13 @@ const MIN_WAYPOINT_RADIUS_CM = 40;
 // This parser is intentionally coupled to the current backend RuntimeError message text.
 const CONSTRAINT_ERROR_PATTERN = /Agent\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)\s*too close to geometry boundaries/i;
 
+interface ConstraintCorrection {
+  message: string;
+  waypointId: string | null;
+  suggestedXcm: number | null;
+  suggestedZcm: number | null;
+}
+
 function NumberField({
   label,
   value,
@@ -52,22 +59,46 @@ function persistSettings(projectId: string | null, config: SimulationConfig) {
 
 function extractConstraintPoint(error: unknown): { xM: number; zM: number } | null {
   const raw = error instanceof Error ? error.message : String(error);
-  const detail = (() => {
-    const jsonStart = raw.indexOf('{');
-    if (jsonStart < 0) return raw;
-    try {
-      const parsed = JSON.parse(raw.slice(jsonStart)) as { detail?: unknown };
-      return typeof parsed.detail === 'string' ? parsed.detail : raw;
-    } catch {
-      return raw;
-    }
-  })();
+  const detail = extractConstraintDetail(raw);
+  if (typeof detail !== 'string') return null;
   const match = detail.match(CONSTRAINT_ERROR_PATTERN);
   if (!match) return null;
   const xM = Number(match[1]);
   const zM = Number(match[2]); // backend "y" axis is frontend floor-plane Z
   if (!Number.isFinite(xM) || !Number.isFinite(zM)) return null;
   return { xM, zM };
+}
+
+function extractConstraintDetail(raw: string): unknown {
+  const jsonStart = raw.indexOf('{');
+  if (jsonStart < 0) return raw;
+  try {
+    const parsed = JSON.parse(raw.slice(jsonStart)) as { detail?: unknown };
+    return parsed.detail ?? raw;
+  } catch {
+    return raw;
+  }
+}
+
+function extractConstraintCorrection(error: unknown): ConstraintCorrection | null {
+  const raw = error instanceof Error ? error.message : String(error);
+  const detail = extractConstraintDetail(raw);
+  if (!detail || typeof detail !== 'object') return null;
+  const record = detail as Record<string, unknown>;
+  if (typeof record.message !== 'string') return null;
+  return {
+    message: record.message,
+    waypointId: typeof record.waypointId === 'string' ? record.waypointId : null,
+    suggestedXcm: typeof record.suggestedXcm === 'number' ? record.suggestedXcm : null,
+    suggestedZcm: typeof record.suggestedZcm === 'number' ? record.suggestedZcm : null,
+  };
+}
+
+function formatConstraintCorrection(correction: ConstraintCorrection): string {
+  if (correction.suggestedXcm == null || correction.suggestedZcm == null) {
+    return correction.message;
+  }
+  return `${correction.message}\nCorrection proposée : X=${correction.suggestedXcm} cm, Z=${correction.suggestedZcm} cm.`;
 }
 
 function pickClosestWaypointId(
@@ -254,8 +285,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setResult(simulation);
     } catch (error) {
       setResult(null);
-      const point = extractConstraintPoint(error);
-      const invalidWaypointId = point ? pickClosestWaypointId(point, config.waypoints) : null;
+      const correction = extractConstraintCorrection(error);
+      const point = correction ? null : extractConstraintPoint(error);
+      const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, config.waypoints) : null);
       if (invalidWaypointId) {
         setInvalidWaypointIds([invalidWaypointId]);
         selectWaypoint(invalidWaypointId);
@@ -263,7 +295,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         setInvalidWaypointIds([]);
       }
       console.error('Failed to run simulation:', error);
-      alert(error instanceof Error ? error.message : 'Simulation impossible');
+      alert(correction ? formatConstraintCorrection(correction) : error instanceof Error ? error.message : 'Simulation impossible');
     } finally {
       setRunning(false);
     }

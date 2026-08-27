@@ -699,7 +699,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         const cols      = topPlanogram?.cols ?? 4;
         const gridY     = H / 2 + 0.005;
         const gridColor = isSelected ? '#ffffff' : '#c084fc';
-        const lines: JSX.Element[] = [];
+        const lines: React.ReactElement[] = [];
         for (let c = 1; c < cols; c++) {
           const gx = c * (W / cols) - W / 2;
           lines.push(
@@ -1533,7 +1533,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   ];
 
   // Build interior grid lines for supply zones.
-  const supplyGridLines: JSX.Element[] = [];
+  const supplyGridLines: React.ReactElement[] = [];
   if (zone.type === 'supply') {
     const rows = Math.max(1, zone.rows ?? 1);
     const cols = Math.max(1, zone.cols ?? 1);

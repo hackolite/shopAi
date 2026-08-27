@@ -688,10 +688,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
             occupied.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
+            initial_stage_id = selected_stage_ids[1] if len(selected_stage_ids) > 1 else selected_stage_ids[0]
             agent_id = sim.add_agent(
                 _build_agent_params(
                     journey_id=journey_id,
-                    stage_id=selected_stage_ids[0],
+                    stage_id=initial_stage_id,
                     position=spawn_position,
                     desired_speed=desired_speed,
                 )

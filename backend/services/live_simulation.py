@@ -237,10 +237,11 @@ class LiveSimulationSession:
                 0.5,
                 self.rng.gauss(float(self.config.desiredSpeedMps), float(self.config.speedVariation)),
             )
+            initial_stage_id = stage_ids[1] if len(stage_ids) > 1 else stage_ids[0]
             agent_id = self.sim.add_agent(
                 simsvc._build_agent_params(
                     journey_id=journey_id,
-                    stage_id=stage_ids[0],
+                    stage_id=initial_stage_id,
                     position=spawn_position,
                     desired_speed=desired_speed,
                 )

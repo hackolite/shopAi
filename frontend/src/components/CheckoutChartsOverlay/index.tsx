@@ -33,7 +33,7 @@ export default function CheckoutChartsOverlay() {
   if (!result || result.checkouts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-80 rounded-xl border border-gray-700/70 bg-gray-950/88 p-3 shadow-2xl backdrop-blur">
+    <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-80 rounded-xl border border-gray-700/70 bg-gray-950/90 p-3 shadow-2xl backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-300">Passages caisses</h4>
         <span className="text-[10px] text-gray-500">Queue & débit</span>

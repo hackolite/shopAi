@@ -173,7 +173,6 @@ def _random_point_in_polygon(polygon: Polygon, rng: random.Random) -> tuple[floa
 
 
 def _build_agent_params(
-    sim,
     journey_id: int,
     stage_id: int,
     position: tuple[float, float],
@@ -228,12 +227,15 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     exit_stage = sim.add_exit_stage(exit_polygon)
     waypoint_stage_ids: dict[str, int] = {}
+    waypoint_by_stage_id: dict[int, object] = {}
     ordered_waypoints = list(config.waypoints)
     for waypoint in ordered_waypoints:
-        waypoint_stage_ids[waypoint.id] = sim.add_waypoint_stage(
+        stage_id = sim.add_waypoint_stage(
             (_cm_to_m(waypoint.x), _cm_to_m(waypoint.z)),
             _cm_to_m(waypoint.radiusCm),
         )
+        waypoint_stage_ids[waypoint.id] = stage_id
+        waypoint_by_stage_id[stage_id] = waypoint
 
     registers = [
         furniture
@@ -288,19 +290,15 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     average_queue_samples = 0
     max_queue_length = 0
 
-    agent_waypoint_lookup: dict[int, object | None] = {}
-
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             register_runtime = checkout_runtimes[spawned % len(checkout_runtimes)]
             selected_stage_ids: list[int] = []
-            selected_waypoint = None
             for waypoint in ordered_waypoints:
                 if not waypoint.optional or rng.random() <= float(waypoint.visitProbability):
                     selected_stage_ids.append(waypoint_stage_ids[waypoint.id])
-                    selected_waypoint = waypoint
             selected_stage_ids.extend([register_runtime.stage_id, exit_stage])
             journey = jps.JourneyDescription(selected_stage_ids)
             for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
@@ -316,14 +314,12 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
             agent_id = sim.add_agent(
                 _build_agent_params(
-                    sim,
                     journey_id=journey_id,
                     stage_id=selected_stage_ids[0],
                     position=spawn_position,
                     desired_speed=desired_speed,
                 )
             )
-            agent_waypoint_lookup[agent_id] = selected_waypoint
             spawned += 1
             arrival_index += 1
 
@@ -362,7 +358,10 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             frame_agents: list[SimulationAgentFrame] = []
             for agent in sim.agents():
                 heading_x, heading_z = agent.orientation
-                vision_angle_deg, vision_range_cm = _vision_for_agent(config, agent_waypoint_lookup.get(agent.id))
+                vision_angle_deg, vision_range_cm = _vision_for_agent(
+                    config,
+                    waypoint_by_stage_id.get(int(agent.stage_id)),
+                )
                 frame_agents.append(
                     SimulationAgentFrame(
                         id=int(agent.id),

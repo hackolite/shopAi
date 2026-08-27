@@ -422,3 +422,133 @@ def test_simultaneous_spawn_no_agent_overlap() -> None:
             assert dist >= min_dist_m - 1e-6, (
                 f"Agents {i} and {j} too close: {dist:.4f} m < {min_dist_m:.4f} m"
             )
+
+
+def test_live_simulation_lifecycle_pause_and_hot_update() -> None:
+    project_id = _create_project()
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+    config = {
+        "arrivalRatePerSecond": 0.6,
+        "durationSeconds": 60,
+        "maxCustomers": 20,
+        "randomSeed": 9,
+        "waypoints": [
+            {
+                "id": "entry-main",
+                "type": "entry",
+                "label": "Entrée",
+                "x": 2500.0,
+                "z": 220.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "transit-main",
+                "type": "transit",
+                "label": "Allée",
+                "x": 2500.0,
+                "z": 1700.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 1.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "exit-main",
+                "type": "exit",
+                "label": "Sortie",
+                "x": 2500.0,
+                "z": 2800.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+        ],
+    }
+
+    start = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={"scene": scene, "config": config},
+    )
+    assert start.status_code == 200, start.text
+    start_payload = start.json()
+    session_id = start_payload["sessionId"]
+    assert start_payload["paused"] is False
+    assert start_payload["result"]["frames"], "live start should return an initial frame"
+
+    tick = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 10},
+    )
+    assert tick.status_code == 200, tick.text
+    tick_payload = tick.json()
+    assert tick_payload["result"]["summary"]["spawnedCustomers"] >= 1
+    assert tick_payload["result"]["frames"][-1]["timeSeconds"] > 0
+
+    pause = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/pause")
+    assert pause.status_code == 200, pause.text
+    assert pause.json()["paused"] is True
+
+    paused_tick = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 5},
+    )
+    assert paused_tick.status_code == 200, paused_tick.text
+    paused_payload = paused_tick.json()
+    assert paused_payload["result"]["frames"][-1]["timeSeconds"] == tick_payload["result"]["frames"][-1]["timeSeconds"]
+
+    scene["furniture"] = [
+        {
+            "id": "block-1",
+            "name": "Bloc",
+            "type": "gondola",
+            "libraryId": "fixture-block",
+            "position": [2450.0, 0.0, 1400.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 100.0, "depth": 300.0, "height": 200.0},
+            "visible": True,
+            "mounted": True,
+            "locked": False,
+            "childIds": [],
+            "faces": {},
+        }
+    ]
+    config["arrivalRatePerSecond"] = 0.2
+    config["maxCustomers"] = 10
+    update = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/update",
+        json={"scene": scene, "config": config},
+    )
+    assert update.status_code == 200, update.text
+    update_payload = update.json()
+    assert update_payload["result"]["summary"]["activeCustomers"] >= 0
+
+    resume = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/resume")
+    assert resume.status_code == 200, resume.text
+    assert resume.json()["paused"] is False
+
+    tick_after_resume = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 5},
+    )
+    assert tick_after_resume.status_code == 200, tick_after_resume.text
+    resumed_payload = tick_after_resume.json()
+    assert resumed_payload["result"]["frames"][-1]["timeSeconds"] > paused_payload["result"]["frames"][-1]["timeSeconds"]
+    assert resumed_payload["result"]["summary"]["spawnedCustomers"] >= update_payload["result"]["summary"]["spawnedCustomers"]
+
+    stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
+    assert stop.status_code == 200, stop.text
+    assert stop.json()["stopped"] is True

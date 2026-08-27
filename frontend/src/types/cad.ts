@@ -145,6 +145,12 @@ export interface SimulationResult {
   summary: SimulationSummary;
 }
 
+export interface LiveSimulationResponse {
+  sessionId: string;
+  result: SimulationResult;
+  paused: boolean;
+}
+
 export interface Scene {
   store: StoreConfig;
   furniture: FurnitureInstance[];

@@ -24,6 +24,7 @@ from models.project import (
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
+from services.live_simulation import live_simulation_manager
 from services.project_manager import (
     create_project,
     delete_project,
@@ -77,6 +78,15 @@ class NamedResourcePayload(BaseModel):
 
 
 class SimulationRunPayload(BaseModel):
+    scene: dict[str, Any] | None = None
+    config: dict[str, Any] | None = None
+
+
+class SimulationLiveTickPayload(BaseModel):
+    steps: int = 1
+
+
+class SimulationLiveUpdatePayload(BaseModel):
     scene: dict[str, Any] | None = None
     config: dict[str, Any] | None = None
 
@@ -551,3 +561,76 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/{project_id}/simulation/live/start")
+def start_live_simulation(project_id: str, payload: SimulationRunPayload):
+    try:
+        scene = SceneData.model_validate(payload.scene) if payload.scene is not None else _load_scene(project_id)
+        config = (
+            SimulationConfig.model_validate(payload.config)
+            if payload.config is not None
+            else _load_settings(project_id).simulation
+        )
+        session_id, result = live_simulation_manager.start(scene, config)
+        return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": False}
+    except SimulationConstraintViolation as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/tick")
+def tick_live_simulation(project_id: str, session_id: str, payload: SimulationLiveTickPayload):
+    try:
+        session = live_simulation_manager.get(session_id)
+        result = session.tick(payload.steps)
+        return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": session.paused}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/pause")
+def pause_live_simulation(project_id: str, session_id: str):
+    try:
+        session = live_simulation_manager.get(session_id)
+        result = session.set_paused(True)
+        return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": True}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/resume")
+def resume_live_simulation(project_id: str, session_id: str):
+    try:
+        session = live_simulation_manager.get(session_id)
+        result = session.set_paused(False)
+        return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": False}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/update")
+def update_live_simulation(project_id: str, session_id: str, payload: SimulationLiveUpdatePayload):
+    try:
+        session = live_simulation_manager.get(session_id)
+        scene = SceneData.model_validate(payload.scene) if payload.scene is not None else session.scene
+        config = SimulationConfig.model_validate(payload.config) if payload.config is not None else session.config
+        result = session.update(scene, config)
+        return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": session.paused}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+    except SimulationConstraintViolation as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/stop")
+def stop_live_simulation(project_id: str, session_id: str):
+    live_simulation_manager.stop(session_id)
+    return {"stopped": True, "sessionId": session_id}

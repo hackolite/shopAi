@@ -51,6 +51,10 @@ function persistSettings(projectId: string | null, config: SimulationConfig) {
   cadApi.updateSettings(projectId, { simulation: config }).catch(console.error);
 }
 
+function snapshotSimulationInput(scene: object, config: SimulationConfig): string {
+  return JSON.stringify({ scene, config });
+}
+
 function WaypointEditor({
   waypoint,
   invalid,
@@ -184,12 +188,20 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setRunning,
     playing,
     setPlaying,
+    paused,
+    setPaused,
+    liveSessionId,
+    setLiveSessionId,
     setInvalidWaypointIds,
     setInvalidWaypointSuggestion,
     selectWaypoint,
     invalidWaypointIds,
   } = useSimulationStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingTick = useRef(false);
+  const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSimulationSignature = useRef<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -206,11 +218,17 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (!projectId || !scene) return;
     setRunning(true);
     try {
-      const simulation = await cadApi.runSimulation(projectId, scene, config);
-      setResult(simulation);
+      const signature = snapshotSimulationInput(scene, config);
+      const live = await cadApi.startLiveSimulation(projectId, scene, config);
+      setLiveSessionId(live.sessionId);
+      setResult(live.result);
+      setPaused(live.paused);
       setPlaying(true);
+      lastSimulationSignature.current = signature;
     } catch (error) {
       setPlaying(false);
+      setPaused(false);
+      setLiveSessionId(null);
       setResult(null);
       const correction = extractConstraintCorrection(error);
       const point = correction ? null : extractConstraintPoint(error);
@@ -241,10 +259,104 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     selectWaypoint,
     setInvalidWaypointIds,
     setInvalidWaypointSuggestion,
+    setLiveSessionId,
+    setPaused,
     setPlaying,
     setResult,
     setRunning,
   ]);
+
+  const stopSimulation = useCallback(async () => {
+    if (tickTimer.current) {
+      clearInterval(tickTimer.current);
+      tickTimer.current = null;
+    }
+    if (updateTimer.current) {
+      clearTimeout(updateTimer.current);
+      updateTimer.current = null;
+    }
+    pendingTick.current = false;
+    if (projectId && liveSessionId) {
+      await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
+    }
+    setPlaying(false);
+    setPaused(false);
+    setLiveSessionId(null);
+    setResult(null);
+    lastSimulationSignature.current = null;
+  }, [liveSessionId, projectId, setLiveSessionId, setPaused, setPlaying, setResult]);
+
+  const pauseSimulation = useCallback(async () => {
+    if (!projectId || !liveSessionId) return;
+    const live = await cadApi.pauseLiveSimulation(projectId, liveSessionId);
+    setResult(live.result);
+    setPaused(true);
+  }, [liveSessionId, projectId, setPaused, setResult]);
+
+  const resumeSimulation = useCallback(async () => {
+    if (!projectId || !liveSessionId) return;
+    const live = await cadApi.resumeLiveSimulation(projectId, liveSessionId);
+    setResult(live.result);
+    setPaused(false);
+  }, [liveSessionId, projectId, setPaused, setResult]);
+
+  useEffect(() => {
+    if (!projectId || !liveSessionId || !playing || paused) return;
+    if (tickTimer.current) clearInterval(tickTimer.current);
+    tickTimer.current = setInterval(() => {
+      if (pendingTick.current) return;
+      pendingTick.current = true;
+      void cadApi
+        .tickLiveSimulation(projectId, liveSessionId)
+        .then((live) => {
+          setResult(live.result);
+          setPaused(live.paused);
+        })
+        .catch((error) => {
+          console.error('Failed to tick live simulation:', error);
+        })
+        .finally(() => {
+          pendingTick.current = false;
+        });
+    }, 100);
+    return () => {
+      if (tickTimer.current) {
+        clearInterval(tickTimer.current);
+        tickTimer.current = null;
+      }
+    };
+  }, [liveSessionId, paused, playing, projectId, setPaused, setResult]);
+
+  useEffect(() => {
+    if (!projectId || !liveSessionId || !scene || !playing) return;
+    const signature = snapshotSimulationInput(scene, config);
+    if (lastSimulationSignature.current === null) {
+      lastSimulationSignature.current = signature;
+      return;
+    }
+    if (signature === lastSimulationSignature.current) return;
+    if (updateTimer.current) clearTimeout(updateTimer.current);
+    updateTimer.current = setTimeout(() => {
+      void cadApi
+        .updateLiveSimulation(projectId, liveSessionId, scene, config)
+        .then((live) => {
+          setResult(live.result);
+          setPaused(live.paused);
+          lastSimulationSignature.current = signature;
+        })
+        .catch((error) => {
+          console.error('Failed to hot-update live simulation:', error);
+        });
+    }, 200);
+    return () => {
+      if (updateTimer.current) clearTimeout(updateTimer.current);
+    };
+  }, [config, liveSessionId, playing, projectId, scene, setPaused, setResult]);
+
+  useEffect(() => () => {
+    if (tickTimer.current) clearInterval(tickTimer.current);
+    if (updateTimer.current) clearTimeout(updateTimer.current);
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -304,12 +416,29 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             onChange={(value) => patchConfig({ speedVariation: Math.max(0, value) })}
           />
           {playing ? (
-            <button
-              onClick={() => { setPlaying(false); setResult(null); }}
-              className="w-full rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500 cursor-pointer"
-            >
-              ⏹ Arrêter la simulation
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              {paused ? (
+                <button
+                  onClick={() => void resumeSimulation()}
+                  className="rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 cursor-pointer"
+                >
+                  ▶ Reprendre
+                </button>
+              ) : (
+                <button
+                  onClick={() => void pauseSimulation()}
+                  className="rounded bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-500 cursor-pointer"
+                >
+                  ⏸ Pause
+                </button>
+              )}
+              <button
+                onClick={() => void stopSimulation()}
+                className="rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500 cursor-pointer"
+              >
+                ⏹ Arrêter
+              </button>
+            </div>
           ) : (
             <button
               onClick={() => void runSimulation()}

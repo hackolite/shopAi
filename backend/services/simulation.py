@@ -156,7 +156,7 @@ def _queue_slot_positions(
     )
     positions: list[tuple[float, float]] = [center]
     slot_radius_m = _cm_to_m(AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM)
-    ring_count = max(1, round(_cm_to_m(waypoint.radiusCm) / slot_radius_m))
+    ring_count = max(1, math.floor(_cm_to_m(waypoint.radiusCm) / slot_radius_m))
     for ring in range(1, ring_count + 1):
         n_slots = max(6, ring * 6)
         for i in range(n_slots):
@@ -169,20 +169,13 @@ def _queue_slot_positions(
 
 
 def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
-    half = _cm_to_m(max(40.0, waypoint.radiusCm)) / 2
+    radius_m = _cm_to_m(max(40.0, waypoint.radiusCm))
     x, z = _safe_waypoint_point(
         waypoint,
         walkable,
         clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
     )
-    return Polygon(
-        [
-            (x - half, z - half),
-            (x + half, z - half),
-            (x + half, z + half),
-            (x - half, z + half),
-        ]
-    )
+    return Point(x, z).buffer(radius_m, resolution=16)
 
 
 def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> Polygon | None:
@@ -306,7 +299,7 @@ def _suggest_distinct_walkable_point(
 
 def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
     if waypoint.type == "exit":
-        extent_cm = max(40.0, float(waypoint.radiusCm)) / 2
+        extent_cm = max(40.0, float(waypoint.radiusCm))
         return extent_cm + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
     if waypoint.type == "transit":
         # Transit waypoints are purely navigational guides, not spawn points.

@@ -2564,10 +2564,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
   const { selectedZoneId, removeZone, selectZone } = useZoneStore();
-  const { selectedWaypointId, selectWaypoint } = useSimulationStore((state) => ({
-    selectedWaypointId: state.selectedWaypointId,
-    selectWaypoint: state.selectWaypoint,
-  }));
+  const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
+  const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
   const [transformTarget, setTransformTarget] = useState<THREE.Group | null>(null);

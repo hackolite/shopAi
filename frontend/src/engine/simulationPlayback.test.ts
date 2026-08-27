@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampNoReverseStep, resolveSimulationTime } from './simulationPlayback';
+import { clampMonotonicTime, clampNoReverseStep, resolveSimulationTime } from './simulationPlayback';
 
 describe('resolveSimulationTime', () => {
   it('clamps to simulation end instead of looping', () => {
@@ -34,5 +34,15 @@ describe('clampNoReverseStep', () => {
 
   it('falls back to the proposed position when no forward direction is available', () => {
     expect(clampNoReverseStep(4, 2, 1, 5, 0, 0)).toEqual({ x: 1, z: 5 });
+  });
+});
+
+describe('clampMonotonicTime', () => {
+  it('never lets playback time go backward', () => {
+    expect(clampMonotonicTime(8.4, 7.9)).toBe(8.4);
+  });
+
+  it('accepts newer frame times', () => {
+    expect(clampMonotonicTime(8.4, 8.9)).toBe(8.9);
   });
 });

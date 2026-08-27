@@ -3,7 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
-import { clampNoReverseStep } from '../engine/simulationPlayback';
+import { clampMonotonicTime, clampNoReverseStep } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -532,7 +532,7 @@ export function SimulationLayer() {
     }
     const estimatedCurrentTime = serverTimeAtAnchor.current + Math.max(0, nowSeconds - wallTimeAtAnchor.current);
     if (latestFrameTime > estimatedCurrentTime || latestFrameTime < estimatedCurrentTime - 0.75) {
-      serverTimeAtAnchor.current = latestFrameTime;
+      serverTimeAtAnchor.current = clampMonotonicTime(serverTimeAtAnchor.current, latestFrameTime);
       wallTimeAtAnchor.current = nowSeconds;
     }
   }, [paused, playing, result]);

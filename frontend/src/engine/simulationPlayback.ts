@@ -4,6 +4,10 @@ export function resolveSimulationTime(elapsedSeconds: number, totalDurationSecon
   return Math.min(elapsed, totalDurationSeconds);
 }
 
+export function clampMonotonicTime(previousSeconds: number, nextSeconds: number): number {
+  return Math.max(previousSeconds, nextSeconds);
+}
+
 export function clampNoReverseStep(
   previousX: number,
   previousZ: number,

@@ -18,6 +18,7 @@ function WaypointMarker({
   z,
   radiusCm,
   optional,
+  canDrag,
   minXCm,
   maxXCm,
   minZCm,
@@ -29,6 +30,7 @@ function WaypointMarker({
   z: number;
   radiusCm: number;
   optional: boolean;
+  canDrag: boolean;
   minXCm: number;
   maxXCm: number;
   minZCm: number;
@@ -62,6 +64,7 @@ function WaypointMarker({
       onPointerDown={(event) => {
         event.stopPropagation();
         selectWaypoint(id);
+        if (!canDrag) return;
         const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
         if (!hit) return;
         const hitXCm = hit.x / CM_TO_UNIT;
@@ -74,6 +77,7 @@ function WaypointMarker({
         withPointerCaptureTarget(event.target)?.setPointerCapture?.(event.pointerId);
       }}
       onPointerMove={(event) => {
+        if (!canDrag) return;
         const dragState = dragStateRef.current;
         if (!dragState || dragState.pointerId !== event.pointerId) return;
         event.stopPropagation();
@@ -93,9 +97,6 @@ function WaypointMarker({
         if (dragStateRef.current?.pointerId !== event.pointerId) return;
         event.stopPropagation();
         withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
-        endDrag();
-      }}
-      onPointerMissed={() => {
         endDrag();
       }}
     >
@@ -163,6 +164,7 @@ export function SimulationLayer() {
   const result = useSimulationStore((state) => state.result);
   const [frameIndex, setFrameIndex] = useState(0);
   const startedAt = useRef<number | null>(null);
+  const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
   const minXCm = storePos[0];
   const minZCm = storePos[2];
@@ -199,6 +201,7 @@ export function SimulationLayer() {
         <WaypointMarker
           key={waypoint.id}
           {...waypoint}
+          canDrag={canDrag}
           minXCm={minXCm}
           maxXCm={maxXCm}
           minZCm={minZCm}

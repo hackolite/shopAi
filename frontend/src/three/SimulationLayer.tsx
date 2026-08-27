@@ -354,7 +354,7 @@ export function SimulationLayer() {
   const colorAssignments = useRef<Map<number, number>>(new Map());
   const nextColorCounter = useRef(0);
   const agentRefs = useRef<Map<number, AgentMarkerHandle>>(new Map());
-  const cachedAIdx = useRef(-1);
+  const cachedFrameAIdx = useRef(-1);
   const cachedAgentMapA = useRef<Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>>(
     new Map(),
   );
@@ -367,7 +367,7 @@ export function SimulationLayer() {
     prevAgentIds.current = new Set();
     colorAssignments.current = new Map();
     nextColorCounter.current = 0;
-    cachedAIdx.current = -1;
+    cachedFrameAIdx.current = -1;
     cachedAgentMapA.current = new Map();
     setAgentSlots(new Map());
   }, [result]);
@@ -394,8 +394,8 @@ export function SimulationLayer() {
     const frameB = result.frames[bIdx];
 
     // Rebuild frame-A lookup only when the bracket changes
-    if (aIdx !== cachedAIdx.current) {
-      cachedAIdx.current = aIdx;
+    if (aIdx !== cachedFrameAIdx.current) {
+      cachedFrameAIdx.current = aIdx;
       const m = new Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>();
       for (const a of frameA.agents) m.set(a.id, a);
       cachedAgentMapA.current = m;
@@ -405,11 +405,12 @@ export function SimulationLayer() {
     const dt = frameB.timeSeconds - frameA.timeSeconds;
     const alpha = dt > 0 ? Math.min(1, (t - frameA.timeSeconds) / dt) : 0;
 
-    // Detect agent set change
+    // Detect agent set change: new arrivals OR departures
     const currentIds = new Set(frameB.agents.map((a) => a.id));
     const idsChanged =
       currentIds.size !== prevAgentIds.current.size ||
-      frameB.agents.some((a) => !prevAgentIds.current.has(a.id));
+      frameB.agents.some((a) => !prevAgentIds.current.has(a.id)) ||
+      [...prevAgentIds.current].some((id) => !currentIds.has(id));
 
     if (idsChanged) {
       prevAgentIds.current = currentIds;

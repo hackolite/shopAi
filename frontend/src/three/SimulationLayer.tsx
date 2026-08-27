@@ -242,6 +242,9 @@ const AGENT_PALETTE: Array<[string, string]> = [
 
 // Radius of the anti-collision envelope (1 m diameter → 50 cm radius)
 const ANTICOLLISION_RADIUS_CM = 50;
+// Direction cone: vision-field angle and range used for the sector indicator
+const AGENT_VISION_ANGLE_DEG = 70;
+const AGENT_VISION_RANGE_CM = 220;
 
 interface AgentMarkerHandle {
   setPosition(x: number, z: number): void;
@@ -267,8 +270,7 @@ const AgentMarker = forwardRef<AgentMarkerHandle, { colorDark: string; colorLigh
       },
     }));
 
-    const visionRangeCm = 220;
-    const thetaLength = THREE.MathUtils.degToRad(70);
+    const thetaLength = THREE.MathUtils.degToRad(AGENT_VISION_ANGLE_DEG);
     const thetaStart = -thetaLength / 2;
     const envelopeOuter = ANTICOLLISION_RADIUS_CM * CM_TO_UNIT;
     const envelopeInner = envelopeOuter * 0.82;
@@ -288,7 +290,7 @@ const AgentMarker = forwardRef<AgentMarkerHandle, { colorDark: string; colorLigh
         {/* Direction cone sector — rotates with heading */}
         <group ref={coneGroupRef}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
-            <circleGeometry args={[visionRangeCm * CM_TO_UNIT, 28, thetaStart, thetaLength]} />
+            <circleGeometry args={[AGENT_VISION_RANGE_CM * CM_TO_UNIT, 28, thetaStart, thetaLength]} />
             <meshBasicMaterial color={colorLight} transparent opacity={0.18} depthWrite={false} />
           </mesh>
         </group>
@@ -352,6 +354,10 @@ export function SimulationLayer() {
   const colorAssignments = useRef<Map<number, number>>(new Map());
   const nextColorCounter = useRef(0);
   const agentRefs = useRef<Map<number, AgentMarkerHandle>>(new Map());
+  const cachedAIdx = useRef(-1);
+  const cachedAgentMapA = useRef<Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>>(
+    new Map(),
+  );
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
     () => new Map(),
   );
@@ -361,6 +367,8 @@ export function SimulationLayer() {
     prevAgentIds.current = new Set();
     colorAssignments.current = new Map();
     nextColorCounter.current = 0;
+    cachedAIdx.current = -1;
+    cachedAgentMapA.current = new Map();
     setAgentSlots(new Map());
   }, [result]);
 
@@ -385,12 +393,17 @@ export function SimulationLayer() {
     const frameA = result.frames[aIdx];
     const frameB = result.frames[bIdx];
 
+    // Rebuild frame-A lookup only when the bracket changes
+    if (aIdx !== cachedAIdx.current) {
+      cachedAIdx.current = aIdx;
+      const m = new Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>();
+      for (const a of frameA.agents) m.set(a.id, a);
+      cachedAgentMapA.current = m;
+    }
+
     // Linear interpolation factor [0, 1]
     const dt = frameB.timeSeconds - frameA.timeSeconds;
     const alpha = dt > 0 ? Math.min(1, (t - frameA.timeSeconds) / dt) : 0;
-
-    // Build fast lookup for frame A
-    const agentMapA = new Map(frameA.agents.map((a) => [a.id, a]));
 
     // Detect agent set change
     const currentIds = new Set(frameB.agents.map((a) => a.id));
@@ -414,10 +427,16 @@ export function SimulationLayer() {
 
     // Imperatively update Three.js objects — no React re-render
     for (const agentB of frameB.agents) {
-      const agentA = agentMapA.get(agentB.id) ?? agentB;
+      const agentA = cachedAgentMapA.current.get(agentB.id) ?? agentB;
+
       const x = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
       const z = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
-      const heading = Math.atan2(agentB.headingX, agentB.headingZ);
+
+      // Interpolate heading vector then derive angle
+      const hx = agentA.headingX + (agentB.headingX - agentA.headingX) * alpha;
+      const hz = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
+      const heading = Math.atan2(hx, hz);
+
       agentRefs.current.get(agentB.id)?.setPosition(x, z);
       agentRefs.current.get(agentB.id)?.setConeHeading(heading);
     }

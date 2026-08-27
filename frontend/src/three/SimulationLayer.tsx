@@ -3,7 +3,13 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
+
+function clampCm(value: number, min: number, max: number): number {
+  const rounded = Math.round(value);
+  return Math.max(min, Math.min(max, rounded));
+}
 
 function WaypointMarker({
   id,
@@ -12,6 +18,11 @@ function WaypointMarker({
   z,
   radiusCm,
   optional,
+  canDrag,
+  minXCm,
+  maxXCm,
+  minZCm,
+  maxZCm,
 }: {
   id: string;
   label: string;
@@ -19,24 +30,74 @@ function WaypointMarker({
   z: number;
   radiusCm: number;
   optional: boolean;
+  canDrag: boolean;
+  minXCm: number;
+  maxXCm: number;
+  minZCm: number;
+  maxZCm: number;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
+  const updateWaypoint = useSimulationStore((state) => state.updateWaypoint);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selected = selectedWaypointId === id;
+  const dragStateRef = useRef<{ pointerId: number; offsetXCm: number; offsetZCm: number } | null>(null);
+  const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const dragHit = useRef(new THREE.Vector3());
 
   useFrame((state) => {
     if (!groupRef.current) return;
     groupRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
   });
 
+  const endDrag = () => {
+    dragStateRef.current = null;
+  };
+
+  const withPointerCaptureTarget = (target: EventTarget | null) =>
+    target as (EventTarget & { setPointerCapture?: (pointerId: number) => void; releasePointerCapture?: (pointerId: number) => void }) | null;
+
   return (
     <group
       ref={groupRef}
       position={[x * CM_TO_UNIT, 0.9, z * CM_TO_UNIT]}
-      onClick={(event) => {
+      onPointerDown={(event) => {
         event.stopPropagation();
         selectWaypoint(id);
+        if (!canDrag) return;
+        const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
+        if (!hit) return;
+        const hitXCm = hit.x / CM_TO_UNIT;
+        const hitZCm = hit.z / CM_TO_UNIT;
+        dragStateRef.current = {
+          pointerId: event.pointerId,
+          offsetXCm: x - hitXCm,
+          offsetZCm: z - hitZCm,
+        };
+        withPointerCaptureTarget(event.target)?.setPointerCapture?.(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!canDrag) return;
+        const dragState = dragStateRef.current;
+        if (!dragState || dragState.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
+        if (!hit) return;
+        const nextX = clampCm(hit.x / CM_TO_UNIT + dragState.offsetXCm, minXCm, maxXCm);
+        const nextZ = clampCm(hit.z / CM_TO_UNIT + dragState.offsetZCm, minZCm, maxZCm);
+        updateWaypoint(id, { x: nextX, z: nextZ });
+      }}
+      onPointerUp={(event) => {
+        if (dragStateRef.current?.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
+        endDrag();
+      }}
+      onPointerCancel={(event) => {
+        if (dragStateRef.current?.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
+        endDrag();
       }}
     >
       <mesh rotation={[Math.PI, 0, 0]}>
@@ -98,10 +159,17 @@ function AgentVision({
 }
 
 export function SimulationLayer() {
+  const scene = useSceneStore((state) => state.scene);
   const config = useSimulationStore((state) => state.config);
   const result = useSimulationStore((state) => state.result);
   const [frameIndex, setFrameIndex] = useState(0);
   const startedAt = useRef<number | null>(null);
+  const canDrag = scene != null;
+  const storePos = scene?.store.position ?? [0, 0, 0];
+  const minXCm = storePos[0];
+  const minZCm = storePos[2];
+  const maxXCm = minXCm + (scene?.store.dimensions.width ?? 0);
+  const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
 
   useEffect(() => {
     setFrameIndex(0);
@@ -130,7 +198,15 @@ export function SimulationLayer() {
   return (
     <>
       {config.waypoints.map((waypoint) => (
-        <WaypointMarker key={waypoint.id} {...waypoint} />
+        <WaypointMarker
+          key={waypoint.id}
+          {...waypoint}
+          canDrag={canDrag}
+          minXCm={minXCm}
+          maxXCm={maxXCm}
+          minZCm={minZCm}
+          maxZCm={maxZCm}
+        />
       ))}
       {currentFrame?.agents.map((agent) => (
         <AgentVision key={agent.id} {...agent} />

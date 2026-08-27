@@ -27,7 +27,7 @@ interface SimulationState {
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
   addWaypoint: () => void;
-  updateWaypoint: (id: string, patch: Partial<SimulationWaypoint>) => void;
+  updateWaypoint: (id: string, patch: Partial<SimulationWaypoint>, options?: { recordHistory?: boolean }) => void;
   removeWaypoint: (id: string) => void;
   selectWaypoint: (id: string | null) => void;
   undo: () => void;
@@ -68,9 +68,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         selectedWaypointId: waypoint.id,
       };
     }),
-  updateWaypoint: (id, patch) =>
+  updateWaypoint: (id, patch, options) =>
     set((state) => ({
-      history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
+      history: options?.recordHistory === false
+        ? state.history
+        : [...state.history.slice(-MAX_HISTORY + 1), state.config],
       config: {
         ...state.config,
         waypoints: state.config.waypoints.map((waypoint) =>

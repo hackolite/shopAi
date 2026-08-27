@@ -66,6 +66,7 @@ function WaypointMarker({
   const selected = selectedWaypointId === id;
   const dragStateRef = useRef<{ pointerId: number; startXcm: number; startZcm: number; startHitXcm: number; startHitZcm: number } | null>(null);
   const pointerIdRef = useRef<number | null>(null);
+  const historyCapturedRef = useRef(false);
   const moveListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const endListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
@@ -87,15 +88,13 @@ function WaypointMarker({
       window.removeEventListener('pointercancel', endListenerRef.current);
       endListenerRef.current = null;
     }
+    historyCapturedRef.current = false;
     dragStateRef.current = null;
     if (pointerIdRef.current !== null) {
       try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* noop */ }
       pointerIdRef.current = null;
     }
   }, [gl]);
-
-  const withPointerCaptureTarget = (target: EventTarget | null) =>
-    target as (EventTarget & { setPointerCapture?: (pointerId: number) => void; releasePointerCapture?: (pointerId: number) => void }) | null;
 
   useEffect(() => () => endDrag(), [endDrag]);
 
@@ -127,9 +126,9 @@ function WaypointMarker({
           startHitXcm: hitXCm,
           startHitZcm: hitZCm,
         };
+        historyCapturedRef.current = false;
         pointerIdRef.current = event.pointerId;
         try { gl.domElement.setPointerCapture(event.pointerId); } catch { /* noop */ }
-        withPointerCaptureTarget(event.target)?.setPointerCapture?.(event.pointerId);
         const onMove = (moveEvent: PointerEvent) => {
           const dragState = dragStateRef.current;
           if (!dragState || dragState.pointerId !== moveEvent.pointerId) return;
@@ -147,11 +146,12 @@ function WaypointMarker({
           const dz = dragHit.current.z / CM_TO_UNIT - dragState.startHitZcm;
           const nextX = clampCm(dragState.startXcm + dx, minXCm, maxXCm);
           const nextZ = clampCm(dragState.startZcm + dz, minZCm, maxZCm);
-          updateWaypoint(id, { x: nextX, z: nextZ });
+          const shouldRecordHistory = !historyCapturedRef.current && (nextX !== dragState.startXcm || nextZ !== dragState.startZcm);
+          updateWaypoint(id, { x: nextX, z: nextZ }, { recordHistory: shouldRecordHistory });
+          if (shouldRecordHistory) historyCapturedRef.current = true;
         };
         const onEnd = (endEvent: PointerEvent) => {
           if (dragStateRef.current?.pointerId !== endEvent.pointerId) return;
-          withPointerCaptureTarget(event.target)?.releasePointerCapture?.(endEvent.pointerId);
           endDrag();
         };
         moveListenerRef.current = onMove;

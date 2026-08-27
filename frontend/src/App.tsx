@@ -47,14 +47,22 @@ export default function App() {
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
-  const { setZones } = useZoneStore();
+  const { setZones, selectedZoneId } = useZoneStore();
   const {
     setConfig: setSimulationConfig,
     setResult: setSimulationResult,
     selectedWaypointId,
+    historyLength: simulationHistoryLength,
     selectWaypoint: selectSimulationWaypoint,
     undo: undoSimulation,
-  } = useSimulationStore();
+  } = useSimulationStore((state) => ({
+    setConfig: state.setConfig,
+    setResult: state.setResult,
+    selectedWaypointId: state.selectedWaypointId,
+    historyLength: state.history.length,
+    selectWaypoint: state.selectWaypoint,
+    undo: state.undo,
+  }));
 
   // ── Load project list ─────────────────────────────────────────────────────
   const refreshProjectList = useCallback(async () => {
@@ -316,7 +324,10 @@ export default function App() {
       // Ctrl/Cmd+Z → undo
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
         e.preventDefault();
-        if (selectedWaypointId) {
+        if (
+          simulationHistoryLength > 0 &&
+          (selectedWaypointId || (rightTab === 'simulation' && !selectedFurnitureId && !selectedZoneId))
+        ) {
           undoSimulation();
         } else {
           undo();
@@ -365,7 +376,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, saveProject]);
+  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, selectedFurnitureId, selectedZoneId, simulationHistoryLength, rightTab, saveProject]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

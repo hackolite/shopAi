@@ -462,6 +462,12 @@ def _build_agent_params(
     )
 
 
+def initial_target_stage_id(stage_ids: list[int]) -> int:
+    if len(stage_ids) < 2:
+        raise ValueError("Journey must include a downstream stage after entry")
+    return stage_ids[1]
+
+
 def _vision_for_agent(config: SimulationConfig, stage_waypoint):
     if stage_waypoint is None:
         return (70.0, 220.0)
@@ -688,11 +694,10 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
             occupied.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
-            initial_stage_id = selected_stage_ids[1] if len(selected_stage_ids) > 1 else selected_stage_ids[0]
             agent_id = sim.add_agent(
                 _build_agent_params(
                     journey_id=journey_id,
-                    stage_id=initial_stage_id,
+                    stage_id=initial_target_stage_id(selected_stage_ids),
                     position=spawn_position,
                     desired_speed=desired_speed,
                 )

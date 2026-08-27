@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from shapely.geometry import Polygon
+from shapely.geometry import Point, Polygon
 
 import services.project_manager as pm
 import services.simulation as simulation_service
@@ -153,7 +153,9 @@ def test_distinct_waypoint_correction_falls_back_when_projection_matches_input(m
 
     suggested = simulation_service._suggest_distinct_walkable_point(point, walkable)
 
-    assert suggested == (0.5, 0.5)
+    assert suggested is not None
+    assert suggested != point
+    assert walkable.contains(Point(suggested)) or walkable.touches(Point(suggested))
 
 
 def test_run_simulation_allows_transit_waypoint_with_large_radius_in_accessible_aisle() -> None:

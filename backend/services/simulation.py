@@ -502,6 +502,10 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
     if current_time - runtime.enqueue_times[front_agent] >= runtime.release_interval_s:
         runtime.stage.pop(1)
         runtime.released_agents += 1
+        # Remove the released agent's entry immediately so that the next tick's
+        # cleanup does not find a stale record and the newly promoted front
+        # agent is correctly identified from the start.
+        del runtime.enqueue_times[front_agent]
 
 
 def _freeze_retained_agents(

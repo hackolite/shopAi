@@ -494,6 +494,44 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float, agents_i
         runtime.front_arrival_time = None
 
 
+def _freeze_retained_agents(
+    sim: object,
+    waypoint_runtimes: dict[str, "_WaypointRuntime"],
+    agent_desired_speeds: dict[int, float],
+) -> None:
+    """Set desired_speed=0 for agents that are inside a retention circle.
+
+    When an agent whose stage targets a retention (queue) waypoint is within
+    the waypoint's circle radius, it is considered *retained* and must stand
+    still.  Once it leaves the circle (i.e. is no longer targeting that stage
+    or has moved outside the radius) its original desired speed is restored.
+    """
+    retention_stage_ids: set[int] = {rt.stage_id for rt in waypoint_runtimes.values()}
+    stage_id_to_runtime: dict[int, "_WaypointRuntime"] = {
+        rt.stage_id: rt for rt in waypoint_runtimes.values()
+    }
+    for agent in sim.agents():
+        model_state = agent.model
+        if not isinstance(model_state, jps.CollisionFreeSpeedModelState):
+            continue
+        agent_id = int(agent.id)
+        stage_id = int(agent.stage_id)
+        if stage_id in retention_stage_ids:
+            runtime = stage_id_to_runtime[stage_id]
+            dist = math.hypot(
+                agent.position[0] - _cm_to_m(runtime.waypoint.x),
+                agent.position[1] - _cm_to_m(runtime.waypoint.z),
+            )
+            if dist <= _cm_to_m(runtime.waypoint.radiusCm):
+                model_state.desired_speed = 0.0
+                continue
+        # Agent is outside any retention circle – restore original speed if frozen.
+        if model_state.desired_speed == 0.0:
+            original = agent_desired_speeds.get(agent_id)
+            if original is not None:
+                model_state.desired_speed = original
+
+
 def _apply_right_hand_bias(sim: object) -> None:
     """Inject a rightward lateral bias into the desired direction of blocked agents.
 
@@ -601,6 +639,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     arrival_index = 0
     spawned = 0
     completed = 0
+    agent_desired_speeds: dict[int, float] = {}
     steps_per_snapshot = max(1, round(DEFAULT_SNAPSHOT_INTERVAL_S / SIMULATION_DT_S))
     frames: list[SimulationFrame] = []
     waypoint_series: dict[str, list[WaypointSample]] = {waypoint.id: [] for waypoint in metrics_waypoints}
@@ -628,7 +667,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
             occupied.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
-            sim.add_agent(
+            agent_id = sim.add_agent(
                 _build_agent_params(
                     journey_id=journey_id,
                     stage_id=selected_stage_ids[0],
@@ -636,6 +675,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                     desired_speed=desired_speed,
                 )
             )
+            agent_desired_speeds[agent_id] = desired_speed
             spawned += 1
             arrival_index += 1
 
@@ -649,6 +689,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
 
+        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds)
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
@@ -716,6 +757,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 _cm_to_m(runtime.waypoint.radiusCm),
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
+        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds)
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())

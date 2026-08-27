@@ -48,21 +48,12 @@ export default function App() {
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones, selectedZoneId } = useZoneStore();
-  const {
-    setConfig: setSimulationConfig,
-    setResult: setSimulationResult,
-    selectedWaypointId,
-    historyLength: simulationHistoryLength,
-    selectWaypoint: selectSimulationWaypoint,
-    undo: undoSimulation,
-  } = useSimulationStore((state) => ({
-    setConfig: state.setConfig,
-    setResult: state.setResult,
-    selectedWaypointId: state.selectedWaypointId,
-    historyLength: state.history.length,
-    selectWaypoint: state.selectWaypoint,
-    undo: state.undo,
-  }));
+  const setSimulationConfig = useSimulationStore((state) => state.setConfig);
+  const setSimulationResult = useSimulationStore((state) => state.setResult);
+  const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
+  const simulationHistoryLength = useSimulationStore((state) => state.history.length);
+  const selectSimulationWaypoint = useSimulationStore((state) => state.selectWaypoint);
+  const undoSimulation = useSimulationStore((state) => state.undo);
 
   // ── Load project list ─────────────────────────────────────────────────────
   const refreshProjectList = useCallback(async () => {

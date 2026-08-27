@@ -8,6 +8,12 @@ interface SimulationPanelProps {
   projectId: string | null;
 }
 
+const MAX_CONSTRAINT_EDGE_DISTANCE_CM = 250;
+const MIN_WAYPOINT_RADIUS_CM = 40;
+// Backend emits Agent(x, y) on the horizontal simulation plane, which maps to frontend X/Z in meters.
+// This parser is intentionally coupled to the current backend RuntimeError message text.
+const CONSTRAINT_ERROR_PATTERN = /Agent\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)\s*too close to geometry boundaries/i;
+
 function NumberField({
   label,
   value,
@@ -44,10 +50,60 @@ function persistSettings(projectId: string | null, config: SimulationConfig) {
   cadApi.updateSettings(projectId, { simulation: config }).catch(console.error);
 }
 
+function extractConstraintPoint(error: unknown): { xM: number; zM: number } | null {
+  const raw = error instanceof Error ? error.message : String(error);
+  const detail = (() => {
+    const jsonStart = raw.indexOf('{');
+    if (jsonStart < 0) return raw;
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart)) as { detail?: unknown };
+      return typeof parsed.detail === 'string' ? parsed.detail : raw;
+    } catch {
+      return raw;
+    }
+  })();
+  const match = detail.match(CONSTRAINT_ERROR_PATTERN);
+  if (!match) return null;
+  const xM = Number(match[1]);
+  const zM = Number(match[2]); // backend "y" axis is frontend floor-plane Z
+  if (!Number.isFinite(xM) || !Number.isFinite(zM)) return null;
+  return { xM, zM };
+}
+
+function pickClosestWaypointId(
+  point: { xM: number; zM: number },
+  waypoints: SimulationWaypoint[],
+): string | null {
+  const targetXCm = point.xM * 100;
+  const targetZCm = point.zM * 100;
+  let bestId: string | null = null;
+  let bestEdgeDistance = Number.POSITIVE_INFINITY;
+  let bestCenterDistance = Number.POSITIVE_INFINITY;
+
+  for (const waypoint of waypoints) {
+    const dx = waypoint.x - targetXCm;
+    const dz = waypoint.z - targetZCm;
+    const distanceCm = Math.hypot(dx, dz);
+    const edgeDistanceCm = Math.max(0, distanceCm - Math.max(MIN_WAYPOINT_RADIUS_CM, waypoint.radiusCm));
+    if (
+      edgeDistanceCm < bestEdgeDistance
+      || (edgeDistanceCm === bestEdgeDistance && distanceCm < bestCenterDistance)
+    ) {
+      bestEdgeDistance = edgeDistanceCm;
+      bestCenterDistance = distanceCm;
+      bestId = waypoint.id;
+    }
+  }
+
+  return bestEdgeDistance <= MAX_CONSTRAINT_EDGE_DISTANCE_CM ? bestId : null;
+}
+
 function WaypointEditor({
   waypoint,
+  invalid,
 }: {
   waypoint: SimulationWaypoint;
+  invalid: boolean;
 }) {
   const { updateWaypoint, removeWaypoint, selectWaypoint, selectedWaypointId } = useSimulationStore();
   const selected = selectedWaypointId === waypoint.id;
@@ -59,7 +115,11 @@ function WaypointEditor({
     <div
       className={[
         'rounded border p-2 space-y-2 transition-colors',
-        selected ? 'border-blue-500 bg-blue-950/20' : 'border-gray-800 bg-gray-900/60',
+        invalid
+          ? 'border-red-500 bg-red-950/20'
+          : selected
+            ? 'border-blue-500 bg-blue-950/20'
+            : 'border-gray-800 bg-gray-900/60',
       ].join(' ')}
       onClick={() => selectWaypoint(waypoint.id)}
     >
@@ -169,6 +229,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setResult,
     running,
     setRunning,
+    setInvalidWaypointIds,
+    selectWaypoint,
+    invalidWaypointIds,
   } = useSimulationStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -190,6 +253,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       const simulation = await cadApi.runSimulation(projectId, scene, config);
       setResult(simulation);
     } catch (error) {
+      setResult(null);
+      const point = extractConstraintPoint(error);
+      const invalidWaypointId = point ? pickClosestWaypointId(point, config.waypoints) : null;
+      if (invalidWaypointId) {
+        setInvalidWaypointIds([invalidWaypointId]);
+        selectWaypoint(invalidWaypointId);
+      } else {
+        setInvalidWaypointIds([]);
+      }
       console.error('Failed to run simulation:', error);
       alert(error instanceof Error ? error.message : 'Simulation impossible');
     } finally {
@@ -296,7 +368,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 Aucun point de passage.
               </div>
             ) : (
-              config.waypoints.map((waypoint) => <WaypointEditor key={waypoint.id} waypoint={waypoint} />)
+              config.waypoints.map((waypoint) => (
+                <WaypointEditor
+                  key={waypoint.id}
+                  waypoint={waypoint}
+                  invalid={invalidWaypointIds.includes(waypoint.id)}
+                />
+              ))
             )}
           </div>
         </section>

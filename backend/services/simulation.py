@@ -45,7 +45,7 @@ class _WaypointRuntime:
     stage_id: int
     stage: object
     release_interval_s: float
-    # Tracks arrival time of the current front-of-queue agent (None = queue empty)
+    # Tracks when an agent first entered the waypoint circle (circle-entry based retention)
     front_arrival_time: float | None = None
     released_agents: int = 0
 
@@ -283,11 +283,15 @@ def _suggest_distinct_walkable_point(
 def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
     if waypoint.type == "exit":
         extent_cm = max(40.0, float(waypoint.radiusCm)) / 2
-    elif waypoint.type in {"entry", "transit"}:
-        extent_cm = 0.0
-    else:
-        extent_cm = 0.0
-    return extent_cm + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
+        return extent_cm + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
+    if waypoint.type == "transit":
+        # Transit waypoints are purely navigational guides, not spawn points.
+        # Only require the centre to be strictly inside the walkable area – no
+        # extra clearance from furniture – so they can be placed next to shelves.
+        return 0.0
+    # Entry waypoints need agent-radius clearance so spawned agents don't overlap
+    # obstacles immediately after appearing.
+    return AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 
 
 def _safe_waypoint_point(
@@ -444,19 +448,40 @@ def _vision_for_agent(config: SimulationConfig, stage_waypoint):
     return (float(stage_waypoint.visionAngleDeg), float(stage_waypoint.visionRangeCm))
 
 
-def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
+def _count_agents_in_circle(
+    agents,
+    stage_id: int,
+    center_x_m: float,
+    center_z_m: float,
+    radius_m: float,
+) -> int:
+    """Return the number of agents targeting *stage_id* that are inside the waypoint circle."""
+    return sum(
+        1
+        for agent in agents
+        if int(agent.stage_id) == stage_id
+        and math.hypot(agent.position[0] - center_x_m, agent.position[1] - center_z_m) <= radius_m
+    )
+
+
+def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float, agents_in_circle: int) -> None:
     """Advance the retention queue for one simulation step.
 
-    Tracks when the front-of-queue agent first arrived and releases it once
-    it has waited at least ``release_interval_s`` seconds.
+    Starts the retention timer as soon as any agent targeting this waypoint
+    is detected within the waypoint circle radius, not merely when they have
+    navigated to a queue-slot position.  This gives the intended behaviour:
+    retention is counted from the moment the customer enters the zone.
     """
-    queue_length = int(runtime.stage.count_targeting())
-    if queue_length > 0:
+    if agents_in_circle > 0:
         if runtime.front_arrival_time is None:
             runtime.front_arrival_time = current_time
         elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
-            runtime.stage.pop(1)
-            runtime.released_agents += 1
+            queue_length = int(runtime.stage.count_targeting())
+            if queue_length > 0:
+                runtime.stage.pop(1)
+                runtime.released_agents += 1
+            # Reset the timer whether or not a pop occurred: if queue_length was 0
+            # the timer would re-fire every step without this reset.
             remaining = int(runtime.stage.count_targeting())
             runtime.front_arrival_time = current_time if remaining > 0 else None
     else:
@@ -576,7 +601,14 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             arrival_index += 1
 
         for runtime in waypoint_runtimes.values():
-            _tick_queue_runtime(runtime, current_time)
+            agents_in_circle = _count_agents_in_circle(
+                sim.agents(),
+                runtime.stage_id,
+                _cm_to_m(runtime.waypoint.x),
+                _cm_to_m(runtime.waypoint.z),
+                _cm_to_m(runtime.waypoint.radiusCm),
+            )
+            _tick_queue_runtime(runtime, current_time, agents_in_circle)
 
         sim.iterate()
         completed += len(sim.removed_agents())
@@ -636,7 +668,14 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     while sim.agent_count() > 0 and overtime_index < max_overtime_steps:
         current_time = (base_step + overtime_index) * SIMULATION_DT_S
         for runtime in waypoint_runtimes.values():
-            _tick_queue_runtime(runtime, current_time)
+            agents_in_circle = _count_agents_in_circle(
+                sim.agents(),
+                runtime.stage_id,
+                _cm_to_m(runtime.waypoint.x),
+                _cm_to_m(runtime.waypoint.z),
+                _cm_to_m(runtime.waypoint.radiusCm),
+            )
+            _tick_queue_runtime(runtime, current_time, agents_in_circle)
         sim.iterate()
         completed += len(sim.removed_agents())
         if overtime_index % steps_per_snapshot == 0:

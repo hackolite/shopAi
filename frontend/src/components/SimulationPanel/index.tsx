@@ -292,9 +292,16 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           <button
             onClick={() => void runSimulation()}
             disabled={running || !config.enabled}
-            className="w-full rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className={[
+              'w-full rounded px-3 py-2 text-xs font-semibold text-white transition-colors',
+              running
+                ? 'bg-amber-500 cursor-not-allowed'
+                : config.enabled
+                  ? 'bg-blue-600 hover:bg-blue-500 cursor-pointer'
+                  : 'bg-blue-600 opacity-50 cursor-not-allowed',
+            ].join(' ')}
           >
-            {running ? 'Simulation en cours…' : 'Lancer la simulation'}
+            {running ? '⏳ Simulation en cours…' : '▶ Lancer la simulation'}
           </button>
         </section>
 

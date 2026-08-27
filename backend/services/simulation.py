@@ -45,7 +45,8 @@ class _WaypointRuntime:
     stage_id: int
     stage: object
     release_interval_s: float
-    release_ready_at: float = 0.0
+    # Tracks arrival time of the current front-of-queue agent (None = queue empty)
+    front_arrival_time: float | None = None
     released_agents: int = 0
 
 
@@ -112,6 +113,35 @@ def _partition_waypoints(
 
 def _waypoint_point(waypoint: SimulationWaypoint) -> tuple[float, float]:
     return (_cm_to_m(waypoint.x), _cm_to_m(waypoint.z))
+
+
+def _queue_slot_positions(
+    waypoint: SimulationWaypoint,
+    walkable: Polygon,
+) -> list[tuple[float, float]]:
+    """Return a list of standing positions for a retention queue stage.
+
+    The centre slot is placed at the safe waypoint position; additional slots
+    are distributed radially at one agent-diameter spacing so that multiple
+    waiting agents spread out instead of piling on a single point.
+    """
+    center = _safe_waypoint_point(
+        waypoint,
+        walkable,
+        clearance_cm=AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM,
+    )
+    positions: list[tuple[float, float]] = [center]
+    slot_radius_m = _cm_to_m(AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM)
+    ring_count = max(1, round(_cm_to_m(waypoint.radiusCm) / slot_radius_m))
+    for ring in range(1, ring_count + 1):
+        n_slots = max(6, ring * 6)
+        for i in range(n_slots):
+            angle = 2 * math.pi * i / n_slots
+            x = center[0] + slot_radius_m * ring * math.cos(angle)
+            z = center[1] + slot_radius_m * ring * math.sin(angle)
+            if _point_in_walkable((x, z), walkable):
+                positions.append((x, z))
+    return positions
 
 
 def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
@@ -452,7 +482,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             exit_stage_ids[waypoint.id] = stage_id
         elif waypoint.retentionSeconds > 0:
             stage_id = sim.add_queue_stage(
-                [_safe_waypoint_point(waypoint, walkable, clearance_cm=AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM)]
+                _queue_slot_positions(waypoint, walkable)
             )
             runtime = _WaypointRuntime(
                 waypoint=waypoint,
@@ -528,10 +558,16 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
         for runtime in waypoint_runtimes.values():
             queue_length = int(runtime.stage.count_targeting())
-            if queue_length > 0 and current_time >= runtime.release_ready_at:
-                runtime.stage.pop(1)
-                runtime.released_agents += 1
-                runtime.release_ready_at = current_time + runtime.release_interval_s
+            if queue_length > 0:
+                if runtime.front_arrival_time is None:
+                    runtime.front_arrival_time = current_time
+                elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
+                    runtime.stage.pop(1)
+                    runtime.released_agents += 1
+                    remaining = int(runtime.stage.count_targeting())
+                    runtime.front_arrival_time = current_time if remaining > 0 else None
+            else:
+                runtime.front_arrival_time = None
 
         sim.iterate()
         completed += len(sim.removed_agents())
@@ -583,6 +619,49 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                     )
                 )
             frames.append(SimulationFrame(timeSeconds=round(current_time, 2), agents=frame_agents))
+
+    # Overtime phase: continue until all spawned agents have exited (capped at durationSeconds extra)
+    max_overtime_steps = int(float(config.durationSeconds) / SIMULATION_DT_S)
+    overtime_index = 0
+    while sim.agent_count() > 0 and overtime_index < max_overtime_steps:
+        current_time = (
+            int(float(config.durationSeconds) / SIMULATION_DT_S) + overtime_index
+        ) * SIMULATION_DT_S
+        for runtime in waypoint_runtimes.values():
+            queue_length = int(runtime.stage.count_targeting())
+            if queue_length > 0:
+                if runtime.front_arrival_time is None:
+                    runtime.front_arrival_time = current_time
+                elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
+                    runtime.stage.pop(1)
+                    runtime.released_agents += 1
+                    remaining = int(runtime.stage.count_targeting())
+                    runtime.front_arrival_time = current_time if remaining > 0 else None
+            else:
+                runtime.front_arrival_time = None
+        sim.iterate()
+        completed += len(sim.removed_agents())
+        if overtime_index % steps_per_snapshot == 0:
+            frame_agents = []
+            for agent in sim.agents():
+                heading_x, heading_z = agent.orientation
+                vision_angle_deg, vision_range_cm = _vision_for_agent(
+                    config,
+                    waypoint_by_stage_id.get(int(agent.stage_id)),
+                )
+                frame_agents.append(
+                    SimulationAgentFrame(
+                        id=int(agent.id),
+                        xCm=round(_m_to_cm(agent.position[0]), 2),
+                        zCm=round(_m_to_cm(agent.position[1]), 2),
+                        headingX=float(heading_x) if heading_x or heading_z else 1.0,
+                        headingZ=float(heading_z),
+                        visionAngleDeg=vision_angle_deg,
+                        visionRangeCm=vision_range_cm,
+                    )
+                )
+            frames.append(SimulationFrame(timeSeconds=round(current_time, 2), agents=frame_agents))
+        overtime_index += 1
 
     waypoint_metrics = [
         WaypointMetrics(

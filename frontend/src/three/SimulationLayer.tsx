@@ -436,7 +436,7 @@ export function SimulationLayer() {
       // Interpolate heading vector then derive angle
       const hx = agentA.headingX + (agentB.headingX - agentA.headingX) * alpha;
       const hz = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
-      const heading = Math.atan2(hx, hz);
+      const heading = Math.atan2(-hz, hx);
 
       agentRefs.current.get(agentB.id)?.setPosition(x, z);
       agentRefs.current.get(agentB.id)?.setConeHeading(heading);

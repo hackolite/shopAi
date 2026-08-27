@@ -498,6 +498,7 @@ def _freeze_retained_agents(
     sim: object,
     waypoint_runtimes: dict[str, "_WaypointRuntime"],
     agent_desired_speeds: dict[int, float],
+    frozen_agents: set[int],
 ) -> None:
     """Set desired_speed=0 for agents that are inside a retention circle.
 
@@ -506,7 +507,6 @@ def _freeze_retained_agents(
     still.  Once it leaves the circle (i.e. is no longer targeting that stage
     or has moved outside the radius) its original desired speed is restored.
     """
-    retention_stage_ids: set[int] = {rt.stage_id for rt in waypoint_runtimes.values()}
     stage_id_to_runtime: dict[int, "_WaypointRuntime"] = {
         rt.stage_id: rt for rt in waypoint_runtimes.values()
     }
@@ -516,20 +516,22 @@ def _freeze_retained_agents(
             continue
         agent_id = int(agent.id)
         stage_id = int(agent.stage_id)
-        if stage_id in retention_stage_ids:
-            runtime = stage_id_to_runtime[stage_id]
+        runtime = stage_id_to_runtime.get(stage_id)
+        if runtime is not None:
             dist = math.hypot(
                 agent.position[0] - _cm_to_m(runtime.waypoint.x),
                 agent.position[1] - _cm_to_m(runtime.waypoint.z),
             )
             if dist <= _cm_to_m(runtime.waypoint.radiusCm):
                 model_state.desired_speed = 0.0
+                frozen_agents.add(agent_id)
                 continue
         # Agent is outside any retention circle – restore original speed if frozen.
-        if model_state.desired_speed == 0.0:
+        if agent_id in frozen_agents:
             original = agent_desired_speeds.get(agent_id)
             if original is not None:
                 model_state.desired_speed = original
+            frozen_agents.discard(agent_id)
 
 
 def _apply_right_hand_bias(sim: object) -> None:
@@ -640,6 +642,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     spawned = 0
     completed = 0
     agent_desired_speeds: dict[int, float] = {}
+    frozen_agents: set[int] = set()
     steps_per_snapshot = max(1, round(DEFAULT_SNAPSHOT_INTERVAL_S / SIMULATION_DT_S))
     frames: list[SimulationFrame] = []
     waypoint_series: dict[str, list[WaypointSample]] = {waypoint.id: [] for waypoint in metrics_waypoints}
@@ -689,7 +692,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
 
-        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds)
+        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
@@ -757,7 +760,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 _cm_to_m(runtime.waypoint.radiusCm),
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
-        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds)
+        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())

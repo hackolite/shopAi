@@ -3,7 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
-import { clampMonotonicTime, clampNoReverseStep } from '../engine/simulationPlayback';
+import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -253,6 +253,17 @@ const POSE_SMOOTHING_HZ = 12;
 const MOVEMENT_HEADING_MIN_CM = 0.35;
 const MAX_HEADING_TURN_RATE_RAD_S = Math.PI * 2.5;
 const MIN_EXTRAPOLATION_DT_SECONDS = 1 / 30;
+// Self-regulating playback clock: keeps a small buffer behind the newest frame and
+// gently varies speed to stay there, so rendering stays fluid (no rhythmic freezes,
+// no skips) even when the live-tick frame supply jitters around real time.
+const PLAYBACK_CLOCK_OPTIONS = {
+  targetBufferSeconds: RENDER_BUFFER_SECONDS,
+  minRate: 0.25,
+  maxRate: 1.6,
+  rateStiffness: 3,
+  maxExtrapolationSeconds: MAX_EXTRAPOLATION_SECONDS,
+  resnapThresholdSeconds: 1,
+} as const;
 
 interface AgentPose {
   x: number;
@@ -495,8 +506,7 @@ export function SimulationLayer() {
   const cachedAgentMapA = useRef<Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>>(
     new Map(),
   );
-  const serverTimeAtAnchor = useRef(0);
-  const wallTimeAtAnchor = useRef(0);
+  const renderTimeRef = useRef(-1);
   const profile = useRef({ frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 });
   const [profilingText, setProfilingText] = useState('FPS -- | frame -- ms | max -- ms');
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
@@ -514,28 +524,11 @@ export function SimulationLayer() {
     agentPoses.current = new Map();
     cachedFrameAIdx.current = -1;
     cachedAgentMapA.current = new Map();
-    serverTimeAtAnchor.current = 0;
-    wallTimeAtAnchor.current = 0;
+    renderTimeRef.current = -1;
     profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
     setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
   }, [playing]);
-
-  useEffect(() => {
-    if (!playing || paused || !result || result.frames.length === 0) return;
-    const nowSeconds = performance.now() / 1000;
-    const latestFrameTime = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    if (wallTimeAtAnchor.current <= 0) {
-      serverTimeAtAnchor.current = latestFrameTime;
-      wallTimeAtAnchor.current = nowSeconds;
-      return;
-    }
-    const estimatedCurrentTime = serverTimeAtAnchor.current + Math.max(0, nowSeconds - wallTimeAtAnchor.current);
-    if (latestFrameTime > estimatedCurrentTime || latestFrameTime < estimatedCurrentTime - 0.75) {
-      serverTimeAtAnchor.current = clampMonotonicTime(serverTimeAtAnchor.current, latestFrameTime);
-      wallTimeAtAnchor.current = nowSeconds;
-    }
-  }, [paused, playing, result]);
 
   useFrame((_, delta) => {
     if (!result || result.frames.length <= 1 || !playing || paused) return;
@@ -554,12 +547,9 @@ export function SimulationLayer() {
       }
     }
 
-    const estimatedServerTime = serverTimeAtAnchor.current + Math.max(0, performance.now() / 1000 - wallTimeAtAnchor.current);
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    const t = Math.max(0, Math.min(
-      estimatedServerTime - RENDER_BUFFER_SECONDS,
-      totalDuration + MAX_EXTRAPOLATION_SECONDS,
-    ));
+    const t = advancePlaybackClock(renderTimeRef.current, delta, totalDuration, PLAYBACK_CLOCK_OPTIONS);
+    renderTimeRef.current = t;
 
     // Binary-search for the frame just after t
     let lo = 0;

@@ -37,6 +37,7 @@ ENTRY_FALLBACK_MARGIN_CM = 120.0
 EXIT_FALLBACK_MARGIN_CM = 120.0
 AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
+EXIT_REMOVAL_RADIUS_CM = 40.0
 
 # French pedestrian right-hand avoidance: when an agent's speed drops below this
 # fraction of its desired speed it is considered "blocked" and a lateral rightward
@@ -169,9 +170,12 @@ def _queue_slot_positions(
 
 
 def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
-    radius_m = _cm_to_m(max(40.0, waypoint.radiusCm))
-    boundary_point = walkable.boundary.interpolate(walkable.boundary.project(Point(_waypoint_point(waypoint))))
-    x, z = boundary_point.x, boundary_point.y
+    radius_m = _cm_to_m(EXIT_REMOVAL_RADIUS_CM)
+    x, z = _safe_waypoint_point(
+        waypoint,
+        walkable,
+        clearance_cm=EXIT_REMOVAL_RADIUS_CM + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM,
+    )
     return Point(x, z).buffer(radius_m, resolution=16)
 
 
@@ -296,8 +300,9 @@ def _suggest_distinct_walkable_point(
 
 def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
     if waypoint.type == "exit":
-        # The visible exit marker is now an approach waypoint; the actual removal
-        # stage is projected onto the nearest boundary so any chosen exit can work.
+        # The visible exit marker is an approach waypoint.  Removal happens on a
+        # compact hidden exit stage, so any chosen exit only needs its centre to
+        # stay inside the walkable area.
         return 0.0
     if waypoint.type == "transit":
         # Transit waypoints are purely navigational guides, not spawn points.

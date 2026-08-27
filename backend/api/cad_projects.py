@@ -23,7 +23,7 @@ from models.project import (
 )
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
-from services.simulation import run_flow_simulation
+from services.simulation import SimulationConstraintViolation, run_flow_simulation
 from services.project_manager import (
     create_project,
     delete_project,
@@ -545,6 +545,8 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
             else _load_settings(project_id).simulation
         )
         return run_flow_simulation(scene, config).model_dump(mode="json")
+    except SimulationConstraintViolation as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:

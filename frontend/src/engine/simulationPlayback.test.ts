@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { clampMonotonicTime, clampNoReverseStep, resolveSimulationTime } from './simulationPlayback';
+import {
+  advancePlaybackClock,
+  clampMonotonicTime,
+  clampNoReverseStep,
+  resolveSimulationTime,
+  type PlaybackClockOptions,
+} from './simulationPlayback';
 
 describe('resolveSimulationTime', () => {
   it('clamps to simulation end instead of looping', () => {
@@ -44,5 +50,56 @@ describe('clampMonotonicTime', () => {
 
   it('accepts newer frame times', () => {
     expect(clampMonotonicTime(8.4, 8.9)).toBe(8.9);
+  });
+});
+
+describe('advancePlaybackClock', () => {
+  const options: PlaybackClockOptions = {
+    targetBufferSeconds: 0.2,
+    minRate: 0.25,
+    maxRate: 1.6,
+    rateStiffness: 3,
+    maxExtrapolationSeconds: 0.2,
+    resnapThresholdSeconds: 1,
+  };
+
+  it('initialises to the ideal buffered point when uninitialised', () => {
+    expect(advancePlaybackClock(-1, 0.016, 5, options)).toBeCloseTo(4.8, 6);
+  });
+
+  it('advances at roughly real time when perfectly buffered', () => {
+    // previous is exactly the ideal point, so rate stays at 1.0.
+    const next = advancePlaybackClock(4.8, 0.1, 5, options);
+    expect(next).toBeCloseTo(4.9, 6);
+  });
+
+  it('speeds up (but stays capped) to consume a frame backlog', () => {
+    // Far behind the ideal point → rate saturates at maxRate.
+    const next = advancePlaybackClock(4.0, 0.1, 5, options);
+    expect(next).toBeCloseTo(4.0 + 1.6 * 0.1, 6);
+  });
+
+  it('keeps moving forward without freezing when the buffer runs low', () => {
+    // Render time is already past the ideal point but rate stays positive.
+    const next = advancePlaybackClock(4.95, 0.1, 5, options);
+    expect(next).toBeGreaterThan(4.95);
+  });
+
+  it('never advances past the extrapolation ceiling', () => {
+    const next = advancePlaybackClock(5.19, 0.1, 5, options);
+    expect(next).toBeLessThanOrEqual(5 + options.maxExtrapolationSeconds);
+  });
+
+  it('never reverses when the newest frame time drops slightly', () => {
+    const next = advancePlaybackClock(5.0, 0.1, 4.9, options);
+    expect(next).toBeGreaterThanOrEqual(5.0);
+  });
+
+  it('hard-snaps forward after a large desync (e.g. backgrounded tab)', () => {
+    expect(advancePlaybackClock(2.0, 0.1, 10, options)).toBeCloseTo(9.8, 6);
+  });
+
+  it('hard-snaps back when the server session resets behind the clock', () => {
+    expect(advancePlaybackClock(20, 0.1, 3, options)).toBeCloseTo(2.8, 6);
   });
 });

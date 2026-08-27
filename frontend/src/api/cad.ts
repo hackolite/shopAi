@@ -10,6 +10,7 @@ import type {
   ProjectSettings,
   Scene,
   SimulationConfig,
+  LiveSimulationResponse,
   SimulationResult,
   StoreConfig,
 } from '../types/cad';
@@ -189,6 +190,33 @@ export const cadApi = {
     request<SimulationResult>(`${BASE}/${id}/simulation/run`, {
       method: 'POST',
       body: JSON.stringify({ scene, config }),
+    }),
+  startLiveSimulation: (id: string, scene: Scene, config: SimulationConfig) =>
+    request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/start`, {
+      method: 'POST',
+      body: JSON.stringify({ scene, config }),
+    }),
+  tickLiveSimulation: (id: string, sessionId: string, steps = 1) =>
+    request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/tick`, {
+      method: 'POST',
+      body: JSON.stringify({ steps }),
+    }),
+  pauseLiveSimulation: (id: string, sessionId: string) =>
+    request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/pause`, {
+      method: 'POST',
+    }),
+  resumeLiveSimulation: (id: string, sessionId: string) =>
+    request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/resume`, {
+      method: 'POST',
+    }),
+  updateLiveSimulation: (id: string, sessionId: string, scene: Scene, config: SimulationConfig) =>
+    request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/update`, {
+      method: 'POST',
+      body: JSON.stringify({ scene, config }),
+    }),
+  stopLiveSimulation: (id: string, sessionId: string) =>
+    request<{ stopped: boolean; sessionId: string }>(`${BASE}/${id}/simulation/live/${sessionId}/stop`, {
+      method: 'POST',
     }),
 
   getFurnitureLibrary: () =>

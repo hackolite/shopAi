@@ -3,6 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { resolveSimulationTime } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -342,6 +343,7 @@ export function SimulationLayer() {
   const invalidWaypointSuggestion = useSimulationStore((state) => state.invalidWaypointSuggestion);
   const result = useSimulationStore((state) => state.result);
   const playing = useSimulationStore((state) => state.playing);
+  const paused = useSimulationStore((state) => state.paused);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
   const minXCm = storePos[0];
@@ -371,15 +373,15 @@ export function SimulationLayer() {
     cachedFrameAIdx.current = -1;
     cachedAgentMapA.current = new Map();
     setAgentSlots(new Map());
-  }, [result, playing]);
+  }, [playing]);
 
   useFrame((state) => {
-    if (!result || result.frames.length <= 1 || !playing) return;
+    if (!result || result.frames.length <= 1 || !playing || paused) return;
 
     if (startedAt.current == null) startedAt.current = state.clock.elapsedTime;
     const elapsed = state.clock.elapsedTime - startedAt.current;
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    const t = totalDuration > 0 ? elapsed % totalDuration : elapsed;
+    const t = resolveSimulationTime(elapsed, totalDuration);
 
     // Binary-search for the frame just after t
     let lo = 0;

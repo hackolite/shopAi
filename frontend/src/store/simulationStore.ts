@@ -34,6 +34,8 @@ interface SimulationState {
   result: SimulationResult | null;
   running: boolean;
   playing: boolean;
+  paused: boolean;
+  liveSessionId: string | null;
   selectedWaypointId: string | null;
   invalidWaypointIds: string[];
   invalidWaypointSuggestion: { waypointId: string; xCm: number; zCm: number } | null;
@@ -48,6 +50,8 @@ interface SimulationState {
   setResult: (result: SimulationResult | null) => void;
   setRunning: (running: boolean) => void;
   setPlaying: (playing: boolean) => void;
+  setPaused: (paused: boolean) => void;
+  setLiveSessionId: (liveSessionId: string | null) => void;
   setInvalidWaypointIds: (ids: string[]) => void;
   setInvalidWaypointSuggestion: (suggestion: { waypointId: string; xCm: number; zCm: number } | null) => void;
 }
@@ -57,6 +61,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   result: null,
   running: false,
   playing: false,
+  paused: false,
+  liveSessionId: null,
   selectedWaypointId: null,
   invalidWaypointIds: [],
   invalidWaypointSuggestion: null,
@@ -66,6 +72,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       config: normalizeConfig(config),
       result: null,
       playing: false,
+      paused: false,
+      liveSessionId: null,
       selectedWaypointId: null,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
@@ -152,6 +160,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setResult: (result) => set({ result, invalidWaypointIds: [], invalidWaypointSuggestion: null }),
   setRunning: (running) => set({ running }),
   setPlaying: (playing) => set({ playing }),
+  setPaused: (paused) => set({ paused }),
+  setLiveSessionId: (liveSessionId) => set({ liveSessionId }),
   setInvalidWaypointIds: (ids) => set({ invalidWaypointIds: [...new Set(ids)] }),
   setInvalidWaypointSuggestion: (suggestion) => set({ invalidWaypointSuggestion: suggestion }),
 }));

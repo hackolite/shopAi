@@ -6,6 +6,10 @@ import { CM_TO_UNIT } from '../constants';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
+const WAYPOINT_CONE_BASE_Y = 0.38;
+const WAYPOINT_RING_Y = 0.02;
+const WAYPOINT_LABEL_Y = 0.95;
+
 function clampCm(value: number, min: number, max: number): number {
   const rounded = Math.round(value);
   return Math.max(min, Math.min(max, rounded));
@@ -77,7 +81,7 @@ function WaypointMarker({
 
   useFrame((state) => {
     if (!coneRef.current) return;
-    coneRef.current.position.y = 0.38 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
+    coneRef.current.position.y = WAYPOINT_CONE_BASE_Y + Math.sin(state.clock.elapsedTime * 3) * 0.08;
   });
 
   const endDrag = useCallback(() => {
@@ -184,32 +188,32 @@ function WaypointMarker({
         depthWrite={false}
       />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={999}>
-      <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
-      <meshBasicMaterial
-        color={
-          invalid
-            ? '#f87171'
-            : selected
-              ? '#93c5fd'
-              : type === 'entry'
-                ? '#4ade80'
-                : type === 'exit'
-                  ? '#fdba74'
-                  : optional
-                    ? '#fbbf24'
-                    : '#67e8f9'
-        }
-        transparent
-        opacity={0.85}
-        depthTest={false}
-        depthWrite={false}
-      />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WAYPOINT_RING_Y, 0]} renderOrder={999}>
+        <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
+        <meshBasicMaterial
+          color={
+            invalid
+              ? '#f87171'
+              : selected
+                ? '#93c5fd'
+                : type === 'entry'
+                  ? '#4ade80'
+                  : type === 'exit'
+                    ? '#fdba74'
+                    : optional
+                      ? '#fbbf24'
+                      : '#67e8f9'
+          }
+          transparent
+          opacity={0.85}
+          depthTest={false}
+          depthWrite={false}
+        />
       </mesh>
-      <Html center position={[0, 0.95, 0]} distanceFactor={10}>
-      <div className="rounded bg-gray-950/85 px-2 py-1 text-[10px] font-medium text-white shadow-lg whitespace-nowrap">
-        {label}{type === 'entry' ? ' · entrée' : type === 'exit' ? ' · sortie' : optional ? ' · optionnel' : ''}
-      </div>
+      <Html center position={[0, WAYPOINT_LABEL_Y, 0]} distanceFactor={10}>
+        <div className="rounded bg-gray-950/85 px-2 py-1 text-[10px] font-medium text-white shadow-lg whitespace-nowrap">
+          {label}{type === 'entry' ? ' · entrée' : type === 'exit' ? ' · sortie' : optional ? ' · optionnel' : ''}
+        </div>
       </Html>
     </group>
   );

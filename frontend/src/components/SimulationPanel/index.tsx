@@ -8,6 +8,12 @@ interface SimulationPanelProps {
   projectId: string | null;
 }
 
+const MAX_CONSTRAINT_EDGE_DISTANCE_CM = 250;
+const MIN_WAYPOINT_RADIUS_CM = 40;
+// Backend emits Agent(x, y) on the horizontal simulation plane, which maps to frontend X/Z in meters.
+// This parser is intentionally coupled to the current backend RuntimeError message text.
+const CONSTRAINT_ERROR_PATTERN = /Agent\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)\s*too close to geometry boundaries/i;
+
 function NumberField({
   label,
   value,
@@ -46,12 +52,20 @@ function persistSettings(projectId: string | null, config: SimulationConfig) {
 
 function extractConstraintPoint(error: unknown): { xM: number; zM: number } | null {
   const raw = error instanceof Error ? error.message : String(error);
-  const detailMatch = raw.match(/"detail"\s*:\s*"([^"]+)"/);
-  const detail = detailMatch?.[1] ?? raw;
-  const match = detail.match(/Agent\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)\s*too close to geometry boundaries/i);
+  const detail = (() => {
+    const jsonStart = raw.indexOf('{');
+    if (jsonStart < 0) return raw;
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart)) as { detail?: unknown };
+      return typeof parsed.detail === 'string' ? parsed.detail : raw;
+    } catch {
+      return raw;
+    }
+  })();
+  const match = detail.match(CONSTRAINT_ERROR_PATTERN);
   if (!match) return null;
   const xM = Number(match[1]);
-  const zM = Number(match[2]);
+  const zM = Number(match[2]); // backend "y" axis is frontend floor-plane Z
   if (!Number.isFinite(xM) || !Number.isFinite(zM)) return null;
   return { xM, zM };
 }
@@ -63,20 +77,25 @@ function pickClosestWaypointId(
   const targetXCm = point.xM * 100;
   const targetZCm = point.zM * 100;
   let bestId: string | null = null;
-  let bestScore = Number.POSITIVE_INFINITY;
+  let bestEdgeDistance = Number.POSITIVE_INFINITY;
+  let bestCenterDistance = Number.POSITIVE_INFINITY;
 
   for (const waypoint of waypoints) {
     const dx = waypoint.x - targetXCm;
     const dz = waypoint.z - targetZCm;
     const distanceCm = Math.hypot(dx, dz);
-    const score = distanceCm - Math.max(40, waypoint.radiusCm);
-    if (score < bestScore) {
-      bestScore = score;
+    const edgeDistanceCm = Math.max(0, distanceCm - Math.max(MIN_WAYPOINT_RADIUS_CM, waypoint.radiusCm));
+    if (
+      edgeDistanceCm < bestEdgeDistance
+      || (edgeDistanceCm === bestEdgeDistance && distanceCm < bestCenterDistance)
+    ) {
+      bestEdgeDistance = edgeDistanceCm;
+      bestCenterDistance = distanceCm;
       bestId = waypoint.id;
     }
   }
 
-  return bestScore <= 250 ? bestId : null;
+  return bestEdgeDistance <= MAX_CONSTRAINT_EDGE_DISTANCE_CM ? bestId : null;
 }
 
 function WaypointEditor({
@@ -232,9 +251,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setRunning(true);
     try {
       const simulation = await cadApi.runSimulation(projectId, scene, config);
-      setInvalidWaypointIds([]);
       setResult(simulation);
     } catch (error) {
+      setResult(null);
       const point = extractConstraintPoint(error);
       const invalidWaypointId = point ? pickClosestWaypointId(point, config.waypoints) : null;
       if (invalidWaypointId) {

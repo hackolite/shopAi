@@ -611,3 +611,73 @@ def test_live_simulation_allows_multiple_customer_exits() -> None:
     assert summary["spawnedCustomers"] > 3
     assert summary["completedCustomers"] > 1
     assert summary["activeCustomers"] < summary["spawnedCustomers"]
+
+def test_live_simulation_tick_response_frames_stay_bounded() -> None:
+    from services.live_simulation import LIVE_RESPONSE_FRAME_WINDOW
+
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+    config = {
+        "arrivalRatePerSecond": 1.2,
+        "maxCustomers": 25,
+        "randomSeed": 17,
+        "waypoints": [
+            {
+                "id": "entry-main",
+                "type": "entry",
+                "label": "Entrée",
+                "x": 2500.0,
+                "z": 220.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "exit-main",
+                "type": "exit",
+                "label": "Sortie",
+                "x": 2500.0,
+                "z": 2800.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+        ],
+    }
+
+    start = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={"scene": scene, "config": config},
+    )
+    assert start.status_code == 200, start.text
+    session_id = start.json()["sessionId"]
+
+    frame_counts: list[int] = []
+    last_time = 0.0
+    for _ in range(LIVE_RESPONSE_FRAME_WINDOW + 20):
+        tick = client.post(
+            f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+            json={"steps": 1},
+        )
+        assert tick.status_code == 200, tick.text
+        frames = tick.json()["result"]["frames"]
+        frame_counts.append(len(frames))
+        # The newest frame time keeps advancing even though the payload is capped.
+        assert frames[-1]["timeSeconds"] >= last_time
+        last_time = frames[-1]["timeSeconds"]
+
+    # The per-tick payload never grows without bound.
+    assert max(frame_counts) <= LIVE_RESPONSE_FRAME_WINDOW
+    # After enough ticks the window is fully populated (constant-size responses).
+    assert frame_counts[-1] == LIVE_RESPONSE_FRAME_WINDOW

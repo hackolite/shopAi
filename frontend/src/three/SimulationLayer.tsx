@@ -49,6 +49,9 @@ function WaypointMarker({
     dragStateRef.current = null;
   };
 
+  const withPointerCaptureTarget = (target: EventTarget | null) =>
+    target as (EventTarget & { setPointerCapture?: (pointerId: number) => void; releasePointerCapture?: (pointerId: number) => void }) | null;
+
   return (
     <group
       ref={groupRef}
@@ -69,7 +72,7 @@ function WaypointMarker({
           offsetXCm: x - hitXCm,
           offsetZCm: z - hitZCm,
         };
-        event.target.setPointerCapture(event.pointerId);
+        withPointerCaptureTarget(event.target)?.setPointerCapture?.(event.pointerId);
       }}
       onPointerMove={(event) => {
         const dragState = dragStateRef.current;
@@ -84,13 +87,13 @@ function WaypointMarker({
       onPointerUp={(event) => {
         if (dragStateRef.current?.pointerId !== event.pointerId) return;
         event.stopPropagation();
-        event.target.releasePointerCapture(event.pointerId);
+        withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
         endDrag();
       }}
       onPointerCancel={(event) => {
         if (dragStateRef.current?.pointerId !== event.pointerId) return;
         event.stopPropagation();
-        event.target.releasePointerCapture(event.pointerId);
+        withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
         endDrag();
       }}
       onPointerMissed={() => {

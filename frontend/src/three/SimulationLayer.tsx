@@ -246,6 +246,14 @@ const ANTICOLLISION_RADIUS_CM = 50;
 // Direction cone: vision-field angle and range used for the sector indicator
 const AGENT_VISION_ANGLE_DEG = 70;
 const AGENT_VISION_RANGE_CM = 220;
+const RENDER_BUFFER_SECONDS = 0.12;
+const INSTANCED_AGENT_THRESHOLD = 40;
+
+interface AgentPose {
+  x: number;
+  z: number;
+  heading: number;
+}
 
 interface AgentMarkerHandle {
   setPosition(x: number, z: number): void;
@@ -300,6 +308,92 @@ const AgentMarker = forwardRef<AgentMarkerHandle, { colorDark: string; colorLigh
   },
 );
 
+function InstancedAgents({
+  agentSlots,
+  agentPoses,
+}: {
+  agentSlots: Map<number, { colorDark: string; colorLight: string }>;
+  agentPoses: Map<number, AgentPose>;
+}) {
+  const envelopeRef = useRef<THREE.InstancedMesh>(null);
+  const bodyRef = useRef<THREE.InstancedMesh>(null);
+  const coneRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const orderedAgents = useMemo(() => [...agentSlots.entries()], [agentSlots]);
+  const indexById = useMemo(() => {
+    const map = new Map<number, number>();
+    orderedAgents.forEach(([id], index) => map.set(id, index));
+    return map;
+  }, [orderedAgents]);
+  const count = orderedAgents.length;
+  const coneThetaLength = THREE.MathUtils.degToRad(AGENT_VISION_ANGLE_DEG);
+  const coneThetaStart = -coneThetaLength / 2;
+  const envelopeOuter = ANTICOLLISION_RADIUS_CM * CM_TO_UNIT;
+  const envelopeInner = envelopeOuter * 0.82;
+  const coneRange = AGENT_VISION_RANGE_CM * CM_TO_UNIT;
+
+  useEffect(() => {
+    if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
+    const dark = new THREE.Color();
+    const light = new THREE.Color();
+    orderedAgents.forEach(([, colors], index) => {
+      dark.set(colors.colorDark);
+      light.set(colors.colorLight);
+      envelopeRef.current!.setColorAt(index, light);
+      bodyRef.current!.setColorAt(index, dark);
+      coneRef.current!.setColorAt(index, light);
+    });
+    if (envelopeRef.current.instanceColor) envelopeRef.current.instanceColor.needsUpdate = true;
+    if (bodyRef.current.instanceColor) bodyRef.current.instanceColor.needsUpdate = true;
+    if (coneRef.current.instanceColor) coneRef.current.instanceColor.needsUpdate = true;
+  }, [orderedAgents]);
+
+  useFrame(() => {
+    if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
+    for (const [id, pose] of agentPoses.entries()) {
+      const index = indexById.get(id);
+      if (index == null) continue;
+
+      dummy.position.set(pose.x, 0.01, pose.z);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.updateMatrix();
+      envelopeRef.current.setMatrixAt(index, dummy.matrix);
+
+      dummy.position.set(pose.x, 0.22, pose.z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      bodyRef.current.setMatrixAt(index, dummy.matrix);
+
+      dummy.position.set(pose.x, 0.015, pose.z);
+      dummy.rotation.set(-Math.PI / 2, pose.heading, 0);
+      dummy.updateMatrix();
+      coneRef.current.setMatrixAt(index, dummy.matrix);
+    }
+    envelopeRef.current.instanceMatrix.needsUpdate = true;
+    bodyRef.current.instanceMatrix.needsUpdate = true;
+    coneRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  if (count === 0) return null;
+
+  return (
+    <>
+      <instancedMesh ref={envelopeRef} args={[undefined, undefined, count]}>
+        <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
+        <meshBasicMaterial transparent opacity={0.55} depthWrite={false} vertexColors />
+      </instancedMesh>
+      <instancedMesh ref={bodyRef} args={[undefined, undefined, count]}>
+        <sphereGeometry args={[0.11, 20, 20]} />
+        <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} vertexColors />
+      </instancedMesh>
+      <instancedMesh ref={coneRef} args={[undefined, undefined, count]}>
+        <circleGeometry args={[coneRange, 28, coneThetaStart, coneThetaLength]} />
+        <meshBasicMaterial transparent opacity={0.18} depthWrite={false} vertexColors />
+      </instancedMesh>
+    </>
+  );
+}
+
 function SuggestedWaypointMarker({
   xCm,
   zCm,
@@ -352,36 +446,64 @@ export function SimulationLayer() {
   const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
 
   // --- Smooth agent playback (no React state per frame) ---
-  const startedAt = useRef<number | null>(null);
   const prevAgentIds = useRef<Set<number>>(new Set());
   const colorAssignments = useRef<Map<number, number>>(new Map());
   const nextColorCounter = useRef(0);
   const agentRefs = useRef<Map<number, AgentMarkerHandle>>(new Map());
+  const agentPoses = useRef<Map<number, AgentPose>>(new Map());
   const cachedFrameAIdx = useRef(-1);
   const cachedAgentMapA = useRef<Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>>(
     new Map(),
   );
+  const serverTimeAtAnchor = useRef(0);
+  const wallTimeAtAnchor = useRef(0);
+  const profile = useRef({ frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 });
+  const [profilingText, setProfilingText] = useState('FPS -- | frame -- ms | max -- ms');
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
     () => new Map(),
   );
+  const useInstancedAgents = agentSlots.size >= INSTANCED_AGENT_THRESHOLD;
 
   useEffect(() => {
-    startedAt.current = null;
     prevAgentIds.current = new Set();
     colorAssignments.current = new Map();
     nextColorCounter.current = 0;
+    agentPoses.current = new Map();
     cachedFrameAIdx.current = -1;
     cachedAgentMapA.current = new Map();
+    serverTimeAtAnchor.current = 0;
+    wallTimeAtAnchor.current = 0;
+    profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
+    setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
   }, [playing]);
 
-  useFrame((state) => {
+  useEffect(() => {
+    if (!result || result.frames.length === 0) return;
+    const latestFrameTime = result.frames[result.frames.length - 1].timeSeconds ?? 0;
+    serverTimeAtAnchor.current = latestFrameTime;
+    wallTimeAtAnchor.current = performance.now() / 1000;
+  }, [result]);
+
+  useFrame((state, delta) => {
     if (!result || result.frames.length <= 1 || !playing || paused) return;
 
-    if (startedAt.current == null) startedAt.current = state.clock.elapsedTime;
-    const elapsed = state.clock.elapsedTime - startedAt.current;
+    const frameDt = delta;
+    const frameMs = frameDt * 1000;
+    profile.current.frameCount += 1;
+    profile.current.elapsed += frameDt;
+    profile.current.accMs += frameMs;
+    profile.current.maxMs = Math.max(profile.current.maxMs, frameMs);
+    if (profile.current.elapsed >= 1) {
+      const fps = profile.current.frameCount / profile.current.elapsed;
+      const avgFrameMs = profile.current.accMs / Math.max(1, profile.current.frameCount);
+      setProfilingText(`FPS ${fps.toFixed(0)} | frame ${avgFrameMs.toFixed(1)} ms | max ${profile.current.maxMs.toFixed(1)} ms`);
+      profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
+    }
+
+    const estimatedServerTime = serverTimeAtAnchor.current + Math.max(0, performance.now() / 1000 - wallTimeAtAnchor.current);
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    const t = resolveSimulationTime(elapsed, totalDuration);
+    const t = resolveSimulationTime(estimatedServerTime - RENDER_BUFFER_SECONDS, totalDuration);
 
     // Binary-search for the frame just after t
     let lo = 0;
@@ -417,16 +539,26 @@ export function SimulationLayer() {
 
     if (idsChanged) {
       prevAgentIds.current = currentIds;
-      const newSlots = new Map<number, { colorDark: string; colorLight: string }>();
-      for (const id of currentIds) {
-        if (!colorAssignments.current.has(id)) {
-          colorAssignments.current.set(id, nextColorCounter.current % AGENT_PALETTE.length);
-          nextColorCounter.current++;
+      setAgentSlots((previous) => {
+        const next = new Map(previous);
+        for (const id of next.keys()) {
+          if (!currentIds.has(id)) {
+            next.delete(id);
+            agentPoses.current.delete(id);
+          }
         }
-        const [dark, light] = AGENT_PALETTE[colorAssignments.current.get(id)!];
-        newSlots.set(id, { colorDark: dark, colorLight: light });
-      }
-      setAgentSlots(newSlots);
+        for (const id of currentIds) {
+          if (!next.has(id)) {
+            if (!colorAssignments.current.has(id)) {
+              colorAssignments.current.set(id, nextColorCounter.current % AGENT_PALETTE.length);
+              nextColorCounter.current++;
+            }
+            const [dark, light] = AGENT_PALETTE[colorAssignments.current.get(id)!];
+            next.set(id, { colorDark: dark, colorLight: light });
+          }
+        }
+        return next;
+      });
     }
 
     // Imperatively update Three.js objects — no React re-render
@@ -441,8 +573,11 @@ export function SimulationLayer() {
       const hz = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
       const heading = Math.atan2(-hz, hx);
 
-      agentRefs.current.get(agentB.id)?.setPosition(x, z);
-      agentRefs.current.get(agentB.id)?.setConeHeading(heading);
+      agentPoses.current.set(agentB.id, { x, z, heading });
+      if (!useInstancedAgents) {
+        agentRefs.current.get(agentB.id)?.setPosition(x, z);
+        agentRefs.current.get(agentB.id)?.setConeHeading(heading);
+      }
     }
   });
   // --- end smooth playback ---
@@ -470,17 +605,26 @@ export function SimulationLayer() {
           maxZCm={maxZCm}
         />
       ))}
-      {[...agentSlots.entries()].map(([id, { colorDark, colorLight }]) => (
-        <AgentMarker
-          key={id}
-          ref={(handle) => {
-            if (handle) agentRefs.current.set(id, handle);
-            else agentRefs.current.delete(id);
-          }}
-          colorDark={colorDark}
-          colorLight={colorLight}
-        />
-      ))}
+      {useInstancedAgents ? (
+        <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses.current} />
+      ) : (
+        [...agentSlots.entries()].map(([id, { colorDark, colorLight }]) => (
+          <AgentMarker
+            key={id}
+            ref={(handle) => {
+              if (handle) agentRefs.current.set(id, handle);
+              else agentRefs.current.delete(id);
+            }}
+            colorDark={colorDark}
+            colorLight={colorLight}
+          />
+        ))
+      )}
+      <Html position={[0, 2.2, 0]} distanceFactor={12}>
+        <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">
+          {profilingText} · agents {agentSlots.size} · {useInstancedAgents ? 'instanced' : 'standard'}
+        </div>
+      </Html>
       {suggestedWaypoint && (
         <SuggestedWaypointMarker xCm={suggestedWaypoint.xCm} zCm={suggestedWaypoint.zCm} />
       )}

@@ -15,6 +15,8 @@ interface SimulationPanelProps {
   projectId: string | null;
 }
 
+const LIVE_TICK_INTERVAL_MS = 50;
+
 function NumberField({
   label,
   value,
@@ -333,7 +335,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         .finally(() => {
           pendingTick.current = false;
         });
-    }, 100);
+    }, LIVE_TICK_INTERVAL_MS);
     return () => {
       if (tickTimer.current) {
         clearInterval(tickTimer.current);

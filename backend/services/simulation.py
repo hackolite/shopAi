@@ -462,6 +462,13 @@ def _build_agent_params(
     )
 
 
+def current_agent_positions(sim: object) -> list[tuple[float, float]]:
+    return [
+        (float(agent.position[0]), float(agent.position[1]))
+        for agent in sim.agents()
+    ]
+
+
 def initial_target_stage_id(stage_ids: list[int]) -> int:
     if len(stage_ids) < 2:
         raise ValueError("Journey must include a downstream stage after entry")
@@ -675,7 +682,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
-        step_spawn_positions: dict[str, list[tuple[float, float]]] = {}
+        step_spawn_positions = current_agent_positions(sim)
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             selected_entry = entries[spawned % len(entries)]
@@ -690,9 +697,8 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = sim.add_journey(journey)
-            occupied = step_spawn_positions.setdefault(selected_entry.id, [])
-            spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
-            occupied.append(spawn_position)
+            spawn_position = _spawn_from_entry(selected_entry, walkable, rng, step_spawn_positions)
+            step_spawn_positions.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
             agent_id = sim.add_agent(
                 _build_agent_params(

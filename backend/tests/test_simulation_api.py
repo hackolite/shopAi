@@ -552,3 +552,64 @@ def test_live_simulation_lifecycle_pause_and_hot_update() -> None:
     stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
     assert stop.status_code == 200, stop.text
     assert stop.json()["stopped"] is True
+
+
+def test_live_simulation_allows_multiple_customer_exits() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+    config = {
+        "arrivalRatePerSecond": 1.2,
+        "durationSeconds": 60,
+        "maxCustomers": 25,
+        "randomSeed": 17,
+        "waypoints": [
+            {
+                "id": "entry-main",
+                "type": "entry",
+                "label": "Entrée",
+                "x": 2500.0,
+                "z": 220.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "exit-main",
+                "type": "exit",
+                "label": "Sortie",
+                "x": 2500.0,
+                "z": 2800.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+        ],
+    }
+
+    start = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={"scene": scene, "config": config},
+    )
+    assert start.status_code == 200, start.text
+    session_id = start.json()["sessionId"]
+
+    tick = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 450},
+    )
+    assert tick.status_code == 200, tick.text
+    summary = tick.json()["result"]["summary"]
+    assert summary["spawnedCustomers"] > 3
+    assert summary["completedCustomers"] > 1
+    assert summary["activeCustomers"] < summary["spawnedCustomers"]

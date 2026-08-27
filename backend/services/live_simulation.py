@@ -220,7 +220,7 @@ class LiveSimulationSession:
             return
         self._ensure_next_arrival()
         max_customers = max(1, int(self.config.maxCustomers))
-        step_spawn_positions: dict[str, list[tuple[float, float]]] = {}
+        step_spawn_positions = simsvc.current_agent_positions(self.sim)
         while (
             self.next_arrival_at is not None
             and self.next_arrival_at <= self.time_seconds
@@ -236,9 +236,13 @@ class LiveSimulationSession:
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = self.sim.add_journey(journey)
             entry_wp = self.entries[self.spawned % len(self.entries)]
-            occupied = step_spawn_positions.setdefault(entry_wp.id, [])
-            spawn_position = simsvc._spawn_from_entry(entry_wp, self.walkable, self.rng, occupied)
-            occupied.append(spawn_position)
+            spawn_position = simsvc._spawn_from_entry(
+                entry_wp,
+                self.walkable,
+                self.rng,
+                step_spawn_positions,
+            )
+            step_spawn_positions.append(spawn_position)
             desired_speed = max(
                 0.5,
                 self.rng.gauss(float(self.config.desiredSpeedMps), float(self.config.speedVariation)),

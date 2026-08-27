@@ -508,6 +508,8 @@ def _apply_right_hand_bias(sim: object) -> None:
     """
     for agent in sim.agents():
         model_state = agent.model
+        if not isinstance(model_state, jps.GeneralizedCentrifugalForceModelState):
+            continue
         speed = model_state.speed
         desired_speed = model_state.desired_speed
         if desired_speed <= 0:

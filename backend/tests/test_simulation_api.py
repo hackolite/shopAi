@@ -681,3 +681,109 @@ def test_live_simulation_tick_response_frames_stay_bounded() -> None:
     assert max(frame_counts) <= LIVE_RESPONSE_FRAME_WINDOW
     # After enough ticks the window is fully populated (constant-size responses).
     assert frame_counts[-1] == LIVE_RESPONSE_FRAME_WINDOW
+
+
+def test_live_simulation_hot_update_keeps_agents_when_furniture_covers_them() -> None:
+    """Moving furniture on top of existing agents must never wipe them all.
+
+    A hot-update re-places carried agents onto the new walkable area. If an agent
+    lands flush against freshly moved furniture, ``add_agent`` can reject it; that
+    single failure must not abort the whole update and make every pedestrian
+    disappear.
+    """
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+    config = {
+        "arrivalRatePerSecond": 1.5,
+        "maxCustomers": 25,
+        "randomSeed": 5,
+        "waypoints": [
+            {
+                "id": "entry-main",
+                "type": "entry",
+                "label": "Entrée",
+                "x": 2500.0,
+                "z": 220.0,
+                "radiusCm": 200.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "exit-main",
+                "type": "exit",
+                "label": "Sortie",
+                "x": 2500.0,
+                "z": 2800.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+        ],
+    }
+
+    start = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={"scene": scene, "config": config},
+    )
+    assert start.status_code == 200, start.text
+    session_id = start.json()["sessionId"]
+
+    # Populate the store with several agents.
+    for _ in range(60):
+        tick = client.post(
+            f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+            json={"steps": 1},
+        )
+        assert tick.status_code == 200, tick.text
+    active_before = tick.json()["result"]["summary"]["activeCustomers"]
+    assert active_before > 0, "expected agents to be walking before the furniture move"
+
+    # Drop a large furniture block across the middle of the store, right on top of
+    # the corridor the agents are travelling through.
+    store_width = scene["store"]["dimensions"]["width"]
+    scene["furniture"] = [
+        {
+            "id": "block-mid",
+            "name": "Bloc central",
+            "type": "gondola",
+            "libraryId": "fixture-block",
+            "position": [store_width / 2 - 900.0, 0.0, 900.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 1800.0, "depth": 1200.0, "height": 200.0},
+            "visible": True,
+            "mounted": True,
+            "locked": False,
+            "childIds": [],
+            "faces": {},
+        }
+    ]
+    update = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/update",
+        json={"scene": scene, "config": config},
+    )
+    assert update.status_code == 200, update.text
+    active_after = update.json()["result"]["summary"]["activeCustomers"]
+    # Agents are re-placed, not annihilated: the population survives the move.
+    assert active_after > 0, "furniture move must never wipe every pedestrian"
+
+    # The session keeps ticking normally afterwards.
+    tick_after = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 3},
+    )
+    assert tick_after.status_code == 200, tick_after.text
+    assert tick_after.json()["result"]["summary"]["activeCustomers"] >= 0
+
+    stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
+    assert stop.status_code == 200, stop.text

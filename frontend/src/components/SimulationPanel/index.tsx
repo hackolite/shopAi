@@ -261,6 +261,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     running,
     setRunning,
     setInvalidWaypointIds,
+    setInvalidWaypointSuggestion,
     selectWaypoint,
     invalidWaypointIds,
   } = useSimulationStore();
@@ -288,11 +289,20 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       const correction = extractConstraintCorrection(error);
       const point = correction ? null : extractConstraintPoint(error);
       const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, config.waypoints) : null);
+      const suggestedPosition =
+        correction
+        && correction.waypointId
+        && Number.isFinite(correction.suggestedXcm)
+        && Number.isFinite(correction.suggestedZcm)
+          ? { waypointId: correction.waypointId, xCm: correction.suggestedXcm as number, zCm: correction.suggestedZcm as number }
+          : null;
       if (invalidWaypointId) {
         setInvalidWaypointIds([invalidWaypointId]);
+        setInvalidWaypointSuggestion(suggestedPosition);
         selectWaypoint(invalidWaypointId);
       } else {
         setInvalidWaypointIds([]);
+        setInvalidWaypointSuggestion(null);
       }
       console.error('Failed to run simulation:', error);
       alert(correction ? formatConstraintCorrection(correction) : error instanceof Error ? error.message : 'Simulation impossible');

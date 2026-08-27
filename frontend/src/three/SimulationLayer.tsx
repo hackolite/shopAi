@@ -9,6 +9,10 @@ import { useSimulationStore } from '../store/simulationStore';
 const WAYPOINT_CONE_BASE_Y = 0.38;
 const WAYPOINT_RING_Y = 0.02;
 const WAYPOINT_LABEL_Y = 0.95;
+const SUGGESTED_MARKER_Y_OFFSET = 0.005;
+const SUGGESTED_MARKER_MIN_INNER_RADIUS = 0.04;
+const SUGGESTED_MARKER_RING_THICKNESS = 0.03;
+const SUGGESTED_MARKER_SEGMENTS = 40;
 
 function clampCm(value: number, min: number, max: number): number {
   const rounded = Math.round(value);
@@ -260,10 +264,38 @@ function AgentVision({
   );
 }
 
+function SuggestedWaypointMarker({
+  xCm,
+  zCm,
+  radiusCm,
+}: {
+  xCm: number;
+  zCm: number;
+  radiusCm: number;
+}) {
+  return (
+    <mesh
+      position={[xCm * CM_TO_UNIT, WAYPOINT_RING_Y + SUGGESTED_MARKER_Y_OFFSET, zCm * CM_TO_UNIT]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      renderOrder={1001}
+    >
+      <ringGeometry
+        args={[
+          Math.max(SUGGESTED_MARKER_MIN_INNER_RADIUS, radiusCm * CM_TO_UNIT - SUGGESTED_MARKER_RING_THICKNESS),
+          radiusCm * CM_TO_UNIT,
+          SUGGESTED_MARKER_SEGMENTS,
+        ]}
+      />
+      <meshBasicMaterial color="#f43f5e" transparent opacity={0.9} depthTest={false} depthWrite={false} />
+    </mesh>
+  );
+}
+
 export function SimulationLayer() {
   const scene = useSceneStore((state) => state.scene);
   const config = useSimulationStore((state) => state.config);
   const invalidWaypointIds = useSimulationStore((state) => state.invalidWaypointIds);
+  const invalidWaypointSuggestion = useSimulationStore((state) => state.invalidWaypointSuggestion);
   const result = useSimulationStore((state) => state.result);
   const [frameIndex, setFrameIndex] = useState(0);
   const startedAt = useRef<number | null>(null);
@@ -294,6 +326,16 @@ export function SimulationLayer() {
     if (!result || result.frames.length === 0) return null;
     return result.frames[Math.min(frameIndex, result.frames.length - 1)];
   }, [frameIndex, result]);
+  const suggestedWaypoint = useMemo(() => {
+    if (!invalidWaypointSuggestion) return null;
+    const waypoint = config.waypoints.find((item) => item.id === invalidWaypointSuggestion.waypointId);
+    if (!waypoint || !invalidWaypointIds.includes(waypoint.id)) return null;
+    return {
+      xCm: invalidWaypointSuggestion.xCm,
+      zCm: invalidWaypointSuggestion.zCm,
+      radiusCm: waypoint.radiusCm,
+    };
+  }, [config.waypoints, invalidWaypointIds, invalidWaypointSuggestion]);
 
   if (!config.enabled) return null;
 
@@ -314,6 +356,13 @@ export function SimulationLayer() {
       {currentFrame?.agents.map((agent) => (
         <AgentVision key={agent.id} {...agent} />
       ))}
+      {suggestedWaypoint && (
+        <SuggestedWaypointMarker
+          xCm={suggestedWaypoint.xCm}
+          zCm={suggestedWaypoint.zCm}
+          radiusCm={suggestedWaypoint.radiusCm}
+        />
+      )}
     </>
   );
 }

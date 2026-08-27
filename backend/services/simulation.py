@@ -477,17 +477,19 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float, agents_i
     is detected within the waypoint circle radius, not merely when they have
     navigated to a queue-slot position.  This gives the intended behaviour:
     retention is counted from the moment the customer enters the zone.
+
+    ``pop()`` is only called when at least one agent is physically enqueued
+    (i.e. has reached a queue-slot position), since calling it on an empty
+    queue has no effect on agent stage transitions.
     """
     if agents_in_circle > 0:
         if runtime.front_arrival_time is None:
             runtime.front_arrival_time = current_time
         elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
-            queue_length = int(runtime.stage.count_targeting())
-            if queue_length > 0:
+            enqueued_count = int(runtime.stage.count_enqueued())
+            if enqueued_count > 0:
                 runtime.stage.pop(1)
                 runtime.released_agents += 1
-            # Reset the timer whether or not a pop occurred: if queue_length was 0
-            # the timer would re-fire every step without this reset.
             remaining = int(runtime.stage.count_targeting())
             runtime.front_arrival_time = current_time if remaining > 0 else None
     else:
@@ -500,34 +502,32 @@ def _freeze_retained_agents(
     agent_desired_speeds: dict[int, float],
     frozen_agents: set[int],
 ) -> None:
-    """Set desired_speed=0 for agents that are inside a retention circle.
+    """Set desired_speed=0 for agents that are enqueued at a retention waypoint.
 
-    When an agent whose stage targets a retention (queue) waypoint is within
-    the waypoint's circle radius, it is considered *retained* and must stand
-    still.  Once it leaves the circle (i.e. is no longer targeting that stage
-    or has moved outside the radius) its original desired speed is restored.
+    Only agents that are physically enqueued at a queue slot (i.e. have reached
+    their waiting position) are frozen.  Agents still navigating to the slot are
+    left at full speed so they can actually reach the slot and become enqueued –
+    a prerequisite for ``pop()`` to have any effect.  Once an agent is no longer
+    in an enqueued set (released by ``pop()`` and transitioned to the next stage)
+    its original desired speed is restored.
     """
-    stage_id_to_runtime: dict[int, "_WaypointRuntime"] = {
-        rt.stage_id: rt for rt in waypoint_runtimes.values()
+    # Build a map from stage_id → set of enqueued agent IDs for this tick.
+    enqueued_by_stage: dict[int, set[int]] = {
+        rt.stage_id: set(rt.stage.enqueued()) for rt in waypoint_runtimes.values()
     }
+    # Collect all agent IDs currently enqueued across all retention stages.
+    all_enqueued: set[int] = set().union(*enqueued_by_stage.values()) if enqueued_by_stage else set()
+
     for agent in sim.agents():
         model_state = agent.model
         if not isinstance(model_state, jps.CollisionFreeSpeedModelState):
             continue
         agent_id = int(agent.id)
-        stage_id = int(agent.stage_id)
-        runtime = stage_id_to_runtime.get(stage_id)
-        if runtime is not None:
-            dist = math.hypot(
-                agent.position[0] - _cm_to_m(runtime.waypoint.x),
-                agent.position[1] - _cm_to_m(runtime.waypoint.z),
-            )
-            if dist <= _cm_to_m(runtime.waypoint.radiusCm):
-                model_state.desired_speed = 0.0
-                frozen_agents.add(agent_id)
-                continue
-        # Agent is outside any retention circle – restore original speed if frozen.
-        if agent_id in frozen_agents:
+        if agent_id in all_enqueued:
+            model_state.desired_speed = 0.0
+            frozen_agents.add(agent_id)
+        elif agent_id in frozen_agents:
+            # Agent was enqueued but has been released – restore original speed.
             original = agent_desired_speeds.get(agent_id)
             if original is not None:
                 model_state.desired_speed = original

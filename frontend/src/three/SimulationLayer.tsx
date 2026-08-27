@@ -171,7 +171,7 @@ function WaypointMarker({
         />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, markerBaseY - 0.95, 0]} renderOrder={999}>
-        <ringGeometry args={[Math.max(0.12, radiusCm * CM_TO_UNIT - 0.03), radiusCm * CM_TO_UNIT, 32]} />
+        <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
         <meshBasicMaterial
           color={selected ? '#93c5fd' : optional ? '#fbbf24' : '#4ade80'}
           transparent

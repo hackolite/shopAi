@@ -3,6 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { clampNoReverseStep } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -637,8 +638,27 @@ export function SimulationLayer() {
 
       const targetX = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
       const targetZ = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
-      const x = previousPose ? previousPose.x + (targetX - previousPose.x) * smoothingAlpha : targetX;
-      const z = previousPose ? previousPose.z + (targetZ - previousPose.z) * smoothingAlpha : targetZ;
+      const frameMotionDx = (agentB.xCm - agentA.xCm) * CM_TO_UNIT;
+      const frameMotionDz = (agentB.zCm - agentA.zCm) * CM_TO_UNIT;
+      const interpolatedHeadingX = agentA.headingX + (agentB.headingX - agentA.headingX) * alpha;
+      const interpolatedHeadingZ = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
+      const directionDx = Math.abs(frameMotionDx) > 1e-9 || Math.abs(frameMotionDz) > 1e-9
+        ? frameMotionDx
+        : interpolatedHeadingX;
+      const directionDz = Math.abs(frameMotionDx) > 1e-9 || Math.abs(frameMotionDz) > 1e-9
+        ? frameMotionDz
+        : interpolatedHeadingZ;
+      const smoothedPosition = previousPose
+        ? clampNoReverseStep(
+          previousPose.x,
+          previousPose.z,
+          previousPose.x + (targetX - previousPose.x) * smoothingAlpha,
+          previousPose.z + (targetZ - previousPose.z) * smoothingAlpha,
+          directionDx,
+          directionDz,
+        )
+        : { x: targetX, z: targetZ };
+      const { x, z } = smoothedPosition;
 
       const renderedMotionDx = previousPose ? x - previousPose.x : 0;
       const renderedMotionDz = previousPose ? z - previousPose.z : 0;
@@ -648,15 +668,13 @@ export function SimulationLayer() {
       if (movementMagnitudeSq >= minMovementUnitsSq) {
         targetHeading = Math.atan2(-renderedMotionDz, renderedMotionDx);
       } else {
-        const frameMotionDx = (agentB.xCm - agentA.xCm) * CM_TO_UNIT;
-        const frameMotionDz = (agentB.zCm - agentA.zCm) * CM_TO_UNIT;
         const frameMovementMagnitudeSq = frameMotionDx * frameMotionDx + frameMotionDz * frameMotionDz;
         if (frameMovementMagnitudeSq >= minMovementUnitsSq) {
           targetHeading = Math.atan2(-frameMotionDz, frameMotionDx);
         } else {
           targetHeading = Math.atan2(
-            -(agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha),
-            agentA.headingX + (agentB.headingX - agentA.headingX) * alpha,
+            -interpolatedHeadingZ,
+            interpolatedHeadingX,
           );
         }
       }

@@ -52,6 +52,20 @@ const HANDLE_EMISSIVE = '#664400';
 const ZONE_AUTOSAVE_DEBOUNCE_MS = 800;
 /** Video bitrate (bps) used when recording the 3D scene. */
 const RECORDING_BITRATE = 8_000_000;
+/**
+ * Capture frame rate used when recording the 3D scene. Capturing at 60 fps
+ * forces the browser to grab and VP9-encode a frame twice as often, which
+ * contends with the render loop on the main thread and makes the live view
+ * stutter while recording. 30 fps is smooth for video playback and roughly
+ * halves the encoding load.
+ */
+const RECORDING_FPS = 30;
+/**
+ * Emit an encoded chunk every second instead of buffering the whole clip until
+ * the recorder stops. This keeps memory flat and avoids a large end-of-recording
+ * processing hitch on long captures.
+ */
+const RECORDING_TIMESLICE_MS = 1000;
 
 // ─── Camera state persistence across Canvas remounts ──────────────────────────
 // When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
@@ -2761,7 +2775,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     const canvas = canvasWrapperRef.current?.querySelector('canvas');
     if (!canvas) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stream: MediaStream = (canvas as any).captureStream(60);
+    const stream: MediaStream = (canvas as any).captureStream(RECORDING_FPS);
     const mimeType = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm']
       .find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
     const mr = new MediaRecorder(stream, {
@@ -2779,7 +2793,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
       a.click();
       URL.revokeObjectURL(url);
     };
-    mr.start();
+    mr.start(RECORDING_TIMESLICE_MS);
     mediaRecorderRef.current = mr;
     setRecording(true);
     setUIRecording(true);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { cadApi } from '../../api/cad';
 import {
   extractConstraintCorrection,
@@ -49,6 +49,10 @@ function NumberField({
 function persistSettings(projectId: string | null, config: SimulationConfig) {
   if (!projectId) return;
   cadApi.updateSettings(projectId, { simulation: config }).catch(console.error);
+}
+
+function snapshotSimulationInput(scene: object, config: SimulationConfig): string {
+  return JSON.stringify({ scene, config });
 }
 
 function WaypointEditor({
@@ -190,6 +194,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     invalidWaypointIds,
   } = useSimulationStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSimulationInputRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -202,14 +207,19 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   const selectedSummary = result?.summary ?? null;
 
-  const runSimulation = async () => {
+  const runSimulation = useCallback(async () => {
     if (!projectId || !scene) return;
+    const sceneSnapshot = structuredClone(scene);
+    const configSnapshot = structuredClone(config);
+    const inputSignature = snapshotSimulationInput(sceneSnapshot, configSnapshot);
     setRunning(true);
     try {
-      const simulation = await cadApi.runSimulation(projectId, scene, config);
+      const simulation = await cadApi.runSimulation(projectId, sceneSnapshot, configSnapshot);
+      lastSimulationInputRef.current = inputSignature;
       setResult(simulation);
       setPlaying(true);
     } catch (error) {
+      setPlaying(false);
       setResult(null);
       const correction = extractConstraintCorrection(error);
       const point = correction ? null : extractConstraintPoint(error);
@@ -233,7 +243,27 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     } finally {
       setRunning(false);
     }
-  };
+  }, [
+    config,
+    projectId,
+    scene,
+    selectWaypoint,
+    setInvalidWaypointIds,
+    setInvalidWaypointSuggestion,
+    setPlaying,
+    setResult,
+    setRunning,
+  ]);
+
+  useEffect(() => {
+    if (!projectId || !scene || !playing || running) return;
+    const nextSignature = snapshotSimulationInput(scene, config);
+    if (lastSimulationInputRef.current === null) return;
+    if (nextSignature === lastSimulationInputRef.current) return;
+    setPlaying(false);
+    setResult(null);
+    void runSimulation();
+  }, [config, playing, projectId, runSimulation, running, scene, setPlaying, setResult]);
 
   return (
     <div className="flex h-full flex-col">

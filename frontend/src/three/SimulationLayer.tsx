@@ -3,6 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { resolveSimulationTime } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -379,7 +380,7 @@ export function SimulationLayer() {
     if (startedAt.current == null) startedAt.current = state.clock.elapsedTime;
     const elapsed = state.clock.elapsedTime - startedAt.current;
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    const t = totalDuration > 0 ? elapsed % totalDuration : elapsed;
+    const t = resolveSimulationTime(elapsed, totalDuration);
 
     // Binary-search for the frame just after t
     let lo = 0;

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:
     import jupedsim as jps
@@ -51,8 +51,8 @@ class _WaypointRuntime:
     stage_id: int
     stage: object
     release_interval_s: float
-    # Tracks when an agent first entered the waypoint circle (circle-entry based retention)
-    front_arrival_time: float | None = None
+    # Maps agent_id → simulation time at which that agent became enqueued (reached its slot).
+    enqueue_times: dict[int, float] = field(default_factory=dict)
     released_agents: int = 0
 
 
@@ -472,46 +472,36 @@ def _vision_for_agent(config: SimulationConfig, stage_waypoint):
     return (float(stage_waypoint.visionAngleDeg), float(stage_waypoint.visionRangeCm))
 
 
-def _count_agents_in_circle(
-    agents,
-    stage_id: int,
-    center_x_m: float,
-    center_z_m: float,
-    radius_m: float,
-) -> int:
-    """Return the number of agents targeting *stage_id* that are inside the waypoint circle."""
-    return sum(
-        1
-        for agent in agents
-        if int(agent.stage_id) == stage_id
-        and math.hypot(agent.position[0] - center_x_m, agent.position[1] - center_z_m) <= radius_m
-    )
-
-
-def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float, agents_in_circle: int) -> None:
+def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
     """Advance the retention queue for one simulation step.
 
-    Starts the retention timer as soon as any agent targeting this waypoint
-    is detected within the waypoint circle radius, not merely when they have
-    navigated to a queue-slot position.  This gives the intended behaviour:
-    retention is counted from the moment the customer enters the zone.
-
-    ``pop()`` is only called when at least one agent is physically enqueued
-    (i.e. has reached a queue-slot position), since calling it on an empty
-    queue has no effect on agent stage transitions.
+    Each agent is individually timed from the moment it reaches its queue slot
+    (becomes enqueued).  The front-of-queue agent is the one who became enqueued
+    earliest.  Once it has waited the full ``release_interval_s``, it is released
+    (``pop(1)``) and moves on to the next stage.  The next agent's personal timer
+    then governs its own wait — so every agent waits the full configured retention
+    duration regardless of when others arrived.
     """
-    if agents_in_circle > 0:
-        if runtime.front_arrival_time is None:
-            runtime.front_arrival_time = current_time
-        elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
-            enqueued_count = int(runtime.stage.count_enqueued())
-            if enqueued_count > 0:
-                runtime.stage.pop(1)
-                runtime.released_agents += 1
-            remaining = int(runtime.stage.count_targeting())
-            runtime.front_arrival_time = current_time if remaining > 0 else None
-    else:
-        runtime.front_arrival_time = None
+    current_enqueued: set[int] = set(runtime.stage.enqueued())
+
+    # Record arrival time for newly enqueued agents.
+    for agent_id in current_enqueued:
+        if agent_id not in runtime.enqueue_times:
+            runtime.enqueue_times[agent_id] = current_time
+
+    # Clean up agents that are no longer in the stage (already released or left).
+    for agent_id in list(runtime.enqueue_times):
+        if agent_id not in current_enqueued:
+            del runtime.enqueue_times[agent_id]
+
+    if not current_enqueued:
+        return
+
+    # The front-of-queue is the agent who reached its slot earliest.
+    front_agent = min(runtime.enqueue_times, key=runtime.enqueue_times.__getitem__)
+    if current_time - runtime.enqueue_times[front_agent] >= runtime.release_interval_s:
+        runtime.stage.pop(1)
+        runtime.released_agents += 1
 
 
 def _freeze_retained_agents(
@@ -701,15 +691,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             arrival_index += 1
 
         for runtime in waypoint_runtimes.values():
-            agents_in_circle = _count_agents_in_circle(
-                sim.agents(),
-                runtime.stage_id,
-                _cm_to_m(runtime.waypoint.x),
-                _cm_to_m(runtime.waypoint.z),
-                _cm_to_m(runtime.waypoint.radiusCm),
-            )
-            _tick_queue_runtime(runtime, current_time, agents_in_circle)
-
+            _tick_queue_runtime(runtime, current_time)
         _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
         sim.iterate()
         _apply_right_hand_bias(sim)
@@ -770,14 +752,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     while sim.agent_count() > 0 and overtime_index < max_overtime_steps:
         current_time = (base_step + overtime_index) * SIMULATION_DT_S
         for runtime in waypoint_runtimes.values():
-            agents_in_circle = _count_agents_in_circle(
-                sim.agents(),
-                runtime.stage_id,
-                _cm_to_m(runtime.waypoint.x),
-                _cm_to_m(runtime.waypoint.z),
-                _cm_to_m(runtime.waypoint.radiusCm),
-            )
-            _tick_queue_runtime(runtime, current_time, agents_in_circle)
+            _tick_queue_runtime(runtime, current_time)
         _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
         sim.iterate()
         _apply_right_hand_bias(sim)

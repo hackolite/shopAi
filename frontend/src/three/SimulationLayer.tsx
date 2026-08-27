@@ -341,6 +341,7 @@ export function SimulationLayer() {
   const invalidWaypointIds = useSimulationStore((state) => state.invalidWaypointIds);
   const invalidWaypointSuggestion = useSimulationStore((state) => state.invalidWaypointSuggestion);
   const result = useSimulationStore((state) => state.result);
+  const playing = useSimulationStore((state) => state.playing);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
   const minXCm = storePos[0];
@@ -370,10 +371,10 @@ export function SimulationLayer() {
     cachedFrameAIdx.current = -1;
     cachedAgentMapA.current = new Map();
     setAgentSlots(new Map());
-  }, [result]);
+  }, [result, playing]);
 
   useFrame((state) => {
-    if (!result || result.frames.length <= 1) return;
+    if (!result || result.frames.length <= 1 || !playing) return;
 
     if (startedAt.current == null) startedAt.current = state.clock.elapsedTime;
     const elapsed = state.clock.elapsedTime - startedAt.current;

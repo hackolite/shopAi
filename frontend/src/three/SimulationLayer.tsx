@@ -251,6 +251,7 @@ const INSTANCED_AGENT_THRESHOLD = 40;
 const POSE_SMOOTHING_HZ = 12;
 const MOVEMENT_HEADING_MIN_CM = 0.35;
 const MAX_HEADING_TURN_RATE_RAD_S = Math.PI * 2.5;
+const MIN_EXTRAPOLATION_DT_SECONDS = 1 / 30;
 
 interface AgentPose {
   x: number;
@@ -261,11 +262,6 @@ interface AgentPose {
 interface AgentMarkerHandle {
   setPosition(x: number, z: number): void;
   setConeHeading(y: number): void;
-}
-
-function lerpAngle(current: number, target: number, alpha: number): number {
-  const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-  return current + wrappedDelta * alpha;
 }
 
 function steerAngle(current: number, target: number, maxDelta: number): number {
@@ -587,9 +583,17 @@ export function SimulationLayer() {
 
     // Linear interpolation factor [0, 1]
     const dt = frameB.timeSeconds - frameA.timeSeconds;
-    const rawAlpha = dt > 0 ? (t - frameA.timeSeconds) / dt : 0;
-    const maxAlpha = dt > 0 ? 1 + (MAX_EXTRAPOLATION_SECONDS / dt) : 1;
-    const alpha = Math.max(0, Math.min(rawAlpha, maxAlpha));
+    let alpha = 0;
+    if (dt > 0) {
+      const rawAlpha = (t - frameA.timeSeconds) / dt;
+      if (rawAlpha <= 1) {
+        alpha = Math.max(0, rawAlpha);
+      } else {
+        const extrapolatedTime = Math.max(0, t - frameB.timeSeconds);
+        const extrapolationSeconds = Math.min(MAX_EXTRAPOLATION_SECONDS, extrapolatedTime);
+        alpha = 1 + (extrapolationSeconds / Math.max(dt, MIN_EXTRAPOLATION_DT_SECONDS));
+      }
+    }
 
     // Detect agent set change: new arrivals OR departures
     const currentIds = new Set(frameB.agents.map((a) => a.id));
@@ -638,14 +642,14 @@ export function SimulationLayer() {
 
       const renderedMotionDx = previousPose ? x - previousPose.x : 0;
       const renderedMotionDz = previousPose ? z - previousPose.z : 0;
-      const frameMotionDx = (agentB.xCm - agentA.xCm) * CM_TO_UNIT;
-      const frameMotionDz = (agentB.zCm - agentA.zCm) * CM_TO_UNIT;
       const movementMagnitudeSq = renderedMotionDx * renderedMotionDx + renderedMotionDz * renderedMotionDz;
 
       let targetHeading: number;
       if (movementMagnitudeSq >= minMovementUnitsSq) {
         targetHeading = Math.atan2(-renderedMotionDz, renderedMotionDx);
       } else {
+        const frameMotionDx = (agentB.xCm - agentA.xCm) * CM_TO_UNIT;
+        const frameMotionDz = (agentB.zCm - agentA.zCm) * CM_TO_UNIT;
         const frameMovementMagnitudeSq = frameMotionDx * frameMotionDx + frameMotionDz * frameMotionDz;
         if (frameMovementMagnitudeSq >= minMovementUnitsSq) {
           targetHeading = Math.atan2(-frameMotionDz, frameMotionDx);
@@ -658,7 +662,7 @@ export function SimulationLayer() {
       }
 
       const heading = previousPose
-        ? steerAngle(lerpAngle(previousPose.heading, targetHeading, smoothingAlpha), targetHeading, maxTurnDelta)
+        ? steerAngle(previousPose.heading, targetHeading, maxTurnDelta)
         : targetHeading;
 
       agentPoses.current.set(agentB.id, { x, z, heading });

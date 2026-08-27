@@ -15,7 +15,7 @@ interface SimulationPanelProps {
   projectId: string | null;
 }
 
-const LIVE_TICK_INTERVAL_MS = 50;
+const LIVE_TICK_INTERVAL_MS = 100;
 
 function NumberField({
   label,

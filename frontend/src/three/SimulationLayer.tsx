@@ -246,7 +246,8 @@ const ANTICOLLISION_RADIUS_CM = 50;
 // Direction cone: vision-field angle and range used for the sector indicator
 const AGENT_VISION_ANGLE_DEG = 70;
 const AGENT_VISION_RANGE_CM = 220;
-const RENDER_BUFFER_SECONDS = 0.12;
+const RENDER_BUFFER_SECONDS = 0.22;
+const MAX_EXTRAPOLATION_SECONDS = 0.2;
 const INSTANCED_AGENT_THRESHOLD = 40;
 
 interface AgentPose {
@@ -519,7 +520,7 @@ export function SimulationLayer() {
       return;
     }
     const estimatedCurrentTime = serverTimeAtAnchor.current + Math.max(0, nowSeconds - wallTimeAtAnchor.current);
-    if (latestFrameTime > estimatedCurrentTime || latestFrameTime < estimatedCurrentTime - 0.25) {
+    if (latestFrameTime > estimatedCurrentTime || latestFrameTime < estimatedCurrentTime - 0.75) {
       serverTimeAtAnchor.current = latestFrameTime;
       wallTimeAtAnchor.current = nowSeconds;
     }
@@ -544,7 +545,10 @@ export function SimulationLayer() {
 
     const estimatedServerTime = serverTimeAtAnchor.current + Math.max(0, performance.now() / 1000 - wallTimeAtAnchor.current);
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    const t = resolveSimulationTime(estimatedServerTime - RENDER_BUFFER_SECONDS, totalDuration);
+    const t = resolveSimulationTime(
+      estimatedServerTime - RENDER_BUFFER_SECONDS,
+      totalDuration + MAX_EXTRAPOLATION_SECONDS,
+    );
 
     // Binary-search for the frame just after t
     let lo = 0;

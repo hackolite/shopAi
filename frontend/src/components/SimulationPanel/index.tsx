@@ -298,7 +298,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           : null;
       if (invalidWaypointId) {
         setInvalidWaypointIds([invalidWaypointId]);
-        setInvalidWaypointSuggestion(suggestedPosition?.waypointId === invalidWaypointId ? suggestedPosition : null);
+        setInvalidWaypointSuggestion(suggestedPosition);
         selectWaypoint(invalidWaypointId);
       } else {
         setInvalidWaypointIds([]);

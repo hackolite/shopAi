@@ -9,6 +9,10 @@ import { useSimulationStore } from '../store/simulationStore';
 const WAYPOINT_CONE_BASE_Y = 0.38;
 const WAYPOINT_RING_Y = 0.02;
 const WAYPOINT_LABEL_Y = 0.95;
+const SUGGESTED_MARKER_Y_OFFSET = 0.005;
+const SUGGESTED_MARKER_MIN_INNER_RADIUS = 0.04;
+const SUGGESTED_MARKER_RING_THICKNESS = 0.03;
+const SUGGESTED_MARKER_SEGMENTS = 40;
 
 function clampCm(value: number, min: number, max: number): number {
   const rounded = Math.round(value);
@@ -270,8 +274,18 @@ function SuggestedWaypointMarker({
   radiusCm: number;
 }) {
   return (
-    <mesh position={[xCm * CM_TO_UNIT, WAYPOINT_RING_Y + 0.005, zCm * CM_TO_UNIT]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1001}>
-      <ringGeometry args={[Math.max(0.04, radiusCm * CM_TO_UNIT - 0.03), radiusCm * CM_TO_UNIT, 40]} />
+    <mesh
+      position={[xCm * CM_TO_UNIT, WAYPOINT_RING_Y + SUGGESTED_MARKER_Y_OFFSET, zCm * CM_TO_UNIT]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      renderOrder={1001}
+    >
+      <ringGeometry
+        args={[
+          Math.max(SUGGESTED_MARKER_MIN_INNER_RADIUS, radiusCm * CM_TO_UNIT - SUGGESTED_MARKER_RING_THICKNESS),
+          radiusCm * CM_TO_UNIT,
+          SUGGESTED_MARKER_SEGMENTS,
+        ]}
+      />
       <meshBasicMaterial color="#f43f5e" transparent opacity={0.9} depthTest={false} depthWrite={false} />
     </mesh>
   );

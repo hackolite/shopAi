@@ -3,6 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
 function WaypointMarker({
@@ -12,6 +13,8 @@ function WaypointMarker({
   z,
   radiusCm,
   optional,
+  storeWidthCm,
+  storeDepthCm,
 }: {
   id: string;
   label: string;
@@ -19,16 +22,32 @@ function WaypointMarker({
   z: number;
   radiusCm: number;
   optional: boolean;
+  storeWidthCm: number | null;
+  storeDepthCm: number | null;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
+  const updateWaypoint = useSimulationStore((state) => state.updateWaypoint);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selected = selectedWaypointId === id;
+  const dragStateRef = useRef<{ pointerId: number; offsetXCm: number; offsetZCm: number } | null>(null);
+  const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const dragHit = useRef(new THREE.Vector3());
 
   useFrame((state) => {
     if (!groupRef.current) return;
     groupRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
   });
+
+  const clampCm = (value: number, max: number | null) => {
+    const rounded = Math.round(value);
+    if (max == null) return rounded;
+    return Math.max(0, Math.min(max, rounded));
+  };
+
+  const endDrag = () => {
+    dragStateRef.current = null;
+  };
 
   return (
     <group
@@ -37,6 +56,45 @@ function WaypointMarker({
       onClick={(event) => {
         event.stopPropagation();
         selectWaypoint(id);
+      }}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        selectWaypoint(id);
+        const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
+        if (!hit) return;
+        const hitXCm = hit.x / CM_TO_UNIT;
+        const hitZCm = hit.z / CM_TO_UNIT;
+        dragStateRef.current = {
+          pointerId: event.pointerId,
+          offsetXCm: x - hitXCm,
+          offsetZCm: z - hitZCm,
+        };
+        event.target.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const dragState = dragStateRef.current;
+        if (!dragState || dragState.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
+        if (!hit) return;
+        const nextX = clampCm(hit.x / CM_TO_UNIT + dragState.offsetXCm, storeWidthCm);
+        const nextZ = clampCm(hit.z / CM_TO_UNIT + dragState.offsetZCm, storeDepthCm);
+        updateWaypoint(id, { x: nextX, z: nextZ });
+      }}
+      onPointerUp={(event) => {
+        if (dragStateRef.current?.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        event.target.releasePointerCapture(event.pointerId);
+        endDrag();
+      }}
+      onPointerCancel={(event) => {
+        if (dragStateRef.current?.pointerId !== event.pointerId) return;
+        event.stopPropagation();
+        event.target.releasePointerCapture(event.pointerId);
+        endDrag();
+      }}
+      onPointerMissed={() => {
+        endDrag();
       }}
     >
       <mesh rotation={[Math.PI, 0, 0]}>
@@ -98,10 +156,13 @@ function AgentVision({
 }
 
 export function SimulationLayer() {
+  const scene = useSceneStore((state) => state.scene);
   const config = useSimulationStore((state) => state.config);
   const result = useSimulationStore((state) => state.result);
   const [frameIndex, setFrameIndex] = useState(0);
   const startedAt = useRef<number | null>(null);
+  const storeWidthCm = scene?.store.dimensions.width ?? null;
+  const storeDepthCm = scene?.store.dimensions.depth ?? null;
 
   useEffect(() => {
     setFrameIndex(0);
@@ -130,7 +191,12 @@ export function SimulationLayer() {
   return (
     <>
       {config.waypoints.map((waypoint) => (
-        <WaypointMarker key={waypoint.id} {...waypoint} />
+        <WaypointMarker
+          key={waypoint.id}
+          {...waypoint}
+          storeWidthCm={storeWidthCm}
+          storeDepthCm={storeDepthCm}
+        />
       ))}
       {currentFrame?.agents.map((agent) => (
         <AgentVision key={agent.id} {...agent} />

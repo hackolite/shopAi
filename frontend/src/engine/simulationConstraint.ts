@@ -54,7 +54,7 @@ export function extractConstraintCorrection(error: unknown): ConstraintCorrectio
 
 export function hasDistinctConstraintSuggestion(correction: ConstraintCorrection, minDistanceCm = 1): boolean {
   if (correction.suggestedXcm == null || correction.suggestedZcm == null) return false;
-  if (correction.currentXcm == null || correction.currentZcm == null) return true;
+  if (correction.currentXcm == null || correction.currentZcm == null) return false;
   return Math.hypot(
     correction.suggestedXcm - correction.currentXcm,
     correction.suggestedZcm - correction.currentZcm,

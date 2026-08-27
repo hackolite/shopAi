@@ -31,6 +31,12 @@ describe('simulationConstraint', () => {
     expect(formatConstraintCorrection(correction!)).toContain('Correction proposée : X=1235 cm, Z=800 cm.');
   });
 
+  it('rejects suggestions when current coordinates are missing', () => {
+    const correction = extractConstraintCorrection(new Error('[422] {"detail":{"message":"Waypoint invalide","waypointId":"wp-1","suggestedXcm":1235,"suggestedZcm":800}}'));
+    expect(correction).not.toBeNull();
+    expect(hasDistinctConstraintSuggestion(correction!)).toBe(false);
+  });
+
   it('matches the closest waypoint from a reported geometry point', () => {
     expect(pickClosestWaypointId(
       { xM: 12.1, zM: 8 },

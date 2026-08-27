@@ -153,8 +153,7 @@ def test_distinct_waypoint_correction_falls_back_when_projection_matches_input(m
 
     suggested = simulation_service._suggest_distinct_walkable_point(point, walkable)
 
-    assert suggested is not None
-    assert suggested != point
+    assert suggested == (0.5, 0.5)
 
 
 def test_run_simulation_allows_transit_waypoint_with_large_radius_in_accessible_aisle() -> None:

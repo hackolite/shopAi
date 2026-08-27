@@ -491,11 +491,12 @@ def test_live_simulation_lifecycle_pause_and_hot_update() -> None:
 
     tick = client.post(
         f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
-        json={"steps": 50},
+        json={"steps": 1},
     )
     assert tick.status_code == 200, tick.text
     tick_payload = tick.json()
     assert tick_payload["result"]["frames"][-1]["timeSeconds"] > 0
+    assert tick_payload["result"]["summary"]["spawnedCustomers"] > 0
 
     pause = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/pause")
     assert pause.status_code == 200, pause.text

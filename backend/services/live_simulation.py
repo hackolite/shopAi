@@ -204,7 +204,13 @@ class LiveSimulationSession:
         if rate <= 0:
             self.next_arrival_at = None
             return
-        if self.next_arrival_at is None or self.next_arrival_at < self.time_seconds:
+        if self.next_arrival_at is None:
+            # Ensure at least one customer appears right after launch when arrivals are enabled.
+            if self.spawned == 0 and self.time_seconds == 0:
+                self.next_arrival_at = self.time_seconds
+            else:
+                self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
+        if self.next_arrival_at < self.time_seconds:
             self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
 
     def _spawn_if_due(self) -> None:
@@ -240,7 +246,7 @@ class LiveSimulationSession:
             agent_id = self.sim.add_agent(
                 simsvc._build_agent_params(
                     journey_id=journey_id,
-                    stage_id=stage_ids[0],
+                    stage_id=simsvc.initial_target_stage_id(stage_ids),
                     position=spawn_position,
                     desired_speed=desired_speed,
                 )

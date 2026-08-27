@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass
@@ -360,6 +361,14 @@ def _spawn_from_entry(
         if _point_in_walkable(candidate, spawnable) and _candidate_clears_occupied(candidate, occupied):
             return candidate
     # Fallback: ignore spacing constraint but stay in walkable area.
+    # Log a warning so operators know the spacing guarantee was relaxed.
+    logging.getLogger(__name__).warning(
+        "spawn_from_entry: could not find a non-overlapping position for waypoint '%s' "
+        "after 240 attempts (%d agents already placed this step). "
+        "Falling back to unconstrained position — 'agent too close to agent' may occur.",
+        waypoint.label,
+        len(occupied),
+    )
     return _random_point_in_polygon(spawnable, rng)
 
 

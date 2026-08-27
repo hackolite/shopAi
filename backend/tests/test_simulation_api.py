@@ -130,7 +130,20 @@ def test_run_simulation_reports_closest_waypoint_correction() -> None:
                         "retentionSeconds": 0.0,
                         "visionAngleDeg": 70.0,
                         "visionRangeCm": 220.0,
-                    }
+                    },
+                    {
+                        "id": "exit-main",
+                        "type": "exit",
+                        "label": "Sortie",
+                        "x": 2500.0,
+                        "z": 2800.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
                 ],
             },
         },
@@ -143,6 +156,60 @@ def test_run_simulation_reports_closest_waypoint_correction() -> None:
     assert payload["currentXcm"] == 10.0
     assert payload["suggestedXcm"] > payload["currentXcm"]
     assert payload["suggestedZcm"] == 120.0
+
+
+def test_run_simulation_raises_error_when_no_exit_waypoint_configured() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/run",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.1,
+                "durationSeconds": 10,
+                "maxCustomers": 2,
+                "randomSeed": 1,
+                "waypoints": [
+                    {
+                        "id": "entry-only",
+                        "type": "entry",
+                        "label": "Entrée",
+                        "x": 2500.0,
+                        "z": 300.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                    {
+                        "id": "transit-only",
+                        "type": "transit",
+                        "label": "Point 1",
+                        "x": 2500.0,
+                        "z": 1500.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                ],
+            },
+        },
+    )
+    assert response.status_code == 422, response.text
+    payload = response.json()["detail"]
+    assert "Sortie" in payload["message"]
 
 
 def test_distinct_waypoint_correction_falls_back_when_projection_matches_input(monkeypatch) -> None:

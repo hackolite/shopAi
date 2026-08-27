@@ -358,6 +358,11 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 />
               ))
             )}
+            {config.waypoints.length > 0 && !config.waypoints.some((w) => w.type === 'exit') && (
+              <div className="rounded border border-amber-600/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
+                ⚠ Aucun point de type « Sortie » configuré — la simulation ne peut pas démarrer. Ajoutez un point de type « Sortie (disparition) ».
+              </div>
+            )}
           </div>
         </section>
 

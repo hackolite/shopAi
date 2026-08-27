@@ -110,10 +110,28 @@ def _partition_waypoints(
     entries = [waypoint for waypoint in config.waypoints if waypoint.type == "entry"]
     exits = [waypoint for waypoint in config.waypoints if waypoint.type == "exit"]
     transit = [waypoint for waypoint in config.waypoints if waypoint.type == "transit"]
-    if not entries:
+    if not config.waypoints:
+        # No waypoints at all: use full built-in defaults so the simulation
+        # can still run without any configuration.
         entries = [_default_entry_waypoint(scene)]
-    if not exits:
         exits = [_default_exit_waypoint(scene)]
+    else:
+        if not entries:
+            entries = [_default_entry_waypoint(scene)]
+        if not exits:
+            # The user has configured at least one waypoint but forgotten (or
+            # accidentally removed) the exit type.  Surface a clear error
+            # rather than silently using a fallback position that would send
+            # agents to an unexpected location.
+            raise SimulationConstraintViolation(
+                {
+                    "message": (
+                        "La configuration doit comporter au moins un point de type "
+                        "« Sortie (disparition) ». "
+                        "Vérifiez que le type de votre point de sortie est bien « Sortie »."
+                    ),
+                }
+            )
     return entries, transit, exits
 
 
@@ -477,21 +495,61 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float, agents_i
     is detected within the waypoint circle radius, not merely when they have
     navigated to a queue-slot position.  This gives the intended behaviour:
     retention is counted from the moment the customer enters the zone.
+
+    ``pop()`` is only called when at least one agent is physically enqueued
+    (i.e. has reached a queue-slot position), since calling it on an empty
+    queue has no effect on agent stage transitions.
     """
     if agents_in_circle > 0:
         if runtime.front_arrival_time is None:
             runtime.front_arrival_time = current_time
         elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
-            queue_length = int(runtime.stage.count_targeting())
-            if queue_length > 0:
+            enqueued_count = int(runtime.stage.count_enqueued())
+            if enqueued_count > 0:
                 runtime.stage.pop(1)
                 runtime.released_agents += 1
-            # Reset the timer whether or not a pop occurred: if queue_length was 0
-            # the timer would re-fire every step without this reset.
             remaining = int(runtime.stage.count_targeting())
             runtime.front_arrival_time = current_time if remaining > 0 else None
     else:
         runtime.front_arrival_time = None
+
+
+def _freeze_retained_agents(
+    sim: object,
+    waypoint_runtimes: dict[str, "_WaypointRuntime"],
+    agent_desired_speeds: dict[int, float],
+    frozen_agents: set[int],
+) -> None:
+    """Set desired_speed=0 for agents that are enqueued at a retention waypoint.
+
+    Only agents that are physically enqueued at a queue slot (i.e. have reached
+    their waiting position) are frozen.  Agents still navigating to the slot are
+    left at full speed so they can actually reach the slot and become enqueued –
+    a prerequisite for ``pop()`` to have any effect.  Once an agent is no longer
+    in an enqueued set (released by ``pop()`` and transitioned to the next stage)
+    its original desired speed is restored.
+    """
+    # Build a map from stage_id → set of enqueued agent IDs for this tick.
+    enqueued_by_stage: dict[int, set[int]] = {
+        rt.stage_id: set(rt.stage.enqueued()) for rt in waypoint_runtimes.values()
+    }
+    # Collect all agent IDs currently enqueued across all retention stages.
+    all_enqueued: set[int] = set().union(*enqueued_by_stage.values()) if enqueued_by_stage else set()
+
+    for agent in sim.agents():
+        model_state = agent.model
+        if not isinstance(model_state, jps.CollisionFreeSpeedModelState):
+            continue
+        agent_id = int(agent.id)
+        if agent_id in all_enqueued:
+            model_state.desired_speed = 0.0
+            frozen_agents.add(agent_id)
+        elif agent_id in frozen_agents:
+            # Agent was enqueued but has been released – restore original speed.
+            original = agent_desired_speeds.get(agent_id)
+            if original is not None:
+                model_state.desired_speed = original
+            frozen_agents.discard(agent_id)
 
 
 def _apply_right_hand_bias(sim: object) -> None:
@@ -601,6 +659,8 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     arrival_index = 0
     spawned = 0
     completed = 0
+    agent_desired_speeds: dict[int, float] = {}
+    frozen_agents: set[int] = set()
     steps_per_snapshot = max(1, round(DEFAULT_SNAPSHOT_INTERVAL_S / SIMULATION_DT_S))
     frames: list[SimulationFrame] = []
     waypoint_series: dict[str, list[WaypointSample]] = {waypoint.id: [] for waypoint in metrics_waypoints}
@@ -628,7 +688,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
             occupied.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
-            sim.add_agent(
+            agent_id = sim.add_agent(
                 _build_agent_params(
                     journey_id=journey_id,
                     stage_id=selected_stage_ids[0],
@@ -636,6 +696,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                     desired_speed=desired_speed,
                 )
             )
+            agent_desired_speeds[agent_id] = desired_speed
             spawned += 1
             arrival_index += 1
 
@@ -649,6 +710,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
 
+        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
@@ -716,6 +778,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 _cm_to_m(runtime.waypoint.radiusCm),
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
+        _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())

@@ -16,6 +16,7 @@ import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
 import { SimulationLayer } from './SimulationLayer';
 import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m). */
@@ -2812,22 +2813,32 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
   }
 
   return (
-    <div ref={canvasWrapperRef} className="relative w-full h-full">
+    <div ref={canvasWrapperRef} className="relative w-full h-full bg-gray-950">
       {!scene && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-950">
           <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
           <p className="text-gray-500 text-sm">Loading scene…</p>
         </div>
       )}
-      <Canvas camera={{ position: [25, 15, 35], fov: 50 }} shadows style={{ width: '100%', height: '100%' }}>
-        <color attach="background" args={['#111827']} />
-        <Suspense fallback={null}>
-          <SceneContent projectId={projectId} />
-          <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
-            <GizmoViewport axisColors={['#e84545', '#52b788', '#4a9eff']} />
-          </GizmoHelper>
-        </Suspense>
-      </Canvas>
+      <ErrorBoundary
+        fallback={
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-950 text-white gap-3">
+            <span className="text-3xl">⚠️</span>
+            <p className="text-sm text-red-400 font-medium">Erreur dans la scène 3D</p>
+            <p className="text-xs text-gray-500">Rechargez la page pour continuer</p>
+          </div>
+        }
+      >
+        <Canvas camera={{ position: [25, 15, 35], fov: 50 }} shadows style={{ width: '100%', height: '100%' }}>
+          <color attach="background" args={['#111827']} />
+          <Suspense fallback={null}>
+            <SceneContent projectId={projectId} />
+            <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+              <GizmoViewport axisColors={['#e84545', '#52b788', '#4a9eff']} />
+            </GizmoHelper>
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
 
       {/* ── Video recording controls ────────────────────────────────────── */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-2">

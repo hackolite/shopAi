@@ -48,11 +48,13 @@ class ProjectSettings(CADBaseModel):
 class SimulationWaypoint(CADBaseModel):
     id: str
     label: str = "Point de passage"
+    type: Literal["entry", "transit", "exit"] = "transit"
     x: float
     z: float
     radiusCm: float = 120.0
     optional: bool = False
     visitProbability: float = 0.65
+    retentionSeconds: float = 0.0
     visionAngleDeg: float = 70.0
     visionRangeCm: float = 220.0
 
@@ -65,10 +67,6 @@ class SimulationConfig(CADBaseModel):
     randomSeed: int = 42
     desiredSpeedMps: float = 1.25
     speedVariation: float = 0.2
-    serviceTimeSeconds: float = 8.0
-    serviceTimeJitterSeconds: float = 2.0
-    queueSlots: int = 6
-    queueSpacingCm: float = 80.0
     waypoints: list[SimulationWaypoint] = Field(default_factory=list)
 
 
@@ -82,18 +80,20 @@ class SimulationAgentFrame(CADBaseModel):
     visionRangeCm: float = 220.0
 
 
-class QueueSample(CADBaseModel):
+class WaypointSample(CADBaseModel):
     timeSeconds: float
-    queueLength: int
-    servedCustomers: int
+    activeAgents: int
+    releasedAgents: int
 
 
-class CheckoutMetrics(CADBaseModel):
-    registerId: str
-    registerName: str
-    queueLengthMax: int
-    servedCustomers: int
-    samples: list[QueueSample] = Field(default_factory=list)
+class WaypointMetrics(CADBaseModel):
+    waypointId: str
+    waypointLabel: str
+    waypointType: Literal["entry", "transit", "exit"]
+    retentionSeconds: float
+    maxActiveAgents: int
+    releasedAgents: int
+    samples: list[WaypointSample] = Field(default_factory=list)
 
 
 class SimulationFrame(CADBaseModel):
@@ -105,13 +105,14 @@ class SimulationSummary(CADBaseModel):
     spawnedCustomers: int
     completedCustomers: int
     activeCustomers: int
-    averageQueueLength: float
-    maxQueueLength: int
+    averageWaypointLoad: float
+    maxWaypointLoad: int
+    averageConfiguredRetentionSeconds: float
 
 
 class SimulationResult(CADBaseModel):
     frames: list[SimulationFrame] = Field(default_factory=list)
-    checkouts: list[CheckoutMetrics] = Field(default_factory=list)
+    waypoints: list[WaypointMetrics] = Field(default_factory=list)
     summary: SimulationSummary
 
 

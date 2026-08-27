@@ -30,31 +30,32 @@ function Sparkline({
 
 export default function CheckoutChartsOverlay() {
   const result = useSimulationStore((state) => state.result);
-  if (!result || result.checkouts.length === 0) return null;
+  if (!result || result.waypoints.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute bottom-4 right-4 z-30 w-80 rounded-xl border border-gray-700/70 bg-gray-950/90 p-3 shadow-2xl backdrop-blur">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-300">Passages caisses</h4>
-        <span className="text-[10px] text-gray-500">Queue & débit</span>
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-300">Waypoints</h4>
+        <span className="text-[10px] text-gray-500">Charge & sorties</span>
       </div>
       <div className="space-y-3">
-        {result.checkouts.map((checkout, index) => {
-          const lastSample = checkout.samples[checkout.samples.length - 1];
+        {result.waypoints.map((waypoint, index) => {
+          const lastSample = waypoint.samples[waypoint.samples.length - 1];
+          const typeText = waypoint.waypointType === 'entry' ? 'entrée' : waypoint.waypointType === 'exit' ? 'sortie' : 'transit';
           return (
-            <div key={checkout.registerId} className="rounded-lg border border-gray-800 bg-black/20 p-2">
+            <div key={waypoint.waypointId} className="rounded-lg border border-gray-800 bg-black/20 p-2">
             <div className="mb-1 flex items-center justify-between text-[11px] text-gray-300">
-              <span>{checkout.registerName}</span>
-              <span className="text-gray-500">servis {checkout.servedCustomers}</span>
+              <span>{waypoint.waypointLabel} · {typeText}</span>
+              <span className="text-gray-500">libérés {waypoint.releasedAgents}</span>
             </div>
             <Sparkline
-              values={checkout.samples.map((sample) => sample.queueLength)}
+              values={waypoint.samples.map((sample) => sample.activeAgents)}
               color={index % 2 === 0 ? '#60a5fa' : '#34d399'}
             />
             <div className="mt-1 flex justify-between text-[10px] text-gray-500">
-              <span>pic {checkout.queueLengthMax}</span>
+              <span>pic {waypoint.maxActiveAgents}</span>
               <span>
-                dernier {lastSample?.queueLength ?? 0}
+                actif {lastSample?.activeAgents ?? 0}
               </span>
             </div>
             </div>

@@ -77,11 +77,13 @@ export interface StoreConfig {
 export interface SimulationWaypoint {
   id: string;
   label: string;
+  type: 'entry' | 'transit' | 'exit';
   x: number;
   z: number;
   radiusCm: number;
   optional: boolean;
   visitProbability: number;
+  retentionSeconds: number;
   visionAngleDeg: number;
   visionRangeCm: number;
 }
@@ -94,10 +96,6 @@ export interface SimulationConfig {
   randomSeed: number;
   desiredSpeedMps: number;
   speedVariation: number;
-  serviceTimeSeconds: number;
-  serviceTimeJitterSeconds: number;
-  queueSlots: number;
-  queueSpacingCm: number;
   waypoints: SimulationWaypoint[];
 }
 
@@ -111,18 +109,20 @@ export interface SimulationAgentFrame {
   visionRangeCm: number;
 }
 
-export interface QueueSample {
+export interface WaypointSample {
   timeSeconds: number;
-  queueLength: number;
-  servedCustomers: number;
+  activeAgents: number;
+  releasedAgents: number;
 }
 
-export interface CheckoutMetrics {
-  registerId: string;
-  registerName: string;
-  queueLengthMax: number;
-  servedCustomers: number;
-  samples: QueueSample[];
+export interface WaypointMetrics {
+  waypointId: string;
+  waypointLabel: string;
+  waypointType: 'entry' | 'transit' | 'exit';
+  retentionSeconds: number;
+  maxActiveAgents: number;
+  releasedAgents: number;
+  samples: WaypointSample[];
 }
 
 export interface SimulationFrame {
@@ -134,13 +134,14 @@ export interface SimulationSummary {
   spawnedCustomers: number;
   completedCustomers: number;
   activeCustomers: number;
-  averageQueueLength: number;
-  maxQueueLength: number;
+  averageWaypointLoad: number;
+  maxWaypointLoad: number;
+  averageConfiguredRetentionSeconds: number;
 }
 
 export interface SimulationResult {
   frames: SimulationFrame[];
-  checkouts: CheckoutMetrics[];
+  waypoints: WaypointMetrics[];
   summary: SimulationSummary;
 }
 

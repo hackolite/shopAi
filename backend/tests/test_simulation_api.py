@@ -674,7 +674,7 @@ def test_live_simulation_tick_response_frames_stay_bounded() -> None:
         frames = tick.json()["result"]["frames"]
         frame_counts.append(len(frames))
         # The newest frame time keeps advancing even though the payload is capped.
-        assert frames[-1]["timeSeconds"] >= last_time
+        assert frames[-1]["timeSeconds"] > last_time
         last_time = frames[-1]["timeSeconds"]
 
     # The per-tick payload never grows without bound.

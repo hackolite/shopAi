@@ -6,9 +6,9 @@ import { CM_TO_UNIT } from '../constants';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
-const WAYPOINT_CONE_BASE_Y = 0.38;
+const WAYPOINT_CONE_BASE_Y = 0.95;
 const WAYPOINT_RING_Y = 0.02;
-const WAYPOINT_LABEL_Y = 0.95;
+const WAYPOINT_LABEL_Y = 1.6;
 const SUGGESTED_MARKER_Y_OFFSET = 0.005;
 const SUGGESTED_MARKER_RADIUS_CM = 35;
 const SUGGESTED_MARKER_INNER_RADIUS_CM = 20;

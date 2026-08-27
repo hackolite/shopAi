@@ -218,6 +218,8 @@ def _closest_walkable_point(point: tuple[float, float], walkable: Polygon) -> tu
 def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
     if waypoint.type == "exit":
         extent_cm = max(40.0, float(waypoint.radiusCm)) / 2
+    elif waypoint.type in {"entry", "transit"}:
+        extent_cm = 0.0
     else:
         extent_cm = 0.0
     return extent_cm + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM

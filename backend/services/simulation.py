@@ -110,10 +110,28 @@ def _partition_waypoints(
     entries = [waypoint for waypoint in config.waypoints if waypoint.type == "entry"]
     exits = [waypoint for waypoint in config.waypoints if waypoint.type == "exit"]
     transit = [waypoint for waypoint in config.waypoints if waypoint.type == "transit"]
-    if not entries:
+    if not config.waypoints:
+        # No waypoints at all: use full built-in defaults so the simulation
+        # can still run without any configuration.
         entries = [_default_entry_waypoint(scene)]
-    if not exits:
         exits = [_default_exit_waypoint(scene)]
+    else:
+        if not entries:
+            entries = [_default_entry_waypoint(scene)]
+        if not exits:
+            # The user has configured at least one waypoint but forgotten (or
+            # accidentally removed) the exit type.  Surface a clear error
+            # rather than silently using a fallback position that would send
+            # agents to an unexpected location.
+            raise SimulationConstraintViolation(
+                {
+                    "message": (
+                        "La configuration doit comporter au moins un point de type "
+                        "« Sortie (disparition) ». "
+                        "Vérifiez que le type de votre point de sortie est bien « Sortie »."
+                    ),
+                }
+            )
     return entries, transit, exits
 
 

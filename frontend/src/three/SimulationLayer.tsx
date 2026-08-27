@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -313,12 +313,13 @@ function InstancedAgents({
   agentPoses,
 }: {
   agentSlots: Map<number, { colorDark: string; colorLight: string }>;
-  agentPoses: Map<number, AgentPose>;
+  agentPoses: MutableRefObject<Map<number, AgentPose>>;
 }) {
   const envelopeRef = useRef<THREE.InstancedMesh>(null);
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const coneRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const lastPoseById = useRef<Map<number, AgentPose>>(new Map());
   const orderedAgents = useMemo(() => [...agentSlots.entries()], [agentSlots]);
   const indexById = useMemo(() => {
     const map = new Map<number, number>();
@@ -334,6 +335,7 @@ function InstancedAgents({
 
   useEffect(() => {
     if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
+    const scratch = new THREE.Object3D();
     const dark = new THREE.Color();
     const light = new THREE.Color();
     orderedAgents.forEach(([, colors], index) => {
@@ -346,13 +348,35 @@ function InstancedAgents({
     if (envelopeRef.current.instanceColor) envelopeRef.current.instanceColor.needsUpdate = true;
     if (bodyRef.current.instanceColor) bodyRef.current.instanceColor.needsUpdate = true;
     if (coneRef.current.instanceColor) coneRef.current.instanceColor.needsUpdate = true;
+    lastPoseById.current.clear();
+
+    scratch.scale.setScalar(0);
+    orderedAgents.forEach((_, index) => {
+      scratch.position.set(0, 0, 0);
+      scratch.rotation.set(0, 0, 0);
+      scratch.updateMatrix();
+      envelopeRef.current!.setMatrixAt(index, scratch.matrix);
+      bodyRef.current!.setMatrixAt(index, scratch.matrix);
+      coneRef.current!.setMatrixAt(index, scratch.matrix);
+    });
+    envelopeRef.current.instanceMatrix.needsUpdate = true;
+    bodyRef.current.instanceMatrix.needsUpdate = true;
+    coneRef.current.instanceMatrix.needsUpdate = true;
   }, [orderedAgents]);
 
   useFrame(() => {
     if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
-    for (const [id, pose] of agentPoses.entries()) {
+    let matrixUpdated = false;
+    for (const [id, pose] of agentPoses.current.entries()) {
       const index = indexById.get(id);
       if (index == null) continue;
+      const previousPose = lastPoseById.current.get(id);
+      if (
+        previousPose
+        && previousPose.x === pose.x
+        && previousPose.z === pose.z
+        && previousPose.heading === pose.heading
+      ) continue;
 
       dummy.position.set(pose.x, 0.01, pose.z);
       dummy.rotation.set(-Math.PI / 2, 0, 0);
@@ -368,10 +392,14 @@ function InstancedAgents({
       dummy.rotation.set(-Math.PI / 2, pose.heading, 0);
       dummy.updateMatrix();
       coneRef.current.setMatrixAt(index, dummy.matrix);
+      lastPoseById.current.set(id, pose);
+      matrixUpdated = true;
     }
-    envelopeRef.current.instanceMatrix.needsUpdate = true;
-    bodyRef.current.instanceMatrix.needsUpdate = true;
-    coneRef.current.instanceMatrix.needsUpdate = true;
+    if (matrixUpdated) {
+      envelopeRef.current.instanceMatrix.needsUpdate = true;
+      bodyRef.current.instanceMatrix.needsUpdate = true;
+      coneRef.current.instanceMatrix.needsUpdate = true;
+    }
   });
 
   if (count === 0) return null;
@@ -463,6 +491,9 @@ export function SimulationLayer() {
     () => new Map(),
   );
   const useInstancedAgents = agentSlots.size >= INSTANCED_AGENT_THRESHOLD;
+  const useInstancedAgentsRef = useRef(useInstancedAgents);
+  const showProfilingHud = import.meta.env.DEV;
+  useInstancedAgentsRef.current = useInstancedAgents;
 
   useEffect(() => {
     prevAgentIds.current = new Set();
@@ -479,26 +510,36 @@ export function SimulationLayer() {
   }, [playing]);
 
   useEffect(() => {
-    if (!result || result.frames.length === 0) return;
+    if (!playing || paused || !result || result.frames.length === 0) return;
+    const nowSeconds = performance.now() / 1000;
     const latestFrameTime = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    serverTimeAtAnchor.current = latestFrameTime;
-    wallTimeAtAnchor.current = performance.now() / 1000;
-  }, [result]);
+    if (wallTimeAtAnchor.current <= 0) {
+      serverTimeAtAnchor.current = latestFrameTime;
+      wallTimeAtAnchor.current = nowSeconds;
+      return;
+    }
+    const estimatedCurrentTime = serverTimeAtAnchor.current + Math.max(0, nowSeconds - wallTimeAtAnchor.current);
+    if (latestFrameTime > estimatedCurrentTime || latestFrameTime < estimatedCurrentTime - 0.25) {
+      serverTimeAtAnchor.current = latestFrameTime;
+      wallTimeAtAnchor.current = nowSeconds;
+    }
+  }, [paused, playing, result]);
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     if (!result || result.frames.length <= 1 || !playing || paused) return;
 
-    const frameDt = delta;
-    const frameMs = frameDt * 1000;
-    profile.current.frameCount += 1;
-    profile.current.elapsed += frameDt;
-    profile.current.accMs += frameMs;
-    profile.current.maxMs = Math.max(profile.current.maxMs, frameMs);
-    if (profile.current.elapsed >= 1) {
-      const fps = profile.current.frameCount / profile.current.elapsed;
-      const avgFrameMs = profile.current.accMs / Math.max(1, profile.current.frameCount);
-      setProfilingText(`FPS ${fps.toFixed(0)} | frame ${avgFrameMs.toFixed(1)} ms | max ${profile.current.maxMs.toFixed(1)} ms`);
-      profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
+    if (showProfilingHud) {
+      const frameMs = delta * 1000;
+      profile.current.frameCount += 1;
+      profile.current.elapsed += delta;
+      profile.current.accMs += frameMs;
+      profile.current.maxMs = Math.max(profile.current.maxMs, frameMs);
+      if (profile.current.elapsed >= 1) {
+        const fps = profile.current.frameCount / profile.current.elapsed;
+        const avgFrameMs = profile.current.accMs / Math.max(1, profile.current.frameCount);
+        setProfilingText(`FPS ${fps.toFixed(0)} | frame ${avgFrameMs.toFixed(1)} ms | max ${profile.current.maxMs.toFixed(1)} ms`);
+        profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
+      }
     }
 
     const estimatedServerTime = serverTimeAtAnchor.current + Math.max(0, performance.now() / 1000 - wallTimeAtAnchor.current);
@@ -574,7 +615,7 @@ export function SimulationLayer() {
       const heading = Math.atan2(-hz, hx);
 
       agentPoses.current.set(agentB.id, { x, z, heading });
-      if (!useInstancedAgents) {
+      if (!useInstancedAgentsRef.current) {
         agentRefs.current.get(agentB.id)?.setPosition(x, z);
         agentRefs.current.get(agentB.id)?.setConeHeading(heading);
       }
@@ -606,7 +647,7 @@ export function SimulationLayer() {
         />
       ))}
       {useInstancedAgents ? (
-        <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses.current} />
+        <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
       ) : (
         [...agentSlots.entries()].map(([id, { colorDark, colorLight }]) => (
           <AgentMarker
@@ -620,11 +661,13 @@ export function SimulationLayer() {
           />
         ))
       )}
-      <Html position={[0, 2.2, 0]} distanceFactor={12}>
-        <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">
-          {profilingText} · agents {agentSlots.size} · {useInstancedAgents ? 'instanced' : 'standard'}
-        </div>
-      </Html>
+      {showProfilingHud && (
+        <Html position={[0, 2.2, 0]} distanceFactor={12}>
+          <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">
+            {profilingText} · agents {agentSlots.size} · {useInstancedAgents ? 'instanced' : 'standard'}
+          </div>
+        </Html>
+      )}
       {suggestedWaypoint && (
         <SuggestedWaypointMarker xCm={suggestedWaypoint.xCm} zCm={suggestedWaypoint.zCm} />
       )}

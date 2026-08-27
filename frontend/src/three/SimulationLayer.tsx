@@ -38,12 +38,12 @@ function WaypointMarker({
   radiusCm,
   type,
   optional,
+  invalid,
   canDrag,
   minXCm,
   maxXCm,
   minZCm,
   maxZCm,
-  markerBaseY,
 }: {
   id: string;
   label: string;
@@ -52,12 +52,12 @@ function WaypointMarker({
   radiusCm: number;
   type: 'entry' | 'transit' | 'exit';
   optional: boolean;
+  invalid: boolean;
   canDrag: boolean;
   minXCm: number;
   maxXCm: number;
   minZCm: number;
   maxZCm: number;
-  markerBaseY: number;
 }) {
   const { gl, raycaster, camera } = useThree();
   const groupRef = useRef<THREE.Group>(null);
@@ -77,7 +77,7 @@ function WaypointMarker({
 
   useFrame((state) => {
     if (!coneRef.current) return;
-    coneRef.current.position.y = markerBaseY + Math.sin(state.clock.elapsedTime * 3) * 0.08;
+    coneRef.current.position.y = 0.38 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
   });
 
   const endDrag = useCallback(() => {
@@ -166,26 +166,50 @@ function WaypointMarker({
       <mesh ref={coneRef} rotation={[Math.PI, 0, 0]} renderOrder={1000}>
         <coneGeometry args={[0.32, 0.85, 20]} />
         <meshStandardMaterial
-          color={selected ? '#60a5fa' : type === 'entry' ? '#22c55e' : type === 'exit' ? '#fb923c' : optional ? '#f59e0b' : '#38bdf8'}
-          emissive="#1f2937"
-          depthTest={false}
-          depthWrite={false}
-        />
+        color={
+          invalid
+            ? '#ef4444'
+            : selected
+              ? '#60a5fa'
+              : type === 'entry'
+                ? '#22c55e'
+                : type === 'exit'
+                  ? '#fb923c'
+                  : optional
+                    ? '#f59e0b'
+                    : '#38bdf8'
+        }
+        emissive="#1f2937"
+        depthTest={false}
+        depthWrite={false}
+      />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, markerBaseY - 0.95, 0]} renderOrder={999}>
-        <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
-        <meshBasicMaterial
-          color={selected ? '#93c5fd' : type === 'entry' ? '#4ade80' : type === 'exit' ? '#fdba74' : optional ? '#fbbf24' : '#67e8f9'}
-          transparent
-          opacity={0.85}
-          depthTest={false}
-          depthWrite={false}
-        />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} renderOrder={999}>
+      <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
+      <meshBasicMaterial
+        color={
+          invalid
+            ? '#f87171'
+            : selected
+              ? '#93c5fd'
+              : type === 'entry'
+                ? '#4ade80'
+                : type === 'exit'
+                  ? '#fdba74'
+                  : optional
+                    ? '#fbbf24'
+                    : '#67e8f9'
+        }
+        transparent
+        opacity={0.85}
+        depthTest={false}
+        depthWrite={false}
+      />
       </mesh>
-      <Html center position={[0, markerBaseY + 0.45, 0]} distanceFactor={10}>
-        <div className="rounded bg-gray-950/85 px-2 py-1 text-[10px] font-medium text-white shadow-lg whitespace-nowrap">
-          {label}{type === 'entry' ? ' · entrée' : type === 'exit' ? ' · sortie' : optional ? ' · optionnel' : ''}
-        </div>
+      <Html center position={[0, 0.95, 0]} distanceFactor={10}>
+      <div className="rounded bg-gray-950/85 px-2 py-1 text-[10px] font-medium text-white shadow-lg whitespace-nowrap">
+        {label}{type === 'entry' ? ' · entrée' : type === 'exit' ? ' · sortie' : optional ? ' · optionnel' : ''}
+      </div>
       </Html>
     </group>
   );
@@ -235,6 +259,7 @@ function AgentVision({
 export function SimulationLayer() {
   const scene = useSceneStore((state) => state.scene);
   const config = useSimulationStore((state) => state.config);
+  const invalidWaypointIds = useSimulationStore((state) => state.invalidWaypointIds);
   const result = useSimulationStore((state) => state.result);
   const [frameIndex, setFrameIndex] = useState(0);
   const startedAt = useRef<number | null>(null);
@@ -244,14 +269,6 @@ export function SimulationLayer() {
   const minZCm = storePos[2];
   const maxXCm = minXCm + (scene?.store.dimensions.width ?? 0);
   const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
-  const markerBaseY = useMemo(() => {
-    if (!scene || scene.furniture.length === 0) return 0.9;
-    const maxTopCm = scene.furniture.reduce((maxTop, furniture) => (
-      Math.max(maxTop, furniture.position[1] + furniture.dimensions.height)
-    ), 0);
-    return Math.max(0.9, (maxTopCm + 80) * CM_TO_UNIT);
-  }, [scene]);
-
   useEffect(() => {
     setFrameIndex(0);
     startedAt.current = null;
@@ -282,12 +299,12 @@ export function SimulationLayer() {
         <WaypointMarker
           key={waypoint.id}
           {...waypoint}
+          invalid={invalidWaypointIds.includes(waypoint.id)}
           canDrag={canDrag}
           minXCm={minXCm}
           maxXCm={maxXCm}
           minZCm={minZCm}
           maxZCm={maxZCm}
-          markerBaseY={markerBaseY}
         />
       ))}
       {currentFrame?.agents.map((agent) => (

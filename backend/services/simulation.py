@@ -444,6 +444,25 @@ def _vision_for_agent(config: SimulationConfig, stage_waypoint):
     return (float(stage_waypoint.visionAngleDeg), float(stage_waypoint.visionRangeCm))
 
 
+def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
+    """Advance the retention queue for one simulation step.
+
+    Tracks when the front-of-queue agent first arrived and releases it once
+    it has waited at least ``release_interval_s`` seconds.
+    """
+    queue_length = int(runtime.stage.count_targeting())
+    if queue_length > 0:
+        if runtime.front_arrival_time is None:
+            runtime.front_arrival_time = current_time
+        elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
+            runtime.stage.pop(1)
+            runtime.released_agents += 1
+            remaining = int(runtime.stage.count_targeting())
+            runtime.front_arrival_time = current_time if remaining > 0 else None
+    else:
+        runtime.front_arrival_time = None
+
+
 def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> SimulationResult:
     if jps is None:
         raise RuntimeError("JuPedSim is not installed on the backend")
@@ -557,17 +576,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             arrival_index += 1
 
         for runtime in waypoint_runtimes.values():
-            queue_length = int(runtime.stage.count_targeting())
-            if queue_length > 0:
-                if runtime.front_arrival_time is None:
-                    runtime.front_arrival_time = current_time
-                elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
-                    runtime.stage.pop(1)
-                    runtime.released_agents += 1
-                    remaining = int(runtime.stage.count_targeting())
-                    runtime.front_arrival_time = current_time if remaining > 0 else None
-            else:
-                runtime.front_arrival_time = None
+            _tick_queue_runtime(runtime, current_time)
 
         sim.iterate()
         completed += len(sim.removed_agents())
@@ -621,24 +630,13 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             frames.append(SimulationFrame(timeSeconds=round(current_time, 2), agents=frame_agents))
 
     # Overtime phase: continue until all spawned agents have exited (capped at durationSeconds extra)
-    max_overtime_steps = int(float(config.durationSeconds) / SIMULATION_DT_S)
+    base_step = int(float(config.durationSeconds) / SIMULATION_DT_S)
+    max_overtime_steps = base_step
     overtime_index = 0
     while sim.agent_count() > 0 and overtime_index < max_overtime_steps:
-        current_time = (
-            int(float(config.durationSeconds) / SIMULATION_DT_S) + overtime_index
-        ) * SIMULATION_DT_S
+        current_time = (base_step + overtime_index) * SIMULATION_DT_S
         for runtime in waypoint_runtimes.values():
-            queue_length = int(runtime.stage.count_targeting())
-            if queue_length > 0:
-                if runtime.front_arrival_time is None:
-                    runtime.front_arrival_time = current_time
-                elif current_time - runtime.front_arrival_time >= runtime.release_interval_s:
-                    runtime.stage.pop(1)
-                    runtime.released_agents += 1
-                    remaining = int(runtime.stage.count_targeting())
-                    runtime.front_arrival_time = current_time if remaining > 0 else None
-            else:
-                runtime.front_arrival_time = None
+            _tick_queue_runtime(runtime, current_time)
         sim.iterate()
         completed += len(sim.removed_agents())
         if overtime_index % steps_per_snapshot == 0:

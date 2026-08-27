@@ -642,10 +642,11 @@ export function SimulationLayer() {
       const frameMotionDz = (agentB.zCm - agentA.zCm) * CM_TO_UNIT;
       const interpolatedHeadingX = agentA.headingX + (agentB.headingX - agentA.headingX) * alpha;
       const interpolatedHeadingZ = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
-      const directionDx = Math.abs(frameMotionDx) > 1e-9 || Math.abs(frameMotionDz) > 1e-9
+      const hasFrameMotion = Math.abs(frameMotionDx) > 1e-9 || Math.abs(frameMotionDz) > 1e-9;
+      const directionDx = hasFrameMotion
         ? frameMotionDx
         : interpolatedHeadingX;
-      const directionDz = Math.abs(frameMotionDx) > 1e-9 || Math.abs(frameMotionDz) > 1e-9
+      const directionDz = hasFrameMotion
         ? frameMotionDz
         : interpolatedHeadingZ;
       const smoothedPosition = previousPose

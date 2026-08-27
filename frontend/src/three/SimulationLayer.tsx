@@ -3,7 +3,6 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
-import { resolveSimulationTime } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -545,10 +544,10 @@ export function SimulationLayer() {
 
     const estimatedServerTime = serverTimeAtAnchor.current + Math.max(0, performance.now() / 1000 - wallTimeAtAnchor.current);
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
-    const t = resolveSimulationTime(
+    const t = Math.max(0, Math.min(
       estimatedServerTime - RENDER_BUFFER_SECONDS,
       totalDuration + MAX_EXTRAPOLATION_SECONDS,
-    );
+    ));
 
     // Binary-search for the frame just after t
     let lo = 0;

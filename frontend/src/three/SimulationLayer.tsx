@@ -248,6 +248,8 @@ const AGENT_VISION_RANGE_CM = 220;
 const RENDER_BUFFER_SECONDS = 0.22;
 const MAX_EXTRAPOLATION_SECONDS = 0.2;
 const INSTANCED_AGENT_THRESHOLD = 40;
+const POSE_SMOOTHING_HZ = 12;
+const MOVEMENT_HEADING_MIN_CM = 0.35;
 
 interface AgentPose {
   x: number;
@@ -394,6 +396,11 @@ function InstancedAgents({
       coneRef.current.setMatrixAt(index, dummy.matrix);
       lastPoseById.current.set(id, pose);
       matrixUpdated = true;
+    }
+
+    function lerpAngle(current: number, target: number, alpha: number): number {
+      const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+      return current + wrappedDelta * alpha;
     }
     if (matrixUpdated) {
       envelopeRef.current.instanceMatrix.needsUpdate = true;
@@ -606,16 +613,27 @@ export function SimulationLayer() {
     }
 
     // Imperatively update Three.js objects — no React re-render
+    const smoothingAlpha = 1 - Math.exp(-POSE_SMOOTHING_HZ * Math.max(0, delta));
     for (const agentB of frameB.agents) {
       const agentA = cachedAgentMapA.current.get(agentB.id) ?? agentB;
 
-      const x = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
-      const z = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
+      const targetX = (agentA.xCm + (agentB.xCm - agentA.xCm) * alpha) * CM_TO_UNIT;
+      const targetZ = (agentA.zCm + (agentB.zCm - agentA.zCm) * alpha) * CM_TO_UNIT;
 
-      // Interpolate heading vector then derive angle
-      const hx = agentA.headingX + (agentB.headingX - agentA.headingX) * alpha;
-      const hz = agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha;
-      const heading = Math.atan2(-hz, hx);
+      const motionDx = agentB.xCm - agentA.xCm;
+      const motionDz = agentB.zCm - agentA.zCm;
+      const movementMagnitudeSq = motionDx * motionDx + motionDz * motionDz;
+      const targetHeading = movementMagnitudeSq >= MOVEMENT_HEADING_MIN_CM * MOVEMENT_HEADING_MIN_CM
+        ? Math.atan2(-motionDz, motionDx)
+        : Math.atan2(
+          -(agentA.headingZ + (agentB.headingZ - agentA.headingZ) * alpha),
+          agentA.headingX + (agentB.headingX - agentA.headingX) * alpha,
+        );
+
+      const previousPose = agentPoses.current.get(agentB.id);
+      const x = previousPose ? previousPose.x + (targetX - previousPose.x) * smoothingAlpha : targetX;
+      const z = previousPose ? previousPose.z + (targetZ - previousPose.z) * smoothingAlpha : targetZ;
+      const heading = previousPose ? lerpAngle(previousPose.heading, targetHeading, smoothingAlpha) : targetHeading;
 
       agentPoses.current.set(agentB.id, { x, z, heading });
       if (!useInstancedAgentsRef.current) {

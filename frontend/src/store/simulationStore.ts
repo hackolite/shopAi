@@ -35,6 +35,7 @@ interface SimulationState {
   running: boolean;
   selectedWaypointId: string | null;
   invalidWaypointIds: string[];
+  invalidWaypointSuggestion: { waypointId: string; xCm: number; zCm: number } | null;
   history: SimulationConfig[];
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
@@ -46,6 +47,7 @@ interface SimulationState {
   setResult: (result: SimulationResult | null) => void;
   setRunning: (running: boolean) => void;
   setInvalidWaypointIds: (ids: string[]) => void;
+  setInvalidWaypointSuggestion: (suggestion: { waypointId: string; xCm: number; zCm: number } | null) => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -54,6 +56,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   running: false,
   selectedWaypointId: null,
   invalidWaypointIds: [],
+  invalidWaypointSuggestion: null,
   history: [],
   setConfig: (config) =>
     set({
@@ -61,6 +64,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       result: null,
       selectedWaypointId: null,
       invalidWaypointIds: [],
+      invalidWaypointSuggestion: null,
       history: [],
     }),
   patchConfig: (patch) =>
@@ -69,6 +73,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       config: { ...state.config, ...patch },
       result: null,
       invalidWaypointIds: [],
+      invalidWaypointSuggestion: null,
     })),
   addWaypoint: (type = 'transit') =>
     set((state) => {
@@ -97,6 +102,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         result: null,
         selectedWaypointId: waypoint.id,
         invalidWaypointIds: [],
+        invalidWaypointSuggestion: null,
       };
     }),
   updateWaypoint: (id, patch, options) =>
@@ -112,6 +118,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       },
       result: null,
       invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
+      invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
     })),
   removeWaypoint: (id) =>
     set((state) => ({
@@ -123,6 +130,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       result: null,
       selectedWaypointId: state.selectedWaypointId === id ? null : state.selectedWaypointId,
       invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
+      invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
     })),
   selectWaypoint: (id) => set({ selectedWaypointId: id }),
   undo: () =>
@@ -139,9 +147,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         result: null,
         selectedWaypointId,
         invalidWaypointIds: [],
+        invalidWaypointSuggestion: null,
       };
     }),
-  setResult: (result) => set({ result, invalidWaypointIds: [] }),
+  setResult: (result) => set({ result, invalidWaypointIds: [], invalidWaypointSuggestion: null }),
   setRunning: (running) => set({ running }),
   setInvalidWaypointIds: (ids) => set({ invalidWaypointIds: [...new Set(ids)] }),
+  setInvalidWaypointSuggestion: (suggestion) => set({ invalidWaypointSuggestion: suggestion }),
 }));

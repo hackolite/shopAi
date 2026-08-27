@@ -179,6 +179,20 @@ class LiveSimulationSession:
         self.agent_routes = {}
         self.agent_speeds = {}
         self.frozen_agents = set()
+        # Carried-over agents must be re-placed with the same agent-radius
+        # clearance from walls that fresh spawns use.  When furniture is moved on
+        # top of an existing agent, projecting onto the raw walkable boundary
+        # would leave the agent flush against (or overlapping) the new obstacle,
+        # which makes ``add_agent`` reject the position and raise.  A single such
+        # failure would otherwise abort the whole hot-update and wipe every agent
+        # that had not yet been re-added — i.e. pedestrians vanish completely.
+        placement_walkable = (
+            simsvc._walkable_with_clearance(
+                self.walkable,
+                simsvc.AGENT_RADIUS_CM + simsvc.BOUNDARY_CLEARANCE_EPSILON_CM,
+            )
+            or self.walkable
+        )
         for route_state, old_pos in old_routes:
             remaining_tokens = route_state.route_tokens[route_state.token_index :]
             stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
@@ -188,20 +202,31 @@ class LiveSimulationSession:
                 stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 continue
-            position = simsvc._closest_walkable_point(old_pos, self.walkable)
+            position = simsvc._closest_walkable_point(old_pos, placement_walkable)
             journey = jps.JourneyDescription(stage_ids)
             for from_stage, to_stage in zip(stage_ids[:-1], stage_ids[1:]):
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = self.sim.add_journey(journey)
             desired_speed = max(0.5, float(route_state.desired_speed))
-            new_agent_id = self.sim.add_agent(
-                simsvc._build_agent_params(
-                    journey_id=journey_id,
-                    stage_id=stage_ids[0],
-                    position=position,
-                    desired_speed=desired_speed,
+            try:
+                new_agent_id = self.sim.add_agent(
+                    simsvc._build_agent_params(
+                        journey_id=journey_id,
+                        stage_id=stage_ids[0],
+                        position=position,
+                        desired_speed=desired_speed,
+                    )
                 )
-            )
+            except Exception:
+                # Never let a single un-placeable agent abort the update and take
+                # every other carried agent down with it. Skip this one instead.
+                logging.getLogger(__name__).warning(
+                    "live_simulation update: could not re-place carried agent %s at %s; skipping.",
+                    route_state.stable_id,
+                    position,
+                )
+                self.next_stable_agent_id = max(self.next_stable_agent_id, route_state.stable_id + 1)
+                continue
             self.agent_routes[new_agent_id] = _LiveAgentRoute(
                 stable_id=route_state.stable_id,
                 desired_speed=desired_speed,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { cadApi } from '../../api/cad';
 import {
   extractConstraintCorrection,
@@ -195,6 +195,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   } = useSimulationStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSimulationInputRef = useRef<string | null>(null);
+  const simulationInputSignature = useMemo(
+    () => (scene ? snapshotSimulationInput(scene, config) : null),
+    [scene, config],
+  );
 
   useEffect(() => {
     if (!projectId) return;
@@ -256,14 +260,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   ]);
 
   useEffect(() => {
-    if (!projectId || !scene || !playing || running) return;
-    const nextSignature = snapshotSimulationInput(scene, config);
+    if (!projectId || !playing || running) return;
+    if (!simulationInputSignature) return;
     if (lastSimulationInputRef.current === null) return;
-    if (nextSignature === lastSimulationInputRef.current) return;
+    if (simulationInputSignature === lastSimulationInputRef.current) return;
     setPlaying(false);
     setResult(null);
     void runSimulation();
-  }, [config, playing, projectId, runSimulation, running, scene, setPlaying, setResult]);
+  }, [playing, projectId, runSimulation, running, setPlaying, setResult, simulationInputSignature]);
 
   return (
     <div className="flex h-full flex-col">

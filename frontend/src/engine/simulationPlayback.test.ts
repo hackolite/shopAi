@@ -13,4 +13,8 @@ describe('resolveSimulationTime', () => {
   it('guards against negative elapsed values', () => {
     expect(resolveSimulationTime(-2, 10)).toBe(0);
   });
+
+  it('returns elapsed time when duration is not positive', () => {
+    expect(resolveSimulationTime(5, 0)).toBe(5);
+  });
 });

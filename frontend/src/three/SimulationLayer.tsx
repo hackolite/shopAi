@@ -10,8 +10,9 @@ const WAYPOINT_CONE_BASE_Y = 0.38;
 const WAYPOINT_RING_Y = 0.02;
 const WAYPOINT_LABEL_Y = 0.95;
 const SUGGESTED_MARKER_Y_OFFSET = 0.005;
-const SUGGESTED_MARKER_MIN_INNER_RADIUS = 0.04;
-const SUGGESTED_MARKER_RING_THICKNESS = 0.03;
+const SUGGESTED_MARKER_RADIUS_CM = 35;
+const SUGGESTED_MARKER_INNER_RADIUS_CM = 20;
+const SUGGESTED_MARKER_CROSS_HALF_CM = 18;
 const SUGGESTED_MARKER_SEGMENTS = 40;
 
 function clampCm(value: number, min: number, max: number): number {
@@ -267,27 +268,36 @@ function AgentVision({
 function SuggestedWaypointMarker({
   xCm,
   zCm,
-  radiusCm,
 }: {
   xCm: number;
   zCm: number;
-  radiusCm: number;
 }) {
+  const outerRadius = SUGGESTED_MARKER_RADIUS_CM * CM_TO_UNIT;
+  const innerRadius = SUGGESTED_MARKER_INNER_RADIUS_CM * CM_TO_UNIT;
+  const crossHalf = SUGGESTED_MARKER_CROSS_HALF_CM * CM_TO_UNIT;
   return (
-    <mesh
-      position={[xCm * CM_TO_UNIT, WAYPOINT_RING_Y + SUGGESTED_MARKER_Y_OFFSET, zCm * CM_TO_UNIT]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      renderOrder={1001}
-    >
-      <ringGeometry
-        args={[
-          Math.max(SUGGESTED_MARKER_MIN_INNER_RADIUS, radiusCm * CM_TO_UNIT - SUGGESTED_MARKER_RING_THICKNESS),
-          radiusCm * CM_TO_UNIT,
-          SUGGESTED_MARKER_SEGMENTS,
+    <group position={[xCm * CM_TO_UNIT, WAYPOINT_RING_Y + SUGGESTED_MARKER_Y_OFFSET, zCm * CM_TO_UNIT]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1001}>
+        <ringGeometry args={[innerRadius, outerRadius, SUGGESTED_MARKER_SEGMENTS]} />
+        <meshBasicMaterial color="#f43f5e" transparent opacity={0.9} depthTest={false} depthWrite={false} />
+      </mesh>
+      <Line
+        points={[
+          [-crossHalf, 0, 0],
+          [crossHalf, 0, 0],
         ]}
+        color="#fb7185"
+        lineWidth={2}
       />
-      <meshBasicMaterial color="#f43f5e" transparent opacity={0.9} depthTest={false} depthWrite={false} />
-    </mesh>
+      <Line
+        points={[
+          [0, 0, -crossHalf],
+          [0, 0, crossHalf],
+        ]}
+        color="#fb7185"
+        lineWidth={2}
+      />
+    </group>
   );
 }
 
@@ -333,7 +343,6 @@ export function SimulationLayer() {
     return {
       xCm: invalidWaypointSuggestion.xCm,
       zCm: invalidWaypointSuggestion.zCm,
-      radiusCm: waypoint.radiusCm,
     };
   }, [config.waypoints, invalidWaypointIds, invalidWaypointSuggestion]);
 
@@ -360,7 +369,6 @@ export function SimulationLayer() {
         <SuggestedWaypointMarker
           xCm={suggestedWaypoint.xCm}
           zCm={suggestedWaypoint.zCm}
-          radiusCm={suggestedWaypoint.radiusCm}
         />
       )}
     </>

@@ -4,8 +4,10 @@ import tempfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from shapely.geometry import Point, Polygon
 
 import services.project_manager as pm
+import services.simulation as simulation_service
 
 pm.STORAGE_ROOT = Path(tempfile.mkdtemp(prefix="shopai_sim_test_"))
 
@@ -141,6 +143,19 @@ def test_run_simulation_reports_closest_waypoint_correction() -> None:
     assert payload["currentXcm"] == 10.0
     assert payload["suggestedXcm"] > payload["currentXcm"]
     assert payload["suggestedZcm"] == 120.0
+
+
+def test_distinct_waypoint_correction_falls_back_when_projection_matches_input(monkeypatch) -> None:
+    point = (0.25, 0.5)
+    walkable = Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)])
+
+    monkeypatch.setattr(simulation_service, "_closest_walkable_point", lambda *_args: point)
+
+    suggested = simulation_service._suggest_distinct_walkable_point(point, walkable)
+
+    assert suggested is not None
+    assert suggested != point
+    assert walkable.contains(Point(suggested)) or walkable.touches(Point(suggested))
 
 
 def test_run_simulation_allows_transit_waypoint_with_large_radius_in_accessible_aisle() -> None:

@@ -31,6 +31,7 @@ SIMULATION_DT_S = 0.1
 OBSTACLE_CLEARANCE_CM = 5.0
 AGENT_RADIUS_CM = 25.0
 BOUNDARY_CLEARANCE_EPSILON_CM = 0.1
+WAYPOINT_SUGGESTION_MIN_DISTANCE_CM = 1.0
 ENTRY_FALLBACK_MARGIN_CM = 120.0
 EXIT_FALLBACK_MARGIN_CM = 120.0
 
@@ -215,6 +216,28 @@ def _closest_walkable_point(point: tuple[float, float], walkable: Polygon) -> tu
     return (fallback.x, fallback.y)
 
 
+def _points_are_distinct(
+    point: tuple[float, float],
+    candidate: tuple[float, float],
+    min_distance_cm: float = WAYPOINT_SUGGESTION_MIN_DISTANCE_CM,
+) -> bool:
+    return math.hypot(point[0] - candidate[0], point[1] - candidate[1]) >= _cm_to_m(min_distance_cm)
+
+
+def _suggest_distinct_walkable_point(
+    point: tuple[float, float],
+    walkable: Polygon,
+) -> tuple[float, float] | None:
+    candidate = _closest_walkable_point(point, walkable)
+    if _points_are_distinct(point, candidate):
+        return candidate
+    fallback = walkable.representative_point()
+    fallback_point = (fallback.x, fallback.y)
+    if _point_in_walkable(fallback_point, walkable) and _points_are_distinct(point, fallback_point):
+        return fallback_point
+    return None
+
+
 def _waypoint_constraint_clearance_cm(waypoint: SimulationWaypoint) -> float:
     if waypoint.type == "exit":
         extent_cm = max(40.0, float(waypoint.radiusCm)) / 2
@@ -241,6 +264,7 @@ def _raise_waypoint_constraint_violation(waypoint: SimulationWaypoint, walkable:
         walkable,
         _waypoint_constraint_clearance_cm(waypoint),
     )
+    current_point = _waypoint_point(waypoint)
     suggested_x: float | None = None
     suggested_z: float | None = None
     message = (
@@ -248,7 +272,14 @@ def _raise_waypoint_constraint_violation(waypoint: SimulationWaypoint, walkable:
         "Déplacez-le au plus près vers la correction proposée."
     )
     if constrained_walkable is not None:
-        suggested_x, suggested_z = _closest_walkable_point(_waypoint_point(waypoint), constrained_walkable)
+        suggested_point = _suggest_distinct_walkable_point(current_point, constrained_walkable)
+        if suggested_point is not None:
+            suggested_x, suggested_z = suggested_point
+        else:
+            message = (
+                f'Le point "{waypoint.label}" est trop proche des limites de circulation '
+                "et aucune correction distincte n'a pu être calculée automatiquement."
+            )
     else:
         message = (
             f'Le point "{waypoint.label}" est trop proche des limites de circulation '

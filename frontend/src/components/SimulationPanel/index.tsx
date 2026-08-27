@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { cadApi } from '../../api/cad';
 import {
   extractConstraintCorrection,
@@ -49,10 +49,6 @@ function NumberField({
 function persistSettings(projectId: string | null, config: SimulationConfig) {
   if (!projectId) return;
   cadApi.updateSettings(projectId, { simulation: config }).catch(console.error);
-}
-
-function snapshotSimulationInput(scene: object, config: SimulationConfig): string {
-  return JSON.stringify({ scene, config });
 }
 
 function WaypointEditor({
@@ -194,11 +190,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     invalidWaypointIds,
   } = useSimulationStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSimulationInputRef = useRef<string | null>(null);
-  const simulationInputSignature = useMemo(
-    () => (scene ? snapshotSimulationInput(scene, config) : null),
-    [scene, config],
-  );
 
   useEffect(() => {
     if (!projectId) return;
@@ -213,13 +204,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   const runSimulation = useCallback(async () => {
     if (!projectId || !scene) return;
-    const sceneSnapshot = structuredClone(scene);
-    const configSnapshot = structuredClone(config);
-    const inputSignature = snapshotSimulationInput(sceneSnapshot, configSnapshot);
     setRunning(true);
     try {
-      const simulation = await cadApi.runSimulation(projectId, sceneSnapshot, configSnapshot);
-      lastSimulationInputRef.current = inputSignature;
+      const simulation = await cadApi.runSimulation(projectId, scene, config);
       setResult(simulation);
       setPlaying(true);
     } catch (error) {
@@ -258,16 +245,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setResult,
     setRunning,
   ]);
-
-  useEffect(() => {
-    if (!projectId || !playing || running) return;
-    if (!simulationInputSignature) return;
-    if (lastSimulationInputRef.current === null) return;
-    if (simulationInputSignature === lastSimulationInputRef.current) return;
-    setPlaying(false);
-    setResult(null);
-    void runSimulation();
-  }, [playing, projectId, runSimulation, running, setPlaying, setResult, simulationInputSignature]);
 
   return (
     <div className="flex h-full flex-col">

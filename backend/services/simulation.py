@@ -38,6 +38,7 @@ EXIT_FALLBACK_MARGIN_CM = 120.0
 AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 EXIT_REMOVAL_RADIUS_CM = 40.0
+TOO_CLOSE_TO_AGENT_ERROR_SNIPPET = "too close to agent"
 
 # French pedestrian right-hand avoidance: when an agent's speed drops below this
 # fraction of its desired speed it is considered "blocked" and a lateral rightward
@@ -462,6 +463,45 @@ def _build_agent_params(
     )
 
 
+def current_agent_positions(sim: object) -> list[tuple[float, float]]:
+    return [
+        (float(agent.position[0]), float(agent.position[1]))
+        for agent in sim.agents()
+    ]
+
+
+def add_agent_with_spawn_retry(
+    sim: object,
+    waypoint: SimulationWaypoint,
+    walkable: Polygon,
+    rng: random.Random,
+    occupied_positions: list[tuple[float, float]],
+    journey_id: int,
+    stage_id: int,
+    desired_speed: float,
+    attempts: int = 24,
+) -> tuple[int, tuple[float, float]]:
+    last_error: RuntimeError | None = None
+    for _ in range(max(1, attempts)):
+        spawn_position = _spawn_from_entry(waypoint, walkable, rng, occupied_positions)
+        try:
+            agent_id = sim.add_agent(
+                _build_agent_params(
+                    journey_id=journey_id,
+                    stage_id=stage_id,
+                    position=spawn_position,
+                    desired_speed=desired_speed,
+                )
+            )
+            return agent_id, spawn_position
+        except RuntimeError as exc:
+            if TOO_CLOSE_TO_AGENT_ERROR_SNIPPET not in str(exc):
+                raise
+            last_error = exc
+    assert last_error is not None
+    raise last_error
+
+
 def initial_target_stage_id(stage_ids: list[int]) -> int:
     if len(stage_ids) < 2:
         raise ValueError("Journey must include a downstream stage after entry")
@@ -675,7 +715,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
-        step_spawn_positions: dict[str, list[tuple[float, float]]] = {}
+        step_spawn_positions = current_agent_positions(sim)
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             selected_entry = entries[spawned % len(entries)]
@@ -690,18 +730,18 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = sim.add_journey(journey)
-            occupied = step_spawn_positions.setdefault(selected_entry.id, [])
-            spawn_position = _spawn_from_entry(selected_entry, walkable, rng, occupied)
-            occupied.append(spawn_position)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
-            agent_id = sim.add_agent(
-                _build_agent_params(
-                    journey_id=journey_id,
-                    stage_id=initial_target_stage_id(selected_stage_ids),
-                    position=spawn_position,
-                    desired_speed=desired_speed,
-                )
+            agent_id, spawn_position = add_agent_with_spawn_retry(
+                sim=sim,
+                waypoint=selected_entry,
+                walkable=walkable,
+                rng=rng,
+                occupied_positions=step_spawn_positions,
+                journey_id=journey_id,
+                stage_id=initial_target_stage_id(selected_stage_ids),
+                desired_speed=desired_speed,
             )
+            step_spawn_positions.append(spawn_position)
             agent_desired_speeds[agent_id] = desired_speed
             spawned += 1
             arrival_index += 1

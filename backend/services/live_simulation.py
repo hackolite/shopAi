@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import random
 import threading
 from dataclasses import dataclass
@@ -210,8 +211,6 @@ class LiveSimulationSession:
                 self.next_arrival_at = self.time_seconds
             else:
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
-        if self.next_arrival_at < self.time_seconds:
-            self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
 
     def _spawn_if_due(self) -> None:
         rate = max(0.0, float(self.config.arrivalRatePerSecond))
@@ -220,7 +219,7 @@ class LiveSimulationSession:
             return
         self._ensure_next_arrival()
         max_customers = max(1, int(self.config.maxCustomers))
-        step_spawn_positions: dict[str, list[tuple[float, float]]] = {}
+        step_spawn_positions = simsvc.current_agent_positions(self.sim)
         while (
             self.next_arrival_at is not None
             and self.next_arrival_at <= self.time_seconds
@@ -236,21 +235,32 @@ class LiveSimulationSession:
                 journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
             journey_id = self.sim.add_journey(journey)
             entry_wp = self.entries[self.spawned % len(self.entries)]
-            occupied = step_spawn_positions.setdefault(entry_wp.id, [])
-            spawn_position = simsvc._spawn_from_entry(entry_wp, self.walkable, self.rng, occupied)
-            occupied.append(spawn_position)
             desired_speed = max(
                 0.5,
                 self.rng.gauss(float(self.config.desiredSpeedMps), float(self.config.speedVariation)),
             )
-            agent_id = self.sim.add_agent(
-                simsvc._build_agent_params(
+            try:
+                agent_id, spawn_position = simsvc.add_agent_with_spawn_retry(
+                    sim=self.sim,
+                    waypoint=entry_wp,
+                    walkable=self.walkable,
+                    rng=self.rng,
+                    occupied_positions=step_spawn_positions,
                     journey_id=journey_id,
                     stage_id=simsvc.initial_target_stage_id(stage_ids),
-                    position=spawn_position,
                     desired_speed=desired_speed,
                 )
-            )
+            except RuntimeError as exc:
+                if simsvc.TOO_CLOSE_TO_AGENT_ERROR_SNIPPET not in str(exc):
+                    raise
+                logging.getLogger(__name__).warning(
+                    "Skipping one live spawn near entry '%s' after placement retries: %s",
+                    entry_wp.label,
+                    exc,
+                )
+                self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
+                continue
+            step_spawn_positions.append(spawn_position)
             stable_id = self.next_stable_agent_id
             self.next_stable_agent_id += 1
             self.agent_routes[agent_id] = _LiveAgentRoute(

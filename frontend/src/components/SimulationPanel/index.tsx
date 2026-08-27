@@ -400,13 +400,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             onChange={(value) => patchConfig({ arrivalRatePerSecond: Math.max(0, value) })}
           />
           <NumberField
-            label="Durée (s)"
-            value={config.durationSeconds}
-            min={10}
-            step={10}
-            onChange={(value) => patchConfig({ durationSeconds: Math.max(10, Math.round(value)) })}
-          />
-          <NumberField
             label="Max clients"
             value={config.maxCustomers}
             min={1}

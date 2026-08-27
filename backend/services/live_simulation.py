@@ -27,6 +27,17 @@ else:
 
 MAX_LIVE_FRAMES = 600
 MAX_WAYPOINT_SAMPLES = 1200
+# Only the most recent frames are needed by the client to interpolate smooth
+# playback (it keeps a sub-second render buffer and never resnaps more than ~1 s
+# behind the newest frame). Returning the whole growing history on every ~100 ms
+# tick makes the JSON payload balloon over time, which janks the main thread and
+# causes the stutter and teleport-through-furniture artefacts. Cap the returned
+# window to a small, constant-size tail while keeping the full history server-side.
+LIVE_RESPONSE_FRAME_WINDOW = 40
+# Bound the per-waypoint sample series returned to the client so tick responses
+# stay a constant size. The full series is kept server-side, so the aggregate
+# metrics (peak load, released agents) remain computed over the whole session.
+LIVE_RESPONSE_SAMPLE_WINDOW = 240
 
 
 @dataclass
@@ -408,7 +419,7 @@ class LiveSimulationSession:
                     if waypoint.type != "exit"
                     else 0
                 ),
-                samples=self.waypoint_series.get(waypoint.id, []),
+                samples=self.waypoint_series.get(waypoint.id, [])[-LIVE_RESPONSE_SAMPLE_WINDOW:],
             )
             for waypoint in self.metrics_waypoints
         ]
@@ -432,7 +443,11 @@ class LiveSimulationSession:
                 round(sum(all_retentions) / len(all_retentions), 2) if all_retentions else 0.0
             ),
         )
-        return SimulationResult(frames=self.frames, waypoints=waypoint_metrics, summary=summary)
+        return SimulationResult(
+            frames=self.frames[-LIVE_RESPONSE_FRAME_WINDOW:],
+            waypoints=waypoint_metrics,
+            summary=summary,
+        )
 
 
 class LiveSimulationManager:

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Html, Line } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import { useSceneStore } from '../store/sceneStore';
@@ -9,6 +9,25 @@ import { useSimulationStore } from '../store/simulationStore';
 function clampCm(value: number, min: number, max: number): number {
   const rounded = Math.round(value);
   return Math.max(min, Math.min(max, rounded));
+}
+
+function getWorldHitPoint(
+  gl: { domElement: HTMLElement },
+  raycaster: THREE.Raycaster,
+  camera: THREE.Camera,
+  plane: THREE.Plane,
+  clientX: number,
+  clientY: number,
+  ndc: THREE.Vector2,
+  out: THREE.Vector3,
+): boolean {
+  const rect = gl.domElement.getBoundingClientRect();
+  ndc.set(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray.intersectPlane(plane, out) !== null;
 }
 
 function WaypointMarker({
@@ -23,6 +42,7 @@ function WaypointMarker({
   maxXCm,
   minZCm,
   maxZCm,
+  markerBaseY,
 }: {
   id: string;
   label: string;
@@ -35,80 +55,132 @@ function WaypointMarker({
   maxXCm: number;
   minZCm: number;
   maxZCm: number;
+  markerBaseY: number;
 }) {
+  const { gl, raycaster, camera } = useThree();
   const groupRef = useRef<THREE.Group>(null);
+  const coneRef = useRef<THREE.Mesh>(null);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
   const updateWaypoint = useSimulationStore((state) => state.updateWaypoint);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selected = selectedWaypointId === id;
-  const dragStateRef = useRef<{ pointerId: number; offsetXCm: number; offsetZCm: number } | null>(null);
+  const dragStateRef = useRef<{ pointerId: number; startXcm: number; startZcm: number; startHitXcm: number; startHitZcm: number } | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
+  const moveListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
+  const endListenerRef = useRef<((event: PointerEvent) => void) | null>(null);
   const dragPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const ndc = useRef(new THREE.Vector2());
   const dragHit = useRef(new THREE.Vector3());
 
   useFrame((state) => {
-    if (!groupRef.current) return;
-    groupRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 3) * 0.08;
+    if (!coneRef.current) return;
+    coneRef.current.position.y = markerBaseY + Math.sin(state.clock.elapsedTime * 3) * 0.08;
   });
 
-  const endDrag = () => {
+  const endDrag = useCallback(() => {
+    if (moveListenerRef.current) {
+      window.removeEventListener('pointermove', moveListenerRef.current);
+      moveListenerRef.current = null;
+    }
+    if (endListenerRef.current) {
+      window.removeEventListener('pointerup', endListenerRef.current);
+      window.removeEventListener('pointercancel', endListenerRef.current);
+      endListenerRef.current = null;
+    }
     dragStateRef.current = null;
-  };
+    if (pointerIdRef.current !== null) {
+      try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* noop */ }
+      pointerIdRef.current = null;
+    }
+  }, [gl]);
 
   const withPointerCaptureTarget = (target: EventTarget | null) =>
     target as (EventTarget & { setPointerCapture?: (pointerId: number) => void; releasePointerCapture?: (pointerId: number) => void }) | null;
 
+  useEffect(() => () => endDrag(), [endDrag]);
+
   return (
     <group
       ref={groupRef}
-      position={[x * CM_TO_UNIT, 0.9, z * CM_TO_UNIT]}
+      position={[x * CM_TO_UNIT, 0, z * CM_TO_UNIT]}
       onPointerDown={(event) => {
         event.stopPropagation();
         selectWaypoint(id);
         if (!canDrag) return;
-        const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
+        const hit = getWorldHitPoint(
+          gl,
+          raycaster,
+          camera,
+          dragPlane,
+          event.clientX,
+          event.clientY,
+          ndc.current,
+          dragHit.current,
+        );
         if (!hit) return;
-        const hitXCm = hit.x / CM_TO_UNIT;
-        const hitZCm = hit.z / CM_TO_UNIT;
+        const hitXCm = dragHit.current.x / CM_TO_UNIT;
+        const hitZCm = dragHit.current.z / CM_TO_UNIT;
         dragStateRef.current = {
           pointerId: event.pointerId,
-          offsetXCm: x - hitXCm,
-          offsetZCm: z - hitZCm,
+          startXcm: x,
+          startZcm: z,
+          startHitXcm: hitXCm,
+          startHitZcm: hitZCm,
         };
+        pointerIdRef.current = event.pointerId;
+        try { gl.domElement.setPointerCapture(event.pointerId); } catch { /* noop */ }
         withPointerCaptureTarget(event.target)?.setPointerCapture?.(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!canDrag) return;
-        const dragState = dragStateRef.current;
-        if (!dragState || dragState.pointerId !== event.pointerId) return;
-        event.stopPropagation();
-        const hit = event.ray.intersectPlane(dragPlane, dragHit.current);
-        if (!hit) return;
-        const nextX = clampCm(hit.x / CM_TO_UNIT + dragState.offsetXCm, minXCm, maxXCm);
-        const nextZ = clampCm(hit.z / CM_TO_UNIT + dragState.offsetZCm, minZCm, maxZCm);
-        updateWaypoint(id, { x: nextX, z: nextZ });
-      }}
-      onPointerUp={(event) => {
-        if (dragStateRef.current?.pointerId !== event.pointerId) return;
-        event.stopPropagation();
-        withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
-        endDrag();
-      }}
-      onPointerCancel={(event) => {
-        if (dragStateRef.current?.pointerId !== event.pointerId) return;
-        event.stopPropagation();
-        withPointerCaptureTarget(event.target)?.releasePointerCapture?.(event.pointerId);
-        endDrag();
+        const onMove = (moveEvent: PointerEvent) => {
+          const dragState = dragStateRef.current;
+          if (!dragState || dragState.pointerId !== moveEvent.pointerId) return;
+          if (!getWorldHitPoint(
+            gl,
+            raycaster,
+            camera,
+            dragPlane,
+            moveEvent.clientX,
+            moveEvent.clientY,
+            ndc.current,
+            dragHit.current,
+          )) return;
+          const dx = dragHit.current.x / CM_TO_UNIT - dragState.startHitXcm;
+          const dz = dragHit.current.z / CM_TO_UNIT - dragState.startHitZcm;
+          const nextX = clampCm(dragState.startXcm + dx, minXCm, maxXCm);
+          const nextZ = clampCm(dragState.startZcm + dz, minZCm, maxZCm);
+          updateWaypoint(id, { x: nextX, z: nextZ });
+        };
+        const onEnd = (endEvent: PointerEvent) => {
+          if (dragStateRef.current?.pointerId !== endEvent.pointerId) return;
+          withPointerCaptureTarget(event.target)?.releasePointerCapture?.(endEvent.pointerId);
+          endDrag();
+        };
+        moveListenerRef.current = onMove;
+        endListenerRef.current = onEnd;
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onEnd);
+        window.addEventListener('pointercancel', onEnd);
       }}
     >
-      <mesh rotation={[Math.PI, 0, 0]}>
-        <coneGeometry args={[0.18, 0.45, 16]} />
-        <meshStandardMaterial color={selected ? '#60a5fa' : optional ? '#f59e0b' : '#22c55e'} emissive="#1f2937" />
+      <mesh ref={coneRef} rotation={[Math.PI, 0, 0]} renderOrder={1000}>
+        <coneGeometry args={[0.32, 0.85, 20]} />
+        <meshStandardMaterial
+          color={selected ? '#60a5fa' : optional ? '#f59e0b' : '#22c55e'}
+          emissive="#1f2937"
+          depthTest={false}
+          depthWrite={false}
+        />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.82, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, markerBaseY - 0.95, 0]} renderOrder={999}>
         <ringGeometry args={[Math.max(0.12, radiusCm * CM_TO_UNIT - 0.03), radiusCm * CM_TO_UNIT, 32]} />
-        <meshBasicMaterial color={selected ? '#93c5fd' : optional ? '#fbbf24' : '#4ade80'} transparent opacity={0.85} />
+        <meshBasicMaterial
+          color={selected ? '#93c5fd' : optional ? '#fbbf24' : '#4ade80'}
+          transparent
+          opacity={0.85}
+          depthTest={false}
+          depthWrite={false}
+        />
       </mesh>
-      <Html center position={[0, 0.35, 0]} distanceFactor={10}>
+      <Html center position={[0, markerBaseY + 0.45, 0]} distanceFactor={10}>
         <div className="rounded bg-gray-950/85 px-2 py-1 text-[10px] font-medium text-white shadow-lg whitespace-nowrap">
           {label}{optional ? ' · optionnel' : ''}
         </div>
@@ -170,6 +242,13 @@ export function SimulationLayer() {
   const minZCm = storePos[2];
   const maxXCm = minXCm + (scene?.store.dimensions.width ?? 0);
   const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
+  const markerBaseY = useMemo(() => {
+    if (!scene || scene.furniture.length === 0) return 0.9;
+    const maxTopCm = scene.furniture.reduce((maxTop, furniture) => (
+      Math.max(maxTop, furniture.position[1] + furniture.dimensions.height)
+    ), 0);
+    return Math.max(0.9, (maxTopCm + 80) * CM_TO_UNIT);
+  }, [scene]);
 
   useEffect(() => {
     setFrameIndex(0);
@@ -206,6 +285,7 @@ export function SimulationLayer() {
           maxXCm={maxXCm}
           minZCm={minZCm}
           maxZCm={maxZCm}
+          markerBaseY={markerBaseY}
         />
       ))}
       {currentFrame?.agents.map((agent) => (

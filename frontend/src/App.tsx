@@ -48,7 +48,13 @@ export default function App() {
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones } = useZoneStore();
-  const { setConfig: setSimulationConfig, setResult: setSimulationResult } = useSimulationStore();
+  const {
+    setConfig: setSimulationConfig,
+    setResult: setSimulationResult,
+    selectedWaypointId,
+    selectWaypoint: selectSimulationWaypoint,
+    undo: undoSimulation,
+  } = useSimulationStore();
 
   // ── Load project list ─────────────────────────────────────────────────────
   const refreshProjectList = useCallback(async () => {
@@ -310,7 +316,11 @@ export default function App() {
       // Ctrl/Cmd+Z → undo
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
         e.preventDefault();
-        undo();
+        if (selectedWaypointId) {
+          undoSimulation();
+        } else {
+          undo();
+        }
         return;
       }
 
@@ -323,6 +333,7 @@ export default function App() {
 
       if (e.key === 'Escape') {
         selectFurniture(null);
+        selectSimulationWaypoint(null);
         return;
       }
 
@@ -354,7 +365,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, saveProject]);
+  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, saveProject]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

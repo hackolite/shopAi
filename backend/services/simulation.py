@@ -304,7 +304,6 @@ def _validate_waypoint_constraints(waypoints: list[SimulationWaypoint], walkable
         point = _waypoint_point(waypoint)
         if not _point_in_walkable(point, walkable):
             _raise_waypoint_constraint_violation(waypoint, walkable)
-            continue
         clearance_m = _cm_to_m(_waypoint_constraint_clearance_cm(waypoint))
         if clearance_m > 0 and walkable.boundary.distance(Point(point)) < clearance_m:
             _raise_waypoint_constraint_violation(waypoint, walkable)

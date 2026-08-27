@@ -141,3 +141,98 @@ def test_run_simulation_reports_closest_waypoint_correction() -> None:
     assert payload["currentXcm"] == 10.0
     assert payload["suggestedXcm"] > payload["currentXcm"]
     assert payload["suggestedZcm"] == 120.0
+
+
+def test_run_simulation_allows_transit_waypoint_with_large_radius_in_accessible_aisle() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = [
+        {
+            "id": "shelf-left",
+            "name": "Shelf Left",
+            "type": "gondola",
+            "libraryId": "fixture-left",
+            "position": [2350.0, 0.0, 1500.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 100.0, "depth": 1000.0, "height": 200.0},
+            "visible": True,
+            "mounted": True,
+            "locked": False,
+            "childIds": [],
+            "faces": {},
+        },
+        {
+            "id": "shelf-right",
+            "name": "Shelf Right",
+            "type": "gondola",
+            "libraryId": "fixture-right",
+            "position": [2650.0, 0.0, 1500.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 100.0, "depth": 1000.0, "height": 200.0},
+            "visible": True,
+            "mounted": True,
+            "locked": False,
+            "childIds": [],
+            "faces": {},
+        },
+    ]
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/run",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.1,
+                "durationSeconds": 10,
+                "maxCustomers": 3,
+                "randomSeed": 11,
+                "waypoints": [
+                    {
+                        "id": "entry-main",
+                        "type": "entry",
+                        "label": "Entrée",
+                        "x": 2500.0,
+                        "z": 200.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                    {
+                        "id": "transit-aisle",
+                        "type": "transit",
+                        "label": "Allée centrale",
+                        "x": 2500.0,
+                        "z": 1500.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                    {
+                        "id": "exit-main",
+                        "type": "exit",
+                        "label": "Sortie",
+                        "x": 2500.0,
+                        "z": 2800.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text

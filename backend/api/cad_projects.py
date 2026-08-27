@@ -10,9 +10,20 @@ from fastapi import APIRouter, Body, Form, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from models.project import Catalog, FurnitureInstance, Material, Planogram, Product, ProjectSettings, SceneData, Store
+from models.project import (
+    Catalog,
+    FurnitureInstance,
+    Material,
+    Planogram,
+    Product,
+    ProjectSettings,
+    SceneData,
+    SimulationConfig,
+    Store,
+)
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
+from services.simulation import run_flow_simulation
 from services.project_manager import (
     create_project,
     delete_project,
@@ -63,6 +74,11 @@ class ImportProjectPayload(BaseModel):
 
 class NamedResourcePayload(BaseModel):
     name: str
+
+
+class SimulationRunPayload(BaseModel):
+    scene: dict[str, Any] | None = None
+    config: dict[str, Any] | None = None
 
 
 def _load_scene(project_id: str) -> SceneData:
@@ -517,3 +533,19 @@ def update_settings(project_id: str, payload: dict[str, Any] = Body(...)):
     settings = _merge_model(ProjectSettings, _load_settings(project_id), payload)
     _save_settings(project_id, settings)
     return settings.model_dump(mode="json")
+
+
+@router.post("/{project_id}/simulation/run")
+def run_simulation(project_id: str, payload: SimulationRunPayload):
+    try:
+        scene = SceneData.model_validate(payload.scene) if payload.scene is not None else _load_scene(project_id)
+        config = (
+            SimulationConfig.model_validate(payload.config)
+            if payload.config is not None
+            else _load_settings(project_id).simulation
+        )
+        return run_flow_simulation(scene, config).model_dump(mode="json")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

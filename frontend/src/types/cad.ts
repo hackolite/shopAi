@@ -74,6 +74,76 @@ export interface StoreConfig {
   zones?: FloorZone[];
 }
 
+export interface SimulationWaypoint {
+  id: string;
+  label: string;
+  x: number;
+  z: number;
+  radiusCm: number;
+  optional: boolean;
+  visitProbability: number;
+  visionAngleDeg: number;
+  visionRangeCm: number;
+}
+
+export interface SimulationConfig {
+  enabled: boolean;
+  arrivalRatePerSecond: number;
+  durationSeconds: number;
+  maxCustomers: number;
+  randomSeed: number;
+  desiredSpeedMps: number;
+  speedVariation: number;
+  serviceTimeSeconds: number;
+  serviceTimeJitterSeconds: number;
+  queueSlots: number;
+  queueSpacingCm: number;
+  waypoints: SimulationWaypoint[];
+}
+
+export interface SimulationAgentFrame {
+  id: number;
+  xCm: number;
+  zCm: number;
+  headingX: number;
+  headingZ: number;
+  visionAngleDeg: number;
+  visionRangeCm: number;
+}
+
+export interface QueueSample {
+  timeSeconds: number;
+  queueLength: number;
+  servedCustomers: number;
+}
+
+export interface CheckoutMetrics {
+  registerId: string;
+  registerName: string;
+  queueLengthMax: number;
+  servedCustomers: number;
+  samples: QueueSample[];
+}
+
+export interface SimulationFrame {
+  timeSeconds: number;
+  agents: SimulationAgentFrame[];
+}
+
+export interface SimulationSummary {
+  spawnedCustomers: number;
+  completedCustomers: number;
+  activeCustomers: number;
+  averageQueueLength: number;
+  maxQueueLength: number;
+}
+
+export interface SimulationResult {
+  frames: SimulationFrame[];
+  checkouts: CheckoutMetrics[];
+  summary: SimulationSummary;
+}
+
 export interface Scene {
   store: StoreConfig;
   furniture: FurnitureInstance[];
@@ -192,7 +262,11 @@ export interface ProjectMeta {
 export interface ProjectSettings {
   gridSize: number;
   snapEnabled: boolean;
-  defaultUnitScale: number;
+  showGrid: boolean;
+  unit: string;
+  cameraMode: string;
+  ambientLight: number;
+  simulation: SimulationConfig;
 }
 
 // ─── Selection ────────────────────────────────────────────────────────────────

@@ -4,3 +4,4 @@ export { useProjectStore } from './projectStore';
 export { useSceneStore } from './sceneStore';
 export { usePlanogramStore } from './planogramStore';
 export { useCatalogStore } from './catalogStore';
+export { useSimulationStore } from './simulationStore';

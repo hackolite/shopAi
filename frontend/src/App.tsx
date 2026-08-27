@@ -4,6 +4,7 @@ import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
 import { usePlanogramStore } from './store/planogramStore';
 import { useUIStore } from './store/uiStore';
+import { defaultSimulationConfig, useSimulationStore } from './store/simulationStore';
 import { SceneEditor } from './three/SceneEditor';
 import Toolbar from './components/Toolbar';
 import SceneHierarchy from './components/SceneHierarchy';
@@ -13,6 +14,7 @@ import PlanogramEditor from './components/PlanogramEditor';
 import NameDialog from './components/NameDialog';
 import ExportDialog from './components/ExportDialog';
 import ImportDialog from './components/ImportDialog';
+import SimulationPanel from './components/SimulationPanel';
 import type { ImportFormat } from './components/ImportDialog';
 import { useZoneStore } from './store/zoneStore';
 import type { FurnitureInstance } from './types/cad';
@@ -28,6 +30,7 @@ export default function App() {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
   const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [rightTab, setRightTab] = useState<'inspector' | 'simulation'>('simulation');
 
   // Dialog states
   const [nameDialog, setNameDialog] = useState<{
@@ -45,6 +48,7 @@ export default function App() {
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones } = useZoneStore();
+  const { setConfig: setSimulationConfig, setResult: setSimulationResult } = useSimulationStore();
 
   // ── Load project list ─────────────────────────────────────────────────────
   const refreshProjectList = useCallback(async () => {
@@ -61,17 +65,19 @@ export default function App() {
   // ── Load all data for a project ───────────────────────────────────────────
   const loadProjectData = useCallback(async (id: string) => {
     try {
-      const [sceneData, catalog, planoData, meta] = await Promise.all([
+      const [sceneData, catalog, planoData, meta, settings] = await Promise.all([
         cadApi.getScene(id),
         cadApi.getCatalog(id),
         cadApi.listPlanograms(id),
         cadApi.getProject(id),
+        cadApi.getSettings(id),
       ]);
       setScene(sceneData);
       setProducts(catalog.products);
       setPlanograms(planoData.planograms);
       setZones(sceneData.store.zones ?? []);
       setProjectName(meta.name ?? id);
+      setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
 
       await Promise.all(
         planoData.planograms.map(async (summary) => {
@@ -86,12 +92,16 @@ export default function App() {
     } catch (err) {
       console.error('Failed to load project data:', err);
     }
-  }, [setScene, setProducts, setPlanograms, setPlanogramDetail, setZones]);
+  }, [setScene, setProducts, setPlanograms, setPlanogramDetail, setZones, setSimulationConfig]);
 
   // ── Boot: load default project ────────────────────────────────────────────
   useEffect(() => {
     void loadProjectData(projectId);
   }, [projectId, loadProjectData]);
+
+  useEffect(() => {
+    setSimulationResult(null);
+  }, [scene, projectId, setSimulationResult]);
 
   // ── Switch to a project ───────────────────────────────────────────────────
   const switchProject = useCallback((id: string) => {
@@ -507,10 +517,38 @@ export default function App() {
 
         {/* ── Right panel (280px) ──────────────────────────────────────── */}
         <aside className="w-72 shrink-0 border-l border-gray-800 bg-gray-900 overflow-y-auto">
-          <Inspector
-            projectId={projectId}
-            onOpenPlanogram={openPlanogram}
-          />
+          <div className="flex border-b border-gray-800">
+            <button
+              className={[
+                'flex-1 py-2 text-xs font-medium transition-colors',
+                rightTab === 'simulation'
+                  ? 'border-b-2 border-blue-400 text-blue-400'
+                  : 'text-gray-500 hover:text-gray-300',
+              ].join(' ')}
+              onClick={() => setRightTab('simulation')}
+            >
+              Simulation
+            </button>
+            <button
+              className={[
+                'flex-1 py-2 text-xs font-medium transition-colors',
+                rightTab === 'inspector'
+                  ? 'border-b-2 border-blue-400 text-blue-400'
+                  : 'text-gray-500 hover:text-gray-300',
+              ].join(' ')}
+              onClick={() => setRightTab('inspector')}
+            >
+              Inspector
+            </button>
+          </div>
+          {rightTab === 'simulation' ? (
+            <SimulationPanel projectId={projectId} />
+          ) : (
+            <Inspector
+              projectId={projectId}
+              onOpenPlanogram={openPlanogram}
+            />
+          )}
         </aside>
       </div>
     </div>

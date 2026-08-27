@@ -42,6 +42,77 @@ class ProjectSettings(CADBaseModel):
     unit: str = "cm"
     cameraMode: str = "perspective"
     ambientLight: float = 0.8
+    simulation: "SimulationConfig" = Field(default_factory=lambda: SimulationConfig())
+
+
+class SimulationWaypoint(CADBaseModel):
+    id: str
+    label: str = "Point de passage"
+    x: float
+    z: float
+    radiusCm: float = 120.0
+    optional: bool = False
+    visitProbability: float = 0.65
+    visionAngleDeg: float = 70.0
+    visionRangeCm: float = 220.0
+
+
+class SimulationConfig(CADBaseModel):
+    enabled: bool = True
+    arrivalRatePerSecond: float = 0.25
+    durationSeconds: int = 120
+    maxCustomers: int = 80
+    randomSeed: int = 42
+    desiredSpeedMps: float = 1.25
+    speedVariation: float = 0.2
+    serviceTimeSeconds: float = 8.0
+    serviceTimeJitterSeconds: float = 2.0
+    queueSlots: int = 6
+    queueSpacingCm: float = 80.0
+    waypoints: list[SimulationWaypoint] = Field(default_factory=list)
+
+
+class SimulationAgentFrame(CADBaseModel):
+    id: int
+    xCm: float
+    zCm: float
+    headingX: float = 1.0
+    headingZ: float = 0.0
+    visionAngleDeg: float = 70.0
+    visionRangeCm: float = 220.0
+
+
+class QueueSample(CADBaseModel):
+    timeSeconds: float
+    queueLength: int
+    servedCustomers: int
+
+
+class CheckoutMetrics(CADBaseModel):
+    registerId: str
+    registerName: str
+    queueLengthMax: int
+    servedCustomers: int
+    samples: list[QueueSample] = Field(default_factory=list)
+
+
+class SimulationFrame(CADBaseModel):
+    timeSeconds: float
+    agents: list[SimulationAgentFrame] = Field(default_factory=list)
+
+
+class SimulationSummary(CADBaseModel):
+    spawnedCustomers: int
+    completedCustomers: int
+    activeCustomers: int
+    averageQueueLength: float
+    maxQueueLength: int
+
+
+class SimulationResult(CADBaseModel):
+    frames: list[SimulationFrame] = Field(default_factory=list)
+    checkouts: list[CheckoutMetrics] = Field(default_factory=list)
+    summary: SimulationSummary
 
 
 class Wall(CADBaseModel):

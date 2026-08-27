@@ -9,6 +9,8 @@ import type {
   ProjectMeta,
   ProjectSettings,
   Scene,
+  SimulationConfig,
+  SimulationResult,
   StoreConfig,
 } from '../types/cad';
 
@@ -178,10 +180,15 @@ export const cadApi = {
     }),
 
   getSettings: (id: string) => request<ProjectSettings>(`${BASE}/${id}/settings`),
-  updateSettings: (id: string, settings: ProjectSettings) =>
+  updateSettings: (id: string, settings: Partial<ProjectSettings>) =>
     request<void>(`${BASE}/${id}/settings`, {
       method: 'PUT',
       body: JSON.stringify(settings),
+    }),
+  runSimulation: (id: string, scene: Scene, config: SimulationConfig) =>
+    request<SimulationResult>(`${BASE}/${id}/simulation/run`, {
+      method: 'POST',
+      body: JSON.stringify({ scene, config }),
     }),
 
   getFurnitureLibrary: () =>

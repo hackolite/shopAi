@@ -13,6 +13,8 @@ import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
+import { SimulationLayer } from './SimulationLayer';
+import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m). */
@@ -2663,6 +2665,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           isSelected={storeBoundarySelected}
           onSelect={handleSelectBoundary}
         />
+        <SimulationLayer />
         <FloorZoneLayer />
         <MeasureTool store={scene.store} />
 
@@ -2843,6 +2846,8 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           </button>
         )}
       </div>
+
+      <CheckoutChartsOverlay />
 
       {/* Hint overlay */}
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none">

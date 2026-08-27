@@ -38,6 +38,12 @@ EXIT_FALLBACK_MARGIN_CM = 120.0
 AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 
+# French pedestrian right-hand avoidance: when an agent's speed drops below this
+# fraction of its desired speed it is considered "blocked" and a lateral rightward
+# bias is injected into its desired direction.
+_BLOCKING_SPEED_RATIO = 0.35
+_RIGHT_HAND_BIAS = 0.5
+
 
 @dataclass
 class _WaypointRuntime:
@@ -488,6 +494,37 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float, agents_i
         runtime.front_arrival_time = None
 
 
+def _apply_right_hand_bias(sim: object) -> None:
+    """Inject a rightward lateral bias into the desired direction of blocked agents.
+
+    Mimics French pedestrian behaviour: when a pedestrian is slowed to a near-stop
+    by a crowd obstacle it either waits or steps to the right (same convention as
+    road traffic).  A blocked agent is one whose current speed has fallen below
+    ``_BLOCKING_SPEED_RATIO`` times its desired speed.  For each such agent we
+    rotate its desired direction ``e0`` towards the right-perpendicular by
+    ``_RIGHT_HAND_BIAS``, then re-normalise.  The effect is a gentle, collision-
+    aware rightward drift that the underlying CollisionFreeSpeedModel resolves
+    safely without violating its geometric guarantees.
+    """
+    for agent in sim.agents():
+        model_state = agent.model
+        speed = model_state.speed
+        desired_speed = model_state.desired_speed
+        if desired_speed <= 0:
+            continue
+        if speed >= _BLOCKING_SPEED_RATIO * desired_speed:
+            continue
+        ex, ez = model_state.e0
+        # Right-perpendicular in the XZ plane: -90° rotation around Y axis
+        # (clockwise when seen from above in a right-handed Y-up system).
+        rx, rz = -ez, ex
+        bx = ex + _RIGHT_HAND_BIAS * rx
+        bz = ez + _RIGHT_HAND_BIAS * rz
+        length = math.hypot(bx, bz)
+        if length > 1e-9:
+            model_state.e0 = (bx / length, bz / length)
+
+
 def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> SimulationResult:
     if jps is None:
         raise RuntimeError("JuPedSim is not installed on the backend")
@@ -611,6 +648,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
 
         sim.iterate()
+        _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
 
         if step_index % steps_per_snapshot == 0:
@@ -677,6 +715,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             )
             _tick_queue_runtime(runtime, current_time, agents_in_circle)
         sim.iterate()
+        _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
         if overtime_index % steps_per_snapshot == 0:
             frame_agents = []

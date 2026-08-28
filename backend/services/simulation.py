@@ -172,12 +172,68 @@ def _queue_slot_positions(
 
 def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
     radius_m = _cm_to_m(EXIT_REMOVAL_RADIUS_CM)
+    # Anchor the removal zone on the *same* point as the visible approach
+    # waypoint (clearance 0, i.e. the exit marker itself).  Previously the
+    # removal disc was re-snapped with a large clearance
+    # (EXIT_REMOVAL_RADIUS_CM + AGENT_RADIUS_CM), which meant that moving a piece
+    # of furniture merely *near* the exit shrank the cleared walkable and pushed
+    # the removal zone sideways — away from the marker.  Agents would reach the
+    # unchanged approach waypoint, then divert to the relocated removal zone and
+    # vanish there, "as if the exit had moved".  Clip the disc to the walkable
+    # area instead so it always stays co-located with the marker while remaining
+    # inside the geometry (jupedsim requires a hole-free exit inside walkable).
+    center = _safe_waypoint_point(
+        waypoint,
+        walkable,
+        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+    )
+    disc = Point(center).buffer(radius_m, resolution=16)
+    clipped = _select_polygon_containing(disc.intersection(walkable), center)
+    if clipped is not None:
+        # Drop any interior holes (e.g. a small obstacle fully inside the disc);
+        # jupedsim only accepts hole-free exit polygons.  Only keep the filled
+        # exterior when its centroid still lies inside the walkable area.
+        filled = Polygon(clipped.exterior)
+        if _point_in_walkable((filled.centroid.x, filled.centroid.y), walkable):
+            return filled
+        if not list(clipped.interiors) and _point_in_walkable(
+            (clipped.centroid.x, clipped.centroid.y), walkable
+        ):
+            return clipped
+    # Fallback: keep the historical behaviour of snapping the whole disc inside
+    # the walkable area if clipping could not yield a valid marker-anchored zone.
     x, z = _safe_waypoint_point(
         waypoint,
         walkable,
         clearance_cm=EXIT_REMOVAL_RADIUS_CM + AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM,
     )
     return Point(x, z).buffer(radius_m, resolution=16)
+
+
+def _select_polygon_containing(
+    geometry, point: tuple[float, float]
+) -> Polygon | None:
+    """Return the polygonal component of ``geometry`` covering ``point``.
+
+    Falls back to the largest component when no piece strictly covers the point
+    (the intersection may leave the anchor exactly on a boundary).
+    """
+    if geometry.is_empty:
+        return None
+    target = Point(point)
+    candidates: list[Polygon] = []
+    if isinstance(geometry, Polygon):
+        candidates = [geometry]
+    elif isinstance(geometry, MultiPolygon):
+        candidates = list(geometry.geoms)
+    else:
+        candidates = [geom for geom in getattr(geometry, "geoms", []) if isinstance(geom, Polygon)]
+    if not candidates:
+        return None
+    for candidate in candidates:
+        if candidate.covers(target):
+            return candidate
+    return max(candidates, key=lambda geom: geom.area)
 
 
 def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> Polygon | None:

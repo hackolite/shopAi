@@ -128,6 +128,49 @@ def test_exit_polygon_uses_compact_hidden_removal_radius() -> None:
     assert max_y - min_y == pytest.approx(0.8, abs=1e-6)
 
 
+def test_exit_polygon_stays_anchored_when_furniture_moves_near() -> None:
+    """Moving furniture *near* an exit must not relocate its removal zone.
+
+    Regression: the removal disc used to be re-snapped with a large clearance,
+    so a shelf placed near (not onto) the exit shifted the removal zone away
+    from the marker. Agents would reach the unchanged approach waypoint, then
+    divert to the relocated zone and vanish there — "as if the exit had moved".
+    """
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=900.0,
+        z=500.0,
+        radiusCm=40.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    store = Polygon([(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])
+
+    # Without furniture the removal zone is centred on the exit marker (9, 5).
+    baseline = simulation_service._waypoint_exit_polygon(waypoint, store)
+    assert baseline.centroid.x == pytest.approx(9.0)
+    assert baseline.centroid.y == pytest.approx(5.0)
+
+    # A shelf placed close to — but not covering — the exit centre.
+    obstacle = Polygon([(8.2, 4.5), (8.8, 4.5), (8.8, 5.5), (8.2, 5.5)])
+    walkable = store.difference(obstacle)
+
+    polygon = simulation_service._waypoint_exit_polygon(waypoint, walkable)
+
+    # The removal zone must remain essentially co-located with the marker
+    # (only a small bite is taken out by the shelf), never jumping ~1 m away.
+    assert polygon.centroid.x == pytest.approx(9.0, abs=0.15)
+    assert polygon.centroid.y == pytest.approx(5.0, abs=0.15)
+    # It must be a valid, hole-free polygon fully inside the walkable area.
+    assert not list(polygon.interiors)
+    assert walkable.covers(polygon)
+
+
 def test_run_simulation_with_default_waypoints() -> None:
     project_id = _create_project()
 

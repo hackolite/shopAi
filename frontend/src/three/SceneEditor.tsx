@@ -2776,8 +2776,18 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     if (!canvas) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stream: MediaStream = (canvas as any).captureStream(RECORDING_FPS);
-    const mimeType = ['video/webm; codecs=vp9', 'video/webm; codecs=vp8', 'video/webm']
-      .find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+    // Prefer VP8 (and hardware-accelerated H.264 when available) over VP9.
+    // Real-time VP9 software encoding is markedly more CPU-intensive than VP8
+    // and competes with the WebGL render loop on the main thread, which is the
+    // main remaining source of stutter ("lag") while recording. VP8 encodes
+    // much cheaper for the same live-capture workload; VP9 is kept only as a
+    // last-resort fallback for browsers that expose nothing else.
+    const mimeType = [
+      'video/webm; codecs=vp8',
+      'video/webm; codecs=h264',
+      'video/webm',
+      'video/webm; codecs=vp9',
+    ].find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
     const mr = new MediaRecorder(stream, {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: RECORDING_BITRATE,

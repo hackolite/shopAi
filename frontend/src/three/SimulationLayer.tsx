@@ -203,10 +203,6 @@ function WaypointMarker({
                     : '#0c4a6e'
         }
         emissiveIntensity={0.6}
-        transparent={false}
-        opacity={1}
-        depthTest={false}
-        depthWrite={false}
       />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WAYPOINT_RING_Y, 0]} renderOrder={1} raycast={() => null}>

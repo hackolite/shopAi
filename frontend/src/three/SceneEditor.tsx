@@ -2369,15 +2369,6 @@ function MeasureTool({ store }: { store: StoreConfig }) {
     setPreviewEnd(point);
   };
 
-  const LABEL_STYLE: React.CSSProperties = {
-    background: 'rgba(0,0,0,0.75)',
-    padding: '2px 6px',
-    borderRadius: '3px',
-    fontSize: '12px',
-    whiteSpace: 'nowrap',
-    pointerEvents: 'none',
-  };
-
   return (
     <>
       {/* Invisible floor plane — receives all floor interactions */}
@@ -2414,12 +2405,12 @@ function MeasureTool({ store }: { store: StoreConfig }) {
               <sphereGeometry args={[0.04, 8, 8]} />
               <meshBasicMaterial color={lineColor} />
             </mesh>
-            <Html position={mid} center>
-              <div style={{ ...LABEL_STYLE, color: lineColor, border: `1px solid ${isSelected ? 'rgba(255,68,68,0.33)' : 'rgba(250,204,21,0.33)'}`, cursor: 'default' }}>
-                {dist.toFixed(2)} m
-                {isSelected && <span style={{ marginLeft: 4, opacity: 0.7 }}>[Del]</span>}
-              </div>
-            </Html>
+            <TextSprite3D
+              text={`${dist.toFixed(2)} m${isSelected ? ' [Del]' : ''}`}
+              position={[mid.x, mid.y + 0.15, mid.z]}
+              isSelected={isSelected}
+              scale={0.9}
+            />
           </group>
         );
       })}
@@ -2431,11 +2422,11 @@ function MeasureTool({ store }: { store: StoreConfig }) {
         return (
           <>
             <Line points={[drawStart, previewEnd]} color="#facc15" lineWidth={2} dashed dashSize={0.2} gapSize={0.1} />
-            <Html position={mid} center>
-              <div style={{ ...LABEL_STYLE, color: '#facc15', border: '1px solid rgba(250,204,21,0.35)' }}>
-                {dist.toFixed(2)} m
-              </div>
-            </Html>
+            <TextSprite3D
+              text={`${dist.toFixed(2)} m`}
+              position={[mid.x, mid.y + 0.15, mid.z]}
+              scale={0.9}
+            />
           </>
         );
       })()}

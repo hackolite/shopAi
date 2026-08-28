@@ -17,6 +17,7 @@ import type { FurnitureInstance, StoreConfig } from '../types/cad';
 import { SimulationLayer } from './SimulationLayer';
 import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m). */
@@ -66,6 +67,13 @@ const RECORDING_FPS = 30;
  * processing hitch on long captures.
  */
 const RECORDING_TIMESLICE_MS = 1000;
+/**
+ * Default device-pixel-ratio range for the live 3D view (matches the
+ * react-three-fiber default). While recording, the pixel ratio is reduced (see
+ * {@link computeRecordingDpr}) so the captured frames stay small and the
+ * real-time encoder does not stall the render loop.
+ */
+const DEFAULT_DPR: [number, number] = [1, 2];
 
 // ─── Camera state persistence across Canvas remounts ──────────────────────────
 // When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
@@ -2770,10 +2778,23 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
   const mediaRecorderRef    = useRef<MediaRecorder | null>(null);
   const recordChunksRef     = useRef<Blob[]>([]);
   const [recording, setRecording] = useState(false);
+  // While recording, render at a reduced pixel ratio so the captured frames stay
+  // small and the real-time encoder does not compete with the render loop. This
+  // is the dominant lever for recording smoothness on HiDPI / large viewports.
+  const [recordingDpr, setRecordingDpr] = useState<number | null>(null);
 
   const startRecording = useCallback(() => {
     const canvas = canvasWrapperRef.current?.querySelector('canvas');
     if (!canvas) return;
+    // Cap the render resolution for the duration of the recording so the
+    // capture stream produces small frames that the encoder can keep up with.
+    setRecordingDpr(
+      computeRecordingDpr(
+        canvas.clientWidth,
+        canvas.clientHeight,
+        window.devicePixelRatio || 1,
+      ),
+    );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stream: MediaStream = (canvas as any).captureStream(RECORDING_FPS);
     // Prefer VP8 (and hardware-accelerated H.264 when available) over VP9.
@@ -2782,12 +2803,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     // main remaining source of stutter ("lag") while recording. VP8 encodes
     // much cheaper for the same live-capture workload; VP9 is kept only as a
     // last-resort fallback for browsers that expose nothing else.
-    const mimeType = [
-      'video/webm; codecs=vp8',
-      'video/webm; codecs=h264',
-      'video/webm',
-      'video/webm; codecs=vp9',
-    ].find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+    const mimeType = pickRecordingMimeType(MediaRecorder.isTypeSupported);
     const mr = new MediaRecorder(stream, {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: RECORDING_BITRATE,
@@ -2813,6 +2829,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
     mediaRecorderRef.current?.stop();
     mediaRecorderRef.current = null;
     setRecording(false);
+    setRecordingDpr(null);
     setUIRecording(false);
   }, [setUIRecording]);
 
@@ -2851,7 +2868,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           </div>
         }
       >
-        <Canvas camera={{ position: [25, 15, 35], fov: 50 }} shadows style={{ width: '100%', height: '100%' }}>
+        <Canvas dpr={recordingDpr ?? DEFAULT_DPR} camera={{ position: [25, 15, 35], fov: 50 }} shadows style={{ width: '100%', height: '100%' }}>
           <color attach="background" args={['#111827']} />
           <Suspense fallback={null}>
             <SceneContent projectId={projectId} />

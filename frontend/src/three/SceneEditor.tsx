@@ -1,7 +1,7 @@
 import { Suspense, useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext, useMemo } from 'react';
 import type React from 'react';
 import { Canvas, useThree, useFrame, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, GizmoHelper, GizmoViewport, Html, TransformControls, Grid, Line } from '@react-three/drei';
+import { OrbitControls, GizmoHelper, GizmoViewport, TransformControls, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';

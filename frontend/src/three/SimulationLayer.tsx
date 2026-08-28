@@ -178,23 +178,38 @@ function WaypointMarker({
         <meshStandardMaterial
         color={
           invalid
-            ? '#ef4444'
+            ? '#dc2626'
             : selected
-              ? '#60a5fa'
+              ? '#2563eb'
               : type === 'entry'
-                ? '#22c55e'
+                ? '#15803d'
                 : type === 'exit'
-                  ? '#fb923c'
+                  ? '#c2410c'
                   : optional
-                    ? '#f59e0b'
-                    : '#38bdf8'
+                    ? '#b45309'
+                    : '#0369a1'
         }
-        emissive="#1f2937"
+        emissive={
+          invalid
+            ? '#7f1d1d'
+            : selected
+              ? '#1e3a8a'
+              : type === 'entry'
+                ? '#14532d'
+                : type === 'exit'
+                  ? '#7c2d12'
+                  : optional
+                    ? '#78350f'
+                    : '#0c4a6e'
+        }
+        emissiveIntensity={0.6}
+        transparent={false}
+        opacity={1}
         depthTest={false}
         depthWrite={false}
       />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WAYPOINT_RING_Y, 0]} renderOrder={999} raycast={() => null}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WAYPOINT_RING_Y, 0]} renderOrder={1} raycast={() => null}>
         <ringGeometry args={[Math.min(Math.max(0.04, radiusCm * CM_TO_UNIT - 0.06), radiusCm * CM_TO_UNIT * 0.8), radiusCm * CM_TO_UNIT, 32]} />
         <meshBasicMaterial
           color={
@@ -212,8 +227,10 @@ function WaypointMarker({
           }
           transparent
           opacity={0.85}
-          depthTest={false}
-          depthWrite={false}
+          side={THREE.DoubleSide}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
         />
       </mesh>
       <Html center position={[0, WAYPOINT_LABEL_Y, 0]} distanceFactor={10}>

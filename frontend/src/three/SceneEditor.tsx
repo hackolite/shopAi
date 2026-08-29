@@ -29,11 +29,6 @@ const MIN_DIM_CM = 20;
 /** Round a centimetre value to the nearest snap grid step. */
 const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
 /**
- * How much larger (multiplier) the grid plane is than the store footprint,
- * so it visually extends past the walls on all sides.
- */
-const GRID_SIZE_MULTIPLIER = 1.4;
-/**
  * Fade-out distance multiplier for the Grid component relative to the store's
  * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
  */
@@ -874,7 +869,6 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
-  const size = Math.ceil(Math.max(w, d) * GRID_SIZE_MULTIPLIER);
 
   const handleFloorClick = () => {
     selectFurniture(null);
@@ -892,7 +886,7 @@ function StoreFloor({ store }: { store: StoreConfig }) {
       {/* Fine grid: 1 m cells, 5 m sections */}
       <Grid
         position={[storeOriginX + w / 2, GRID_Y_OFFSET, storeOriginZ + d / 2]}
-        args={[size, size]}
+        args={[w, d]}
         cellSize={SNAP_UNIT}
         cellThickness={1.2}
         cellColor="#2e4d6e"

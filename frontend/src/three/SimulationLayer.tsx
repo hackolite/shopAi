@@ -555,6 +555,8 @@ export function SimulationLayer() {
   const cachedFrameB = useRef<import('../types/cad').SimulationFrame | null>(null);
   const cachedCurrentIds = useRef<Set<number>>(new Set());
   const renderTimeRef = useRef(-1);
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
   const profile = useRef({ frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 });
   const [profilingText, setProfilingText] = useState('FPS -- | frame -- ms | max -- ms');
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
@@ -595,11 +597,13 @@ export function SimulationLayer() {
   // a hot-update (triggered by furniture resize in the planogram editor) can block
   // tick responses long enough for the clock to get stuck at the extrapolation
   // ceiling, making agents appear frozen for several seconds after returning.
+  // `playing` is read via a ref so it does not become a dependency: the [playing]
+  // effect already handles resets when the user starts or stops playback.
   useEffect(() => {
-    if (viewMode === '3d' && playing) {
+    if (viewMode === '3d' && playingRef.current) {
       renderTimeRef.current = -1;
     }
-  }, [viewMode, playing]);
+  }, [viewMode]);
 
   useFrame((_, delta) => {
     if (!result || result.frames.length <= 1 || !playing || paused) return;

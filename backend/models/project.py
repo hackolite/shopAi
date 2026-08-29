@@ -284,6 +284,9 @@ class Product(CADBaseModel):
     heightCm: float
     weightG: float
     imageUrl: str | None = None
+    priceBuyEur: float | None = None
+    marginPct: float | None = None
+    priceSellEur: float | None = None
 
 
 class Catalog(CADBaseModel):

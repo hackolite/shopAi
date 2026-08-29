@@ -1,6 +1,6 @@
 # Retail CAD — AI-Native Planogram & Digital Twin Builder
 
-**The Figma of Planograms.** A professional SaaS tool for designing retail stores in 3D, editing planograms independently of geometry, and automatically applying them to store furniture.
+**The Figma of Planograms.** A professional SaaS tool for designing retail stores in 3D, editing planograms independently of geometry, running customer flow simulations, and automatically applying them to store furniture.
 
 ---
 
@@ -13,7 +13,7 @@ shopAi/
 │   ├── models/
 │   │   └── project.py                # Pydantic v2 models for all entities
 │   ├── api/
-│   │   ├── cad_projects.py           # CAD CRUD endpoints (/api/cad/projects/*)
+│   │   ├── cad_projects.py           # CAD CRUD + simulation session endpoints
 │   │   ├── furniture_library.py      # Furniture library (/api/furniture-library)
 │   │   └── projects.py               # Legacy voxel viewer endpoints (backward compat)
 │   ├── services/
@@ -22,7 +22,11 @@ shopAi/
 │   │   ├── demo_initializer.py       # Auto-seeds retail_cad project on startup
 │   │   ├── planogram_loader.py       # Legacy JSON I/O + EAN index
 │   │   ├── voxel_generator.py        # Converts planogram → 3D voxel descriptors
-│   │   └── ean_search.py             # EAN lookup + analytics
+│   │   ├── ean_search.py             # EAN lookup + analytics
+│   │   ├── simulation.py             # Batch simulation engine (waypoints, pathfinding, heatmaps)
+│   │   ├── live_simulation.py        # Live real-time simulation sessions (start/tick/pause/resume/stop)
+│   │   ├── gondola_adapter.py        # Converts gondola geometry for simulation obstacles
+│   │   └── retail_layout.py          # Retail-specific layout helpers
 │   ├── storage/
 │   │   ├── furniture_library.json    # 9 parametric furniture types
 │   │   └── projects/
@@ -34,6 +38,10 @@ shopAi/
 │   │       │   ├── materials.json    # 8 materials
 │   │       │   └── settings.json     # Grid/snap settings
 │   │       └── demo_store/           # Legacy voxel viewer demo
+│   ├── tests/
+│   │   ├── test_simulation_api.py    # Simulation + live simulation API tests
+│   │   ├── test_scene_concurrency.py # Concurrent scene write tests
+│   │   └── test_retail_layout.py     # Retail layout helper tests
 │   └── requirements.txt
 │
 └── frontend/                         # React 19 + Vite + TypeScript
@@ -47,18 +55,42 @@ shopAi/
         │   ├── sceneStore.ts         # Scene data, furniture selection, hierarchy
         │   ├── planogramStore.ts     # Active planogram, cell selection
         │   ├── catalogStore.ts       # Products, search, favorites
-        │   └── projectStore.ts       # Project list, current project
+        │   ├── projectStore.ts       # Project list, current project
+        │   ├── simulationStore.ts    # Simulation config, waypoints, live session state
+        │   └── zoneStore.ts          # Zone (heatmap area) definitions
+        ├── engine/                   # Pure business-logic modules (tested with Vitest)
+        │   ├── gondola.ts / .test.ts           # Gondola shelf geometry engine
+        │   ├── furnitureAnchor.ts / .test.ts   # Furniture snap & anchor logic
+        │   ├── simulationPlayback.ts / .test.ts # Agent playback interpolation
+        │   ├── simulationConstraint.ts / .test.ts # Waypoint placement validation
+        │   └── recording.ts / .test.ts         # Canvas stream video recording
         ├── api/
         │   ├── cad.ts                # Typed client for /api/cad/* endpoints
         │   └── index.ts              # Legacy API client
         ├── three/
-        │   └── SceneEditor.tsx       # R3F canvas: furniture meshes, floor, gizmo
+        │   ├── SceneEditor.tsx       # R3F canvas: furniture meshes, floor, gizmo, measure tool
+        │   ├── SimulationLayer.tsx   # R3F overlay: agent instanced rendering, heatmap
+        │   ├── StoreScene.tsx        # Scene root & lighting
+        │   ├── Shelf.tsx             # Individual shelf mesh
+        │   └── ProductBlock.tsx      # Product block mesh for 3D planogram preview
         └── components/
             ├── Toolbar/              # Top bar: tool picker, view toggle
+            ├── Header/               # App header + project switcher
             ├── SceneHierarchy/       # Unity/Blender-style tree, visibility toggles
             ├── CatalogPanel/         # Product browser with search + drag-and-drop
             ├── Inspector/            # Properties panel (position, dims, rotation, faces)
-            └── PlanogramEditor/      # 2D grid editor: click/drag to place products
+            ├── PlanogramEditor/      # 2D grid editor: click/drag to place products
+            ├── SimulationPanel/      # Simulation config, waypoint editor, live controls
+            ├── FloorPlanEditor/      # 2D top-down floor plan editor
+            ├── ExportDialog/         # Scene / planogram export wizard
+            ├── ImportDialog/         # Scene / catalog import wizard
+            ├── CheckoutChartsOverlay/# Real-time charts overlay (checkout throughput)
+            ├── StoreViewer/          # Read-only 3D store preview
+            ├── SidePanel/            # Collapsible side panel shell
+            ├── SearchBar/            # Global search bar
+            ├── ProductInfo/          # Product detail popup
+            ├── NameDialog/           # Generic name-input dialog
+            └── ErrorBoundary/        # React error boundary
 ```
 
 ---
@@ -214,6 +246,55 @@ endpoint) accepts a JSON file in one of two shapes:
 
 ---
 
+---
+
+## Simulation Module
+
+The simulation engine models customer foot traffic inside the store using an agent-based approach.
+
+### Waypoint Types
+
+| Type | Role |
+|------|------|
+| `entry` | Spawns agents at the specified rate (agents/hour). First arrival scheduled at t=0, then exponential inter-arrivals. |
+| `transit` | Routes agents through the store; used for aisle traversal or dwell points. |
+| `exit` | Despawns agents once they arrive (circular exit zone of configurable radius). |
+
+### Simulation Modes
+
+| Mode | Description |
+|------|-------------|
+| **Batch** | Full offline run → produces heatmap + per-zone dwell statistics |
+| **Live** | Real-time session; frontend polls at 100 ms, backend streams agent states |
+
+### Live Simulation API
+
+| Endpoint | Action |
+|----------|--------|
+| `POST /{project_id}/simulation/live/start` | Start a new live session |
+| `POST /{project_id}/simulation/live/{session_id}/tick` | Advance simulation clock |
+| `POST /{project_id}/simulation/live/{session_id}/pause` | Pause session |
+| `POST /{project_id}/simulation/live/{session_id}/resume` | Resume session |
+| `POST /{project_id}/simulation/live/{session_id}/update` | Hot-update waypoint config |
+| `POST /{project_id}/simulation/live/{session_id}/stop` | Stop and discard session |
+
+### Frontend Simulation Features
+
+- **SimulationPanel**: waypoint placement, live controls (play/pause/stop), agent-count display
+- **SimulationLayer**: instanced rendering of 40+ agents at 100 ms tick, 220 ms render buffer, 200 ms extrapolation cap
+- **Undo history**: simulation waypoint edits have their own undo stack (Ctrl/Cmd+Z in simulation context)
+- **Video recording**: on-screen labels use `TextSprite3D` (WebGL sprite) so they appear in `canvas.captureStream()` recordings
+
+### Waypoint Placement Constraints
+
+| Type | Clearance rule |
+|------|---------------|
+| `entry` | Centre must be ≥ `AGENT_RADIUS_CM` from any obstacle |
+| `transit` | Centre must be inside walkable area (0 cm clearance) |
+| `exit` | Centre must be ≥ `radiusCm + AGENT_RADIUS_CM` from any obstacle |
+
+---
+
 ## Quick Start
 
 ### Prerequisites
@@ -240,6 +321,16 @@ npm run dev
 ```
 
 Open **http://localhost:5173**
+
+### 3. Tests
+
+```bash
+# Backend
+cd backend && python -m pytest
+
+# Frontend
+cd frontend && npx vitest run
+```
 
 ---
 
@@ -286,11 +377,16 @@ The app loads the **retail_cad** demo project automatically (50 m × 30 m store,
 
 ## Roadmap
 
-Future modules are architecturally prepared but not yet implemented:
-
 | Module | Status |
 |--------|--------|
-| Analytics Engine (heatmaps, traffic) | 🔲 Stub |
+| 3D CAD editor + planogram editor | ✅ Done |
+| Gondola shelf engine (variable shelves & separators) | ✅ Done |
+| Live customer flow simulation | ✅ Done |
+| Batch simulation + heatmaps | ✅ Done |
+| Floor plan editor (2D top-down) | ✅ Done |
+| Video recording of the 3D scene | ✅ Done |
+| Export / Import wizard | ✅ Done |
+| Analytics Engine (traffic heatmaps, dwell) | ✅ Done |
 | Vision Engine (computer vision compliance) | 🔲 Stub |
 | RAG / LLM planogram assistant | 🔲 Stub |
 | Sales / Margin / Stock integration | 🔲 Stub |

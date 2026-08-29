@@ -259,9 +259,13 @@ const ANTICOLLISION_RADIUS_CM = 50;
 // Direction cone: vision-field angle and range used for the sector indicator
 const AGENT_VISION_ANGLE_DEG = 70;
 const AGENT_VISION_RANGE_CM = 220;
-const RENDER_BUFFER_SECONDS = 0.22;
-const MAX_EXTRAPOLATION_SECONDS = 0.2;
+const RENDER_BUFFER_SECONDS = 0.25;
+const MAX_EXTRAPOLATION_SECONDS = 0.35;
 const INSTANCED_AGENT_THRESHOLD = 40;
+// Hysteresis: once instanced mode is entered it is not abandoned until the count
+// drops well below the on-threshold, preventing constant mode flipping (and the
+// material / texture loss that comes with it) when agent count hovers around 40.
+const INSTANCED_AGENT_HYSTERESIS_OFF = 30;
 // Fixed GPU buffer capacity: the instancedMesh is allocated once with this
 // many slots so Three.js never destroys/recreates it when agents arrive or
 // depart.  mesh.count is updated imperatively to tell the renderer how many
@@ -542,16 +546,27 @@ export function SimulationLayer() {
   const agentRefs = useRef<Map<number, AgentMarkerHandle>>(new Map());
   const agentPoses = useRef<Map<number, AgentPose>>(new Map());
   const cachedFrameAIdx = useRef(-1);
+  const cachedResultFrames = useRef<import('../types/cad').SimulationFrame[] | null>(null);
   const cachedAgentMapA = useRef<Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>>(
     new Map(),
   );
+  const cachedFrameB = useRef<import('../types/cad').SimulationFrame | null>(null);
+  const cachedCurrentIds = useRef<Set<number>>(new Set());
   const renderTimeRef = useRef(-1);
   const profile = useRef({ frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 });
   const [profilingText, setProfilingText] = useState('FPS -- | frame -- ms | max -- ms');
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
     () => new Map(),
   );
-  const useInstancedAgents = agentSlots.size >= INSTANCED_AGENT_THRESHOLD;
+  // Hysteresis: once instanced mode activates (≥ INSTANCED_AGENT_THRESHOLD) it stays
+  // active until count drops below INSTANCED_AGENT_HYSTERESIS_OFF.  This prevents
+  // repeated instanced↔standard flipping when the agent count hovers near the
+  // threshold, which destroys and recreates materials causing texture-loss glitches.
+  const instancedActiveRef = useRef(false);
+  const count = agentSlots.size;
+  if (count >= INSTANCED_AGENT_THRESHOLD) instancedActiveRef.current = true;
+  else if (count < INSTANCED_AGENT_HYSTERESIS_OFF) instancedActiveRef.current = false;
+  const useInstancedAgents = instancedActiveRef.current;
   const useInstancedAgentsRef = useRef(useInstancedAgents);
   const showProfilingHud = import.meta.env.DEV;
   useInstancedAgentsRef.current = useInstancedAgents;
@@ -562,8 +577,12 @@ export function SimulationLayer() {
     nextColorCounter.current = 0;
     agentPoses.current = new Map();
     cachedFrameAIdx.current = -1;
+    cachedResultFrames.current = null;
     cachedAgentMapA.current = new Map();
+    cachedFrameB.current = null;
+    cachedCurrentIds.current = new Set();
     renderTimeRef.current = -1;
+    instancedActiveRef.current = false;
     profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
     setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
@@ -603,9 +622,11 @@ export function SimulationLayer() {
     const frameA = result.frames[aIdx];
     const frameB = result.frames[bIdx];
 
-    // Rebuild frame-A lookup only when the bracket changes
-    if (aIdx !== cachedFrameAIdx.current) {
+    // Rebuild frame-A lookup when the bracket changes OR when result.frames is replaced
+    // (same index can point to a different frame after each tick's windowed snapshot).
+    if (aIdx !== cachedFrameAIdx.current || result.frames !== cachedResultFrames.current) {
       cachedFrameAIdx.current = aIdx;
+      cachedResultFrames.current = result.frames;
       const m = new Map<number, { xCm: number; zCm: number; headingX: number; headingZ: number }>();
       for (const a of frameA.agents) m.set(a.id, a);
       cachedAgentMapA.current = m;
@@ -625,12 +646,26 @@ export function SimulationLayer() {
       }
     }
 
-    // Detect agent set change: new arrivals OR departures
-    const currentIds = new Set(frameB.agents.map((a) => a.id));
-    const idsChanged =
-      currentIds.size !== prevAgentIds.current.size ||
-      frameB.agents.some((a) => !prevAgentIds.current.has(a.id)) ||
-      [...prevAgentIds.current].some((id) => !currentIds.has(id));
+    // Detect agent set change: new arrivals OR departures.
+    // currentIds is cached on frameB reference to avoid rebuilding the Set at 60 fps
+    // (O(N) allocations per frame with many agents is a significant GC burden).
+    if (frameB !== cachedFrameB.current) {
+      cachedFrameB.current = frameB;
+      const ids = new Set<number>();
+      for (const a of frameB.agents) ids.add(a.id);
+      cachedCurrentIds.current = ids;
+    }
+    const currentIds = cachedCurrentIds.current;
+    // Size inequality catches all net-change departures or arrivals.
+    // If sizes are equal, iterating currentIds for new arrivals suffices: a new arrival
+    // implies a matching departure (sizes stayed equal), so both directions are covered
+    // without spreading prevAgentIds into an array on every render frame.
+    let idsChanged = currentIds.size !== prevAgentIds.current.size;
+    if (!idsChanged) {
+      for (const id of currentIds) {
+        if (!prevAgentIds.current.has(id)) { idsChanged = true; break; }
+      }
+    }
 
     if (idsChanged) {
       prevAgentIds.current = currentIds;

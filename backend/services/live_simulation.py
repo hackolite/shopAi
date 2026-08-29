@@ -33,7 +33,7 @@ MAX_WAYPOINT_SAMPLES = 1200
 # tick makes the JSON payload balloon over time, which janks the main thread and
 # causes the stutter and teleport-through-furniture artefacts. Cap the returned
 # window to a small, constant-size tail while keeping the full history server-side.
-LIVE_RESPONSE_FRAME_WINDOW = 40
+LIVE_RESPONSE_FRAME_WINDOW = 20
 # Bound the per-waypoint sample series returned to the client so tick responses
 # stay a constant size. The full series is kept server-side, so the aggregate
 # metrics (peak load, released agents) remain computed over the whole session.

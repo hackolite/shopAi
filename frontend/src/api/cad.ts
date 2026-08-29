@@ -235,8 +235,10 @@ export const cadApi = {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${projectName.replace(/\s+/g, '_')}_retail_layout.json`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   },
 
   importRetailLayout: (name: string, layout: object) =>

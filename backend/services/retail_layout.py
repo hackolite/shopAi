@@ -177,7 +177,7 @@ def build_retail_layout(
                     "absolutePositionCm": abs_pos,
                 })
 
-            placements.append({
+            placement: dict[str, Any] = {
                 "face": face,
                 "planogramId": plano_id,
                 "planogramName": plano.get("name", ""),
@@ -186,7 +186,23 @@ def build_retail_layout(
                 "widthCm": width_cm,
                 "heightCm": height_cm,
                 "slots": slots,
-            })
+            }
+            # Forward optional fields so split_retail_layout can round-trip them
+            # faithfully (e.g. non-uniform column/row widths, merged spans, gondola).
+            for optional_key in (
+                "colWidthsCm",
+                "rowHeightsCm",
+                "cellWidthOverrides",
+                "cellHeightOverrides",
+                "rowColCounts",
+                "mergedSpans",
+                "gondola",
+            ):
+                value = plano.get(optional_key)
+                if value is not None:
+                    placement[optional_key] = value
+
+            placements.append(placement)
 
         furniture_items.append({
             "id": furn_id,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import re
 import threading
 from typing import Any
@@ -237,8 +238,7 @@ def export_retail_layout_endpoint(project_id: str):
     )
 
     safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id))
-    import json as _json
-    content = _json.dumps(layout, indent=2, ensure_ascii=False).encode("utf-8")
+    content = json.dumps(layout, indent=2, ensure_ascii=False).encode("utf-8")
     return Response(
         content=content,
         media_type="application/json",

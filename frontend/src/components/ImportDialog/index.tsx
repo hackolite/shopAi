@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-export type ImportFormat = 'zip';
+export type ImportFormat = 'zip' | 'retail-layout';
 
 interface ImportDialogProps {
   onImport: (file: File, name: string, format: ImportFormat) => void;
@@ -13,6 +13,13 @@ const FORMATS: { id: ImportFormat; label: string; description: string; accept: s
     label: 'ZIP',
     description: 'Archive ZIP exportée depuis ShopAI',
     accept: '.zip,application/zip',
+    enabled: true,
+  },
+  {
+    id: 'retail-layout',
+    label: 'Retail Layout JSON',
+    description: 'Layout retail unifié (export ShopAI ou système tiers)',
+    accept: '.json,application/json',
     enabled: true,
   },
 ];

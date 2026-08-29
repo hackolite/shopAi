@@ -223,4 +223,27 @@ export const cadApi = {
     request<{ furniture: FurnitureDefinition[] }>(LIB_BASE),
   getFurnitureDefinition: (type: string) =>
     request<FurnitureDefinition>(`${LIB_BASE}/${type}`),
+
+  exportRetailLayout: async (id: string, projectName: string): Promise<void> => {
+    const response = await fetch(`${BASE}/${id}/export/retail-layout`);
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'Unknown error');
+      throw new Error(`[${response.status}] ${text}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, '_')}_retail_layout.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  },
+
+  importRetailLayout: (name: string, layout: object) =>
+    request<{ id: string }>(`${BASE}/import/retail-layout`, {
+      method: 'POST',
+      body: JSON.stringify({ name, layout }),
+    }),
 };

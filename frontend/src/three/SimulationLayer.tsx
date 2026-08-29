@@ -373,12 +373,12 @@ function InstancedAgents({
   const envelopeInner = envelopeOuter * 0.82;
   const coneRange = AGENT_VISION_RANGE_CM * CM_TO_UNIT;
 
-  // Tracks the previous ordered-agent list so we can zero-out vacated slots.
-  const prevOrderedRef = useRef<typeof orderedAgents>([]);
+  // Tracks the previous agent count so we can zero-out tail slots that were
+  // vacated when agents departed (orderedAgents is always contiguous 0..n-1).
+  const prevCountRef = useRef(0);
 
   useEffect(() => {
     if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
-    const scratch = new THREE.Object3D();
     const dark = new THREE.Color();
     const light = new THREE.Color();
 
@@ -399,26 +399,26 @@ function InstancedAgents({
     if (bodyRef.current.instanceColor) bodyRef.current.instanceColor.needsUpdate = true;
     if (coneRef.current.instanceColor) coneRef.current.instanceColor.needsUpdate = true;
 
-    // Build a set of currently active indices to detect vacated slots.
-    const activeIndices = new Set(orderedAgents.map((_, i) => i));
-
-    // Hide slots that were occupied in the previous frame but are now vacant
-    // (e.g. an agent departed in the middle of the ordered list).
-    scratch.scale.setScalar(0);
-    scratch.position.set(0, 0, 0);
-    scratch.rotation.set(0, 0, 0);
-    scratch.updateMatrix();
-    prevOrderedRef.current.forEach((_, index) => {
-      if (!activeIndices.has(index)) {
-        envelopeRef.current!.setMatrixAt(index, scratch.matrix);
-        bodyRef.current!.setMatrixAt(index, scratch.matrix);
-        coneRef.current!.setMatrixAt(index, scratch.matrix);
+    // Zero-out tail slots that existed in the previous frame but no longer do.
+    // Because orderedAgents is always a contiguous 0..n-1 range derived from a
+    // Map, departures always shrink the tail: the vacated slots are exactly the
+    // indices [count, prevCount).
+    if (prevCountRef.current > count) {
+      const scratch = new THREE.Object3D();
+      scratch.scale.setScalar(0);
+      scratch.position.set(0, 0, 0);
+      scratch.rotation.set(0, 0, 0);
+      scratch.updateMatrix();
+      for (let i = count; i < prevCountRef.current; i++) {
+        envelopeRef.current.setMatrixAt(i, scratch.matrix);
+        bodyRef.current.setMatrixAt(i, scratch.matrix);
+        coneRef.current.setMatrixAt(i, scratch.matrix);
       }
-    });
+    }
+    prevCountRef.current = count;
 
     // Reset poses so the per-frame loop re-writes all active matrices.
     lastPoseById.current.clear();
-    prevOrderedRef.current = orderedAgents;
 
     envelopeRef.current.instanceMatrix.needsUpdate = true;
     bodyRef.current.instanceMatrix.needsUpdate = true;

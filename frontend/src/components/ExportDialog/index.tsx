@@ -1,11 +1,26 @@
+export type ExportFormat = 'zip' | 'retail-layout';
+
 interface ExportDialogProps {
   projectName: string;
-  onConfirm: (format: 'zip') => void;
+  onConfirm: (format: ExportFormat) => void;
   onCancel: () => void;
 }
 
-const FORMATS: { id: 'zip'; label: string; description: string; enabled: boolean }[] = [
-  { id: 'zip', label: 'ZIP', description: 'Archive ZIP contenant les fichiers JSON du projet', enabled: true },
+const FORMATS: { id: ExportFormat; label: string; description: string; icon: string; enabled: boolean }[] = [
+  {
+    id: 'zip',
+    label: 'ZIP',
+    description: 'Archive ZIP contenant les fichiers JSON du projet',
+    icon: '📦',
+    enabled: true,
+  },
+  {
+    id: 'retail-layout',
+    label: 'Retail Layout JSON',
+    description: 'Layout unifié : positions mobiliers + produits EAN par slot (WMS / ERP / space-planning)',
+    icon: '🗺️',
+    enabled: true,
+  },
 ];
 
 export default function ExportDialog({ projectName, onConfirm, onCancel }: ExportDialogProps) {
@@ -35,7 +50,7 @@ export default function ExportDialog({ projectName, onConfirm, onCancel }: Expor
                   : 'border-gray-700 bg-gray-800/40 opacity-50 cursor-not-allowed',
               ].join(' ')}
             >
-              <span className="text-lg leading-none mt-0.5">📦</span>
+              <span className="text-lg leading-none mt-0.5">{fmt.icon}</span>
               <div>
                 <div className="text-xs font-semibold text-gray-100">
                   {fmt.label}

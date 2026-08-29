@@ -16,6 +16,7 @@ import ExportDialog from './components/ExportDialog';
 import ImportDialog from './components/ImportDialog';
 import SimulationPanel from './components/SimulationPanel';
 import type { ImportFormat } from './components/ImportDialog';
+import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore } from './store/zoneStore';
 import type { FurnitureInstance } from './types/cad';
 
@@ -277,10 +278,14 @@ export default function App() {
     setShowExportDialog(true);
   }, []);
 
-  const handleExportConfirm = useCallback(async (_format: 'zip') => {
+  const handleExportConfirm = useCallback(async (format: ExportFormat) => {
     setShowExportDialog(false);
     try {
-      await cadApi.exportProjectZip(projectId, projectName);
+      if (format === 'retail-layout') {
+        await cadApi.exportRetailLayout(projectId, projectName);
+      } else {
+        await cadApi.exportProjectZip(projectId, projectName);
+      }
     } catch (err) {
       console.error('Export failed:', err);
       alert('Erreur lors de l\'exportation du projet.');
@@ -288,10 +293,17 @@ export default function App() {
   }, [projectId, projectName]);
 
   // ── Import ────────────────────────────────────────────────────────────────
-  const handleImportFile = useCallback(async (file: File, name: string, _format: ImportFormat) => {
+  const handleImportFile = useCallback(async (file: File, name: string, format: ImportFormat) => {
     setShowImportDialog(false);
     try {
-      const created = await cadApi.importProjectZip(name, file);
+      let created: { id: string };
+      if (format === 'retail-layout') {
+        const text = await file.text();
+        const layout = JSON.parse(text) as object;
+        created = await cadApi.importRetailLayout(name, layout);
+      } else {
+        created = await cadApi.importProjectZip(name, file);
+      }
       await refreshProjectList();
       switchProject(created.id);
     } catch (err) {

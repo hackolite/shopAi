@@ -23,6 +23,7 @@ from models.project import (
 )
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
+from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
 from services.live_simulation import live_simulation_manager
 from services.project_manager import (
@@ -212,6 +213,60 @@ async def import_project_zip_endpoint(
     """Import a project from a ZIP archive (multipart: file + name field)."""
     zip_bytes = await file.read()
     return import_project_from_zip(zip_bytes, name.strip())
+
+
+@router.get("/{project_id}/export/retail-layout")
+def export_retail_layout_endpoint(project_id: str):
+    """Export a denormalised retail layout (scene + planograms fused, EAN per slot).
+
+    The returned JSON merges furniture positions (from scene.json) with their
+    planogram cells (from planograms.json) into a single document that also
+    provides the absolute position in cm of every product slot.  It is designed
+    for exchange with WMS, ERP and space-planning tools.
+    """
+    ensure_project_exists(project_id)
+    scene_raw = load_project_file(project_id, "scene.json") or {"store": {}, "furniture": []}
+    plano_raw = load_project_file(project_id, "planograms.json") or {"planograms": []}
+    metadata = get_project_metadata(project_id)
+
+    layout = build_retail_layout(
+        project_id=project_id,
+        scene=scene_raw,
+        planograms=plano_raw.get("planograms", []),
+        metadata=metadata,
+    )
+
+    safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id))
+    import json as _json
+    content = _json.dumps(layout, indent=2, ensure_ascii=False).encode("utf-8")
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}_retail_layout.json"'},
+    )
+
+
+class ImportRetailLayoutPayload(BaseModel):
+    name: str
+    layout: dict[str, Any]
+
+
+@router.post("/import/retail-layout")
+def import_retail_layout_endpoint(payload: ImportRetailLayoutPayload):
+    """Create a new project from a retail layout document.
+
+    The layout is split back into scene.json + planograms.json while preserving
+    all IDs so that furniture-face → planogramId links remain intact.
+    """
+    scene_dict, planograms_list = split_retail_layout(
+        layout=payload.layout,
+        project_name=payload.name.strip() or None,
+    )
+    snapshot: dict[str, Any] = {
+        "scene": scene_dict,
+        "planograms": planograms_list,
+    }
+    return import_project(snapshot, payload.name.strip())
 
 
 @router.get("/{project_id}/scene")

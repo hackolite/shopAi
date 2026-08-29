@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="8" fill="#f1f8e9"/>
+  
+  <path d="M20 20 L44 20 L44 50 Q44 54 32 54 Q20 54 20 50 Z" fill="#a5d6a7" stroke="#388e3c" stroke-width="2"/>
+  <rect x="20" y="12" width="24" height="10" rx="3" fill="#66bb6a" stroke="#388e3c" stroke-width="1.5"/>
+  <text x="32" y="44" text-anchor="middle" font-size="5" fill="#1b5e20" font-weight="bold">BIO</text>
+</svg>

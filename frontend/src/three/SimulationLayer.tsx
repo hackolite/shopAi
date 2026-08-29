@@ -262,6 +262,11 @@ const AGENT_VISION_RANGE_CM = 220;
 const RENDER_BUFFER_SECONDS = 0.22;
 const MAX_EXTRAPOLATION_SECONDS = 0.2;
 const INSTANCED_AGENT_THRESHOLD = 40;
+// Fixed GPU buffer capacity: the instancedMesh is allocated once with this
+// many slots so Three.js never destroys/recreates it when agents arrive or
+// depart.  mesh.count is updated imperatively to tell the renderer how many
+// instances are actually active.
+const INSTANCED_AGENTS_MAX_CAPACITY = 512;
 const POSE_SMOOTHING_HZ = 12;
 const MOVEMENT_HEADING_MIN_CM = 0.35;
 const MAX_HEADING_TURN_RATE_RAD_S = Math.PI * 2.5;
@@ -368,11 +373,21 @@ function InstancedAgents({
   const envelopeInner = envelopeOuter * 0.82;
   const coneRange = AGENT_VISION_RANGE_CM * CM_TO_UNIT;
 
+  // Tracks the previous agent count so we can zero-out tail slots that were
+  // vacated when agents departed (orderedAgents is always contiguous 0..n-1).
+  const prevCountRef = useRef(0);
+
   useEffect(() => {
     if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
-    const scratch = new THREE.Object3D();
     const dark = new THREE.Color();
     const light = new THREE.Color();
+
+    // Update the visible instance count without recreating the GPU buffer.
+    envelopeRef.current.count = count;
+    bodyRef.current.count = count;
+    coneRef.current.count = count;
+
+    // Write colours for every currently-active slot.
     orderedAgents.forEach(([, colors], index) => {
       dark.set(colors.colorDark);
       light.set(colors.colorLight);
@@ -383,21 +398,32 @@ function InstancedAgents({
     if (envelopeRef.current.instanceColor) envelopeRef.current.instanceColor.needsUpdate = true;
     if (bodyRef.current.instanceColor) bodyRef.current.instanceColor.needsUpdate = true;
     if (coneRef.current.instanceColor) coneRef.current.instanceColor.needsUpdate = true;
-    lastPoseById.current.clear();
 
-    scratch.scale.setScalar(0);
-    orderedAgents.forEach((_, index) => {
+    // Zero-out tail slots that existed in the previous frame but no longer do.
+    // Because orderedAgents is always a contiguous 0..n-1 range derived from a
+    // Map, departures always shrink the tail: the vacated slots are exactly the
+    // indices [count, prevCount).
+    if (prevCountRef.current > count) {
+      const scratch = new THREE.Object3D();
+      scratch.scale.setScalar(0);
       scratch.position.set(0, 0, 0);
       scratch.rotation.set(0, 0, 0);
       scratch.updateMatrix();
-      envelopeRef.current!.setMatrixAt(index, scratch.matrix);
-      bodyRef.current!.setMatrixAt(index, scratch.matrix);
-      coneRef.current!.setMatrixAt(index, scratch.matrix);
-    });
+      for (let i = count; i < prevCountRef.current; i++) {
+        envelopeRef.current.setMatrixAt(i, scratch.matrix);
+        bodyRef.current.setMatrixAt(i, scratch.matrix);
+        coneRef.current.setMatrixAt(i, scratch.matrix);
+      }
+    }
+    prevCountRef.current = count;
+
+    // Reset poses so the per-frame loop re-writes all active matrices.
+    lastPoseById.current.clear();
+
     envelopeRef.current.instanceMatrix.needsUpdate = true;
     bodyRef.current.instanceMatrix.needsUpdate = true;
     coneRef.current.instanceMatrix.needsUpdate = true;
-  }, [orderedAgents]);
+  }, [orderedAgents, count]);
 
   useFrame(() => {
     if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
@@ -442,15 +468,15 @@ function InstancedAgents({
 
   return (
     <>
-      <instancedMesh ref={envelopeRef} args={[undefined, undefined, count]}>
+      <instancedMesh ref={envelopeRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
         <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
         <meshBasicMaterial transparent opacity={0.55} depthWrite={false} vertexColors />
       </instancedMesh>
-      <instancedMesh ref={bodyRef} args={[undefined, undefined, count]}>
+      <instancedMesh ref={bodyRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
         <sphereGeometry args={[0.11, 20, 20]} />
         <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} vertexColors />
       </instancedMesh>
-      <instancedMesh ref={coneRef} args={[undefined, undefined, count]}>
+      <instancedMesh ref={coneRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
         <circleGeometry args={[coneRange, 28, coneThetaStart, coneThetaLength]} />
         <meshBasicMaterial transparent opacity={0.18} depthWrite={false} vertexColors />
       </instancedMesh>

@@ -119,7 +119,8 @@ def _save_catalog(project_id: str, catalog: Catalog) -> None:
 def _load_planograms(project_id: str) -> list[Planogram]:
     ensure_project_exists(project_id)
     payload = load_project_file(project_id, "planograms.json") or {"planograms": []}
-    return [Planogram.model_validate(item) for item in payload.get("planograms", [])]
+    items = payload if isinstance(payload, list) else payload.get("planograms", [])
+    return [Planogram.model_validate(item) for item in items]
 
 
 def _save_planograms(project_id: str, planograms: list[Planogram]) -> None:
@@ -129,7 +130,8 @@ def _save_planograms(project_id: str, planograms: list[Planogram]) -> None:
 def _load_materials(project_id: str) -> list[Material]:
     ensure_project_exists(project_id)
     payload = load_project_file(project_id, "materials.json") or {"materials": []}
-    return [Material.model_validate(item) for item in payload.get("materials", [])]
+    items = payload if isinstance(payload, list) else payload.get("materials", [])
+    return [Material.model_validate(item) for item in items]
 
 
 def _save_materials(project_id: str, materials: list[Material]) -> None:

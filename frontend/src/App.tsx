@@ -537,8 +537,8 @@ export default function App() {
         </main>
 
         {/* ── Right panel (280px) ──────────────────────────────────────── */}
-        <aside className="w-72 shrink-0 border-l border-gray-800 bg-gray-900 overflow-y-auto">
-          <div className="flex border-b border-gray-800">
+        <aside className="w-72 shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
+          <div className="flex shrink-0 border-b border-gray-800">
             <button
               className={[
                 'flex-1 py-2 text-xs font-medium transition-colors',
@@ -562,14 +562,16 @@ export default function App() {
               Inspector
             </button>
           </div>
-          {rightTab === 'simulation' ? (
-            <SimulationPanel projectId={projectId} />
-          ) : (
-            <Inspector
-              projectId={projectId}
-              onOpenPlanogram={openPlanogram}
-            />
-          )}
+          <div className="flex-1 overflow-hidden">
+            {rightTab === 'simulation' ? (
+              <SimulationPanel projectId={projectId} />
+            ) : (
+              <Inspector
+                projectId={projectId}
+                onOpenPlanogram={openPlanogram}
+              />
+            )}
+          </div>
         </aside>
       </div>
     </div>

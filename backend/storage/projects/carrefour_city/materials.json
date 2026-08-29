@@ -1,0 +1,66 @@
+[
+  {
+    "id": "metal_white",
+    "name": "Métal blanc",
+    "type": "metal",
+    "color": "#f0f0f0",
+    "roughness": 0.4,
+    "metalness": 0.6
+  },
+  {
+    "id": "metal_gray",
+    "name": "Métal gris",
+    "type": "metal",
+    "color": "#c0c0c0",
+    "roughness": 0.4,
+    "metalness": 0.6
+  },
+  {
+    "id": "solid_red",
+    "name": "Rouge Carrefour",
+    "type": "solid_color",
+    "color": "#e31820",
+    "roughness": 0.8,
+    "metalness": 0.0
+  },
+  {
+    "id": "solid_blue",
+    "name": "Bleu Carrefour",
+    "type": "solid_color",
+    "color": "#0060a8",
+    "roughness": 0.8,
+    "metalness": 0.0
+  },
+  {
+    "id": "solid_white",
+    "name": "Blanc sol",
+    "type": "solid_color",
+    "color": "#f5f5f5",
+    "roughness": 0.9,
+    "metalness": 0.0
+  },
+  {
+    "id": "plastic_dark",
+    "name": "Plastique foncé",
+    "type": "plastic",
+    "color": "#303030",
+    "roughness": 0.7,
+    "metalness": 0.0
+  },
+  {
+    "id": "wood_light",
+    "name": "Bois clair",
+    "type": "wood",
+    "color": "#d4a96a",
+    "roughness": 0.85,
+    "metalness": 0.0
+  },
+  {
+    "id": "glass_clear",
+    "name": "Verre",
+    "type": "glass",
+    "color": "#aadde8",
+    "roughness": 0.1,
+    "metalness": 0.0
+  }
+]

@@ -1,0 +1,6836 @@
+{
+  "store": {
+    "id": "352d2974-1d62-42d5-89f3-247a6330c7ae",
+    "name": "DEMO – Carrefour City",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "dimensions": {
+      "width": 1800.0,
+      "depth": 3000.0,
+      "height": 400.0
+    },
+    "walls": [
+      {
+        "id": "cc3346bd-7ea6-4412-ae81-9f0c8451d8fe",
+        "name": "Mur arrière",
+        "position": [
+          900.0,
+          150,
+          2990
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "width": 1800,
+          "depth": 20,
+          "height": 300
+        },
+        "materialId": "solid_blue",
+        "visible": true,
+        "locked": true
+      },
+      {
+        "id": "d93c320c-560d-44bf-a22f-1df204eba339",
+        "name": "Mur gauche",
+        "position": [
+          10,
+          150,
+          1500.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "width": 3000,
+          "depth": 20,
+          "height": 300
+        },
+        "materialId": "solid_red",
+        "visible": true,
+        "locked": true
+      },
+      {
+        "id": "28121346-8f25-498d-98e5-21dbe687f850",
+        "name": "Mur droit",
+        "position": [
+          1790,
+          150,
+          1500.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "width": 3000,
+          "depth": 20,
+          "height": 300
+        },
+        "materialId": "solid_red",
+        "visible": true,
+        "locked": true
+      },
+      {
+        "id": "fbb99b08-c9da-4986-8efa-63016dec7abf",
+        "name": "Mur façade",
+        "position": [
+          900.0,
+          150,
+          10
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "width": 1800,
+          "depth": 20,
+          "height": 300
+        },
+        "materialId": "solid_blue",
+        "visible": true,
+        "locked": true
+      }
+    ],
+    "floorColor": "#f5f5f0",
+    "wallColor": "#e31820",
+    "zones": []
+  },
+  "furniture": [
+    {
+      "id": "fc9e224a-7fc4-48e9-8945-cc3c300b37c7",
+      "name": "Allée 01 – Épicerie salée unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "7e10cb14-8c8d-4ece-b4da-ad9a0d44886f",
+        "back": "8306a4f6-97d9-4e7f-bf81-ebc6fdda470f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b2bf1d08-4559-4e15-b31a-cd6e7a907387",
+      "name": "Allée 01 – Épicerie salée unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5a388a6a-f96a-4ffb-9aed-8bee049885a3",
+        "back": "c7a34cd9-d879-4745-b328-b935bda1fc2a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a65bb9d8-944a-47f2-9d7d-69c3d7d97937",
+      "name": "Allée 01 – Épicerie salée unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4e4376e3-d852-420c-bb1b-6a85f5be99fb",
+        "back": "e4b7c78a-d2d2-45af-a374-84126659473a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4ef4205b-b4ff-4959-9366-ede9ee9428b2",
+      "name": "Allée 01 – Épicerie salée unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a4f86226-cdb7-4b06-b57f-9c98e9b47de0",
+        "back": "ce92a372-5bd5-475f-ae6c-9ffff6d534b0",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3118c9fe-86ed-4bdf-af67-82d5c1c5a958",
+      "name": "Allée 01 – Épicerie salée unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "806f1a9d-1e4c-4f05-9552-1a53505daebe",
+        "back": "b912bb9a-d5ff-4029-a613-552b1f3540a7",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a02d8fd2-b930-4a66-9c67-9477ce189424",
+      "name": "Allée 01 – Épicerie salée unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "bdbe0a39-6c07-4841-9649-c8e372eae612",
+        "back": "56a1d923-63f7-4a2d-a37c-7d72de31699c",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "02a9a8eb-82aa-4cab-a8e2-72c1ffaa8f40",
+      "name": "Allée 01 – Épicerie salée unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "fa64b92c-1756-4639-9ce6-bd251f6e30ee",
+        "back": "d7d42900-210f-46dc-8159-7fa04871d4a4",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e85df735-36a5-458f-9491-9535ed5cf4a4",
+      "name": "Allée 01 – Épicerie salée unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8f288647-70ac-4019-a3d1-c4e4e36760cf",
+        "back": "43f09072-83d7-43c8-a4a2-046219a6a063",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d66869b8-c075-4bed-b845-6f24501ce4ba",
+      "name": "Allée 01 – Épicerie salée unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ef2996ed-aa07-44ec-8e08-f78717903b5b",
+        "back": "422f5ab9-f300-4f06-893a-0371e7d93f03",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0540262c-d534-4634-a5c9-e82a72765a27",
+      "name": "Allée 01 – Épicerie salée unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        350
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e61a3bdf-1982-40fc-b118-0fa1105ca0da",
+        "back": "44af7175-e373-4c25-a91a-4b6eb094daf8",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7ed114db-7e4d-491f-8a8a-dc3df04b2483",
+      "name": "Allée 02 – Épicerie sucrée unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d34aaae9-8693-4aeb-b168-7c7f91b6bdb3",
+        "back": "601f3ed3-aa6c-4cf0-bc18-2cb6016fe87f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "48d25430-c1cb-4b2e-a889-427e0de6d143",
+      "name": "Allée 02 – Épicerie sucrée unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "02de957e-2148-4ed9-835e-47e24beceef7",
+        "back": "a792c805-cad9-4232-ba0c-b9ba9df6b8bb",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "fca6225c-44c6-43d2-9aee-33b728ed6834",
+      "name": "Allée 02 – Épicerie sucrée unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "04019242-b3b6-4bb6-a17d-34c1730b4f5c",
+        "back": "afff22ef-22bc-4ee5-bf11-c79f5398fb70",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "90c9ecb8-0602-44c0-85b6-c759958c317f",
+      "name": "Allée 02 – Épicerie sucrée unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8b94b9b2-5363-45ee-9415-5da13f77de7e",
+        "back": "9676a87a-f8d0-40d4-bada-6bb0e0341e38",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0537a783-e169-4c7e-a74e-7068e1794c84",
+      "name": "Allée 02 – Épicerie sucrée unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5bd497d4-3225-4aee-aac9-856c2e23e27a",
+        "back": "92a1576b-cbe9-47ff-ae4f-3089350fbf0f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "399fe126-8165-4579-b456-2b10880268ff",
+      "name": "Allée 02 – Épicerie sucrée unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "2f9444f1-0146-4cf8-8b95-c66d83275637",
+        "back": "7022f822-f9d8-487a-aeca-d162bcc2acf8",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1f718601-c1c5-43a7-9501-7f8ad899dd1f",
+      "name": "Allée 02 – Épicerie sucrée unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "70f1a9b8-e330-4c9c-a14e-4db8a0138989",
+        "back": "4ee802e6-0530-470a-905f-a65c432f7582",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7e7716f7-a318-4eb8-bc1d-ff892b41424e",
+      "name": "Allée 02 – Épicerie sucrée unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f0ad6340-f709-406e-ae1f-60670a2e625b",
+        "back": "f14b09a3-3bac-4621-8982-1b524fa3de16",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "ff1a225a-fac0-4443-b5a9-1ccce2c202b2",
+      "name": "Allée 02 – Épicerie sucrée unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "62af870e-793c-4a22-8c46-9a2b59317f55",
+        "back": "cb7bf77f-f071-437e-a25e-ceeee5eb4c3b",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2fa183a2-6e01-49d4-ac64-ccdb6ef86e9c",
+      "name": "Allée 02 – Épicerie sucrée unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        570
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b58ea92c-fe16-430a-8767-b6388cfa2440",
+        "back": "7436c851-7d79-4b64-b992-13ae305eb7b4",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "23706eee-c4db-4bf9-9a4a-29962a369fa3",
+      "name": "Allée 03 – Snacking/Papeterie unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3006b352-c205-4c77-b9d2-cf0ada6b6260",
+        "back": "965be15a-89b3-4916-92ee-46bfc55167da",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "81409e69-d7a2-413a-be8c-551208e9010f",
+      "name": "Allée 03 – Snacking/Papeterie unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "338121d4-f9e9-459e-b84d-c16e44226c62",
+        "back": "2e4706bb-5f5c-4bdd-988a-0a47508636d4",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9ae20328-eadb-43c7-b81a-a0065345092d",
+      "name": "Allée 03 – Snacking/Papeterie unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "11a4c4ce-fc2a-4ccb-b3a3-a087d4d10a94",
+        "back": "8707572c-3eda-4c8b-9f8b-53fee20fb9bc",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "65a44ffa-9596-409a-a701-4fae97286b14",
+      "name": "Allée 03 – Snacking/Papeterie unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8a39bdca-2425-4881-a599-94cea8ba0afb",
+        "back": "f8ed70b5-6649-444a-9f29-3fbb44595afa",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "658790e0-bf86-4801-914a-3add97d7d787",
+      "name": "Allée 03 – Snacking/Papeterie unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "16bf9abc-433b-4748-97cc-b68c85b03b82",
+        "back": "7be2bc99-f9e0-423d-9f76-89efd11127a8",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1de805b6-3e0c-404e-a20c-b07b7bdc1a31",
+      "name": "Allée 03 – Snacking/Papeterie unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b842b5a8-d9b2-4fed-9d45-e01b165ef765",
+        "back": "2cf6e9ac-4b95-4df1-b59b-2913ac27d0e2",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4e6bdf4e-7b18-4357-9439-650a45d11e77",
+      "name": "Allée 03 – Snacking/Papeterie unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "23b24ca9-b3f6-4a78-95fc-1b4c7ea1e0b9",
+        "back": "373f0c4d-6457-450d-9500-d60ef38fb1ff",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2fd9ee89-1b76-4d6c-bde4-853a052162c2",
+      "name": "Allée 03 – Snacking/Papeterie unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f9b1c4c4-3311-4d12-9eb2-b3e01bdd7fe1",
+        "back": "61743e40-3bf8-4598-8462-d357bcb2bcf2",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7d068d79-3092-42cb-988f-6699d06b2447",
+      "name": "Allée 03 – Snacking/Papeterie unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a53f6e96-58b0-4421-9319-5554bb0c32cb",
+        "back": "219c43e7-a8aa-4e41-9ff0-e85cef0d4599",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f5bca8ac-1270-4d6b-8062-66efc737ae78",
+      "name": "Allée 03 – Snacking/Papeterie unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        790
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cb4a038d-ede9-4499-abc3-700d8ac31152",
+        "back": "54ebd897-46b0-4e86-9492-df121facba31",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "5634c1ba-fdb3-45b4-8aad-4d3e79950e91",
+      "name": "Allée 04 – Boissons unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9f8412f2-5da8-45b8-b097-3809d7250d48",
+        "back": "2a35017d-4718-41c8-89f4-d025bb79de0a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0c21e760-5685-471f-bf4c-a54aee546dec",
+      "name": "Allée 04 – Boissons unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "df0a8d7e-a02e-499b-9bcf-04218c479e15",
+        "back": "eff5935e-89cf-40a1-b8db-0ea54cef19f6",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "192208bb-1228-4207-a784-e3e962738978",
+      "name": "Allée 04 – Boissons unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "717b2df3-e841-4da6-adb2-ddd6cba1194c",
+        "back": "25ce0cf0-aca6-47b7-b3e2-234ffa1ecb8a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7d21f8e2-7c96-4c09-a1f7-d95bfdaf755c",
+      "name": "Allée 04 – Boissons unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ce3ec6f5-141a-4b08-9420-08dd6a756996",
+        "back": "bf7b9ebd-d553-4dab-be23-dc8f06dfc121",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9d59e4c3-f81c-48a6-8d48-27868b1fda77",
+      "name": "Allée 04 – Boissons unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f3196479-ff8a-4a7c-ae7d-361484608361",
+        "back": "7f654ab3-bfa0-44db-92c2-642e7c497732",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0f742bd1-17bc-42f9-ad62-5c82f58ef0d3",
+      "name": "Allée 04 – Boissons unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "23ac2022-096d-43e6-92c5-9937021975a3",
+        "back": "78ef6c75-0eb3-4f52-aa69-0db961a76efd",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "cc3b42b0-3eb4-4f7f-9bd0-a5898e15f295",
+      "name": "Allée 04 – Boissons unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9ee6fad2-5f1a-42ce-9c1e-32ee7c573df4",
+        "back": "437b3bf7-f768-48a6-b89b-ffbaa798bcc5",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0248bd8d-171b-4e57-99d2-ae79f08f0f7e",
+      "name": "Allée 04 – Boissons unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "dcbf32a8-7e61-46af-ad3a-bbdc21bdb5dc",
+        "back": "8f22717a-6acd-4877-a80b-f37d9808640b",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "52762f4f-2c6c-4fc7-8eac-a2d2a21c9ea4",
+      "name": "Allée 04 – Boissons unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d6efdd39-b0cf-4728-957f-76ff89c4b586",
+        "back": "c7a4a17e-56cb-4848-88f8-582f192569fc",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b4ad61aa-b8ea-4211-91b2-e1b7414110fe",
+      "name": "Allée 04 – Boissons unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        1010
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "92a6513d-4aa9-461c-8140-46fddcddc6dc",
+        "back": "79a586d6-8f51-4505-bb71-d73250e6d26f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "8edf3dc1-2571-42aa-916d-b87d8bb7c468",
+      "name": "Allée 05 – Boissons unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "57c95563-6e28-4193-aede-4e9cd8a55133",
+        "back": "14c45adf-5955-4da5-bbfa-bc2443718125",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "75200b13-46cb-431f-bd07-0ff32abdb4e4",
+      "name": "Allée 05 – Boissons unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "c3d06e61-e5ff-4e73-9762-09130068cd81",
+        "back": "c8612f9b-a0f0-4042-8dc8-52db7079afc6",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d1097752-6971-4209-a6f5-8ca0e0d6c587",
+      "name": "Allée 05 – Boissons unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d1833d33-57f5-4841-b3f0-125e33e39a83",
+        "back": "55dc7189-29a0-4ecf-89d9-870faf88c860",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6abdcbbe-a8c0-415c-8c7c-0ca79bb30196",
+      "name": "Allée 05 – Boissons unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ee5d745e-9ad2-46e4-a4d3-cb4b7599f95f",
+        "back": "981cc01d-dad1-4ad5-9c8d-a40ea65b5d25",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "45162e7c-9239-4062-b26e-d3f3e026dc6c",
+      "name": "Allée 05 – Boissons unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "1b771075-9d7e-4ebe-ab2e-034f521b47aa",
+        "back": "0bf60ca9-d7a8-4d35-9df7-e2eb79e81c74",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "88274cd1-a332-4109-bac0-f4410146b20e",
+      "name": "Allée 05 – Boissons unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "436c1a98-6b2b-4a67-b772-971168343573",
+        "back": "11d55c2f-d99b-4634-b42b-deeca4e3d902",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9b78c27f-f007-4f0a-afcb-9275e47e2f8d",
+      "name": "Allée 05 – Boissons unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cc46c51d-ab46-4dae-8e1d-20d04640c23f",
+        "back": "2dd33fb7-c66e-48c2-8f2e-258a626f9822",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "236f7de0-996b-42e7-9881-08a743a28b52",
+      "name": "Allée 05 – Boissons unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "61781e77-3174-400c-a247-dedd32a3ecca",
+        "back": "009954ad-56d3-44be-8b98-6b49f4e9f847",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e7c5e00e-7be0-4d55-9ce6-028483fb56b7",
+      "name": "Allée 05 – Boissons unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "1b3e089e-36cc-4296-a630-98df789e9273",
+        "back": "fa9d3d7c-f6d2-4738-bfec-5eb460031120",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "378b68f8-d7b5-49f6-8bb9-9004c006b315",
+      "name": "Allée 05 – Boissons unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        1230
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f7d23c5c-c4dc-4f9e-bdde-9d93773a4110",
+        "back": "9db2015e-e7c2-4b81-819c-e2c5f84bb496",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "20442dc4-b8dd-43e9-a14b-ea22d8bcfa7b",
+      "name": "Allée 06 – Bières & vins unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "2319fc89-ae33-49b1-8ee4-7144e0df1b8f",
+        "back": "54138327-c638-4f59-95ba-fa11af479460",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f6c42254-c092-4adb-b4bb-a0c2c3938025",
+      "name": "Allée 06 – Bières & vins unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "544c60f5-a1fd-4615-bad9-3dbff2e994e8",
+        "back": "6ba80e55-9aa1-4166-b7c5-a3277a74aa8f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "35988840-40bb-4a49-99f3-6978c83bd88b",
+      "name": "Allée 06 – Bières & vins unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5ad5b452-4aad-4eb7-9ca1-3ed026f8b7d9",
+        "back": "e639a660-daed-41a2-a065-7b257b9b706e",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4c23308c-1f2d-4a90-aa02-15d74871ef8a",
+      "name": "Allée 06 – Bières & vins unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "314dd0ff-19b9-46be-8131-efa05f341408",
+        "back": "b1c682c5-965e-470f-b3eb-1c6edd58353f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "57da84bb-daec-4286-9ab8-73d76b99efcc",
+      "name": "Allée 06 – Bières & vins unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ff231184-ace2-4449-97e3-a9c824297cd6",
+        "back": "9d846714-b4fc-4175-ac5f-e2fe4c602b48",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "bb895bf0-6162-4bcc-838e-1d4bd9aaa5db",
+      "name": "Allée 06 – Bières & vins unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5bed2817-21b4-4d8f-b5be-d977037dbb91",
+        "back": "6f2182d7-a51a-4687-b24d-fb861d3bf9ef",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "91cea8f3-4d9e-4d2a-99b5-a542ff4b7d8c",
+      "name": "Allée 06 – Bières & vins unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4e3495dc-7b9f-4f0c-93a8-df9adeb72aa2",
+        "back": "c50733ed-8961-4caf-b170-7667df54c6d1",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e454736f-63e7-48eb-a40d-30f20cfd0fc1",
+      "name": "Allée 06 – Bières & vins unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "359feed6-2e44-4b92-88d0-a01f398cdd97",
+        "back": "ee9fb84b-f370-4ea5-b689-52c9ed653808",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "fe5a50ef-5d62-4764-8b0d-d6a8626d925f",
+      "name": "Allée 06 – Bières & vins unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "dd763132-5777-42cf-a5b2-50cb117c115f",
+        "back": "506ca901-a055-40c8-ac7e-576a986f98cc",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3109f78b-54e9-410b-9fac-1c14381c5358",
+      "name": "Allée 06 – Bières & vins unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        1450
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e5f2e0a0-0ffe-451b-ae41-52f008f50ded",
+        "back": "ee41b3d7-6be6-4d73-8c9e-bc79011c00ad",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3500e530-1873-4560-8b59-e31f9fa2dc4a",
+      "name": "Allée 07 – Hygiène unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3b00b5e5-6246-4dbf-a1f6-410ae78bba4d",
+        "back": "c5239778-2dc9-4a3d-9e23-d2b497e1dac5",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "68f1429c-df86-4437-bb4e-4f91a05da452",
+      "name": "Allée 07 – Hygiène unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b9085f6e-2742-44d2-a0ab-136518243979",
+        "back": "5d9e52ed-e70e-4061-a796-e01730d191d0",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1ea3bd96-4935-48fb-aaff-6dec3b09680c",
+      "name": "Allée 07 – Hygiène unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6c266097-ff08-49cd-b194-7b22ba927d79",
+        "back": "ba7df822-f01f-40a8-baa5-42e0e3dcdfdb",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "da66e156-1a3b-4de2-a1d7-0d5c44b5369b",
+      "name": "Allée 07 – Hygiène unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "46b7f6b6-15ff-4cbc-94c6-3b7ab1583f5d",
+        "back": "c51654b7-23c7-4406-92b1-b861f43424f0",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c308c59b-64d4-45d6-99d1-96b5d7fff86b",
+      "name": "Allée 07 – Hygiène unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d0e6271e-46d8-4574-b154-026b8f8bcd28",
+        "back": "094a1b7a-6a70-4fe9-85e2-f9fca7161b5d",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "076d87e7-62cb-4575-a05e-50725304c123",
+      "name": "Allée 07 – Hygiène unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3de396c4-526a-4b4d-9c2e-24b29b1b371b",
+        "back": "56aa2ed0-722d-4002-9cb2-4b6445302b67",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3e239772-9cc1-42ff-9ae8-49f23d0e5b21",
+      "name": "Allée 07 – Hygiène unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "10e57792-bbc6-4a17-bd42-c518236ae43f",
+        "back": "e2468df6-df85-4c45-99ea-bdfa7e82f5e0",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0efcc789-08ea-4cdf-8d01-8648246e8acb",
+      "name": "Allée 07 – Hygiène unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ef37a4e1-2d36-42a0-af17-c510e6cd98b6",
+        "back": "78c20608-900c-46c3-857a-542e38eb00c0",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a8540f15-e248-401f-a873-e161349eb0e9",
+      "name": "Allée 07 – Hygiène unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "da562996-db01-4473-9471-49214f39ffa4",
+        "back": "a31edb5c-9d46-4abe-9341-43218739fd03",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "24e93955-528c-4443-9139-fbe9cd47b969",
+      "name": "Allée 07 – Hygiène unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        1670
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f5f0d514-cacc-40c7-b872-8a74d600e959",
+        "back": "475bf9f9-618d-4777-8da4-0d40ccb3b49c",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "aa824cf7-6b56-4831-9706-8aff58077250",
+      "name": "Allée 08 – Beauté unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "bba4a159-156a-4441-af08-0264952e9492",
+        "back": "005a8277-977f-40b8-ab86-4df960d9ee58",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "856ea060-3d49-4ead-a297-e6d457701a6f",
+      "name": "Allée 08 – Beauté unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6726030f-a7fb-4807-98c4-53f69d6a9ad6",
+        "back": "970e9e19-b5e3-4237-b148-229821a21df3",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e772b3f2-b13b-4e9a-8c41-8f55a33a4c3c",
+      "name": "Allée 08 – Beauté unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8677aabd-511b-41a6-9c23-6fbcd11dbb62",
+        "back": "a76ec865-1a40-404e-91ce-0bf613772b5a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "dc125b2a-ccea-4743-81b0-bb2887135198",
+      "name": "Allée 08 – Beauté unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9b2212c9-e269-434f-989d-4859b2a76f19",
+        "back": "a08aa7fe-d2cb-4d9a-8b36-18cb67605d75",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2bd9fb6f-1035-4641-9b40-9441d0064206",
+      "name": "Allée 08 – Beauté unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "29c7c784-693b-487e-b62e-e6404f10ce1e",
+        "back": "3ffdf8f4-c861-4c9a-88c3-1e0e50f51e3a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "badcbc19-82ef-46b0-a1ce-7667c2c83694",
+      "name": "Allée 08 – Beauté unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "82bfad56-e57e-441e-b78d-b27e1a1700b6",
+        "back": "e68a4ae0-ba49-45e5-8a34-e327ec57ecdd",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "64156bf3-a53a-4e19-bb32-34eef272b639",
+      "name": "Allée 08 – Beauté unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "126e5112-a7b4-4c78-8978-c990a1f800cb",
+        "back": "d094e9b8-3e73-441f-b9ac-412b23317f58",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "daa56a9f-be1f-4861-81eb-8967164f0fda",
+      "name": "Allée 08 – Beauté unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6d964daa-962a-4a31-b06a-6fcba188aeb1",
+        "back": "703b210e-f2d1-4fb8-ba4a-e9c3f9f5e051",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "335caf16-92b5-4230-b2bd-1a01d67d6bd6",
+      "name": "Allée 08 – Beauté unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8f5696ff-386f-46ad-84d5-531c17fef19e",
+        "back": "0d478684-1a68-4a18-a0ef-cceeed8a8222",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "90cbdd35-e01a-443b-8059-7513b26b4f96",
+      "name": "Allée 08 – Beauté unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "0c0c0823-8e49-450e-ba12-2db486905e13",
+        "back": "725cfb3a-b088-41fc-85fb-cf4eea05083d",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "bb8a0f57-9d69-469b-87de-2831f8a71840",
+      "name": "Allée 09 – Entretien unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5aa26c48-9957-4d9d-b712-1fa54cc69ce6",
+        "back": "2204b191-c6ee-45bb-8003-cd6a06c23cd2",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d49a5774-b088-4ac8-b3a1-f07c25a2aa91",
+      "name": "Allée 09 – Entretien unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f55b239b-43d4-4f49-ac8f-f8f3d7ce1cd8",
+        "back": "758d8365-8da0-4758-b8c4-fb7a3197d79f",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "05b056c3-c48c-4d3b-ac27-baa08a9d0655",
+      "name": "Allée 09 – Entretien unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f4ad2612-e878-4ef7-adbb-5bf0cff8ed22",
+        "back": "2e9e6a6b-c75e-47d7-a7a4-74baaebf2ada",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "256da15d-118a-4086-9f42-adc0f78d0c66",
+      "name": "Allée 09 – Entretien unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "0e92fe42-67d7-4d9c-b68c-1ac046a4ac5d",
+        "back": "0b553d66-843b-4679-96f0-845728966d24",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a89f05ce-3b7e-4433-86b3-a2fd7aafac38",
+      "name": "Allée 09 – Entretien unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "02535e4c-e8ad-4a12-9290-1a0ccf07db9e",
+        "back": "b6b856e5-c1b5-42e0-99f2-4e95c7bc0547",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "09a8d8ba-ae14-4b32-91d7-52162d9905fd",
+      "name": "Allée 09 – Entretien unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "71c2eedb-3197-4cd9-92cc-c61bc7545418",
+        "back": "b2dd0b69-fc8a-480f-b121-2b611006021a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1b90a88b-f84b-41e7-8308-c53bbedd0a81",
+      "name": "Allée 09 – Entretien unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "31ddb658-e69c-4ecc-8710-7260db74faf2",
+        "back": "92970636-4f80-4a11-8449-c1e27fe463ad",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "498c287c-6aa9-4ac0-8d75-ac68357dc70e",
+      "name": "Allée 09 – Entretien unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "30f5d1c1-e0df-477b-abcd-647f9efacac0",
+        "back": "07c43969-30d6-4827-8568-47a819579d51",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "86f8be29-676f-4ea1-9fd9-98f6e90b7e50",
+      "name": "Allée 09 – Entretien unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "091ac0ee-9a75-4899-9b30-349d9963cfd2",
+        "back": "aebc9092-61a8-40cd-8690-d05149242a9c",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "fcde72fb-ebdd-4bc1-aa64-f78c06720d83",
+      "name": "Allée 09 – Entretien unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        2110
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cb9b9164-fb94-4717-b7b1-f71192e3dc45",
+        "back": "ef7a2caf-0491-4616-a35c-e407abf5597e",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6d380027-5828-4180-b1d6-75acf74da354",
+      "name": "Allée 10 – Animalerie unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "05fffb12-ecfe-46ca-9172-7fcc2e7936d9",
+        "back": "3531669d-d340-4b94-a564-08e4062b22a8",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e500530d-44ca-4df8-8d03-4183716da6b9",
+      "name": "Allée 10 – Animalerie unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "968d4122-8f9f-4fef-a454-457b6d6e0391",
+        "back": "09de065c-62bd-4935-b511-c77c70a8143d",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "52f2adeb-aa90-4b0c-8f60-dfde05cef8ec",
+      "name": "Allée 10 – Animalerie unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "15faaf87-f170-4724-9846-e1596c430168",
+        "back": "19b39a4c-10a6-4dc2-9bbe-e42b2aa9f062",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "813e334a-dbfc-4f95-9f46-a0554779f57c",
+      "name": "Allée 10 – Animalerie unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e9207437-8644-40ec-b6f4-3d567d50d4c3",
+        "back": "13f39017-a49f-4647-900e-a3e42e192ae8",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "45a7aaed-3cda-4a4c-a537-a66bb92551ec",
+      "name": "Allée 10 – Animalerie unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "eac3292d-05b8-4437-bfe2-317bba44c727",
+        "back": "6401eaf0-b032-4aa2-8e9b-a0bc710f5718",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0ca57a5a-c1bf-40b3-a6b1-d0f09a697125",
+      "name": "Allée 10 – Animalerie unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b492bdff-e920-461f-a9a2-9f23ce07f3f6",
+        "back": "d9f172a4-7220-43c3-b47f-24426a925abd",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b2fb37ef-9446-42c3-b2c9-f1b8b809e7d3",
+      "name": "Allée 10 – Animalerie unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "66d1a7c5-3b63-4549-8baf-4d9787a12c31",
+        "back": "a7f9a2f3-d0f0-434f-ad22-bf45e7bd99b7",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "455ee234-6c92-48d3-923f-74c758bd1a2f",
+      "name": "Allée 10 – Animalerie unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a3ef6a59-fcc8-4740-8b5f-38ade85d6900",
+        "back": "8571e096-92c0-4cbf-9b09-24460471831a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b7a0cfc8-1ac4-435b-a143-eae194ca3521",
+      "name": "Allée 10 – Animalerie unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "80ddb111-e912-4dc9-aa3a-5d3319eb0d5b",
+        "back": "682f3c86-f8c7-4eab-97b6-a33bb25e6d07",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b2414c39-7aba-40f4-a5e9-1057456f8040",
+      "name": "Allée 10 – Animalerie unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        2330
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "fef78757-df40-4195-8b15-d1e318310ccb",
+        "back": "ccde9b90-4f48-4dcb-bc2e-920f13248d10",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "923ff3f3-4671-4190-9409-f7d684300afe",
+      "name": "Allée 11 – Bio/Cuisine monde unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3e8c0c77-58e4-44a3-9f76-90e54bff0c76",
+        "back": "d82c70f2-c49c-4f20-891e-488a9851d87c",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "ee14c053-ce72-4b6b-9fd4-05cecec46cd8",
+      "name": "Allée 11 – Bio/Cuisine monde unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "44a689ed-c29a-42ff-92e6-ef781401baea",
+        "back": "6795cfdb-72a1-4b26-9d7c-f0f48074b89b",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6818cb38-dc2b-4ad2-a40d-9504598e3681",
+      "name": "Allée 11 – Bio/Cuisine monde unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "fd251615-3723-48ab-9345-dba05fa2d09b",
+        "back": "d295b2a2-a63e-4e8b-9e03-fdc23096399d",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c66a70ad-1cc9-44b8-94d9-2b07d462e9d7",
+      "name": "Allée 11 – Bio/Cuisine monde unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6bed9382-5b7b-4dee-9456-7fccd995c2cb",
+        "back": "688ebe2b-d8e1-4a92-b089-7860b9c05162",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "500d6539-7ef2-4a01-990a-92f094ff4a83",
+      "name": "Allée 11 – Bio/Cuisine monde unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "92f14afa-4394-430e-a8b6-cd220f145c37",
+        "back": "d631e931-cedd-491e-bc5d-8cae2316a204",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "58236df9-3303-4d1f-9ae7-881d3a2587ff",
+      "name": "Allée 11 – Bio/Cuisine monde unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "2ff3b033-de6a-4d67-b961-00a783d67242",
+        "back": "f0440160-a449-4a3c-bb5b-ce309e7f8920",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d6916e83-8004-4614-bbe8-6b053383daa5",
+      "name": "Allée 11 – Bio/Cuisine monde unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "57e98f22-75f2-4699-9f7e-3c0c26705bba",
+        "back": "80ed2fa5-4b6b-4473-8605-3b439391e141",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a5bfef13-62d8-4e75-90eb-946e77280ca3",
+      "name": "Allée 11 – Bio/Cuisine monde unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8e67fbd8-8cc0-466b-96cf-84d26d49edf8",
+        "back": "7c06d338-aa0e-4771-84b4-06fc59ce5968",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "55acf20e-b126-40db-b327-032e29acf17b",
+      "name": "Allée 11 – Bio/Cuisine monde unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "c243a3b3-3554-4b9d-8d55-3d0be790ea30",
+        "back": "974ff80c-2928-4a6c-87b2-622772a44be6",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "269cdea1-cb9b-46b7-95d9-c18eed07f786",
+      "name": "Allée 11 – Bio/Cuisine monde unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        2550
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5b7b11e9-26d5-409a-8541-5b80d52d9de2",
+        "back": "50116f44-5d9b-4d55-877d-7c66ed01fc61",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "dba36eee-9932-40bb-bb76-e6b4681e70de",
+      "name": "Allée 12 – Bébé unité 01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        150,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "c3aa3948-c4c4-410d-bd47-fe82164086c8",
+        "back": "60ad6351-ab55-43c1-b7f8-378978fa5dbb",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "37d0b606-10e9-4d2c-a752-84ea57e41945",
+      "name": "Allée 12 – Bébé unité 02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        270,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5f4168d2-43e8-42bd-9333-3701fc7a8399",
+        "back": "ad20548b-020c-42f7-aa9e-7adfe6a2072a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "8ade5cbd-f791-43c3-9166-f4b15746ba3d",
+      "name": "Allée 12 – Bébé unité 03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        390,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "621de4da-5b3a-43db-9767-ac2b93d3c457",
+        "back": "b79fd57c-cb83-47e2-bcaf-3cf488b5ec3c",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "488c77f6-c225-4611-81db-b66fd93256c4",
+      "name": "Allée 12 – Bébé unité 04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        510,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "7d964797-cabc-428a-9fbe-829e75a8155f",
+        "back": "b0350dea-f833-4f61-972c-83641fa28c44",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c24f609d-c6d4-4626-b11f-2853338b0ef2",
+      "name": "Allée 12 – Bébé unité 05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        630,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f7052ec7-de1c-4903-b388-658d0904c6fa",
+        "back": "e10f86ad-66e3-48ef-ad70-84e5a581b8c6",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2b4ea521-4b59-46b1-97f6-5f275f5a5d65",
+      "name": "Allée 12 – Bébé unité 06",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        750,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cd40d01e-bfbe-44ef-912b-e390ff0188fb",
+        "back": "0a961839-6774-4362-9c8d-f8d90d56d393",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7271e31f-f3c7-4c54-8303-c6439f29b6e4",
+      "name": "Allée 12 – Bébé unité 07",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        870,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "0600fdb3-3a4c-4a41-9bd6-ee5a29fc04df",
+        "back": "8969681a-4170-4e68-bc14-a3c55bc51f66",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b1cc732c-f675-4d15-8b3a-f3dc238991e5",
+      "name": "Allée 12 – Bébé unité 08",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        990,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3ed809a1-1bff-49f0-b96a-1de5009e0818",
+        "back": "d74e6acf-58cc-48bc-b4be-e430c4eaca1b",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b22fbfca-e5f2-4ca9-82fe-539d56973845",
+      "name": "Allée 12 – Bébé unité 09",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1110,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f5b26e76-00f9-40ae-a04e-4a4ba334539d",
+        "back": "1f6200f9-2911-4a6f-9c4a-d4bef7f44f33",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e1a80317-dd23-4c65-9c6f-1e2d10619f7f",
+      "name": "Allée 12 – Bébé unité 10",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        1230,
+        0.0,
+        2770
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "88b73abc-26e2-4083-87b8-0d80d8eccf30",
+        "back": "92ea1a94-3182-4056-bc19-61cea2d7b5f7",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "734f1603-66b9-407a-88f0-62755e213120",
+      "name": "Rayon mur gauche 01",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        200
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d6f76e76-4f1a-4e33-9ca0-68c04178c80d",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "26acd83b-5c3e-461a-9dfa-f2c36b3ce98e",
+      "name": "Rayon mur gauche 02",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        330
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "62684a73-4ead-447c-8d30-0a60e77f9374",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "996d1caa-3113-4b31-998d-eafd2eebf08e",
+      "name": "Rayon mur gauche 03",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        460
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9f9ed401-38bd-4dff-a711-6435fe9a8eac",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6f1b26fe-daca-47bf-9a42-0b1d0395fc07",
+      "name": "Rayon mur gauche 04",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        590
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4d33276d-de9b-4d97-879a-4a068248dcd2",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6d2737e6-e14e-4dd9-9864-a5381da26804",
+      "name": "Rayon mur gauche 05",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        720
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "25736721-8aba-44aa-a834-0df13c500233",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "ae0120ba-203c-452d-9f31-782e885241ab",
+      "name": "Rayon mur gauche 06",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        850
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "151fb30b-1e63-4122-a7e9-83acac0c3967",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1f6bad26-a478-43d0-9cac-6cde3403344a",
+      "name": "Rayon mur gauche 07",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        980
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "db0e5547-3af8-429d-9d67-a2a4177c23ae",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0da415fa-8fc0-4eda-b4c6-e1f13b8108e3",
+      "name": "Rayon mur gauche 08",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1110
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "12376646-58a7-487f-9bf5-1827e0ce6cc1",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "fb8d43cc-4297-44ea-9b4d-802d112eb613",
+      "name": "Rayon mur gauche 09",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1240
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "2c16b2c2-622d-4bd8-a828-99c54c903924",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3b501b4c-a9d6-491d-8616-96880710cad5",
+      "name": "Rayon mur gauche 10",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1370
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "867d9328-0923-492a-a4fc-6869cd005409",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3e2c0eae-5849-4e5c-9cd2-b324e0aca6e8",
+      "name": "Rayon mur gauche 11",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1500
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "909e4c12-78f2-4468-9289-3cef7f287027",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "fbe8e34b-7aa4-412c-9e47-defb255b7e43",
+      "name": "Rayon mur gauche 12",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1630
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f47a4bcd-b7cd-44c4-ba4e-b59850987a52",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2e9e43fb-4141-4a85-aacf-75de3bc1c7d7",
+      "name": "Rayon mur gauche 13",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1760
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "eb52a6b8-5ae3-4530-879f-cc01d958cd78",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a2168407-d696-4fd3-99f0-8a0a27706433",
+      "name": "Rayon mur gauche 14",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3463a5f1-99c7-4626-b64a-bfed05a73b29",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "db3df7c4-b129-4c76-b285-28a2ed1a8c3a",
+      "name": "Rayon mur gauche 15",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        2020
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "20c4f517-4e19-4233-9e58-f4993f795a96",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e3b235d6-d3de-426c-8b92-5cbc335dee8d",
+      "name": "Rayon mur gauche 16",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        2150
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "61089bcd-d2b7-460c-a072-3926ef9e401a",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f261767d-014f-49d2-a469-1d73c2d14340",
+      "name": "Rayon mur gauche 17",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        2280
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "67d9614f-d647-408b-a21b-23eccb39990d",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4cf81fde-f1f7-46f5-8c87-e4908406583e",
+      "name": "Rayon mur gauche 18",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        2410
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b2dd39f1-73be-42be-a49f-18425e3df09e",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "81efa978-557a-45fb-a6f4-73b4843cff7b",
+      "name": "Rayon mur gauche 19",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        2540
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9bd31a1f-1e46-49a7-b302-a6ec68dccb84",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "70ca6ac0-9380-4e86-8786-3606b81ae2b4",
+      "name": "Rayon mur gauche 20",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        60,
+        0.0,
+        2670
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "074df479-8b9d-4968-802c-9cabef38f34b",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d93b9dc9-fc66-47c1-8328-f295ad85ba3a",
+      "name": "Rayon mur droit 01",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        200
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "020667ce-e895-469b-958b-733870061e2d",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "67851902-42a0-49a3-92d7-afaf2d2de559",
+      "name": "Rayon mur droit 02",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        330
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "28915778-d407-4a0d-8cde-02497ecdfe89",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "aaaee8ad-184a-4d5b-ac30-bde512722d0d",
+      "name": "Rayon mur droit 03",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        460
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a250043d-7374-442a-b2c0-c92b1dd3cd59",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "bb78c92b-ef37-4154-a095-1bf41cab0211",
+      "name": "Rayon mur droit 04",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        590
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b83bb211-7771-4184-8ce6-00903bc04927",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "79d6c876-f559-49cd-a56b-55677f8aefc8",
+      "name": "Rayon mur droit 05",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        720
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a84ab445-12fb-450b-98f8-4f09759b4032",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "71173900-74c4-4ca1-82d6-83e5489656b9",
+      "name": "Rayon mur droit 06",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        850
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cfc5b081-0953-4dbb-9b43-74f1cffdd799",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f9d18f5e-e266-4136-a1a4-c98e6c25d5a0",
+      "name": "Rayon mur droit 07",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        980
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ed442194-0fa9-4a4f-aa40-15022869f3d8",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "30ec4dbc-3da9-4d3f-ad67-d9483614d1b4",
+      "name": "Rayon mur droit 08",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1110
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "5cc1f2e4-6ebf-473a-b9a1-9212d679b13f",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9417548b-3f79-4b5d-8da8-3d7b6ee872b5",
+      "name": "Rayon mur droit 09",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1240
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6d584189-c8c7-49dd-8e37-20f0eddf1927",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "522c03ff-0ac0-4f42-969c-e893ae6edab1",
+      "name": "Rayon mur droit 10",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1370
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a2cc9c50-adec-49ae-8018-2210f6b39a68",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a15cf8d3-09f6-4616-9d1b-0851670ba5e3",
+      "name": "Rayon mur droit 11",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1500
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "0914d731-3c4a-4933-b791-1e58b12cd22e",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f0b7275c-f4a1-4a43-ba8b-ed16a9260c1f",
+      "name": "Rayon mur droit 12",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1630
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a077b7a0-419e-4990-ac84-f0b94e696367",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e17b9aad-066a-4db9-8571-65a59649f8a1",
+      "name": "Rayon mur droit 13",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1760
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3886b3cc-eea4-4499-91b9-851110160cc8",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "94c084f9-7137-4ec9-9733-91e0c2c7df8f",
+      "name": "Rayon mur droit 14",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        1890
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a601fb48-3461-422f-a52b-ef457fd93eac",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "bc8d4c31-254e-4cea-bc10-054ecf966590",
+      "name": "Rayon mur droit 15",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        2020
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b331b29f-af48-45f0-93a0-8a593971a372",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c564df98-f391-4383-964d-07d5c00e9f82",
+      "name": "Rayon mur droit 16",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        2150
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4cd22175-c5c0-4735-8c80-d0f57a6909f7",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "668ad308-6205-47fa-b875-6a37cc6fdbbd",
+      "name": "Rayon mur droit 17",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        2280
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "918e9ee3-61d8-4a55-8ec3-3c15e0b60adb",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "3ccafead-1f9b-42f0-a9df-14930180329f",
+      "name": "Rayon mur droit 18",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        2410
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f045148a-a378-4774-9adb-de38913dfaff",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "febfdb14-fdd4-440d-a683-857e541d20b8",
+      "name": "Rayon mur droit 19",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        2540
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "0a606522-bb0c-48e5-8686-bf568f13b35a",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "212a82ad-d3c1-4e3c-9ab5-539fd3c1ffe3",
+      "name": "Rayon mur droit 20",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1740,
+        0.0,
+        2670
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "201a27e7-47d0-472a-9840-3fd65efae8f3",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "17c1afdb-2107-4dd4-b270-72aae85b7e89",
+      "name": "Réfrigérateur mur 01",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        100,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "3c7bfd31-6b3b-4ef6-96bc-485068441a4e",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "417e73d7-42ee-4030-91e2-4e609b3792e1",
+      "name": "Réfrigérateur mur 02",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        230,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d51ee8f4-bfe1-4e1f-a689-e057d116cd27",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "be185456-83a3-4d2d-8ece-dcf76ade20eb",
+      "name": "Réfrigérateur mur 03",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        360,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "aeb5ae8f-affc-4ca5-8201-1167cf43cc43",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "499c17a1-1d52-448c-babe-da2970cd8df6",
+      "name": "Réfrigérateur mur 04",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        490,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "232731b9-2771-4181-b685-5e160e59971e",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4c70bd8f-c541-4798-a7ad-89e2c7c849e1",
+      "name": "Réfrigérateur mur 05",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        620,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ef30ad42-bcc2-4732-ac53-541c24398dca",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "334b8b76-41cc-4c7e-b9e8-65d67e69c0fb",
+      "name": "Réfrigérateur mur 06",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        750,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "431e8784-cc70-43f7-982c-8b3a9a43d6b6",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "db3e1a53-8220-4ae4-9743-b92a2af94165",
+      "name": "Réfrigérateur mur 07",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        880,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4499b7cf-f069-463b-bdbd-2659fcb45ca1",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "aa3bd905-5c8d-4430-8a6a-8d85a5fae1bc",
+      "name": "Réfrigérateur mur 08",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        1010,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4f40ac51-3fa2-4428-a986-a6bf23778480",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "90d57e5a-fb7c-4696-9795-a5d170b89b1f",
+      "name": "Réfrigérateur mur 09",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        1140,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "41c0d58b-676c-4d61-8744-5b48bd5be58b",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "59acc9ef-5a5c-4a84-b27a-83d58a03e7e4",
+      "name": "Réfrigérateur mur 10",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        1270,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f568202f-ed1e-411d-a5eb-b42d6c75ca05",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f74c3255-af14-49f5-a458-72d27971890a",
+      "name": "Réfrigérateur mur 11",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        1400,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a2cd71a1-6dd0-4f7b-b1a8-9452ed02641a",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "77f527f4-3001-4ddf-83b9-51027a24f89f",
+      "name": "Réfrigérateur mur 12",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        1530,
+        0.0,
+        2880
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8c364c94-29b0-4603-b847-fa22cc073956",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "aade735e-a5d9-41e0-8f87-64eca2fd8984",
+      "name": "Frigo horizontal 1",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        300,
+        0.0,
+        2700
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300,
+        "depth": 100,
+        "height": 100
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "87dac572-bc88-4260-bbb5-3f73f993e0b0",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "63643355-09f5-4f3c-a70e-aba902f48dbd",
+      "name": "Frigo horizontal 2",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        620,
+        0.0,
+        2700
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300,
+        "depth": 100,
+        "height": 100
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "0f868a7c-1426-4703-ac43-ae70eb4ade36",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9a15d49a-efe1-46b9-9596-98687a656991",
+      "name": "Frigo horizontal 3",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        940,
+        0.0,
+        2700
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300,
+        "depth": 100,
+        "height": 100
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cddcdc87-7d68-4b29-a455-3d36633bb116",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "528c8e3f-d759-460a-bd38-6b9a923795a1",
+      "name": "Frigo horizontal 4",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        1260,
+        0.0,
+        2700
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300,
+        "depth": 100,
+        "height": 100
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "79e99742-0110-408e-b92e-c94a50a72561",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "59bffefc-07be-4f5c-bba4-1bdbb745efaf",
+      "name": "Caisse 1",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        200,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80,
+        "depth": 60,
+        "height": 90
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7532a8e2-f38d-4212-8bba-594622c2a7f0",
+      "name": "Caisse 2",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        430,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80,
+        "depth": 60,
+        "height": 90
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2b7158aa-a61f-45bb-a467-a4e61addc901",
+      "name": "Caisse 3",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        660,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80,
+        "depth": 60,
+        "height": 90
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c34ccc02-f9d1-42f9-9974-e3716d74d410",
+      "name": "Caisse 4",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        890,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80,
+        "depth": 60,
+        "height": 90
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "8296c9bc-088e-4479-b169-5e48324b140b",
+      "name": "Caisse 5",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        1120,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80,
+        "depth": 60,
+        "height": 90
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1b78a3ba-a03d-4739-ab30-88b9c384c651",
+      "name": "Caisse 6",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        1350,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80,
+        "depth": 60,
+        "height": 90
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7debfe1e-9a3e-4d37-abf7-72b1869a7a02",
+      "name": "Tête de gondole 1",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        350.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "9d3fbc38-ad25-4f44-8676-2798315e5800",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "01f8c0d0-1f74-491f-872c-22a4f74a1a47",
+      "name": "Tête de gondole 2",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        680.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ca21d3d4-5257-4762-9d09-6b037090bff2",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "fab0a6f6-0fd5-4a98-a0a7-315db1420bd5",
+      "name": "Tête de gondole 3",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        1010.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "49558631-7a8f-40ac-95ab-6466d8eb6773",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "14d4e94c-5915-4894-923f-21568dfe329b",
+      "name": "Tête de gondole 4",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        1340.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6cc9895e-d836-4484-9a25-82d933b845b0",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a219ade7-a766-4835-8af4-832d10f23d76",
+      "name": "Tête de gondole 5",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        1670.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "60582bd2-63e6-4139-b1e5-19ba0010d987",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "aadb3296-de2c-4940-99d7-4d527b53402e",
+      "name": "Tête de gondole 6",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        2000.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "6f13a647-6c55-4e5f-9e8c-17d7271fabe4",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "dbd28b20-c474-4485-8575-ecaa2ce9e5d3",
+      "name": "Tête de gondole 7",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        2330.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f5df4a56-49a1-4d9c-b70b-d28467b53739",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "402466e3-1d82-4531-9d63-de4b15aab99a",
+      "name": "Tête de gondole 8",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        1680,
+        0.0,
+        2660.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60,
+        "depth": 40,
+        "height": 180
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "1b859915-c06f-47a0-9c1e-c8642abf2c0d",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4274beb1-f919-4356-9778-84bf021ce21a",
+      "name": "Palette promo 1",
+      "type": "pallet",
+      "libraryId": "pallet",
+      "position": [
+        840.0,
+        0.0,
+        200
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "c22c2fe1-4b3e-43fd-9fda-83e0b64e7f7b",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "aa9cd903-32a0-4ad5-bd85-32279d662be7",
+      "name": "Palette promo 2",
+      "type": "pallet",
+      "libraryId": "pallet",
+      "position": [
+        1040.0,
+        0.0,
+        200
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "499e9aa5-1e89-4460-9ed2-0938365ba5b3",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    }
+  ]
+}

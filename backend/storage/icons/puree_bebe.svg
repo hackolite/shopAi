@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="8" fill="#e8f5e9"/>
+  
+  <path d="M20 20 L44 20 L46 48 Q46 54 32 54 Q18 54 18 48 Z" fill="#a5d6a7" stroke="#388e3c" stroke-width="2"/>
+  <rect x="24" y="14" width="16" height="8" rx="3" fill="#81c784" stroke="#388e3c" stroke-width="1.5"/>
+  <text x="32" y="38" text-anchor="middle" font-size="6" fill="#1b5e20">PURÉE</text>
+</svg>

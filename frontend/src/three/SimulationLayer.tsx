@@ -6,6 +6,7 @@ import { CM_TO_UNIT } from '../constants';
 import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
+import { useUIStore } from '../store/uiStore';
 
 const WAYPOINT_CONE_BASE_Y = 0.95;
 const WAYPOINT_RING_Y = 0.02;
@@ -532,6 +533,7 @@ export function SimulationLayer() {
   const result = useSimulationStore((state) => state.result);
   const playing = useSimulationStore((state) => state.playing);
   const paused = useSimulationStore((state) => state.paused);
+  const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
   const minXCm = storePos[0];
@@ -553,6 +555,8 @@ export function SimulationLayer() {
   const cachedFrameB = useRef<import('../types/cad').SimulationFrame | null>(null);
   const cachedCurrentIds = useRef<Set<number>>(new Set());
   const renderTimeRef = useRef(-1);
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
   const profile = useRef({ frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 });
   const [profilingText, setProfilingText] = useState('FPS -- | frame -- ms | max -- ms');
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
@@ -587,6 +591,19 @@ export function SimulationLayer() {
     setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
   }, [playing]);
+
+  // When returning to the 3D view from planogram mode, reset the playback clock
+  // so it immediately re-syncs to the current simulation time.  Without this,
+  // a hot-update (triggered by furniture resize in the planogram editor) can block
+  // tick responses long enough for the clock to get stuck at the extrapolation
+  // ceiling, making agents appear frozen for several seconds after returning.
+  // `playing` is read via a ref so it does not become a dependency: the [playing]
+  // effect already handles resets when the user starts or stops playback.
+  useEffect(() => {
+    if (viewMode === '3d' && playingRef.current) {
+      renderTimeRef.current = -1;
+    }
+  }, [viewMode]);
 
   useFrame((_, delta) => {
     if (!result || result.frames.length <= 1 || !playing || paused) return;

@@ -97,6 +97,14 @@ describe('advancePlaybackClock', () => {
     expect(next).toBeGreaterThanOrEqual(5.0);
   });
 
+  it('never reverses when previous is already past the extrapolation ceiling', () => {
+    // previous = 5.3, ceiling = 5.0 + 0.2 = 5.2 → previous > ceiling.
+    // The old formula (min(ceil, max(prev, adv))) would return 5.2 < 5.3 (backwards).
+    // The corrected formula must keep the clock at or above 5.3.
+    const next = advancePlaybackClock(5.3, 0.1, 5.0, options);
+    expect(next).toBeGreaterThanOrEqual(5.3);
+  });
+
   it('hard-snaps forward after a large desync (e.g. backgrounded tab)', () => {
     expect(advancePlaybackClock(2.0, 0.1, 10, options)).toBeCloseTo(9.8, 6);
   });

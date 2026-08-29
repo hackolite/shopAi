@@ -70,7 +70,12 @@ export function advancePlaybackClock(
   const ceiling = latestFrameTime + Math.max(0, maxExtrapolationSeconds);
 
   // Never reverse (monotonic) and never overrun the bounded extrapolation ceiling.
-  return Math.min(ceiling, Math.max(previousRenderTime, advanced));
+  // Using Math.max(previous, Math.min(ceiling, advanced)) instead of
+  // Math.min(ceiling, Math.max(previous, advanced)) so the clock stays monotonic
+  // even when previousRenderTime > ceiling (e.g. after a hot-update shrinks the
+  // ceiling).  The old order could return ceiling < previousRenderTime, reversing
+  // the clock and causing agents to jump backwards.
+  return Math.max(previousRenderTime, Math.min(ceiling, advanced));
 }
 
 export function clampNoReverseStep(

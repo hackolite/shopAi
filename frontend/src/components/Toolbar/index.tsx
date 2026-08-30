@@ -8,6 +8,7 @@ interface ToolbarProps {
   saveStatus: 'idle' | 'saving' | 'saved';
   onNew: () => void;
   onLoad: (projectId: string) => void;
+  onDelete: (projectId: string) => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExport: () => void;
@@ -28,7 +29,7 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: 'split',     label: '⊞'  },
 ];
 
-export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onSave, onSaveAs, onExport, onImport }: ToolbarProps) {
+export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onDelete, onSave, onSaveAs, onExport, onImport }: ToolbarProps) {
   const { activeTool, setActiveTool, viewMode, setViewMode, bevMode, setBevMode } = useUIStore();
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [loadMenuOpen, setLoadMenuOpen] = useState(false);
@@ -83,13 +84,21 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
                         <div className="px-3 py-2 text-xs text-gray-500">Aucun projet</div>
                       ) : (
                         projects.map((p) => (
-                          <button
-                            key={p.id}
-                            onClick={() => { closeMenus(); onLoad(p.id); }}
-                            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white truncate"
-                          >
-                            {p.name}
-                          </button>
+                          <div key={p.id} className="flex items-center group">
+                            <button
+                              onClick={() => { closeMenus(); onLoad(p.id); }}
+                              className="flex-1 min-w-0 text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-800 hover:text-white truncate"
+                            >
+                              {p.name}
+                            </button>
+                            <button
+                              onClick={() => { closeMenus(); onDelete(p.id); }}
+                              className="shrink-0 px-2 py-1.5 text-xs text-gray-600 hover:text-red-400 hover:bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title={`Supprimer « ${p.name} »`}
+                            >
+                              🗑
+                            </button>
+                          </div>
                         ))
                       )}
                     </div>

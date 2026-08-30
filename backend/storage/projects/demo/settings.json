@@ -7,11 +7,11 @@
   "ambientLight": 0.8,
   "simulation": {
     "enabled": true,
-    "arrivalRatePerSecond": 0.5,
-    "durationSeconds": 180,
-    "maxCustomers": 120,
-    "randomSeed": 2024,
-    "desiredSpeedMps": 1.2,
+    "arrivalRatePerSecond": 0.25,
+    "durationSeconds": 120,
+    "maxCustomers": 80,
+    "randomSeed": 42,
+    "desiredSpeedMps": 1.25,
     "speedVariation": 0.2,
     "waypoints": []
   }

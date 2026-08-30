@@ -52,6 +52,10 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+  deleteProject: (id: string) =>
+    request<{ deleted: boolean; id: string }>(`${BASE}/${id}`, {
+      method: 'DELETE',
+    }),
   duplicateProject: (id: string, name: string) =>
     request<CreateProjectResponse>(`${BASE}/${id}/duplicate`, {
       method: 'POST',

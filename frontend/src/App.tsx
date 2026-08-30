@@ -132,6 +132,31 @@ export default function App() {
     });
   }, [refreshProjectList, switchProject]);
 
+  // ── Delete project ────────────────────────────────────────────────────────
+  const deleteProject = useCallback(async (id: string) => {
+    const target = projects.find((p) => p.id === id);
+    const label = target?.name ?? id;
+    if (!window.confirm(`Supprimer définitivement le projet « ${label} » ?`)) return;
+    try {
+      await cadApi.deleteProject(id);
+      const data = await cadApi.listProjects();
+      const remaining = data.projects ?? [];
+      setProjects(remaining);
+      if (id === projectId) {
+        const next = remaining.find((p) => p.id === DEFAULT_PROJECT) ?? remaining[0];
+        if (next) {
+          switchProject(next.id);
+        } else {
+          // No project left — prompt the user to create a new one.
+          newProject();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+      alert('Erreur lors de la suppression du projet.');
+    }
+  }, [projects, projectId, switchProject, newProject]);
+
   // ── Save As (duplicate) ───────────────────────────────────────────────────
   const saveAsProject = useCallback(() => {
     setNameDialog({
@@ -412,6 +437,7 @@ export default function App() {
         saveStatus={saveStatus}
         onNew={newProject}
         onLoad={switchProject}
+        onDelete={(id) => { void deleteProject(id); }}
         onSave={saveProject}
         onSaveAs={saveAsProject}
         onExport={exportProject}

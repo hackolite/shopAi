@@ -1,7 +1,7 @@
 import { Suspense, useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext, useMemo } from 'react';
 import type React from 'react';
 import { Canvas, useThree, useFrame, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, GizmoHelper, GizmoViewport, TransformControls, Line } from '@react-three/drei';
+import { OrbitControls, GizmoHelper, GizmoViewport, TransformControls, Grid, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
@@ -28,6 +28,11 @@ const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 const MIN_DIM_CM = 20;
 /** Round a centimetre value to the nearest snap grid step. */
 const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
+/**
+ * Fade-out distance multiplier for the Grid component relative to the store's
+ * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
+ */
+const GRID_FADE_MULTIPLIER = 1.8;
 /** Y offset of the Grid plane above the floor slab (avoids Z-fighting). */
 const GRID_Y_OFFSET = 0.005;
 /** Shared up-vector reused across components to avoid per-render allocations. */
@@ -857,69 +862,6 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
   );
 }
 
-// ─── Custom store grid (replaces drei's Grid) ──────────────────────────────────
-/**
- * Builds a grid aligned exactly to the store's (originX, originZ) corner,
- * covering w × d Three.js units.  Lines are drawn every SNAP_UNIT (0.5 m),
- * with a brighter accent every 5 m — all via raw Three.js geometry so the
- * grid is always pixel-perfect with the snap positions of furniture.
- */
-function StoreGrid({ originX, originZ, w, d }: { originX: number; originZ: number; w: number; d: number }) {
-  const { fineGeo, fineColor, accentGeo, accentColor } = useMemo(() => {
-    const SECTION = 5.0; // Three.js units = 5 m
-
-    const finePositions: number[]   = [];
-    const accentPositions: number[] = [];
-
-    const cols = Math.round(w / SNAP_UNIT);
-    const rows = Math.round(d / SNAP_UNIT);
-
-    // Vertical lines (along Z axis)
-    for (let c = 0; c <= cols; c++) {
-      const x = originX + c * SNAP_UNIT;
-      const isMajor = Math.abs((c * SNAP_UNIT) % SECTION) < 1e-5 ||
-                      Math.abs((c * SNAP_UNIT) % SECTION - SECTION) < 1e-5;
-      const buf = isMajor ? accentPositions : finePositions;
-      buf.push(x, GRID_Y_OFFSET, originZ,
-               x, GRID_Y_OFFSET, originZ + d);
-    }
-
-    // Horizontal lines (along X axis)
-    for (let r = 0; r <= rows; r++) {
-      const z = originZ + r * SNAP_UNIT;
-      const isMajor = Math.abs((r * SNAP_UNIT) % SECTION) < 1e-5 ||
-                      Math.abs((r * SNAP_UNIT) % SECTION - SECTION) < 1e-5;
-      const buf = isMajor ? accentPositions : finePositions;
-      buf.push(originX,     GRID_Y_OFFSET, z,
-               originX + w, GRID_Y_OFFSET, z);
-    }
-
-    const makeGeo = (pts: number[]) => {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-      return g;
-    };
-
-    return {
-      fineGeo:    makeGeo(finePositions),
-      fineColor:  new THREE.Color('#2e4d6e'),
-      accentGeo:  makeGeo(accentPositions),
-      accentColor: new THREE.Color('#3d6a9e'),
-    };
-  }, [originX, originZ, w, d]);
-
-  return (
-    <group>
-      <lineSegments geometry={fineGeo}>
-        <lineBasicMaterial color={fineColor} transparent opacity={0.7} />
-      </lineSegments>
-      <lineSegments geometry={accentGeo}>
-        <lineBasicMaterial color={accentColor} transparent opacity={0.9} />
-      </lineSegments>
-    </group>
-  );
-}
-
 function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
@@ -941,8 +883,20 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
 
-      {/* Fine grid: 0.5 m cells, 5 m sections — built from scratch */}
-      <StoreGrid originX={storeOriginX} originZ={storeOriginZ} w={w} d={d} />
+      {/* Fine grid: 0.5 m cells matching the snap step, subtle blue tint */}
+      <Grid
+        position={[storeOriginX + w / 2, GRID_Y_OFFSET, storeOriginZ + d / 2]}
+        args={[w, d]}
+        cellSize={SNAP_UNIT}
+        cellThickness={1.2}
+        cellColor="#2e4d6e"
+        sectionSize={5.0}
+        sectionThickness={0.9}
+        sectionColor="#2a4a6a"
+        fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
+        fadeStrength={1.2}
+        infiniteGrid={false}
+      />
     </group>
   );
 }

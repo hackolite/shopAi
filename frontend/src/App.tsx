@@ -146,13 +146,16 @@ export default function App() {
         const next = remaining.find((p) => p.id === DEFAULT_PROJECT) ?? remaining[0];
         if (next) {
           switchProject(next.id);
+        } else {
+          // No project left — prompt the user to create a new one.
+          newProject();
         }
       }
     } catch (err) {
       console.error('Failed to delete project:', err);
       alert('Erreur lors de la suppression du projet.');
     }
-  }, [projects, projectId, switchProject]);
+  }, [projects, projectId, switchProject, newProject]);
 
   // ── Save As (duplicate) ───────────────────────────────────────────────────
   const saveAsProject = useCallback(() => {

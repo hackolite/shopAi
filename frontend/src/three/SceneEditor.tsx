@@ -28,11 +28,6 @@ const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 const MIN_DIM_CM = 20;
 /** Round a centimetre value to the nearest snap grid step. */
 const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
-/**
- * Fade-out distance multiplier for the Grid component relative to the store's
- * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
- */
-const GRID_FADE_MULTIPLIER = 1.8;
 /** Y offset of the Grid plane above the floor slab (avoids Z-fighting). */
 const GRID_Y_OFFSET = 0.005;
 /** Shared up-vector reused across components to avoid per-render allocations. */

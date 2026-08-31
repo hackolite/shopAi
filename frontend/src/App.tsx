@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
@@ -50,6 +50,10 @@ export default function App() {
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones, selectedZoneId } = useZoneStore();
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
+
+  // Tracks the project ID currently being loaded; used to discard stale
+  // responses when the user switches projects before a load completes.
+  const loadingProjectIdRef = useRef<string | null>(null);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const simulationHistoryLength = useSimulationStore((state) => state.history.length);
   const selectSimulationWaypoint = useSimulationStore((state) => state.selectWaypoint);
@@ -69,6 +73,16 @@ export default function App() {
 
   // ── Load all data for a project ───────────────────────────────────────────
   const loadProjectData = useCallback(async (id: string) => {
+    // Register this load as the active one; any earlier in-flight load is now stale.
+    loadingProjectIdRef.current = id;
+
+    // Clear previous project's state immediately so stale data never bleeds into
+    // the next project's view.
+    setScene(null);
+    setProducts([]);
+    setPlanograms([]);
+    setZones([]);
+
     try {
       const [sceneData, catalog, planoData, meta, settings] = await Promise.all([
         cadApi.getScene(id),
@@ -77,6 +91,8 @@ export default function App() {
         cadApi.getProject(id),
         cadApi.getSettings(id),
       ]);
+      // Discard results if the user switched to yet another project while we awaited.
+      if (loadingProjectIdRef.current !== id) return;
       setScene(sceneData);
       setProducts(catalog.products);
       setPlanograms(planoData.planograms);
@@ -88,6 +104,8 @@ export default function App() {
         planoData.planograms.map(async (summary) => {
           try {
             const detail = await cadApi.getPlanogram(id, summary.id);
+            // Guard again — planogram fetches are the longest-running part.
+            if (loadingProjectIdRef.current !== id) return;
             setPlanogramDetail(detail);
           } catch (err) {
             console.warn(`Failed to load planogram detail for ${summary.id}:`, err);
@@ -95,7 +113,9 @@ export default function App() {
         }),
       );
     } catch (err) {
-      console.error('Failed to load project data:', err);
+      if (loadingProjectIdRef.current === id) {
+        console.error('Failed to load project data:', err);
+      }
     }
   }, [setScene, setProducts, setPlanograms, setPlanogramDetail, setZones, setSimulationConfig]);
 

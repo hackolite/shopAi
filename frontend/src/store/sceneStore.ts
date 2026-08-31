@@ -26,7 +26,7 @@ interface SceneState {
   clipboard: FurnitureClipboard | null;
   /** Undo history — snapshots of scene BEFORE each mutation. */
   history: Scene[];
-  setScene: (scene: Scene) => void;
+  setScene: (scene: Scene | null) => void;
   selectFurniture: (id: string | null) => void;
   /** Toggle a furniture item in/out of the multi-selection set. */
   toggleFurnitureSelection: (id: string) => void;

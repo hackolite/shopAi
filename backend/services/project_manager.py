@@ -85,6 +85,8 @@ def _read_json(project_id: str, filename: str) -> Any:
         return None
     with path.open(encoding="utf-8") as handle:  # lgtm[py/path-injection]
         content = handle.read()
+    if not content.strip():
+        return None
     try:
         return json.loads(content)
     except json.JSONDecodeError as exc:

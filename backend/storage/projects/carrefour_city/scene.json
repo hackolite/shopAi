@@ -118,7 +118,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
         350
       ],
@@ -153,7 +153,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
         350
       ],
@@ -188,7 +188,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
         350
       ],
@@ -223,7 +223,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
         350
       ],
@@ -258,7 +258,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
         350
       ],
@@ -293,7 +293,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
         350
       ],
@@ -328,7 +328,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
         350
       ],
@@ -363,7 +363,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
         350
       ],
@@ -398,7 +398,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
         350
       ],
@@ -433,7 +433,7 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
         350
       ],
@@ -468,9 +468,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -503,9 +503,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -538,9 +538,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -573,9 +573,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -608,9 +608,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -643,9 +643,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -678,9 +678,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -713,9 +713,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -748,9 +748,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -783,9 +783,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        570
+        565
       ],
       "rotation": [
         0.0,
@@ -818,9 +818,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -853,9 +853,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -888,9 +888,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -923,9 +923,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -958,9 +958,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -993,9 +993,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -1028,9 +1028,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -1063,9 +1063,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -1098,9 +1098,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -1133,9 +1133,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        790
+        780
       ],
       "rotation": [
         0.0,
@@ -1168,9 +1168,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1203,9 +1203,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1238,9 +1238,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1273,9 +1273,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1308,9 +1308,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1343,9 +1343,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1378,9 +1378,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1413,9 +1413,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1448,9 +1448,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1483,9 +1483,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        1010
+        995
       ],
       "rotation": [
         0.0,
@@ -1518,9 +1518,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1553,9 +1553,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1588,9 +1588,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1623,9 +1623,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1658,9 +1658,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1693,9 +1693,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1728,9 +1728,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1763,9 +1763,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1798,9 +1798,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1833,9 +1833,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        1230
+        1210
       ],
       "rotation": [
         0.0,
@@ -1868,9 +1868,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -1903,9 +1903,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -1938,9 +1938,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -1973,9 +1973,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2008,9 +2008,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2043,9 +2043,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2078,9 +2078,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2113,9 +2113,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2148,9 +2148,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2183,9 +2183,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        1450
+        1425
       ],
       "rotation": [
         0.0,
@@ -2218,9 +2218,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2253,9 +2253,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2288,9 +2288,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2323,9 +2323,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2358,9 +2358,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2393,9 +2393,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2428,9 +2428,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2463,9 +2463,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2498,9 +2498,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2533,9 +2533,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        1670
+        1640
       ],
       "rotation": [
         0.0,
@@ -2568,9 +2568,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2603,9 +2603,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2638,9 +2638,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2673,9 +2673,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2708,9 +2708,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2743,9 +2743,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2778,9 +2778,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2813,9 +2813,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2848,9 +2848,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2883,9 +2883,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        1890
+        1855
       ],
       "rotation": [
         0.0,
@@ -2918,9 +2918,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -2953,9 +2953,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -2988,9 +2988,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3023,9 +3023,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3058,9 +3058,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3093,9 +3093,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3128,9 +3128,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3163,9 +3163,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3198,9 +3198,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3233,9 +3233,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        2110
+        2070
       ],
       "rotation": [
         0.0,
@@ -3268,9 +3268,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3303,9 +3303,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3338,9 +3338,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3373,9 +3373,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3408,9 +3408,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3443,9 +3443,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3478,9 +3478,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3513,9 +3513,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3548,9 +3548,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3583,9 +3583,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        2330
+        2285
       ],
       "rotation": [
         0.0,
@@ -3618,9 +3618,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3653,9 +3653,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3688,9 +3688,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3723,9 +3723,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3758,9 +3758,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3793,9 +3793,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3828,9 +3828,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3863,9 +3863,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3898,9 +3898,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3933,9 +3933,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        2550
+        2500
       ],
       "rotation": [
         0.0,
@@ -3968,9 +3968,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        150,
+        160,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4003,9 +4003,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        270,
+        280,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4038,9 +4038,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        390,
+        400,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4073,9 +4073,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        510,
+        520,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4108,9 +4108,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        630,
+        640,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4143,9 +4143,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        750,
+        760,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4178,9 +4178,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        870,
+        880,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4213,9 +4213,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        990,
+        1000,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4248,9 +4248,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1110,
+        1120,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -4283,9 +4283,9 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        1230,
+        1240,
         0.0,
-        2770
+        2715
       ],
       "rotation": [
         0.0,
@@ -5720,7 +5720,7 @@
       "position": [
         100,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5753,9 +5753,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        230,
+        210,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5788,9 +5788,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        360,
+        320,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5823,9 +5823,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        490,
+        430,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5858,9 +5858,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        620,
+        540,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5893,9 +5893,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        750,
+        650,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5928,9 +5928,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        880,
+        760,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5963,9 +5963,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        1010,
+        870,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -5998,9 +5998,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        1140,
+        980,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -6033,9 +6033,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        1270,
+        1090,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -6068,9 +6068,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        1400,
+        1200,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -6103,9 +6103,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        1530,
+        1310,
         0.0,
-        2880
+        2900
       ],
       "rotation": [
         0.0,
@@ -6138,13 +6138,13 @@
       "type": "fridge_horizontal",
       "libraryId": "fridge_horizontal",
       "position": [
-        300,
+        1370.0,
         0.0,
-        2700
+        600.0
       ],
       "rotation": [
         0.0,
-        0.0,
+        90.0,
         0.0
       ],
       "dimensions": {
@@ -6159,11 +6159,11 @@
       "parentId": null,
       "childIds": [],
       "faces": {
-        "front": "87dac572-bc88-4260-bbb5-3f73f993e0b0",
+        "front": null,
         "back": null,
         "left": null,
         "right": null,
-        "top": null,
+        "top": "87dac572-bc88-4260-bbb5-3f73f993e0b0",
         "bottom": null
       }
     },
@@ -6173,13 +6173,13 @@
       "type": "fridge_horizontal",
       "libraryId": "fridge_horizontal",
       "position": [
-        620,
+        1370.0,
         0.0,
-        2700
+        1000.0
       ],
       "rotation": [
         0.0,
-        0.0,
+        90.0,
         0.0
       ],
       "dimensions": {
@@ -6194,11 +6194,11 @@
       "parentId": null,
       "childIds": [],
       "faces": {
-        "front": "0f868a7c-1426-4703-ac43-ae70eb4ade36",
+        "front": null,
         "back": null,
         "left": null,
         "right": null,
-        "top": null,
+        "top": "0f868a7c-1426-4703-ac43-ae70eb4ade36",
         "bottom": null
       }
     },
@@ -6208,13 +6208,13 @@
       "type": "fridge_horizontal",
       "libraryId": "fridge_horizontal",
       "position": [
-        940,
+        1370.0,
         0.0,
-        2700
+        1400.0
       ],
       "rotation": [
         0.0,
-        0.0,
+        90.0,
         0.0
       ],
       "dimensions": {
@@ -6229,11 +6229,11 @@
       "parentId": null,
       "childIds": [],
       "faces": {
-        "front": "cddcdc87-7d68-4b29-a455-3d36633bb116",
+        "front": null,
         "back": null,
         "left": null,
         "right": null,
-        "top": null,
+        "top": "cddcdc87-7d68-4b29-a455-3d36633bb116",
         "bottom": null
       }
     },
@@ -6243,13 +6243,13 @@
       "type": "fridge_horizontal",
       "libraryId": "fridge_horizontal",
       "position": [
-        1260,
+        1370.0,
         0.0,
-        2700
+        1800.0
       ],
       "rotation": [
         0.0,
-        0.0,
+        90.0,
         0.0
       ],
       "dimensions": {
@@ -6264,11 +6264,11 @@
       "parentId": null,
       "childIds": [],
       "faces": {
-        "front": "79e99742-0110-408e-b92e-c94a50a72561",
+        "front": null,
         "back": null,
         "left": null,
         "right": null,
-        "top": null,
+        "top": "79e99742-0110-408e-b92e-c94a50a72561",
         "bottom": null
       }
     },
@@ -6280,7 +6280,7 @@
       "position": [
         200,
         0.0,
-        100
+        120.0
       ],
       "rotation": [
         0.0,
@@ -6315,7 +6315,7 @@
       "position": [
         430,
         0.0,
-        100
+        120.0
       ],
       "rotation": [
         0.0,
@@ -6350,7 +6350,7 @@
       "position": [
         660,
         0.0,
-        100
+        120.0
       ],
       "rotation": [
         0.0,
@@ -6385,7 +6385,7 @@
       "position": [
         890,
         0.0,
-        100
+        120.0
       ],
       "rotation": [
         0.0,
@@ -6420,7 +6420,7 @@
       "position": [
         1120,
         0.0,
-        100
+        120.0
       ],
       "rotation": [
         0.0,
@@ -6455,7 +6455,7 @@
       "position": [
         1350,
         0.0,
-        100
+        120.0
       ],
       "rotation": [
         0.0,
@@ -6768,9 +6768,9 @@
       "type": "pallet",
       "libraryId": "pallet",
       "position": [
-        840.0,
+        1460.0,
         0.0,
-        200
+        2100.0
       ],
       "rotation": [
         0.0,
@@ -6803,9 +6803,9 @@
       "type": "pallet",
       "libraryId": "pallet",
       "position": [
-        1040.0,
+        1460.0,
         0.0,
-        200
+        2280.0
       ],
       "rotation": [
         0.0,

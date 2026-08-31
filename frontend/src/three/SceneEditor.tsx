@@ -1283,6 +1283,7 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
   const dragSign        = useRef<1 | -1>(1);
   const dragStart       = useRef(new THREE.Vector3());
   const pointerIdRef    = useRef(-1);
+  const historyCapturedRef = useRef(false);
   const baseFurnitureRef = useRef<FurnitureInstance>(furniture);
   const curFurnitureRef  = useRef<FurnitureInstance>(furniture);
   curFurnitureRef.current = furniture;
@@ -1307,6 +1308,7 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
   ) => {
     if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, dragStart.current)) return;
     baseFurnitureRef.current = curFurnitureRef.current;
+    historyCapturedRef.current = false;
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
@@ -1351,7 +1353,9 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
           }
         }
 
-        updateFurniture({ ...base, dimensions: newDims, position: newPos });
+        // Record a single undo snapshot for the whole resize gesture.
+        updateFurniture({ ...base, dimensions: newDims, position: newPos }, { recordHistory: !historyCapturedRef.current });
+        historyCapturedRef.current = true;
       });
     };
 
@@ -1387,7 +1391,14 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
         position: snappedPos,
         dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
       };
-      updateFurniture(snapped);
+      // If no move frame captured history but snapping still changes the
+      // furniture, record one undo entry so the change stays undoable.
+      const snapChanged = snapped.position[0] !== cur.position[0]
+        || snapped.position[2] !== cur.position[2]
+        || snappedW !== cur.dimensions.width
+        || snappedD !== cur.dimensions.depth;
+      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
+      historyCapturedRef.current = false;
       if (projectId) {
         cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
         syncPlanogramFacesOnResize(snapped, projectId, planogramDetailsRef.current, syncPlanogramRef.current);
@@ -1853,6 +1864,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   }, [furniture.id, registerGroup]);
 
   const isDragging   = useRef(false);
+  const historyCapturedRef = useRef(false);
   const dragStart    = useRef(new THREE.Vector3());
   const baseFurnRef  = useRef<FurnitureInstance>(furniture);
   const curFurnRef   = useRef<FurnitureInstance>(furniture);
@@ -1874,7 +1886,12 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
-        updateFurniture({ ...base, position: [base.position[0] + dx / CM_TO_UNIT, base.position[1], base.position[2] + dz / CM_TO_UNIT] });
+        // Record a single undo snapshot for the whole drag gesture.
+        updateFurniture(
+          { ...base, position: [base.position[0] + dx / CM_TO_UNIT, base.position[1], base.position[2] + dz / CM_TO_UNIT] },
+          { recordHistory: !historyCapturedRef.current },
+        );
+        historyCapturedRef.current = true;
       });
     };
 
@@ -1887,7 +1904,11 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
         ...cur,
         position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
       };
-      updateFurniture(snapped);
+      // If no move frame captured history but snapping still changes the
+      // furniture, record one undo entry so the change stays undoable.
+      const snapChanged = snapped.position[0] !== cur.position[0] || snapped.position[2] !== cur.position[2];
+      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
+      historyCapturedRef.current = false;
       if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
     };
 
@@ -1911,6 +1932,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
     selectZone(null);
     if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, e.clientX, e.clientY, _ndc.current, dragStart.current)) return;
     baseFurnRef.current = curFurnRef.current;
+    historyCapturedRef.current = false;
     isDragging.current  = true;
     gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
   };
@@ -2020,6 +2042,7 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   const dragSign         = useRef<1 | -1>(1);
   const dragStart        = useRef(new THREE.Vector3());
   const pointerIdRef     = useRef(-1);
+  const historyCapturedRef = useRef(false);
   const baseFurnRef      = useRef<FurnitureInstance>(furniture);
   const curFurnRef       = useRef<FurnitureInstance>(furniture);
   curFurnRef.current     = furniture;
@@ -2044,6 +2067,7 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   ) => {
     if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, dragStart.current)) return;
     baseFurnRef.current  = curFurnRef.current;
+    historyCapturedRef.current = false;
     isDragging.current   = true;
     dragAxis.current     = axis;
     dragSign.current     = sign;
@@ -2116,7 +2140,9 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
           }
         }
 
-        updateFurniture({ ...base, dimensions: newDims, position: newPos });
+        // Record a single undo snapshot for the whole resize gesture.
+        updateFurniture({ ...base, dimensions: newDims, position: newPos }, { recordHistory: !historyCapturedRef.current });
+        historyCapturedRef.current = true;
       });
     };
 
@@ -2170,7 +2196,14 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
         position:   snappedPos,
         dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
       };
-      updateFurniture(snapped);
+      // If no move frame captured history but snapping still changes the
+      // furniture, record one undo entry so the change stays undoable.
+      const snapChanged = snapped.position[0] !== cur.position[0]
+        || snapped.position[2] !== cur.position[2]
+        || snappedW !== cur.dimensions.width
+        || snappedD !== cur.dimensions.depth;
+      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
+      historyCapturedRef.current = false;
       if (projectId) {
         cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
         syncPlanogramFacesOnResize(snapped, projectId, planogramDetailsRef.current, syncPlanogramRef.current);

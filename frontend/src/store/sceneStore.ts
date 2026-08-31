@@ -33,7 +33,12 @@ interface SceneState {
   /** Clear the multi-selection set. */
   clearFurnitureMultiSelection: () => void;
   setSelection: (selection: Selection) => void;
-  updateFurniture: (furniture: FurnitureInstance) => void;
+  /**
+   * Updates one furniture item. Records an undo snapshot by default; pass
+   * `{ recordHistory: false }` for intermediate drag frames so a full drag
+   * gesture produces a single Ctrl-Z step.
+   */
+  updateFurniture: (furniture: FurnitureInstance, options?: { recordHistory?: boolean }) => void;
   updateStore: (store: StoreConfig) => void;
   /**
    * Atomically updates the store config AND shifts all furniture whose id appears
@@ -101,11 +106,13 @@ export const useSceneStore = create<SceneState>((set) => ({
       selectedFurnitureId:
         selection.type === 'furniture' ? selection.furnitureId ?? null : null,
     }),
-  updateFurniture: (furniture) =>
+  updateFurniture: (furniture, options) =>
     set((state) => {
       if (!state.scene) return {};
       return {
-        history: [...state.history.slice(-MAX_HISTORY + 1), state.scene],
+        history: options?.recordHistory === false
+          ? state.history
+          : [...state.history.slice(-MAX_HISTORY + 1), state.scene],
         scene: {
           ...state.scene,
           furniture: state.scene.furniture.map((item) =>

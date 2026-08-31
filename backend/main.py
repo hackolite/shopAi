@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from api.cad_projects import router as cad_router
 from api.furniture_library import router as furniture_library_router
 from api.projects import router as projects_router
-from services.demo_initializer import init_carrefour_express_demo, init_retail_cad_demo
+from services.demo_initializer import init_retail_cad_demo
 
 app = FastAPI(
     title="Retail Digital Twin API",
@@ -26,7 +26,6 @@ app.add_middleware(
 )
 
 init_retail_cad_demo()
-init_carrefour_express_demo()
 
 app.include_router(projects_router)
 app.include_router(cad_router)

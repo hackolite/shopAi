@@ -115,6 +115,10 @@ export default function App() {
     } catch (err) {
       if (loadingProjectIdRef.current === id) {
         console.error('Failed to load project data:', err);
+      } else {
+        // Stale load that was superseded — log at lower severity so the error
+        // isn't silently lost but doesn't spam the console.
+        console.warn(`Stale project load for '${id}' failed (superseded):`, err);
       }
     }
   }, [setScene, setProducts, setPlanograms, setPlanogramDetail, setZones, setSimulationConfig]);

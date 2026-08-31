@@ -8,6 +8,7 @@ import { useUIStore } from '../store/uiStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useCatalogStore } from '../store/catalogStore';
 import { useZoneStore } from '../store/zoneStore';
+import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
 import type { FloorZone, Planogram } from '../types/cad';
 import { cadApi } from '../api/cad';
@@ -2785,6 +2786,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
 function SceneEditor({ projectId }: { projectId: string | null }) {
   const { scene } = useSceneStore();
   const { zones, zonesLoaded } = useZoneStore();
+  const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const { setRecording: setUIRecording } = useUIStore();
 
   // Keep a stable ref to the latest scene so the save timer closure is always fresh.
@@ -2852,14 +2854,17 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
   }, [setUIRecording]);
 
   // Auto-save zones whenever they change after the initial load from the backend.
+  // Skipped while the in-memory state belongs to another project (i.e. right
+  // after a project switch), otherwise the previous project's store and zones
+  // would be written into the newly opened project.
   useEffect(() => {
-    if (!zonesLoaded || !projectId) return;
+    if (!zonesLoaded || !projectId || loadedProjectId !== projectId) return;
     const timer = setTimeout(() => {
       const s = sceneRef.current;
       if (s) cadApi.updateStore(projectId, { ...s.store, zones }).catch(console.error);
     }, ZONE_AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [zones, zonesLoaded, projectId]);
+  }, [zones, zonesLoaded, projectId, loadedProjectId]);
 
   if (!projectId) {
     return (

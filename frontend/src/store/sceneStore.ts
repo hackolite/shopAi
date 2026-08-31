@@ -58,6 +58,8 @@ interface SceneState {
   setLoading: (loading: boolean) => void;
   setClipboard: (data: FurnitureClipboard | null) => void;
   undo: () => void;
+  /** Clears every scene-related state. Called when switching project. */
+  reset: () => void;
 }
 
 export const useSceneStore = create<SceneState>((set) => ({
@@ -204,5 +206,17 @@ export const useSceneStore = create<SceneState>((set) => ({
         scene: prev,
         history: state.history.slice(0, -1),
       };
+    }),
+  reset: () =>
+    set({
+      scene: null,
+      selectedFurnitureId: null,
+      selectedFurnitureIds: new Set<string>(),
+      selection: { type: null },
+      expandedNodes: new Set<string>(),
+      // The clipboard references furniture and planogram IDs of the previous
+      // project, so it must not survive a project switch.
+      clipboard: null,
+      history: [],
     }),
 }));

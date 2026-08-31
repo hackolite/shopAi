@@ -10,6 +10,7 @@ import {
 } from '../../engine/simulationConstraint';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSimulationStore } from '../../store/simulationStore';
+import { useProjectStore } from '../../store/projectStore';
 import type { SimulationConfig, SimulationWaypoint } from '../../types/cad';
 
 interface SimulationPanelProps {
@@ -200,30 +201,30 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     selectWaypoint,
     invalidWaypointIds,
   } = useSimulationStore();
+  const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingTick = useRef(false);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSimulationSignature = useRef<string | null>(null);
   const latestSessionId = useRef<string | null>(null);
-  const latestProjectId = useRef<string | null>(null);
 
   useEffect(() => {
     latestSessionId.current = liveSessionId;
   }, [liveSessionId]);
 
+  // Persist the simulation config, but only once the in-memory config actually
+  // belongs to the current project.  Right after a project switch the config
+  // still holds the previous project's waypoints, and saving it here would
+  // overwrite the newly opened project's settings.
   useEffect(() => {
-    latestProjectId.current = projectId;
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || loadedProjectId !== projectId) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => persistSettings(projectId, config), 300);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [config, projectId]);
+  }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
 
@@ -383,13 +384,18 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     };
   }, [config, handleLostSession, liveSessionId, playing, projectId, scene, setPaused, setResult]);
 
+  // Stop the backend live session when the panel unmounts *or* when the user
+  // switches project, so the previous project's session does not keep running
+  // (and its agents do not bleed into the newly opened project).
   useEffect(() => () => {
     if (tickTimer.current) clearInterval(tickTimer.current);
     if (updateTimer.current) clearTimeout(updateTimer.current);
-    if (latestProjectId.current && latestSessionId.current) {
-      void cadApi.stopLiveSimulation(latestProjectId.current, latestSessionId.current).catch(console.error);
+    const sessionId = latestSessionId.current;
+    if (projectId && sessionId) {
+      latestSessionId.current = null;
+      void cadApi.stopLiveSimulation(projectId, sessionId).catch(console.error);
     }
-  }, []);
+  }, [projectId]);
 
   return (
     <div className="flex h-full flex-col">

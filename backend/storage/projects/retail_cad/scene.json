@@ -13,9 +13,9 @@
       0.0
     ],
     "dimensions": {
+      "height": 400.0,
       "depth": 3000.0,
-      "width": 5000.0,
-      "height": 400.0
+      "width": 5000.0
     },
     "walls": [
       {
@@ -32,9 +32,9 @@
           0.0
         ],
         "dimensions": {
+          "height": 300.0,
           "depth": 20.0,
-          "width": 5000.0,
-          "height": 300.0
+          "width": 5000.0
         },
         "materialId": "solid_blue",
         "visible": true,
@@ -54,9 +54,9 @@
           0.0
         ],
         "dimensions": {
+          "height": 300.0,
           "depth": 20.0,
-          "width": 3000.0,
-          "height": 300.0
+          "width": 3000.0
         },
         "materialId": "solid_red",
         "visible": true,
@@ -65,41 +65,7 @@
     ],
     "floorColor": "#1e2230",
     "wallColor": "#404060",
-    "zones": [
-      {
-        "id": "eff6fe0f-a7f3-4fc4-b112-5d7e8d21887a",
-        "type": "supply",
-        "label": "Fournitures",
-        "x": 2400.0,
-        "z": 1500.0,
-        "width": 200.0,
-        "depth": 100.0,
-        "rows": 3,
-        "cols": 4
-      },
-      {
-        "id": "1a78e7c0-a311-40e8-b403-f97842ff3311",
-        "type": "supply",
-        "label": "Fournitures",
-        "x": 2400.0,
-        "z": 1500.0,
-        "width": 200.0,
-        "depth": 100.0,
-        "rows": 3,
-        "cols": 4
-      },
-      {
-        "id": "1cfabf93-6b76-4f74-a05a-46258c470c68",
-        "type": "supply",
-        "label": "Fournitures",
-        "x": 2400.0,
-        "z": 1500.0,
-        "width": 200.0,
-        "depth": 100.0,
-        "rows": 3,
-        "cols": 4
-      }
-    ]
+    "zones": []
   },
   "furniture": [
     {
@@ -118,9 +84,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -153,9 +119,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -188,9 +154,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -223,9 +189,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -258,9 +224,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -293,9 +259,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -328,9 +294,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -363,9 +329,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -398,9 +364,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -433,9 +399,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 200.0,
         "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
+        "width": 120.0
       },
       "materialId": "metal_white",
       "visible": true,
@@ -468,9 +434,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 180.0,
         "depth": 60.0,
-        "width": 80.0,
-        "height": 180.0
+        "width": 80.0
       },
       "materialId": "solid_red",
       "visible": true,
@@ -503,9 +469,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 180.0,
         "depth": 60.0,
-        "width": 80.0,
-        "height": 180.0
+        "width": 80.0
       },
       "materialId": "solid_red",
       "visible": true,
@@ -538,9 +504,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 210.0,
         "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
+        "width": 100.0
       },
       "materialId": "glass_clear",
       "visible": true,
@@ -573,9 +539,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 210.0,
         "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
+        "width": 100.0
       },
       "materialId": "glass_clear",
       "visible": true,
@@ -608,9 +574,9 @@
         0.0
       ],
       "dimensions": {
+        "height": 90.0,
         "depth": 60.0,
-        "width": 80.0,
-        "height": 90.0
+        "width": 80.0
       },
       "materialId": "plastic_black",
       "visible": true,

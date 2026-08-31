@@ -7,39 +7,12 @@
   "ambientLight": 0.8,
   "simulation": {
     "enabled": true,
-    "arrivalRatePerSecond": 0.5,
+    "arrivalRatePerSecond": 0.25,
     "durationSeconds": 120,
-    "maxCustomers": 40,
+    "maxCustomers": 80,
     "randomSeed": 42,
     "desiredSpeedMps": 1.25,
     "speedVariation": 0.2,
-    "waypoints": [
-      {
-        "id": "w-entry",
-        "label": "Entrée 1",
-        "type": "entry",
-        "x": 2500.0,
-        "z": 300.0,
-        "radiusCm": 120.0,
-        "optional": false,
-        "visitProbability": 1.0,
-        "retentionSeconds": 0.0,
-        "visionAngleDeg": 70.0,
-        "visionRangeCm": 220.0
-      },
-      {
-        "id": "w-exit",
-        "label": "Sortie 1",
-        "type": "exit",
-        "x": 2500.0,
-        "z": 2700.0,
-        "radiusCm": 120.0,
-        "optional": false,
-        "visitProbability": 1.0,
-        "retentionSeconds": 0.0,
-        "visionAngleDeg": 70.0,
-        "visionRangeCm": 220.0
-      }
-    ]
+    "waypoints": []
   }
 }

@@ -2602,14 +2602,6 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
 
 
 function SceneContent({ projectId }: { projectId: string | null }) {
-  const __dbg = useThree();
-  // @ts-expect-error debug
-  window.__three = __dbg;
-  // @ts-expect-error debug
-  (window.__roots ||= []); // eslint-disable-line
-  // @ts-expect-error debug
-  if (!window.__roots.includes(__dbg.scene)) window.__roots.push(__dbg.scene);
-
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
   const { selectedZoneId, removeZone, selectZone } = useZoneStore();

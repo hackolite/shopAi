@@ -4,7 +4,9 @@ import { useZoneStore } from './zoneStore';
 import { usePlanogramStore } from './planogramStore';
 import { useSimulationStore } from './simulationStore';
 import { useProjectStore } from './projectStore';
-import type { Planogram, Scene } from '../types/cad';
+import { useCatalogStore } from './catalogStore';
+import { resetProjectStores } from './projectSwitch';
+import type { CADProduct, Planogram, Scene } from '../types/cad';
 
 const scene = {
   store: { id: 's1', name: 'Store', dimensions: [1000, 300, 800], zones: [] },
@@ -83,6 +85,27 @@ describe('project switch cleanup', () => {
     expect(next.running).toBe(false);
     expect(next.selectedWaypointId).toBeNull();
     expect(next.history).toEqual([]);
+  });
+
+  it('resetProjectStores clears every project-scoped store at once', () => {
+    useProjectStore.getState().setLoadedProjectId('previous');
+    useSceneStore.getState().setScene(scene);
+    useZoneStore.getState().setZones([]);
+    useZoneStore.getState().addZone('supply', 1000, 800);
+    usePlanogramStore.getState().setPlanogramDetail(planogram);
+    useSimulationStore.getState().addWaypoint('entry');
+    useCatalogStore.getState().setProducts([{ ean: '1', name: 'P', brand: 'B' } as unknown as CADProduct]);
+
+    resetProjectStores();
+
+    expect(useProjectStore.getState().loadedProjectId).toBeNull();
+    expect(useSceneStore.getState().scene).toBeNull();
+    expect(useZoneStore.getState().zones).toEqual([]);
+    expect(useZoneStore.getState().zonesLoaded).toBe(false);
+    expect(usePlanogramStore.getState().planogramDetails.size).toBe(0);
+    expect(useSimulationStore.getState().config.waypoints).toEqual([]);
+    expect(useCatalogStore.getState().products).toEqual([]);
+    expect(useCatalogStore.getState().filteredProducts).toEqual([]);
   });
 
   it('projectStore tracks which project the in-memory state belongs to', () => {

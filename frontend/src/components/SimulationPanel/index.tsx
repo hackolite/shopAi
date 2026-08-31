@@ -215,6 +215,22 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
    * project is selected can never erase the previous project's session.
    */
   const liveSession = useRef<{ projectId: string; sessionId: string } | null>(null);
+  /**
+   * True when a live-simulation request no longer belongs to the project the
+   * app currently holds in memory.  Live-simulation calls are asynchronous:
+   * their response can land *after* the user switched project, and applying it
+   * would push the previous project's agents, metrics and session id back into
+   * the freshly reset store.
+   *
+   * The check reads `loadedProjectId` from the store instead of a rendered
+   * value because switching project clears it synchronously, whereas React may
+   * need a moment to re-render this panel (the 3D scene re-render dominates the
+   * commit) — during which responses would still be applied.
+   */
+  const isStale = useCallback(
+    (requestProjectId: string | null) => useProjectStore.getState().loadedProjectId !== requestProjectId,
+    [],
+  );
 
   useEffect(() => {
     if (liveSessionId && projectId) {
@@ -248,12 +264,24 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       }
       const signature = snapshotSimulationInput(scene, config);
       const live = await cadApi.startLiveSimulation(projectId, scene, config);
+      if (isStale(projectId)) {
+        // The user switched project while the session was starting: drop it
+        // instead of showing another project's agents.
+        await cadApi.stopLiveSimulation(projectId, live.sessionId).catch(console.error);
+        return;
+      }
       setLiveSessionId(live.sessionId);
       setResult(live.result);
       setPaused(live.paused);
       setPlaying(true);
       lastSimulationSignature.current = signature;
     } catch (error) {
+      if (isStale(projectId)) {
+        // Failure of a run that belongs to a project the user has left: do not
+        // touch the current project's simulation state.
+        console.warn('Ignoring stale simulation start failure:', error);
+        return;
+      }
       setPlaying(false);
       setPaused(false);
       setLiveSessionId(null);
@@ -293,6 +321,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setResult,
     setRunning,
     liveSessionId,
+    isStale,
   ]);
 
   const stopSimulation = useCallback(async () => {
@@ -318,16 +347,18 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const pauseSimulation = useCallback(async () => {
     if (!projectId || !liveSessionId) return;
     const live = await cadApi.pauseLiveSimulation(projectId, liveSessionId);
+    if (isStale(projectId)) return;
     setResult(live.result);
     setPaused(true);
-  }, [liveSessionId, projectId, setPaused, setResult]);
+  }, [isStale, liveSessionId, projectId, setPaused, setResult]);
 
   const resumeSimulation = useCallback(async () => {
     if (!projectId || !liveSessionId) return;
     const live = await cadApi.resumeLiveSimulation(projectId, liveSessionId);
+    if (isStale(projectId)) return;
     setResult(live.result);
     setPaused(false);
-  }, [liveSessionId, projectId, setPaused, setResult]);
+  }, [isStale, liveSessionId, projectId, setPaused, setResult]);
 
   // The backend session can disappear while the client still holds its id
   // (server restart, idle reaping…). Reset the playback state so the UI shows
@@ -340,19 +371,25 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [setLiveSessionId, setPaused, setPlaying]);
 
   useEffect(() => {
-    if (!projectId || !liveSessionId || !playing || paused) return;
+    if (!projectId || loadedProjectId !== projectId) return;
+    if (!liveSessionId || !playing || paused) return;
     pendingTick.current = false;
     if (tickTimer.current) clearInterval(tickTimer.current);
     tickTimer.current = setInterval(() => {
+      // Stop as soon as another project is being loaded, without waiting for
+      // React to re-render this panel and clean the effect up.
+      if (isStale(projectId)) return;
       if (pendingTick.current) return;
       pendingTick.current = true;
       void cadApi
         .tickLiveSimulation(projectId, liveSessionId)
         .then((live) => {
+          if (isStale(projectId)) return;
           setResult(live.result);
           setPaused(live.paused);
         })
         .catch((error) => {
+          if (isStale(projectId)) return;
           console.error('Failed to tick live simulation:', error);
           if (isSessionNotFoundError(error)) handleLostSession();
         })
@@ -366,7 +403,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         tickTimer.current = null;
       }
     };
-  }, [handleLostSession, liveSessionId, paused, playing, projectId, setPaused, setResult]);
+  }, [handleLostSession, isStale, liveSessionId, loadedProjectId, paused, playing, projectId, setPaused, setResult]);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
@@ -381,11 +418,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       void cadApi
         .updateLiveSimulation(projectId, liveSessionId, scene, config)
         .then((live) => {
+          if (isStale(projectId)) return;
           setResult(live.result);
           setPaused(live.paused);
           lastSimulationSignature.current = signature;
         })
         .catch((error) => {
+          if (isStale(projectId)) return;
           console.error('Failed to hot-update live simulation:', error);
           if (isSessionNotFoundError(error)) handleLostSession();
         });
@@ -393,7 +432,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [config, handleLostSession, liveSessionId, playing, projectId, scene, setPaused, setResult]);
+  }, [config, handleLostSession, isStale, liveSessionId, playing, projectId, scene, setPaused, setResult]);
 
   // Stop the backend live session when the panel unmounts *or* when the user
   // switches project, so the previous project's session does not keep running

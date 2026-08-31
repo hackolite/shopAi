@@ -1391,7 +1391,13 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
         position: snappedPos,
         dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
       };
-      updateFurniture(snapped, { recordHistory: false });
+      // If no move frame captured history but snapping still changes the
+      // furniture, record one undo entry so the change stays undoable.
+      const snapChanged = snapped.position[0] !== cur.position[0]
+        || snapped.position[2] !== cur.position[2]
+        || snappedW !== cur.dimensions.width
+        || snappedD !== cur.dimensions.depth;
+      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
       historyCapturedRef.current = false;
       if (projectId) {
         cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
@@ -1898,7 +1904,10 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
         ...cur,
         position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
       };
-      updateFurniture(snapped, { recordHistory: false });
+      // If no move frame captured history but snapping still changes the
+      // furniture, record one undo entry so the change stays undoable.
+      const snapChanged = snapped.position[0] !== cur.position[0] || snapped.position[2] !== cur.position[2];
+      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
       historyCapturedRef.current = false;
       if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
     };
@@ -2187,7 +2196,13 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
         position:   snappedPos,
         dimensions: { ...cur.dimensions, width: snappedW, depth: snappedD },
       };
-      updateFurniture(snapped, { recordHistory: false });
+      // If no move frame captured history but snapping still changes the
+      // furniture, record one undo entry so the change stays undoable.
+      const snapChanged = snapped.position[0] !== cur.position[0]
+        || snapped.position[2] !== cur.position[2]
+        || snappedW !== cur.dimensions.width
+        || snappedD !== cur.dimensions.depth;
+      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
       historyCapturedRef.current = false;
       if (projectId) {
         cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);

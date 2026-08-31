@@ -56,6 +56,11 @@ def planograms(project_id: str) -> list[dict]:
     return _load(project_id, "planograms.json")["planograms"]
 
 
+@pytest.fixture(scope="module")
+def library() -> dict:
+    return json.loads(_LIBRARY_PATH.read_text(encoding="utf-8"))
+
+
 def _rotated_footprint(item: dict) -> tuple[float, float, float, float]:
     """Emprise au sol (x0, z0, x1, z1) tenant compte de la rotation Y.
 
@@ -98,8 +103,7 @@ def test_eans_are_unique(catalog: dict) -> None:
     assert len(set(eans)) == len(eans)
 
 
-def test_only_library_furniture_types_are_used(furniture: list[dict]) -> None:
-    library = json.loads(_LIBRARY_PATH.read_text(encoding="utf-8"))
+def test_only_library_furniture_types_are_used(furniture: list[dict], library: dict) -> None:
     library_ids = {entry["id"] for entry in library["furniture"]}
     for item in furniture:
         assert item["libraryId"] in library_ids
@@ -164,8 +168,7 @@ def test_every_cell_references_a_catalog_product(catalog: dict, planograms: list
             assert cell["ean"] in eans
 
 
-def test_planogram_faces_match_furniture_capabilities(furniture: list[dict]) -> None:
-    library = json.loads(_LIBRARY_PATH.read_text(encoding="utf-8"))
+def test_planogram_faces_match_furniture_capabilities(furniture: list[dict], library: dict) -> None:
     faces_by_id = {entry["id"]: set(entry["hasFaces"]) for entry in library["furniture"]}
     for item in furniture:
         allowed = faces_by_id[item["libraryId"]]

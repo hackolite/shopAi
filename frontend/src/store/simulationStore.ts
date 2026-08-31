@@ -54,6 +54,8 @@ interface SimulationState {
   setLiveSessionId: (liveSessionId: string | null) => void;
   setInvalidWaypointIds: (ids: string[]) => void;
   setInvalidWaypointSuggestion: (suggestion: { waypointId: string; xCm: number; zCm: number } | null) => void;
+  /** Clears every simulation state. Called when switching project. */
+  reset: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -164,4 +166,17 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setLiveSessionId: (liveSessionId) => set({ liveSessionId }),
   setInvalidWaypointIds: (ids) => set({ invalidWaypointIds: [...new Set(ids)] }),
   setInvalidWaypointSuggestion: (suggestion) => set({ invalidWaypointSuggestion: suggestion }),
+  reset: () =>
+    set({
+      config: defaultSimulationConfig(),
+      result: null,
+      running: false,
+      playing: false,
+      paused: false,
+      liveSessionId: null,
+      selectedWaypointId: null,
+      invalidWaypointIds: [],
+      invalidWaypointSuggestion: null,
+      history: [],
+    }),
 }));

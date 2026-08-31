@@ -35,6 +35,8 @@ interface PlanogramState {
    * state issues with Zustand batching.
    */
   syncPlanogram: (planogram: Planogram) => void;
+  /** Clears every planogram state. Called when switching project. */
+  reset: () => void;
 }
 
 export const usePlanogramStore = create<PlanogramState>((set) => ({
@@ -144,5 +146,14 @@ export const usePlanogramStore = create<PlanogramState>((set) => ({
           ? planogram
           : state.activePlanogram;
       return { planogramDetails, planograms, activePlanogram };
+    }),
+  reset: () =>
+    set({
+      planograms: [],
+      planogramDetails: new Map<string, Planogram>(),
+      activePlanogram: null,
+      selectedCellIds: new Set<string>(),
+      loading: false,
+      requestOpenPlanogramId: null,
     }),
 }));

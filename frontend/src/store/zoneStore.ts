@@ -23,6 +23,8 @@ interface ZoneState {
   selectZone: (id: string | null) => void;
   /** Bulk-set zones when loading from the backend (marks zonesLoaded = true). */
   setZones: (zones: FloorZone[]) => void;
+  /** Clears zones and marks them as not loaded. Called when switching project. */
+  reset: () => void;
 }
 
 const DEFAULT_ZONE_WIDTH_CM = 200;
@@ -92,4 +94,6 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
   selectZone: (id) => set({ selectedZoneId: id }),
 
   setZones: (zones) => set({ zones, zonesLoaded: true }),
+
+  reset: () => set({ zones: [], selectedZoneId: null, zonesLoaded: false }),
 }));

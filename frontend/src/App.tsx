@@ -18,6 +18,7 @@ import SimulationPanel from './components/SimulationPanel';
 import type { ImportFormat } from './components/ImportDialog';
 import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore } from './store/zoneStore';
+import { useProjectStore } from './store/projectStore';
 import type { FurnitureInstance } from './types/cad';
 
 const DEFAULT_PROJECT = 'retail_cad';
@@ -49,6 +50,11 @@ export default function App() {
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones, selectedZoneId } = useZoneStore();
+  const resetZones = useZoneStore((state) => state.reset);
+  const resetScene = useSceneStore((state) => state.reset);
+  const resetPlanograms = usePlanogramStore((state) => state.reset);
+  const resetSimulation = useSimulationStore((state) => state.reset);
+  const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
 
   // Tracks the project ID currently being loaded; used to discard stale
@@ -77,11 +83,16 @@ export default function App() {
     loadingProjectIdRef.current = id;
 
     // Clear previous project's state immediately so stale data never bleeds into
-    // the next project's view.
-    setScene(null);
+    // the next project's view.  `loadedProjectId` stays null until the whole
+    // project is in memory, which also disables the auto-save effects so the
+    // previous project's scene/zones/waypoints can never be written into the
+    // project being opened.
+    setLoadedProjectId(null);
+    resetScene();
+    resetZones();
+    resetPlanograms();
+    resetSimulation();
     setProducts([]);
-    setPlanograms([]);
-    setZones([]);
 
     try {
       const [sceneData, catalog, planoData, meta, settings] = await Promise.all([
@@ -99,6 +110,7 @@ export default function App() {
       setZones(sceneData.store.zones ?? []);
       setProjectName(meta.name ?? id);
       setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
+      setLoadedProjectId(id);
 
       await Promise.all(
         planoData.planograms.map(async (summary) => {
@@ -121,7 +133,19 @@ export default function App() {
         console.warn(`Stale project load for '${id}' failed (superseded):`, err);
       }
     }
-  }, [setScene, setProducts, setPlanograms, setPlanogramDetail, setZones, setSimulationConfig]);
+  }, [
+    setScene,
+    setProducts,
+    setPlanograms,
+    setPlanogramDetail,
+    setZones,
+    setSimulationConfig,
+    setLoadedProjectId,
+    resetScene,
+    resetZones,
+    resetPlanograms,
+    resetSimulation,
+  ]);
 
   // ── Boot: load default project ────────────────────────────────────────────
   useEffect(() => {

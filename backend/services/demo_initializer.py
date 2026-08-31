@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 
-from services.carrefour_express_generator import PROJECT_ID as _EXPRESS_PROJECT_ID
-from services.carrefour_express_generator import PROJECT_NAME as _EXPRESS_PROJECT_NAME
-from services.carrefour_express_generator import generate_carrefour_express
 from services.demo_generator import generate_retail_cad_demo
 from services.project_manager import create_project, get_project_metadata, load_project_file, save_project_file
 
@@ -32,19 +29,3 @@ def init_retail_cad_demo() -> None:
     save_project_file(_DEMO_PROJECT_ID, "catalog.json", demo["catalog"])
     save_project_file(_DEMO_PROJECT_ID, "planograms.json", demo["planograms"])
     save_project_file(_DEMO_PROJECT_ID, "materials.json", demo["materials"])
-
-
-def init_carrefour_express_demo() -> None:
-    try:
-        get_project_metadata(_EXPRESS_PROJECT_ID)
-        return
-    except HTTPException as exc:
-        if exc.status_code != 404:
-            raise
-
-    demo = generate_carrefour_express()
-    create_project(_EXPRESS_PROJECT_ID, _EXPRESS_PROJECT_NAME)
-    save_project_file(_EXPRESS_PROJECT_ID, "scene.json", demo["scene"])
-    save_project_file(_EXPRESS_PROJECT_ID, "catalog.json", demo["catalog"])
-    save_project_file(_EXPRESS_PROJECT_ID, "planograms.json", demo["planograms"])
-    save_project_file(_EXPRESS_PROJECT_ID, "materials.json", demo["materials"])

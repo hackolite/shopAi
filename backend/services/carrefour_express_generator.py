@@ -737,6 +737,10 @@ def _product_stream(spec: SubcategorySpec, ean_counter: Iterator[int]) -> Iterat
 
     L'ordre marque-major garantit que les références d'une même marque restent
     contiguës dans le planogramme (compliance de marque).
+
+    Un flux est partagé entre toutes les faces d'une même sous-catégorie
+    (ex. deux faces « Bières & cidres ») : chaque référence est donc produite
+    et implantée exactement une fois, avec un EAN unique issu du compteur global.
     """
     cycle = 0
     while True:

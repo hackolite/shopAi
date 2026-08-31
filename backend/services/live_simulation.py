@@ -12,6 +12,7 @@ import services.simulation as simsvc
 from models.project import (
     SceneData,
     SimulationAgentFrame,
+    SimulationAnalytics,
     SimulationConfig,
     SimulationFrame,
     SimulationResult,
@@ -19,6 +20,7 @@ from models.project import (
     SimulationWaypoint,
     WaypointMetrics,
 )
+from services.flow_analytics import FlowAnalyticsRecorder
 
 if simsvc.jps is None:  # pragma: no cover - validated at runtime in endpoints
     jps = None
@@ -80,6 +82,7 @@ class LiveSimulationSession:
         self.average_load_accumulator = 0.0
         self.average_load_samples = 0
         self.max_waypoint_load = 0
+        self.analytics_recorder = FlowAnalyticsRecorder(scene)
         self._init_runtime(carry_agents=[])
         self._capture_frame()
 
@@ -113,6 +116,15 @@ class LiveSimulationSession:
             geometry=self.walkable,
             dt=simsvc.SIMULATION_DT_S,
         )
+        previous_queue_stats = {
+            waypoint_id: (
+                runtime.released_agents,
+                runtime.completed_waits,
+                runtime.total_wait_seconds,
+                runtime.max_wait_seconds,
+            )
+            for waypoint_id, runtime in self.waypoint_runtimes.items()
+        }
         self.waypoint_stage_ids = {}
         self.exit_stage_ids = {}
         self.waypoint_by_stage_id = {}
@@ -150,6 +162,17 @@ class LiveSimulationSession:
                     stage=self.sim.get_stage(stage_id),
                     release_interval_s=float(waypoint.retentionSeconds),
                 )
+                # Hot updates rebuild every stage: carry the cumulative queue
+                # statistics over so the measured waiting times keep growing
+                # instead of restarting from zero on each scene edit.
+                carried = previous_queue_stats.get(waypoint.id)
+                if carried is not None:
+                    (
+                        runtime.released_agents,
+                        runtime.completed_waits,
+                        runtime.total_wait_seconds,
+                        runtime.max_wait_seconds,
+                    ) = carried
                 self.waypoint_runtimes[waypoint.id] = runtime
                 self.waypoint_stage_ids[waypoint.id] = stage_id
                 self.waypoint_by_stage_id[stage_id] = waypoint
@@ -348,6 +371,7 @@ class LiveSimulationSession:
         self.frames.append(
             SimulationFrame(timeSeconds=round(self.time_seconds, 2), agents=frame_agents)
         )
+        self.analytics_recorder.record_frame(self.frames[-1])
         if len(self.frames) > MAX_LIVE_FRAMES:
             self.frames = self.frames[-MAX_LIVE_FRAMES:]
         waypoint_loads: list[int] = []
@@ -421,9 +445,15 @@ class LiveSimulationSession:
                 carry_agents.append((route, (float(agent.position[0]), float(agent.position[1]))))
             self.scene = scene
             self.config = config
+            self.analytics_recorder.configure(scene)
             self._init_runtime(carry_agents=carry_agents)
             self._capture_frame()
             return self.snapshot()
+
+    def analytics(self) -> SimulationAnalytics:
+        with self.lock:
+            self.last_accessed_at = time()
+            return self.analytics_recorder.snapshot()
 
     def snapshot(self) -> SimulationResult:
         waypoint_metrics = [
@@ -445,6 +475,10 @@ class LiveSimulationSession:
                     else 0
                 ),
                 samples=self.waypoint_series.get(waypoint.id, [])[-LIVE_RESPONSE_SAMPLE_WINDOW:],
+                **simsvc.queue_wait_metrics(
+                    self.waypoint_runtimes.get(waypoint.id),
+                    self.time_seconds,
+                ),
             )
             for waypoint in self.metrics_waypoints
         ]

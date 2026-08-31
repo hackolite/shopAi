@@ -94,6 +94,38 @@ class WaypointMetrics(CADBaseModel):
     maxActiveAgents: int
     releasedAgents: int
     samples: list[WaypointSample] = Field(default_factory=list)
+    # Queue (retention) statistics: how long agents actually stayed in the queue.
+    queuedAgents: int = 0
+    completedWaits: int = 0
+    averageWaitSeconds: float = 0.0
+    maxWaitSeconds: float = 0.0
+    currentMaxWaitSeconds: float = 0.0
+
+
+class SimulationHeatmap(CADBaseModel):
+    """Cumulative agent occupancy grid, expressed in store coordinates (cm)."""
+
+    cellSizeCm: float
+    originXCm: float
+    originZCm: float
+    cols: int
+    rows: int
+    maxCount: int = 0
+    # Row-major counts, ``rows * cols`` entries (row = Z axis, col = X axis).
+    counts: list[int] = Field(default_factory=list)
+
+
+class AgentTrajectory(CADBaseModel):
+    agentId: int
+    active: bool = True
+    # Flat [x0, z0, x1, z1, …] list in cm, keeps the payload compact.
+    pointsCm: list[float] = Field(default_factory=list)
+
+
+class SimulationAnalytics(CADBaseModel):
+    timeSeconds: float = 0.0
+    heatmap: SimulationHeatmap | None = None
+    trajectories: list[AgentTrajectory] = Field(default_factory=list)
 
 
 class SimulationFrame(CADBaseModel):
@@ -114,6 +146,7 @@ class SimulationResult(CADBaseModel):
     frames: list[SimulationFrame] = Field(default_factory=list)
     waypoints: list[WaypointMetrics] = Field(default_factory=list)
     summary: SimulationSummary
+    analytics: SimulationAnalytics | None = None
 
 
 class Wall(CADBaseModel):

@@ -24,6 +24,7 @@ from models.project import (
     WaypointSample,
     WaypointMetrics,
 )
+from services.flow_analytics import build_analytics
 
 CM_TO_M = 0.01
 M_TO_CM = 100.0
@@ -56,6 +57,36 @@ class _WaypointRuntime:
     # Maps agent_id → simulation time at which that agent became enqueued (reached its slot).
     enqueue_times: dict[int, float] = field(default_factory=dict)
     released_agents: int = 0
+    # Aggregated queue waiting time (seconds spent enqueued before release).
+    completed_waits: int = 0
+    total_wait_seconds: float = 0.0
+    max_wait_seconds: float = 0.0
+
+
+def queue_wait_metrics(runtime: "_WaypointRuntime | None", current_time: float) -> dict[str, float]:
+    """Return the queue waiting-time statistics of a retention waypoint.
+
+    ``averageWaitSeconds`` / ``maxWaitSeconds`` cover every agent already
+    released from the queue, while ``currentMaxWaitSeconds`` reports how long
+    the agent currently waiting the longest has been queued.
+    """
+    if runtime is None:
+        return {
+            "queuedAgents": 0,
+            "completedWaits": 0,
+            "averageWaitSeconds": 0.0,
+            "maxWaitSeconds": 0.0,
+            "currentMaxWaitSeconds": 0.0,
+        }
+    current_waits = [current_time - enqueued_at for enqueued_at in runtime.enqueue_times.values()]
+    average = runtime.total_wait_seconds / runtime.completed_waits if runtime.completed_waits else 0.0
+    return {
+        "queuedAgents": len(runtime.enqueue_times),
+        "completedWaits": runtime.completed_waits,
+        "averageWaitSeconds": round(average, 2),
+        "maxWaitSeconds": round(runtime.max_wait_seconds, 2),
+        "currentMaxWaitSeconds": round(max(current_waits), 2) if current_waits else 0.0,
+    }
 
 
 class SimulationConstraintViolation(ValueError):
@@ -597,9 +628,13 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
 
     # The front-of-queue is the agent who reached its slot earliest.
     front_agent = min(runtime.enqueue_times, key=runtime.enqueue_times.__getitem__)
-    if current_time - runtime.enqueue_times[front_agent] >= runtime.release_interval_s:
+    waited = current_time - runtime.enqueue_times[front_agent]
+    if waited >= runtime.release_interval_s:
         runtime.stage.pop(1)
         runtime.released_agents += 1
+        runtime.completed_waits += 1
+        runtime.total_wait_seconds += waited
+        runtime.max_wait_seconds = max(runtime.max_wait_seconds, waited)
         # Remove the released agent's entry immediately so that the next tick's
         # cleanup does not find a stale record and the newly promoted front
         # agent is correctly identified from the start.
@@ -900,6 +935,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 else 0
             ),
             samples=waypoint_series[waypoint.id],
+            **queue_wait_metrics(waypoint_runtimes.get(waypoint.id), current_time),
         )
         for waypoint in metrics_waypoints
     ]
@@ -916,4 +952,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         maxWaypointLoad=max_waypoint_load,
         averageConfiguredRetentionSeconds=round(sum(all_retentions) / len(all_retentions), 2) if all_retentions else 0.0,
     )
-    return SimulationResult(frames=frames, waypoints=waypoint_metrics, summary=summary)
+    return SimulationResult(
+        frames=frames,
+        waypoints=waypoint_metrics,
+        summary=summary,
+        analytics=build_analytics(scene, frames),
+    )

@@ -830,3 +830,100 @@ def test_live_simulation_hot_update_keeps_agents_when_furniture_covers_them() ->
 
     stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
     assert stop.status_code == 200, stop.text
+
+
+def test_live_simulation_exposes_analytics_and_queue_wait_times() -> None:
+    project_id = _create_project()
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+    config = {
+        "arrivalRatePerSecond": 0.8,
+        "maxCustomers": 12,
+        "randomSeed": 5,
+        "waypoints": [
+            {
+                "id": "entry-main",
+                "type": "entry",
+                "label": "Entrée",
+                "x": 2500.0,
+                "z": 220.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "queue-main",
+                "type": "transit",
+                "label": "Caisse",
+                "x": 2500.0,
+                "z": 1500.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 2.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "exit-main",
+                "type": "exit",
+                "label": "Sortie",
+                "x": 2500.0,
+                "z": 2800.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+        ],
+    }
+
+    start = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={"scene": scene, "config": config},
+    )
+    assert start.status_code == 200, start.text
+    session_id = start.json()["sessionId"]
+
+    tick = None
+    for _ in range(120):
+        tick = client.post(
+            f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+            json={"steps": 4},
+        )
+        assert tick.status_code == 200, tick.text
+    assert tick is not None
+    queue_metrics = next(
+        item for item in tick.json()["result"]["waypoints"] if item["waypointId"] == "queue-main"
+    )
+    assert queue_metrics["completedWaits"] > 0, "agents must be released from the retention queue"
+    assert queue_metrics["averageWaitSeconds"] >= 2.0
+    assert queue_metrics["maxWaitSeconds"] >= queue_metrics["averageWaitSeconds"]
+
+    analytics_response = client.get(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/analytics"
+    )
+    assert analytics_response.status_code == 200, analytics_response.text
+    analytics = analytics_response.json()["analytics"]
+    heatmap = analytics["heatmap"]
+    assert heatmap["cols"] > 0 and heatmap["rows"] > 0
+    assert len(heatmap["counts"]) == heatmap["cols"] * heatmap["rows"]
+    assert heatmap["maxCount"] > 0, "agents walking the store must heat up the grid"
+    assert analytics["trajectories"], "agent trajectories must be recorded"
+    assert all(len(item["pointsCm"]) % 2 == 0 for item in analytics["trajectories"])
+
+    missing = client.get(
+        f"/api/cad/projects/{project_id}/simulation/live/unknown-session/analytics"
+    )
+    assert missing.status_code == 404
+
+    stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
+    assert stop.status_code == 200, stop.text

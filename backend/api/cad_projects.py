@@ -690,6 +690,17 @@ def update_live_simulation(project_id: str, session_id: str, payload: Simulation
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@router.get("/{project_id}/simulation/live/{session_id}/analytics")
+def get_live_simulation_analytics(project_id: str, session_id: str):
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+        return {"sessionId": session_id, "analytics": session.analytics().model_dump(mode="json")}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+
 @router.post("/{project_id}/simulation/live/{session_id}/stop")
 def stop_live_simulation(project_id: str, session_id: str):
     try:

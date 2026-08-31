@@ -207,11 +207,22 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const pendingTick = useRef(false);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSimulationSignature = useRef<string | null>(null);
-  const latestSessionId = useRef<string | null>(null);
+  /**
+   * The live session currently running on the backend, together with the
+   * project it belongs to.  Keeping the owning project alongside the id makes
+   * the cleanup below independent of the order in which the simulation store
+   * is reset when switching projects: a `liveSessionId` cleared while another
+   * project is selected can never erase the previous project's session.
+   */
+  const liveSession = useRef<{ projectId: string; sessionId: string } | null>(null);
 
   useEffect(() => {
-    latestSessionId.current = liveSessionId;
-  }, [liveSessionId]);
+    if (liveSessionId && projectId) {
+      liveSession.current = { projectId, sessionId: liveSessionId };
+    } else if (!liveSessionId && liveSession.current?.projectId === projectId) {
+      liveSession.current = null;
+    }
+  }, [liveSessionId, projectId]);
 
   // Persist the simulation config, but only once the in-memory config actually
   // belongs to the current project.  Right after a project switch the config
@@ -390,10 +401,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => () => {
     if (tickTimer.current) clearInterval(tickTimer.current);
     if (updateTimer.current) clearTimeout(updateTimer.current);
-    const sessionId = latestSessionId.current;
-    if (projectId && sessionId) {
-      latestSessionId.current = null;
-      void cadApi.stopLiveSimulation(projectId, sessionId).catch(console.error);
+    const session = liveSession.current;
+    if (session) {
+      liveSession.current = null;
+      void cadApi.stopLiveSimulation(session.projectId, session.sessionId).catch(console.error);
     }
   }, [projectId]);
 

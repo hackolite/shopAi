@@ -279,6 +279,9 @@ class Product(CADBaseModel):
     name: str
     brand: str
     category: str
+    subcategory: str | None = None
+    productRange: str | None = None
+    format: str | None = None
     widthCm: float
     depthCm: float
     heightCm: float

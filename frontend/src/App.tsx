@@ -19,6 +19,7 @@ import type { ImportFormat } from './components/ImportDialog';
 import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore } from './store/zoneStore';
 import { useProjectStore } from './store/projectStore';
+import { resetProjectStores } from './store/projectSwitch';
 import type { FurnitureInstance } from './types/cad';
 
 const DEFAULT_PROJECT = 'retail_cad';
@@ -50,16 +51,16 @@ export default function App() {
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
   const { setZones, selectedZoneId } = useZoneStore();
-  const resetZones = useZoneStore((state) => state.reset);
-  const resetScene = useSceneStore((state) => state.reset);
-  const resetPlanograms = usePlanogramStore((state) => state.reset);
-  const resetSimulation = useSimulationStore((state) => state.reset);
   const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
 
   // Tracks the project ID currently being loaded; used to discard stale
   // responses when the user switches projects before a load completes.
   const loadingProjectIdRef = useRef<string | null>(null);
+  // Mirrors `projectId` so `switchProject` can detect a real project change
+  // without depending on the state value (which would recreate the callback).
+  const projectIdRef = useRef<string>(projectId);
+  projectIdRef.current = projectId;
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const simulationHistoryLength = useSimulationStore((state) => state.history.length);
   const selectSimulationWaypoint = useSimulationStore((state) => state.selectWaypoint);
@@ -87,12 +88,7 @@ export default function App() {
     // project is in memory, which also disables the auto-save effects so the
     // previous project's scene/zones/waypoints can never be written into the
     // project being opened.
-    setLoadedProjectId(null);
-    resetScene();
-    resetZones();
-    resetPlanograms();
-    resetSimulation();
-    setProducts([]);
+    resetProjectStores();
 
     try {
       const [sceneData, catalog, planoData, meta, settings] = await Promise.all([
@@ -141,10 +137,6 @@ export default function App() {
     setZones,
     setSimulationConfig,
     setLoadedProjectId,
-    resetScene,
-    resetZones,
-    resetPlanograms,
-    resetSimulation,
   ]);
 
   // ── Boot: load default project ────────────────────────────────────────────
@@ -156,6 +148,12 @@ export default function App() {
   // ── Switch to a project ───────────────────────────────────────────────────
   const switchProject = useCallback((id: string) => {
     setActivePlanogramId(null);
+    // Wipe the previous project's state right away.  Waiting for the load
+    // effect means React first has to re-render the whole 3D scene, which can
+    // take a while on large projects: until then the old furniture, floor
+    // grids and simulation waypoints would stay visible (and editable) even
+    // though the toolbar already shows the newly selected project.
+    if (id !== projectIdRef.current) resetProjectStores();
     setProjectId(id);
   }, []);
 

@@ -497,19 +497,28 @@ function InstancedAgents({
 
 /** Cumulative occupancy heatmap, drawn flat on the store floor. */
 function HeatmapOverlay({ heatmap }: { heatmap: SimulationHeatmap }) {
+  // The counts grow on every analytics poll, but the grid dimensions rarely
+  // change: allocate the texture once per grid size and rewrite its pixels in
+  // place afterwards, instead of churning a new GPU texture every second.
   const texture = useMemo(() => {
     if (heatmap.cols <= 0 || heatmap.rows <= 0) return null;
     const dataTexture = new THREE.DataTexture(
-      buildHeatmapPixels(heatmap),
+      new Uint8Array(heatmap.cols * heatmap.rows * 4),
       heatmap.cols,
       heatmap.rows,
       THREE.RGBAFormat,
     );
     dataTexture.magFilter = THREE.LinearFilter;
     dataTexture.minFilter = THREE.LinearFilter;
-    dataTexture.needsUpdate = true;
     return dataTexture;
-  }, [heatmap]);
+  }, [heatmap.cols, heatmap.rows]);
+
+  useEffect(() => {
+    const pixels = texture?.image.data as Uint8Array | null | undefined;
+    if (!texture || !pixels) return;
+    pixels.set(buildHeatmapPixels(heatmap));
+    texture.needsUpdate = true;
+  }, [heatmap, texture]);
 
   useEffect(() => () => texture?.dispose(), [texture]);
 

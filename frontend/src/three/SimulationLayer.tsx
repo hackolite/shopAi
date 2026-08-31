@@ -3,10 +3,12 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { buildHeatmapPixels } from '../engine/heatmap';
 import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { useUIStore } from '../store/uiStore';
+import type { AgentTrajectory, SimulationHeatmap } from '../types/cad';
 
 const WAYPOINT_CONE_BASE_Y = 0.95;
 const WAYPOINT_RING_Y = 0.02;
@@ -16,6 +18,10 @@ const SUGGESTED_MARKER_RADIUS_CM = 35;
 const SUGGESTED_MARKER_INNER_RADIUS_CM = 20;
 const SUGGESTED_MARKER_CROSS_HALF_CM = 18;
 const SUGGESTED_MARKER_SEGMENTS = 40;
+const HEATMAP_Y = 0.012;
+const TRAJECTORY_Y = 0.03;
+const TRAJECTORY_ACTIVE_OPACITY = 0.85;
+const TRAJECTORY_PAST_OPACITY = 0.35;
 
 function clampCm(value: number, min: number, max: number): number {
   const rounded = Math.round(value);
@@ -489,6 +495,76 @@ function InstancedAgents({
   );
 }
 
+/** Cumulative occupancy heatmap, drawn flat on the store floor. */
+function HeatmapOverlay({ heatmap }: { heatmap: SimulationHeatmap }) {
+  const texture = useMemo(() => {
+    if (heatmap.cols <= 0 || heatmap.rows <= 0) return null;
+    const dataTexture = new THREE.DataTexture(
+      buildHeatmapPixels(heatmap),
+      heatmap.cols,
+      heatmap.rows,
+      THREE.RGBAFormat,
+    );
+    dataTexture.magFilter = THREE.LinearFilter;
+    dataTexture.minFilter = THREE.LinearFilter;
+    dataTexture.needsUpdate = true;
+    return dataTexture;
+  }, [heatmap]);
+
+  useEffect(() => () => texture?.dispose(), [texture]);
+
+  if (!texture) return null;
+
+  const width = heatmap.cols * heatmap.cellSizeCm * CM_TO_UNIT;
+  const depth = heatmap.rows * heatmap.cellSizeCm * CM_TO_UNIT;
+  const centerX = heatmap.originXCm * CM_TO_UNIT + width / 2;
+  const centerZ = heatmap.originZCm * CM_TO_UNIT + depth / 2;
+
+  return (
+    <mesh position={[centerX, HEATMAP_Y, centerZ]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={900}>
+      <planeGeometry args={[width, depth]} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+    </mesh>
+  );
+}
+
+/** Polylines showing the path each agent followed through the store. */
+function TrajectoryOverlay({ trajectories }: { trajectories: AgentTrajectory[] }) {
+  const lines = useMemo(
+    () =>
+      trajectories
+        .map((trajectory) => {
+          const points: [number, number, number][] = [];
+          for (let index = 0; index + 1 < trajectory.pointsCm.length; index += 2) {
+            points.push([
+              trajectory.pointsCm[index] * CM_TO_UNIT,
+              TRAJECTORY_Y,
+              trajectory.pointsCm[index + 1] * CM_TO_UNIT,
+            ]);
+          }
+          return { trajectory, points };
+        })
+        .filter((item) => item.points.length >= 2),
+    [trajectories],
+  );
+
+  return (
+    <>
+      {lines.map(({ trajectory, points }) => (
+        <Line
+          key={trajectory.agentId}
+          points={points}
+          color={AGENT_PALETTE[trajectory.agentId % AGENT_PALETTE.length][1]}
+          lineWidth={trajectory.active ? 2 : 1.2}
+          transparent
+          opacity={trajectory.active ? TRAJECTORY_ACTIVE_OPACITY : TRAJECTORY_PAST_OPACITY}
+          depthWrite={false}
+        />
+      ))}
+    </>
+  );
+}
+
 function SuggestedWaypointMarker({
   xCm,
   zCm,
@@ -533,6 +609,9 @@ export function SimulationLayer() {
   const result = useSimulationStore((state) => state.result);
   const playing = useSimulationStore((state) => state.playing);
   const paused = useSimulationStore((state) => state.paused);
+  const analytics = useSimulationStore((state) => state.analytics);
+  const showHeatmap = useSimulationStore((state) => state.showHeatmap);
+  const showTrajectories = useSimulationStore((state) => state.showTrajectories);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
@@ -797,6 +876,10 @@ export function SimulationLayer() {
           maxZCm={maxZCm}
         />
       ))}
+      {showHeatmap && analytics?.heatmap && <HeatmapOverlay heatmap={analytics.heatmap} />}
+      {showTrajectories && analytics && analytics.trajectories.length > 0 && (
+        <TrajectoryOverlay trajectories={analytics.trajectories} />
+      )}
       {useInstancedAgents ? (
         <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
       ) : (

@@ -1,7 +1,19 @@
 import { create } from 'zustand';
-import type { SimulationConfig, SimulationResult, SimulationWaypoint } from '../types/cad';
+import type {
+  SimulationAnalytics,
+  SimulationConfig,
+  SimulationResult,
+  SimulationWaypoint,
+} from '../types/cad';
 
 const MAX_HISTORY = 50;
+
+/** Radius (cm) given to every newly created waypoint. */
+export const DEFAULT_WAYPOINT_RADIUS_CM = 120;
+
+/** Fallback position (cm) used when the store geometry is unknown. */
+const DEFAULT_WAYPOINT_X_CM = 200;
+const DEFAULT_WAYPOINT_Z_CM = 200;
 
 function normalizeWaypoint(waypoint: SimulationWaypoint): SimulationWaypoint {
   return {
@@ -32,6 +44,9 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
 interface SimulationState {
   config: SimulationConfig;
   result: SimulationResult | null;
+  analytics: SimulationAnalytics | null;
+  showHeatmap: boolean;
+  showTrajectories: boolean;
   running: boolean;
   playing: boolean;
   paused: boolean;
@@ -42,12 +57,15 @@ interface SimulationState {
   history: SimulationConfig[];
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
-  addWaypoint: (type?: SimulationWaypoint['type']) => void;
+  addWaypoint: (type?: SimulationWaypoint['type'], position?: { x: number; z: number }) => void;
   updateWaypoint: (id: string, patch: Partial<SimulationWaypoint>, options?: { recordHistory?: boolean }) => void;
   removeWaypoint: (id: string) => void;
   selectWaypoint: (id: string | null) => void;
   undo: () => void;
   setResult: (result: SimulationResult | null) => void;
+  setAnalytics: (analytics: SimulationAnalytics | null) => void;
+  setShowHeatmap: (showHeatmap: boolean) => void;
+  setShowTrajectories: (showTrajectories: boolean) => void;
   setRunning: (running: boolean) => void;
   setPlaying: (playing: boolean) => void;
   setPaused: (paused: boolean) => void;
@@ -61,6 +79,9 @@ interface SimulationState {
 export const useSimulationStore = create<SimulationState>((set) => ({
   config: defaultSimulationConfig(),
   result: null,
+  analytics: null,
+  showHeatmap: false,
+  showTrajectories: false,
   running: false,
   playing: false,
   paused: false,
@@ -73,6 +94,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     set({
       config: normalizeConfig(config),
       result: null,
+      analytics: null,
       playing: false,
       paused: false,
       liveSessionId: null,
@@ -88,7 +110,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
     })),
-  addWaypoint: (type = 'transit') =>
+  addWaypoint: (type = 'transit', position) =>
     set((state) => {
       const indexForType = state.config.waypoints.filter((waypoint) => waypoint.type === type).length + 1;
       const waypoint: SimulationWaypoint = {
@@ -100,9 +122,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
               ? `Sortie ${indexForType}`
               : `Point ${indexForType}`,
         type,
-        x: 2500,
-        z: type === 'entry' ? 300 : type === 'exit' ? 2700 : 1500,
-        radiusCm: 120,
+        // New waypoints always appear at the bottom-left corner of the grid so
+        // they are immediately visible next to the store origin.
+        x: position?.x ?? DEFAULT_WAYPOINT_X_CM,
+        z: position?.z ?? DEFAULT_WAYPOINT_Z_CM,
+        radiusCm: DEFAULT_WAYPOINT_RADIUS_CM,
         optional: false,
         visitProbability: 0.65,
         retentionSeconds: 0,
@@ -160,6 +184,9 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       };
     }),
   setResult: (result) => set({ result, invalidWaypointIds: [], invalidWaypointSuggestion: null }),
+  setAnalytics: (analytics) => set({ analytics }),
+  setShowHeatmap: (showHeatmap) => set({ showHeatmap }),
+  setShowTrajectories: (showTrajectories) => set({ showTrajectories }),
   setRunning: (running) => set({ running }),
   setPlaying: (playing) => set({ playing }),
   setPaused: (paused) => set({ paused }),
@@ -170,6 +197,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     set({
       config: defaultSimulationConfig(),
       result: null,
+      analytics: null,
       running: false,
       playing: false,
       paused: false,

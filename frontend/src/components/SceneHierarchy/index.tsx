@@ -4,6 +4,7 @@ import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
+import { bottomLeftFurniturePosition } from '../../engine/placement';
 import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram, PlanogramCell } from '../../types/cad';
 
 const FURNITURE_EMOJI: Record<string, string> = {
@@ -197,7 +198,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
       name:       def.name,
       type:       def.type,
       libraryId:  def.id,
-      position:   [200, 0, 200],
+      position:   bottomLeftFurniturePosition(scene.store, def.defaultDimensions),
       rotation:   [0, 0, 0],
       dimensions: { ...def.defaultDimensions },
       materialId: def.defaultMaterial,

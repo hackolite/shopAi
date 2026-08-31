@@ -8,16 +8,23 @@ import {
   hasDistinctConstraintSuggestion,
   pickClosestWaypointId,
 } from '../../engine/simulationConstraint';
+import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
-import { useSimulationStore } from '../../store/simulationStore';
+import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
-import type { SimulationConfig, SimulationWaypoint } from '../../types/cad';
+import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
 
 interface SimulationPanelProps {
   projectId: string | null;
 }
 
 const LIVE_TICK_INTERVAL_MS = 100;
+/** Heatmap and trajectories change slowly: refresh them far less often than agents. */
+const ANALYTICS_INTERVAL_MS = 1000;
+
+function formatSeconds(value: number): string {
+  return `${value.toFixed(1)} s`;
+}
 
 function NumberField({
   label,
@@ -200,12 +207,19 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setInvalidWaypointSuggestion,
     selectWaypoint,
     invalidWaypointIds,
+    setAnalytics,
+    showHeatmap,
+    setShowHeatmap,
+    showTrajectories,
+    setShowTrajectories,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingTick = useRef(false);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const analyticsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingAnalytics = useRef(false);
   const lastSimulationSignature = useRef<string | null>(null);
   /**
    * The live session currently running on the backend, together with the
@@ -254,6 +268,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
+  // New waypoints are dropped at the bottom-left corner of the grid so they are
+  // always visible right where the store starts.
+  const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);
+  const queueMetrics: WaypointMetrics[] = (result?.waypoints ?? []).filter(
+    (metrics) => metrics.retentionSeconds > 0,
+  );
 
   const runSimulation = useCallback(async () => {
     if (!projectId || !scene) return;
@@ -333,7 +353,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       clearTimeout(updateTimer.current);
       updateTimer.current = null;
     }
+    if (analyticsTimer.current) {
+      clearInterval(analyticsTimer.current);
+      analyticsTimer.current = null;
+    }
     pendingTick.current = false;
+    pendingAnalytics.current = false;
+    setAnalytics(null);
     if (projectId && liveSessionId) {
       await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
     }
@@ -342,7 +368,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setLiveSessionId(null);
     setResult(null);
     lastSimulationSignature.current = null;
-  }, [liveSessionId, projectId, setLiveSessionId, setPaused, setPlaying, setResult]);
+  }, [liveSessionId, projectId, setAnalytics, setLiveSessionId, setPaused, setPlaying, setResult]);
 
   const pauseSimulation = useCallback(async () => {
     if (!projectId || !liveSessionId) return;
@@ -405,6 +431,55 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     };
   }, [handleLostSession, isStale, liveSessionId, loadedProjectId, paused, playing, projectId, setPaused, setResult]);
 
+  // Heatmap and trajectories are only fetched while one of the overlays is on,
+  // and at a much lower rate than the agent ticks: their payload is far bigger
+  // and they evolve slowly.
+  useEffect(() => {
+    if (!projectId || loadedProjectId !== projectId) return;
+    if (!liveSessionId || !playing) return;
+    if (!showHeatmap && !showTrajectories) {
+      setAnalytics(null);
+      return;
+    }
+    const fetchAnalytics = () => {
+      if (isStale(projectId) || pendingAnalytics.current) return;
+      pendingAnalytics.current = true;
+      void cadApi
+        .getLiveSimulationAnalytics(projectId, liveSessionId)
+        .then((payload) => {
+          if (isStale(projectId)) return;
+          setAnalytics(payload.analytics);
+        })
+        .catch((error) => {
+          if (isStale(projectId)) return;
+          console.error('Failed to fetch simulation analytics:', error);
+          if (isSessionNotFoundError(error)) handleLostSession();
+        })
+        .finally(() => {
+          pendingAnalytics.current = false;
+        });
+    };
+    fetchAnalytics();
+    if (analyticsTimer.current) clearInterval(analyticsTimer.current);
+    analyticsTimer.current = setInterval(fetchAnalytics, ANALYTICS_INTERVAL_MS);
+    return () => {
+      if (analyticsTimer.current) {
+        clearInterval(analyticsTimer.current);
+        analyticsTimer.current = null;
+      }
+    };
+  }, [
+    handleLostSession,
+    isStale,
+    liveSessionId,
+    loadedProjectId,
+    playing,
+    projectId,
+    setAnalytics,
+    showHeatmap,
+    showTrajectories,
+  ]);
+
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
     const signature = snapshotSimulationInput(scene, config);
@@ -440,6 +515,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => () => {
     if (tickTimer.current) clearInterval(tickTimer.current);
     if (updateTimer.current) clearTimeout(updateTimer.current);
+    if (analyticsTimer.current) clearInterval(analyticsTimer.current);
     const session = liveSession.current;
     if (session) {
       liveSession.current = null;
@@ -544,19 +620,19 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Points de passage</h4>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => addWaypoint('entry')}
+                onClick={() => addWaypoint('entry', newWaypointPosition)}
                 className="rounded bg-gray-800 px-2 py-1 text-xs text-emerald-300 hover:bg-gray-700"
               >
                 + Entrée
               </button>
               <button
-                onClick={() => addWaypoint('transit')}
+                onClick={() => addWaypoint('transit', newWaypointPosition)}
                 className="rounded bg-gray-800 px-2 py-1 text-xs text-blue-300 hover:bg-gray-700"
               >
                 + Transit
               </button>
               <button
-                onClick={() => addWaypoint('exit')}
+                onClick={() => addWaypoint('exit', newWaypointPosition)}
                 className="rounded bg-gray-800 px-2 py-1 text-xs text-orange-300 hover:bg-gray-700"
               >
                 + Sortie
@@ -587,6 +663,50 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             )}
           </div>
         </section>
+
+        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Analyse spatiale</h4>
+          <label className="flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Heatmap de fréquentation</span>
+            <input
+              type="checkbox"
+              checked={showHeatmap}
+              onChange={(event) => setShowHeatmap(event.target.checked)}
+              className="accent-blue-500"
+            />
+          </label>
+          <label className="flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Trajectoires des agents</span>
+            <input
+              type="checkbox"
+              checked={showTrajectories}
+              onChange={(event) => setShowTrajectories(event.target.checked)}
+              className="accent-blue-500"
+            />
+          </label>
+          <p className="text-xs text-gray-600">
+            Les couches s'affichent dans la vue 3D pendant la simulation.
+          </p>
+        </section>
+
+        {queueMetrics.length > 0 && (
+          <section className="space-y-2 rounded border border-sky-800/40 bg-sky-950/20 p-3 text-xs text-sky-100">
+            <h4 className="font-semibold uppercase tracking-wider text-sky-300">Temps d'attente par point</h4>
+            {queueMetrics.map((metrics) => (
+              <div key={metrics.waypointId} className="space-y-1 rounded border border-sky-900/60 bg-sky-950/30 p-2">
+                <div className="flex items-center justify-between font-semibold">
+                  <span>{metrics.waypointLabel}</span>
+                  <span className="text-sky-300">rétention {formatSeconds(metrics.retentionSeconds)}</span>
+                </div>
+                <div className="flex justify-between"><span>Attente moyenne</span><span>{formatSeconds(metrics.averageWaitSeconds)}</span></div>
+                <div className="flex justify-between"><span>Attente max</span><span>{formatSeconds(metrics.maxWaitSeconds)}</span></div>
+                <div className="flex justify-between"><span>En file</span><span>{metrics.queuedAgents}</span></div>
+                <div className="flex justify-between"><span>Attente en cours (max)</span><span>{formatSeconds(metrics.currentMaxWaitSeconds)}</span></div>
+                <div className="flex justify-between"><span>Clients servis</span><span>{metrics.completedWaits}</span></div>
+              </div>
+            ))}
+          </section>
+        )}
 
         {selectedSummary && (
           <section className="space-y-2 rounded border border-emerald-800/40 bg-emerald-950/20 p-3 text-xs text-emerald-100">

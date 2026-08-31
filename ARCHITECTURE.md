@@ -153,11 +153,12 @@ Résultat : ajouter/supprimer une colonne ne déplace jamais le contenu existant
 
 ## Roadmap architecturale
 
+Le moteur analytique de flux (heatmap d'occupation, trajectoires, temps d'attente par point de rétention) est implémenté dans `backend/services/flow_analytics.py` et exposé par l'endpoint `simulation/live/{session_id}/analytics`.
+
 Les modules suivants sont préparés dans l'architecture mais non encore implémentés :
 
 | Module | Statut |
 |--------|--------|
-| Moteur analytique (heatmaps, trafic) | 🔲 Stub |
 | Vision par ordinateur (conformité planogramme) | 🔲 Stub |
 | Assistant LLM / RAG planogramme | 🔲 Stub |
 | Intégration ventes / marges / stocks | 🔲 Stub |

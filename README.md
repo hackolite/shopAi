@@ -25,6 +25,7 @@ shopAi/
 │   │   ├── ean_search.py             # EAN lookup + analytics
 │   │   ├── simulation.py             # Batch simulation engine (waypoints, pathfinding, heatmaps)
 │   │   ├── live_simulation.py        # Live real-time simulation sessions (start/tick/pause/resume/stop)
+│   │   ├── flow_analytics.py         # Occupancy heatmap + agent trajectories recorder
 │   │   ├── gondola_adapter.py        # Converts gondola geometry for simulation obstacles
 │   │   └── retail_layout.py          # Retail-specific layout helpers
 │   ├── storage/
@@ -276,12 +277,14 @@ The simulation engine models customer foot traffic inside the store using an age
 | `POST /{project_id}/simulation/live/{session_id}/pause` | Pause session |
 | `POST /{project_id}/simulation/live/{session_id}/resume` | Resume session |
 | `POST /{project_id}/simulation/live/{session_id}/update` | Hot-update waypoint config |
+| `GET /{project_id}/simulation/live/{session_id}/analytics` | Cumulative occupancy heatmap + agent trajectories |
 | `POST /{project_id}/simulation/live/{session_id}/stop` | Stop and discard session |
 
 ### Frontend Simulation Features
 
-- **SimulationPanel**: waypoint placement, live controls (play/pause/stop), agent-count display
-- **SimulationLayer**: instanced rendering of 40+ agents at 100 ms tick, 220 ms render buffer, 200 ms extrapolation cap
+- **SimulationPanel**: waypoint placement, live controls (play/pause/stop), agent-count display, heatmap/trajectory toggles, per-waypoint queue waiting times (average, max, live)
+- **SimulationLayer**: instanced rendering of 40+ agents at 100 ms tick, 220 ms render buffer, 200 ms extrapolation cap, floor heatmap and agent trajectory overlays (analytics polled every second)
+- **New object placement**: furniture and waypoints created from the panels appear at the bottom-left corner of the store grid
 - **Undo history**: simulation waypoint edits have their own undo stack (Ctrl/Cmd+Z in simulation context)
 - **Video recording**: on-screen labels use `TextSprite3D` (WebGL sprite) so they appear in `canvas.captureStream()` recordings
 

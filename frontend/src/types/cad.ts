@@ -123,6 +123,40 @@ export interface WaypointMetrics {
   maxActiveAgents: number;
   releasedAgents: number;
   samples: WaypointSample[];
+  /** Agents currently waiting in the retention queue of this waypoint. */
+  queuedAgents: number;
+  /** Number of agents that already left the queue. */
+  completedWaits: number;
+  /** Average time (s) an agent stayed in this queue. */
+  averageWaitSeconds: number;
+  /** Longest time (s) an agent stayed in this queue. */
+  maxWaitSeconds: number;
+  /** Time (s) already spent queueing by the agent waiting the longest right now. */
+  currentMaxWaitSeconds: number;
+}
+
+export interface SimulationHeatmap {
+  cellSizeCm: number;
+  originXCm: number;
+  originZCm: number;
+  cols: number;
+  rows: number;
+  maxCount: number;
+  /** Row-major occupancy counts (row = Z axis, col = X axis). */
+  counts: number[];
+}
+
+export interface AgentTrajectory {
+  agentId: number;
+  active: boolean;
+  /** Flat [x0, z0, x1, z1, …] polyline in cm. */
+  pointsCm: number[];
+}
+
+export interface SimulationAnalytics {
+  timeSeconds: number;
+  heatmap: SimulationHeatmap | null;
+  trajectories: AgentTrajectory[];
 }
 
 export interface SimulationFrame {
@@ -143,6 +177,7 @@ export interface SimulationResult {
   frames: SimulationFrame[];
   waypoints: WaypointMetrics[];
   summary: SimulationSummary;
+  analytics?: SimulationAnalytics | null;
 }
 
 export interface LiveSimulationResponse {

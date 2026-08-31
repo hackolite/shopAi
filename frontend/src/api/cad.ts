@@ -9,6 +9,7 @@ import type {
   ProjectMeta,
   ProjectSettings,
   Scene,
+  SimulationAnalytics,
   SimulationConfig,
   LiveSimulationResponse,
   SimulationResult,
@@ -218,6 +219,10 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ scene, config }),
     }),
+  getLiveSimulationAnalytics: (id: string, sessionId: string) =>
+    request<{ sessionId: string; analytics: SimulationAnalytics }>(
+      `${BASE}/${id}/simulation/live/${sessionId}/analytics`,
+    ),
   stopLiveSimulation: (id: string, sessionId: string) =>
     request<{ stopped: boolean; sessionId: string }>(`${BASE}/${id}/simulation/live/${sessionId}/stop`, {
       method: 'POST',

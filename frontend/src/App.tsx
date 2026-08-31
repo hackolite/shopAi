@@ -589,9 +589,15 @@ export default function App() {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            {rightTab === 'simulation' ? (
+            {/* SimulationPanel stays mounted on both tabs (hidden via CSS on the
+                Inspector tab): it drives the live-simulation tick loop and its
+                unmount cleanup stops the backend session, so unmounting it here
+                (e.g. to inspect a selected product) froze the simulation and the
+                agents could never restart. */}
+            <div className={rightTab === 'simulation' ? 'h-full' : 'hidden'}>
               <SimulationPanel projectId={projectId} />
-            ) : (
+            </div>
+            {rightTab === 'inspector' && (
               <Inspector
                 projectId={projectId}
                 onOpenPlanogram={openPlanogram}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { cadApi } from '../../api/cad';
+import { isSessionNotFoundError } from '../../engine/liveSession';
 import {
   extractConstraintCorrection,
   extractConstraintPoint,
@@ -316,6 +317,16 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setPaused(false);
   }, [liveSessionId, projectId, setPaused, setResult]);
 
+  // The backend session can disappear while the client still holds its id
+  // (server restart, idle reaping…). Reset the playback state so the UI shows
+  // the launch button again instead of endlessly ticking a dead session.
+  const handleLostSession = useCallback(() => {
+    setPlaying(false);
+    setPaused(false);
+    setLiveSessionId(null);
+    lastSimulationSignature.current = null;
+  }, [setLiveSessionId, setPaused, setPlaying]);
+
   useEffect(() => {
     if (!projectId || !liveSessionId || !playing || paused) return;
     pendingTick.current = false;
@@ -331,6 +342,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         })
         .catch((error) => {
           console.error('Failed to tick live simulation:', error);
+          if (isSessionNotFoundError(error)) handleLostSession();
         })
         .finally(() => {
           pendingTick.current = false;
@@ -342,7 +354,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         tickTimer.current = null;
       }
     };
-  }, [liveSessionId, paused, playing, projectId, setPaused, setResult]);
+  }, [handleLostSession, liveSessionId, paused, playing, projectId, setPaused, setResult]);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
@@ -363,12 +375,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         })
         .catch((error) => {
           console.error('Failed to hot-update live simulation:', error);
+          if (isSessionNotFoundError(error)) handleLostSession();
         });
     }, 200);
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [config, liveSessionId, playing, projectId, scene, setPaused, setResult]);
+  }, [config, handleLostSession, liveSessionId, playing, projectId, scene, setPaused, setResult]);
 
   useEffect(() => () => {
     if (tickTimer.current) clearInterval(tickTimer.current);

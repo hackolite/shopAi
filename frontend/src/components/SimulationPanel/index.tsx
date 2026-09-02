@@ -440,8 +440,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (!projectId || loadedProjectId !== projectId) return;
     if (!liveSessionId || !playing) return;
     // The margin heatmap is computed client-side from the assortment: it needs
-    // no analytics payload.
-    if ((!showHeatmap || heatmapMode !== 'traffic') && !showTrajectories) {
+    // no analytics payload.  The yield heatmap does, since it weights the margin
+    // by the measured client density.
+    const heatmapNeedsAnalytics = heatmapMode === 'traffic' || heatmapMode === 'yield';
+    if ((!showHeatmap || !heatmapNeedsAnalytics) && !showTrajectories) {
       setAnalytics(null);
       return;
     }
@@ -690,8 +692,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               >
                 <option value="traffic">Fréquentation</option>
                 <option value="margin">Marge (€)</option>
+                <option value="yield">Rendement au m² (marge × densité client)</option>
               </select>
             </label>
+          )}
+          {showHeatmap && heatmapMode === 'yield' && (
+            <p className="text-xs text-gray-600">
+              Produit de la marge exposée et de la densité client mesurée sur chaque cellule :
+              met en évidence le rendement au m². Nécessite une simulation en cours.
+            </p>
           )}
           {showHeatmap && heatmapMode === 'margin' && (
             <p className="text-xs text-gray-600">

@@ -42,7 +42,7 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
 });
 
 /** Floor heatmap intensity source. */
-export type HeatmapMode = 'traffic' | 'margin';
+export type HeatmapMode = 'traffic' | 'margin' | 'yield';
 
 interface SimulationState {
   config: SimulationConfig;

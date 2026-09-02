@@ -177,11 +177,32 @@ facings comme dans un hypermarché classique.
 | Presse et dépannage | 19 |
 | **Total** | **2 800** |
 
-`planograms.json` contient 50 planogrammes (une entrée par face de
-mobilier utilisée + 6 têtes de gondole) pour un total de 3 498 cellules
+`planograms.json` contient 52 planogrammes (une entrée par face de
+mobilier utilisée + 6 têtes de gondole) pour un total de 3 818 cellules
 (2 800 facings « catalogue », une par référence, + 144 facings promo en
-tête de gondole, + 554 facings de complément ajoutés lors du remplissage
+tête de gondole, + les facings de complément ajoutés lors du remplissage
 des trous, cf. §5).
+
+### 6.1 Correctifs d'implantation (révision aéroport)
+
+- **Palette promo Snacking** : les faces `left` / `right` étaient
+  déclarées à 120 cm alors que la face latérale d'une palette fait la
+  profondeur du meuble, soit 80 cm — le planogramme débordait donc du
+  mobilier. Les quatre faces ont été redimensionnées à la bonne largeur
+  (120 cm pour `front` / `back`, 80 cm pour `left` / `right`) et
+  ré-implantées sur **6 niveaux** au lieu de 5 : le linéaire perdu sur
+  les côtés est intégralement récupéré par le niveau supplémentaire
+  (2 × 120 × 6 + 2 × 80 × 6 = 2 400 cm, identique au linéaire déclaré
+  auparavant), ce qui permet de conserver les 2 800 / 2 800 références.
+- **Run boissons** : `Gondole Boissons 4 – back` (1 niveau garni) et
+  `Gondole Boissons 6 – front` (2 niveaux garnis) ont été ré-implantés
+  sur 6 niveaux, et les faces `back` manquantes de `Gondole Boissons 5`
+  et `Gondole Boissons 6` ont été créées (dégagement vérifié à 140 cm).
+  Convention du run : `front` = catégorie *Boissons* (eaux, sodas, jus,
+  café/thé), `back` = *Vins, bières et spiritueux*.
+- **Anti-doublon de module** : une référence n'est pas répétée sur deux
+  faces du même meuble tant qu'une autre référence de la catégorie peut
+  prendre l'emplacement.
 
 **Aucun emplacement de planogramme n'est vide** : chaque rangée est
 garnie jusqu'à saturation de sa largeur réelle, puis raccourcie via

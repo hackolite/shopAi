@@ -298,6 +298,71 @@ The simulation engine models customer foot traffic inside the store using an age
 
 ---
 
+## Metrics
+
+All metrics are raw (non-normalised) unless the table says otherwise: they keep
+their physical unit so two projects, two furniture units or two runs can be
+compared in absolute terms.
+
+### Assortment metrics (`frontend/src/engine/assortmentMetrics.ts`)
+
+Shown in the **Inspector**: per furniture unit (section *Implantation*) and for
+the whole project (bottom panel when nothing is selected).
+
+| Metric | Definition | Unit |
+|--------|-----------|------|
+| **Produits différents** | Number of **distinct EANs** carried by the selected scope. A reference facing-ed 5 times counts once. | references |
+| **Facings implantés** | Total number of planogram cells, i.e. the number of product fronts physically visible. | facings |
+| **Facings / produit** | `facings / distinctProducts` — average depth of exposure of a reference. Close to 1 = very wide, very shallow assortment (convenience store); > 2 = mass-merchandised assortment. | facings/ref |
+| **Planogrammes remplis** | `filledPlanograms / planograms` — a planogram counts as filled as soon as it carries at least one facing. Detects faces of furniture left empty. | count / count |
+| **Couverture catalogue** | `distinctProducts / catalogue size` — share of the catalogue actually implanted in the store. | % |
+
+The reference project `carrefour_express_aeroport` is validated at **2 800 /
+2 800** references implanted, 52 planograms, 3 818 facings.
+
+### Simulation metrics
+
+Per waypoint (`WaypointMetrics`, backend `services/simulation.py`):
+
+| Metric | Definition | Unit |
+|--------|-----------|------|
+| `releasedAgents` | Cumulative number of agents that have **passed through** the waypoint. Counted by `WaypointPassageTracker`, which credits a waypoint when an agent stops targeting it — so it is populated for `entry`, `transit` **and** `exit`, not only for queueing waypoints. | agents |
+| **Débit** (`engine/waypointThroughput.ts`) | `Δ releasedAgents / Δt` between two samples, plus current and peak value over the window. Displayed in the checkout charts overlay. | agents/s |
+| `maxActiveAgents` | Peak simultaneous occupancy of the waypoint. | agents |
+| `queuedAgents` / `completedWaits` | Agents that entered / finished the queue of a retention waypoint. | agents |
+| `averageWaitSeconds`, `maxWaitSeconds`, `currentMaxWaitSeconds` | Queue waiting time: mean, all-time peak, live peak. | s |
+
+Run-level (`SimulationSummary`): `spawnedCustomers`, `completedCustomers`,
+`activeCustomers`, `averageWaypointLoad`, `maxWaypointLoad`,
+`averageConfiguredRetentionSeconds`.
+
+Grids (`SimulationAnalytics`, polled every second while an overlay is on):
+
+| Grid | Definition | Unit |
+|------|-----------|------|
+| `heatmap` | Cumulated **agent samples** per cell — a proxy for dwell time (a standing agent keeps adding samples). | samples |
+| `visitHeatmap` | Cumulated **agent entries** per cell (one count per entry, whatever the dwell). Divided by `timeSeconds` it gives an absolute flow. | persons/s |
+| `marginHeatmap` (`engine/marginHeatmap.ts`) | Client-side: each planogram column radiates its cumulated facing margin onto the aisle slice in front of it. No running session needed. | € |
+| `yieldHeatmap` (`engine/yieldHeatmap.ts`) | **Normalised** margin × traffic index, for relative colouring only. | 0–1 |
+| `absoluteYield` (`engine/absoluteYield.ts`) | Raw margin × traffic: € per facing × persons/s. Never normalise it. | €/s |
+
+### Proposed metrics (not implemented yet)
+
+| Metric | Definition | Why it matters |
+|--------|-----------|----------------|
+| **Linéaire développé** | Σ (row width × number of levels) per furniture unit / category, in metres. | The reference unit of category management; makes *share of linear* possible. |
+| **Part de linéaire par catégorie** | Category linear / total linear, compared with its share of margin or of sales. | Detects over- and under-spaced categories (space-to-sales index). |
+| **Densité de marge au mètre linéaire** | Σ facing margin / linear metres of the face. | Ranks furniture units by profitability of the space they occupy, not by sales. |
+| **GMROS** (margin per m² of floor) | Cumulated margin / floor footprint of the furniture (width × depth). | Arbitrates between a gondola and an island for the same floor area. |
+| **Indice d'accessibilité / hauteur de prise** | Share of facings within the 80–140 cm grab zone, weighted by rotation index. | Checks that best sellers really sit at eye/hand level. |
+| **Taux de conversion trafic → marge** | Absolute yield (€/s) / local flow (persons/s) in front of the face. | Isolates faces with heavy traffic but poor monetisation. |
+| **Temps d'exposition par meuble** | Cumulated dwell time (from `heatmap`) of the cells facing the furniture unit. | Turns dwell into a per-furniture KPI instead of a per-cell one. |
+| **Taux de rupture simulé** | Facings whose stock (facing × depth capacity) is exhausted before the end of the run, given the rotation index. | Anticipates replenishment frequency per shelf. |
+| **Duplication d'assortiment** | Share of references present on several faces of the same run. | Measures cannibalisation of linear by duplicates. |
+| **Indice de congestion** | Time share where the local density exceeds a comfort threshold (persons/m²). | Locates bottlenecks not visible on a cumulative heatmap. |
+
+---
+
 ## Quick Start
 
 ### Prerequisites
@@ -363,6 +428,14 @@ The app loads the **retail_cad** demo project automatically (50 m × 30 m store,
 ### Inspector Panel (right)
 - Select furniture → edit position (cm), dimensions, rotation
 - Click a face badge → open its planogram editor
+- *Implantation* section: distinct products, facings and facings per product for
+  the selected furniture unit; with nothing selected the panel shows the same
+  metrics for the whole project plus catalogue coverage (see [Metrics](#metrics))
+- A face badge marked `DÉBORD` means the planogram is larger than the face it is
+  mapped on. **Ajuster** (per face) or **Ajuster au meuble** (all faces) resizes
+  it with `engine/planogramFit.ts`: facings keep their real width, only the
+  columns/rows that no longer fit are de-listed (a single facing wider than the
+  face is scaled down as a last resort)
 - Changes auto-save every 500 ms
 
 ---

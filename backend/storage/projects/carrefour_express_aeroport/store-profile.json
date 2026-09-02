@@ -1,7 +1,7 @@
 {
   "enseigne": "Carrefour Express",
-  "surfaceTotaleM2": 400,
-  "surfaceVenteM2": 340,
+  "surfaceTotaleM2": 120,
+  "surfaceVenteM2": 120,
   "contexteLieu": "aeroport",
   "format": "proximite",
   "modificateursContexte": {

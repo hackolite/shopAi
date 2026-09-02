@@ -39,7 +39,6 @@ function getFurnitureColor(type: string) {
 const ZONE_FILL: Record<string, string> = {
   entrance: '#22C55E',
   exit:     '#F97316',
-  reserve:  '#64748B',
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {
   "store": {
-    "id": "537fdc27-d197-4c9c-a1ba-3f11bb594f5a",
-    "name": "Carrefour Express Aéroport 400 m²",
+    "id": "8e1bf233-5ed8-49a7-885b-4ec7658dba5d",
+    "name": "Carrefour Express Aéroport 120 m²",
     "position": [
       0.0,
       0.0,
@@ -13,27 +13,27 @@
       0.0
     ],
     "dimensions": {
-      "depth": 2000.0,
-      "width": 2000.0,
-      "height": 400.0
+      "width": 1200.0,
+      "depth": 1000.0,
+      "height": 350.0
     },
     "walls": [
       {
-        "id": "7be2f986-a4df-4ed9-bb16-a06268afbb56",
+        "id": "907c80d3-6b97-47fd-9aed-b0daee0e7503",
         "name": "Mur arrière",
         "position": [
-          1000.0,
+          600.0,
           150.0,
-          1990.0
+          990.0
         ],
         "rotation": [
-          0.0,
-          0.0,
-          0.0
+          0,
+          0,
+          0
         ],
         "dimensions": {
           "depth": 20.0,
-          "width": 2000.0,
+          "width": 1200.0,
           "height": 300.0
         },
         "materialId": "solid_blue",
@@ -41,21 +41,21 @@
         "locked": false
       },
       {
-        "id": "0a11376f-10e0-4865-9af1-b9f49f700af0",
+        "id": "c48f8ef1-07e3-467c-8622-931e282eab17",
         "name": "Mur gauche",
         "position": [
           10.0,
           150.0,
-          1000.0
+          500.0
         ],
         "rotation": [
-          0.0,
-          0.0,
-          0.0
+          0,
+          0,
+          0
         ],
         "dimensions": {
           "depth": 20.0,
-          "width": 2000.0,
+          "width": 1000.0,
           "height": 300.0
         },
         "materialId": "solid_blue",
@@ -63,21 +63,21 @@
         "locked": false
       },
       {
-        "id": "7352f8ae-dc60-4849-9bdd-8c54542f5357",
+        "id": "1a4631d2-ad82-476c-a7c3-72c221b3e425",
         "name": "Mur droit",
         "position": [
-          1990.0,
+          1190.0,
           150.0,
-          1000.0
+          500.0
         ],
         "rotation": [
-          0.0,
-          0.0,
-          0.0
+          0,
+          0,
+          0
         ],
         "dimensions": {
           "depth": 20.0,
-          "width": 2000.0,
+          "width": 1000.0,
           "height": 300.0
         },
         "materialId": "solid_blue",
@@ -85,46 +85,24 @@
         "locked": false
       },
       {
-        "id": "512053ec-4a2b-4818-8081-0aec9a40f048",
+        "id": "80dc40d9-476f-41fd-add6-6997cafd3bee",
         "name": "Mur façade",
         "position": [
-          1000.0,
+          600.0,
           150.0,
           10.0
         ],
         "rotation": [
-          0.0,
-          0.0,
-          0.0
+          0,
+          0,
+          0
         ],
         "dimensions": {
           "depth": 20.0,
-          "width": 2000.0,
+          "width": 1200.0,
           "height": 300.0
         },
         "materialId": "solid_red",
-        "visible": true,
-        "locked": false
-      },
-      {
-        "id": "8db3539a-e816-4530-a253-6fe936469168",
-        "name": "Cloison réserve",
-        "position": [
-          1000.0,
-          150.0,
-          1700.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "dimensions": {
-          "depth": 20.0,
-          "width": 2000.0,
-          "height": 300.0
-        },
-        "materialId": "solid_blue",
         "visible": true,
         "locked": false
       }
@@ -133,35 +111,24 @@
     "wallColor": "#404060",
     "zones": [
       {
-        "id": "2cb32b18-33a2-4365-a373-cf99becfe9b6",
+        "id": "87d7b3db-7826-4f94-b21f-275189441ede",
         "type": "entrance",
         "label": "Entrée",
-        "x": 900.0,
+        "x": 820.0,
         "z": 20.0,
-        "width": 300.0,
-        "depth": 65.0,
+        "width": 280.0,
+        "depth": 60.0,
         "rows": null,
         "cols": null
       },
       {
-        "id": "719f3c0b-1d20-4bdd-9320-83baf7443781",
+        "id": "88b81288-d100-4c74-a671-6c88065521ec",
         "type": "exit",
         "label": "Sortie caisses",
-        "x": 200.0,
+        "x": 20.0,
         "z": 20.0,
-        "width": 300.0,
-        "depth": 65.0,
-        "rows": null,
-        "cols": null
-      },
-      {
-        "id": "5f595d01-b052-421f-96a0-acd8ced9bfe3",
-        "type": "reserve",
-        "label": "Réserve / zone technique",
-        "x": 0.0,
-        "z": 1700.0,
-        "width": 2000.0,
-        "depth": 300.0,
+        "width": 280.0,
+        "depth": 60.0,
         "rows": null,
         "cols": null
       }
@@ -169,1111 +136,26 @@
   },
   "furniture": [
     {
-      "id": "b039cddf-7047-476c-ac48-5cd3c4809b69",
-      "name": "Présentoir Presse",
-      "type": "display",
-      "libraryId": "display",
-      "position": [
-        100.0,
-        0.0,
-        100.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 40.0,
-        "width": 60.0,
-        "height": 180.0
-      },
-      "materialId": "plastic_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "9011c266-1f24-4501-b6fd-56a97362439c",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "cf784393-9371-43d7-a35a-78a326744564",
-      "name": "Présentoir Voyage",
-      "type": "display",
-      "libraryId": "display",
-      "position": [
-        160.0,
-        0.0,
-        100.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 40.0,
-        "width": 60.0,
-        "height": 180.0
-      },
-      "materialId": "plastic_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "dfa8a275-7ae5-4403-b639-f8fd75650d7f",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "bbbaaec8-05b1-4960-a5af-c0bc2e1264c7",
-      "name": "Palette Snacking A",
-      "type": "pallet",
-      "libraryId": "pallet",
-      "position": [
-        100.0,
-        0.0,
-        280.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "wood_dark",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "929c6197-ff82-44ec-bd0c-5c3cb545a59f",
-        "back": "4cbbe9ff-98cf-44a1-89bb-17da302f5795",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "97f8c45e-bd39-4823-ac13-f21af825929f",
-      "name": "Palette Snacking B",
-      "type": "pallet",
-      "libraryId": "pallet",
-      "position": [
-        220.0,
-        0.0,
-        280.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "wood_dark",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "9d28ff5b-86cb-4d63-a716-7530fd182514",
-        "back": "f9bb3e21-a6d4-4ea7-b2fd-159c97c70233",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "ee69907a-d518-42c8-ae12-e8ba5e19a47e",
-      "name": "Palette Snacking C",
-      "type": "pallet",
-      "libraryId": "pallet",
-      "position": [
-        340.0,
-        0.0,
-        280.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "wood_dark",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "ef47be98-db26-471a-954b-58808174f31e",
-        "back": "03f5a071-869d-4177-b941-4f9dcb45fb47",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "a29a5035-fdfa-42a5-83d8-86d3a4ac0780",
-      "name": "Gondole Épicerie salée A",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        100.0,
-        0.0,
-        500.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "7e0abf61-6b53-468b-b197-73ff08b0c949",
-        "back": "20f0d780-8199-49df-8324-1de815b48512",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "030759dd-3ffd-4b0b-bb6c-1f9a77d5d9fd",
-      "name": "Gondole Épicerie salée B",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        220.0,
-        0.0,
-        500.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "cd536e7f-b3aa-41c2-baac-f92a4f118986",
-        "back": "705585b6-e84d-4093-ac17-34d877d1937c",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "36d698e4-8da9-4fc6-9f3a-6da15231c0c9",
-      "name": "Gondole Épicerie salée C",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        340.0,
-        0.0,
-        500.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "e1a92aa7-e183-46cc-906f-9340df307bb7",
-        "back": "8af130c2-e702-4855-bad7-407cbb187293",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "99b1769a-4605-43a1-b855-4ac30dbe97f1",
-      "name": "Gondole Épicerie salée D",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        460.0,
-        0.0,
-        500.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "6bc0ac31-8f5c-417b-886a-9873cc1efcb2",
-        "back": "f956832f-3bb5-46df-831f-55dae4fd99f7",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "c601212b-575a-46e5-9132-db8bd9af143c",
-      "name": "Gondole Boissons A",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        100.0,
-        0.0,
-        720.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "cef2b527-dda1-4598-9769-5ca5dc0dd925",
-        "back": "ef641c29-2f7d-43b1-8a69-9556f01ea0b5",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "a5c34622-a951-47dc-bdf9-2f4f90c2ac2e",
-      "name": "Gondole Boissons B",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        220.0,
-        0.0,
-        720.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "9c13c124-fa21-45fc-86fa-fed169fd6086",
-        "back": "2e064440-e9c2-4baa-a775-d4cb0d0fb40e",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "55f5b81a-52d8-4045-ab81-9e76d2f756b2",
-      "name": "Gondole Épicerie sucrée A",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        340.0,
-        0.0,
-        720.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "cacee92b-cbb7-44cd-9000-cb6e6b5062e1",
-        "back": "71ada8d9-ece9-4f3d-a986-e252f9089558",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "ad2a8601-f8ed-42cf-9f4d-f4abce06565b",
-      "name": "Gondole Épicerie sucrée B",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        460.0,
-        0.0,
-        720.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "1262e1c6-2ecb-4cde-9bf8-42129080280c",
-        "back": "1e9edbbd-5b32-4774-bc3d-ca093a4bf16c",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "fb391a3f-92de-400d-9d45-e3084fcde756",
-      "name": "Gondole Hygiène A",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        100.0,
-        0.0,
-        940.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "c15c87e2-3c6f-440c-afd7-f4b79a5f7caf",
-        "back": "c7271463-f975-4dc3-bd8f-8cf729c35c7f",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "1e3a5df1-17b2-44cf-8718-ba5b2ee3161b",
-      "name": "Gondole Hygiène B",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        220.0,
-        0.0,
-        940.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "476616d6-a117-45f8-9278-a5adf69a8969",
-        "back": "b6f9abfb-dde4-433b-8af0-7e22e20b4666",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "0309bb98-ecec-4a29-a86e-690b4a2c34b4",
-      "name": "Gondole Vins et Spiritueux A",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        340.0,
-        0.0,
-        940.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "4a85ebe2-b215-4c05-bd7a-841872a478e2",
-        "back": "f413ae96-3f4f-4a89-8590-7fe15c1035f4",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "57f2c2b8-d4a3-49c7-9383-6765caab567a",
-      "name": "Gondole Vins et Spiritueux B",
-      "type": "gondola_double",
-      "libraryId": "gondola_double",
-      "position": [
-        460.0,
-        0.0,
-        940.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_gray",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "6145dc38-d356-48e6-a15f-2ced303ead76",
-        "back": "3518b85f-05ca-4706-b1df-f2fbc3b57f8a",
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "ebbbc3f3-a66a-4b91-8029-36175409759f",
-      "name": "Bac surgelés",
-      "type": "fridge_horizontal",
-      "libraryId": "fridge_horizontal",
-      "position": [
-        740.0,
-        0.0,
-        100.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 100.0,
-        "width": 300.0,
-        "height": 100.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": null,
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": "97482fe9-8994-411d-bdb4-1dff6e11fbac",
-        "bottom": null
-      }
-    },
-    {
-      "id": "a286a49f-6916-4738-8de4-2a9a8f379ff8",
-      "name": "Frigo Crèmerie A",
-      "type": "fridge",
-      "libraryId": "fridge",
-      "position": [
-        740.0,
-        0.0,
-        340.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "d26af984-47f1-4a4b-940a-e4e8386d48d1",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "329a796e-c374-405d-a714-7131c2efa27a",
-      "name": "Frigo Crèmerie B",
-      "type": "fridge",
-      "libraryId": "fridge",
-      "position": [
-        840.0,
-        0.0,
-        340.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "04195e34-17a3-48c4-bfcf-7a91ab38e5ab",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "4d093344-024d-4e3f-b389-52834a118ba3",
-      "name": "Frigo Traiteur",
-      "type": "fridge",
-      "libraryId": "fridge",
-      "position": [
-        940.0,
-        0.0,
-        340.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "f4e67f5e-818f-4da5-8601-d08cb4fea958",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "5108cf1d-151a-40a6-9330-00878e9c5f71",
-      "name": "Frigo Boucherie",
-      "type": "fridge",
-      "libraryId": "fridge",
-      "position": [
-        1040.0,
-        0.0,
-        340.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "38179b26-c87d-4928-b086-86a269b090fe",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "ff5b7815-dd35-4d84-87fd-71e6a9f56d3a",
-      "name": "Frigo Charcuterie",
-      "type": "fridge",
-      "libraryId": "fridge",
-      "position": [
-        1140.0,
-        0.0,
-        340.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "e3884403-ea4e-4a5a-b5d2-8753871fafba",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "63037a7b-089e-4c62-bfb8-182a4f33ef17",
-      "name": "Frigo Sandwichs frais",
-      "type": "fridge",
-      "libraryId": "fridge",
-      "position": [
-        1240.0,
-        0.0,
-        340.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 80.0,
-        "width": 100.0,
-        "height": 210.0
-      },
-      "materialId": "glass_clear",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "6ea8b47f-0c2f-43c9-aada-58b503ba003d",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "6b7734eb-3123-4abe-a0af-5b5d1ada0555",
-      "name": "Rayon Boulangerie",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        740.0,
-        0.0,
-        560.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "49672d72-4c8a-43b8-ac5b-e9e9a65bef87",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "72a0cd94-d03a-4f18-8eeb-ed5e52f9c5df",
-      "name": "Rayon Viennoiserie",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        860.0,
-        0.0,
-        560.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "e40df222-6fee-40a5-a335-2c9f575f5567",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "ea26f27a-2b40-4282-bcd6-9e800befda38",
-      "name": "Rayon Fruits et légumes A",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        980.0,
-        0.0,
-        560.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "877c7eee-375d-4c6b-99e2-8037bb0fb4c5",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "04c1a1fd-3ebc-4bba-9952-d65d1d4c5f21",
-      "name": "Rayon Fruits et légumes B",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        1100.0,
-        0.0,
-        560.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "e0c714e4-a196-4756-b2dd-51d156e05dbf",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "1ff2f675-e90e-456b-bbb1-f37d1e8528ef",
-      "name": "Rayon Entretien",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        740.0,
-        0.0,
-        760.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "655a66f1-a1a9-4c75-a9ca-3644558311ee",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "7d2c6efe-b52e-49cf-a45d-2a1065eaab75",
-      "name": "Rayon Puériculture",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        860.0,
-        0.0,
-        760.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "a6979cd2-59d5-4d82-84e4-84d992b5d476",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "593ca083-e759-46ab-81f0-0d2b10187f99",
-      "name": "Rayon Animalerie",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        980.0,
-        0.0,
-        760.0
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "dimensions": {
-        "depth": 60.0,
-        "width": 120.0,
-        "height": 200.0
-      },
-      "materialId": "metal_white",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "949af0bc-e3b3-4c28-a9a4-95360ecd9963",
-        "back": null,
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "4558c100-75ae-4317-8d98-ce4426f6353a",
+      "id": "08c38cc9-ea4c-4a05-a6f7-073f9c0bb0b4",
       "name": "Caisse 1",
       "type": "register",
       "libraryId": "register",
       "position": [
-        560.0,
+        20,
         0.0,
-        20.0
+        100
       ],
       "rotation": [
         0.0,
-        0.0,
+        0,
         0.0
       ],
       "dimensions": {
-        "depth": 60.0,
-        "width": 80.0,
-        "height": 90.0
+        "width": 80,
+        "depth": 60,
+        "height": 90
       },
-      "materialId": "plastic_dark",
+      "materialId": "plastic_white",
       "visible": true,
       "locked": false,
       "mounted": true,
@@ -1289,26 +171,26 @@
       }
     },
     {
-      "id": "5fb2a62e-16d5-441a-908c-5f54d48358fc",
+      "id": "e661cb71-6cc7-4664-a34e-0f44a503b3d0",
       "name": "Caisse 2",
       "type": "register",
       "libraryId": "register",
       "position": [
-        650.0,
+        100,
         0.0,
-        20.0
+        100
       ],
       "rotation": [
         0.0,
-        0.0,
+        0,
         0.0
       ],
       "dimensions": {
-        "depth": 60.0,
-        "width": 80.0,
-        "height": 90.0
+        "width": 80,
+        "depth": 60,
+        "height": 90
       },
-      "materialId": "plastic_dark",
+      "materialId": "plastic_white",
       "visible": true,
       "locked": false,
       "mounted": true,
@@ -1324,26 +206,1041 @@
       }
     },
     {
-      "id": "b36ce596-5ed1-47fb-ac51-16032bf513a2",
-      "name": "Caisse 3",
-      "type": "register",
-      "libraryId": "register",
+      "id": "79ebdaaa-ee96-422a-ae28-aec2019e35c2",
+      "name": "Présentoir Presse",
+      "type": "display",
+      "libraryId": "display",
       "position": [
-        740.0,
+        180,
         0.0,
-        20.0
+        100
       ],
       "rotation": [
         0.0,
-        0.0,
+        0,
         0.0
       ],
       "dimensions": {
-        "depth": 60.0,
-        "width": 80.0,
-        "height": 90.0
+        "width": 60,
+        "depth": 80,
+        "height": 180
       },
-      "materialId": "plastic_dark",
+      "materialId": "plastic_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "31b93fc4-81db-49c7-bf91-3dd5f2834164",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "59cb5de4-7790-444a-8892-2b3b5e08177c",
+      "name": "Palette promo Snacking",
+      "type": "pallet",
+      "libraryId": "pallet",
+      "position": [
+        240,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "cardboard_brown",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e28ebd71-12d3-4849-bb22-b82fa392da62",
+        "back": "e6c9bfe8-adf1-4631-a4cf-7525290f4624",
+        "left": "aabf6039-1e95-4b08-bf60-ae81858154c2",
+        "right": "1e35a5f7-f93e-4272-a576-adbf15d6fc1a",
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "5fad0ea7-cb22-42bd-94ae-65d590677d6c",
+      "name": "Frigo Crèmerie 1",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        360,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "1e567c38-9127-4095-b2dc-5c1c63ad3262",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e6d2ee39-9d18-4be1-849d-c420bc4baedc",
+      "name": "Frigo Crèmerie 2",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        460,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "b88a3c9e-7832-4df8-9d48-ca5e61d2cc7b",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6dc7a58b-de7b-4475-a6cb-8a928e0fa627",
+      "name": "Frigo Crèmerie 3",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        560,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "91eae6fd-a9ce-4006-8084-9405ca2d59a9",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9cc28133-9e6e-4673-b219-e4da9182abb5",
+      "name": "Frigo Traiteur 1",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        660,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a765ca7a-df64-4dd9-b9fe-366d57dfe314",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b7c3831b-bcea-481e-9afc-868856fc88c8",
+      "name": "Frigo Traiteur 2",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        760,
+        0.0,
+        100
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100,
+        "depth": 80,
+        "height": 210
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "28324219-f40c-4323-8550-8c36224acd63",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d9b2b2de-f5de-4c65-93a3-8a8d3a390521",
+      "name": "Gondole Epicerie 1",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        260,
+        0.0,
+        300
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "548df094-68dd-4b9f-bf5b-f4126570ffc8",
+        "back": "8ebea8bc-ed67-4ad5-860a-b07b186bb38e",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "ff832f4c-8428-4ca5-92d8-979c57312856",
+      "name": "Gondole Epicerie 2",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        380,
+        0.0,
+        300
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "cb73f4ff-14c6-490d-8203-137e41cf5aed",
+        "back": "5f593546-1f5c-4fd5-8b0d-44ae35b50c8b",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4452f242-9bd3-4c26-9a04-7f1f64432d32",
+      "name": "Gondole Epicerie 3",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        500,
+        0.0,
+        300
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4c0b8790-6a8f-4e0d-9816-fccfcb3089ea",
+        "back": "509f67a5-bfbb-449e-a191-85373d3b86f5",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9eda56da-65fb-4bfc-81b2-1fbe0a4cfb3e",
+      "name": "Gondole Epicerie 4",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        620,
+        0.0,
+        300
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "dc697036-203b-4b41-a434-9ccfe8ea6415",
+        "back": "4c1d4608-f283-4040-8311-4edec4b5a4cc",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c4dd9710-0869-4681-9502-1f68ad0df07e",
+      "name": "Gondole Epicerie 5",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        740,
+        0.0,
+        300
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ff578277-ee93-4b3a-9673-9c527d1a57ec",
+        "back": "aa6deaed-0f72-4310-a392-02faa777a61a",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e937e32b-b3a7-4078-9d6f-48c3d675cf90",
+      "name": "Gondole Epicerie 6",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        860,
+        0.0,
+        300
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "ba9236a8-b93a-4608-bba5-01ab8554f089",
+        "back": "1074f39a-0d14-4ded-aa80-399afe240073",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "87c52cd3-09e0-49e9-92cd-291daca29e43",
+      "name": "Tête de gondole Snacking",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        950.0,
+        0.0,
+        310.0
+      ],
+      "rotation": [
+        0.0,
+        90,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4ae1fa48-ec5a-4b75-b5f0-5b3cd154c82d",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "91fbd68c-ee5a-43ed-91e8-990a0f6166e8",
+      "name": "Gondole Boissons 1",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        260,
+        0.0,
+        520
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "fd5f1a77-95c0-4195-b341-503d4793a762",
+        "back": "8532ed85-520e-4007-929c-4bac9729620c",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e58b3bf6-7e69-48a3-876d-f45103314188",
+      "name": "Gondole Boissons 2",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        380,
+        0.0,
+        520
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "a0541f22-27f6-4753-b175-6246dd080a2c",
+        "back": "b5e06dcf-a3ce-4e27-bb80-997ea45effa9",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2f41cc4c-97ce-4fe3-94ed-56fa68f96f1e",
+      "name": "Gondole Boissons 3",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        500,
+        0.0,
+        520
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "c26a5ad3-bd9a-4cf4-b720-17ccbc961cdb",
+        "back": "3c433d09-13de-4313-af74-179ad49f15f1",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9dfa86e8-85fa-424c-af6b-bb147376f9ee",
+      "name": "Gondole Boissons 4",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        620,
+        0.0,
+        520
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "8fe6a510-8e0f-4b26-a9a9-2ba27c08b19d",
+        "back": "cb9ab2af-4358-4617-ae26-1f9430055581",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "360b1c26-2020-4f05-b991-6c433aeae4e5",
+      "name": "Gondole Boissons 5",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        740,
+        0.0,
+        520
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "066b7075-7c8f-4fa3-a6e2-062b191e905f",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "71735a23-06d8-4013-97b4-a9d8476fe997",
+      "name": "Gondole Boissons 6",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        860,
+        0.0,
+        520
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "f807c2a9-810c-47ed-b37a-dcf575fbf99d",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "af6c9e40-ff1c-41db-aae7-5d231a7ec990",
+      "name": "Tête de gondole Boissons",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        950.0,
+        0.0,
+        530.0
+      ],
+      "rotation": [
+        0.0,
+        90,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "05571633-f19a-456d-8dd9-4351619f7b2c",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0217f634-7b9e-4356-9576-87623b2758ae",
+      "name": "Gondole Hygiene 1",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        260,
+        0.0,
+        740
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "c6471869-e9d3-4a1c-8b39-8559daee3b81",
+        "back": "f5337a04-eac6-498d-b52f-5b5395f7c74d",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "df99a847-7890-42cd-ad24-b9ea5745e297",
+      "name": "Gondole Hygiene 2",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        380,
+        0.0,
+        740
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "adfbc632-900a-4265-8ed2-1a27ea4e17a9",
+        "back": "b82caabb-4042-4561-b6db-f2e26565e8c9",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "5aa6f6d3-a0cf-49b2-9c58-9cb741960c51",
+      "name": "Gondole Hygiene 3",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        500,
+        0.0,
+        740
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "72f25287-5385-4e4b-a5d6-57629f8235e4",
+        "back": "bb5003fd-7f1d-4232-80f1-d8a4031452aa",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4265d598-bbdf-4f32-9602-d953e98d7601",
+      "name": "Gondole Hygiene 4",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        620,
+        0.0,
+        740
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 80,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "aa5e9f54-fc1b-4405-8613-cd073121536a",
+        "back": "e50ddfef-9215-46f6-b98b-49b4f68de1ba",
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7634e647-1feb-46d8-9600-ef3b02d6a0be",
+      "name": "Tête de gondole Hygiène",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        710.0,
+        0.0,
+        750.0
+      ],
+      "rotation": [
+        0.0,
+        90,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "23397b23-ba97-48e5-bc0c-944c5bb2f1b2",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "c2df7bd5-b9cd-4367-830f-1e057ee0610c",
+      "name": "Gondole Frais 1",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        260,
+        0.0,
+        940
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "e05e1f0b-8eb1-497a-8574-e493f0515f7b",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "ff349983-e5a2-4cdb-91c7-7571d3f49169",
+      "name": "Gondole Frais 2",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        380,
+        0.0,
+        940
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "4a459451-9643-4b30-a4fd-8f388416ac70",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "15c326d4-5b05-40b0-bd7e-444da5338c55",
+      "name": "Gondole Frais 3",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        500,
+        0.0,
+        940
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120,
+        "depth": 60,
+        "height": 200
+      },
+      "materialId": "metal_grey",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": "d16307b9-abb3-4a76-ba6b-1f6d5f2b5319",
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2bf1d61f-5844-4cb8-afec-760d472f1d10",
+      "name": "Frigo horizontal Surgelés",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        620,
+        0.0,
+        940
+      ],
+      "rotation": [
+        0.0,
+        0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300,
+        "depth": 60,
+        "height": 100
+      },
+      "materialId": "metal_grey",
       "visible": true,
       "locked": false,
       "mounted": true,
@@ -1354,7 +1251,7 @@
         "back": null,
         "left": null,
         "right": null,
-        "top": null,
+        "top": "deb4ae4c-3378-41e0-9c6c-86085a8b37c0",
         "bottom": null
       }
     }

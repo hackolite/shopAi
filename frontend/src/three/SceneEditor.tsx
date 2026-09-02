@@ -1466,7 +1466,6 @@ const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
   entrance: { fill: '#22c55e', border: '#16a34a' },
   exit:     { fill: '#f97316', border: '#ea580c' },
   supply:   { fill: '#a855f7', border: '#7c3aed' },
-  reserve:  { fill: '#64748b', border: '#475569' },
 };
 const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 

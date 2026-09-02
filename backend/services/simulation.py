@@ -63,6 +63,57 @@ class _WaypointRuntime:
     max_wait_seconds: float = 0.0
 
 
+class WaypointPassageTracker:
+    """Cumulative count of agents that have *passed* each waypoint.
+
+    Only retention waypoints own a queue runtime, so ``released_agents`` used to
+    stay at 0 for entries, exits and plain transit waypoints — their throughput
+    charts were flat and no débit was ever displayed.  This tracker watches the
+    stage each agent targets: as soon as an agent switches from stage ``S`` to
+    another stage, it has cleared the waypoint served by ``S``.  Agents removed
+    from the simulation are credited to the waypoint they were last heading to,
+    which is how an exit records the customers that actually left.
+    """
+
+    def __init__(self) -> None:
+        self.counts: dict[str, int] = {}
+        self._last_stage: dict[int, int] = {}
+
+    def _credit(self, stage_id: int, stage_to_waypoint_id: dict[int, str]) -> None:
+        waypoint_id = stage_to_waypoint_id.get(stage_id)
+        if waypoint_id is not None:
+            self.record_passage(waypoint_id)
+
+    def record_passage(self, waypoint_id: str) -> None:
+        """Credit one agent to a waypoint (used for entries, cleared at spawn)."""
+        self.counts[waypoint_id] = self.counts.get(waypoint_id, 0) + 1
+
+    def observe(self, sim: object, stage_to_waypoint_id: dict[int, str]) -> None:
+        """Record stage transitions since the previous call."""
+        seen: set[int] = set()
+        for agent in sim.agents():  # type: ignore[attr-defined]
+            agent_id = int(agent.id)
+            stage_id = int(agent.stage_id)
+            seen.add(agent_id)
+            previous = self._last_stage.get(agent_id)
+            if previous is not None and previous != stage_id:
+                self._credit(previous, stage_to_waypoint_id)
+            self._last_stage[agent_id] = stage_id
+        for agent_id in [key for key in self._last_stage if key not in seen]:
+            self._credit(self._last_stage.pop(agent_id), stage_to_waypoint_id)
+
+    def released(self, waypoint_id: str) -> int:
+        return self.counts.get(waypoint_id, 0)
+
+    def forget_agent_positions(self) -> None:
+        """Drop the per-agent stage memory, keeping the cumulative counts.
+
+        Used on a hot update: every stage is rebuilt with new ids, so the
+        remembered stage ids would no longer identify the same waypoints.
+        """
+        self._last_stage.clear()
+
+
 def queue_wait_metrics(runtime: "_WaypointRuntime | None", current_time: float) -> dict[str, float]:
     """Return the queue waiting-time statistics of a retention waypoint.
 
@@ -800,6 +851,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     steps_per_snapshot = max(1, round(DEFAULT_SNAPSHOT_INTERVAL_S / SIMULATION_DT_S))
     frames: list[SimulationFrame] = []
     waypoint_series: dict[str, list[WaypointSample]] = {waypoint.id: [] for waypoint in metrics_waypoints}
+    # Throughput source for every waypoint type (queue runtimes only cover retention waypoints).
+    passages = WaypointPassageTracker()
+    stage_to_waypoint_id = {stage_id: waypoint_id for waypoint_id, stage_id in waypoint_stage_ids.items()}
     average_load_accumulator = 0.0
     average_load_samples = 0
     max_waypoint_load = 0
@@ -834,6 +888,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             )
             step_spawn_positions.append(spawn_position)
             agent_desired_speeds[agent_id] = desired_speed
+            # The agent starts already past the entry (its first target is the
+            # next stage), so the entry throughput is credited at spawn time.
+            passages.record_passage(selected_entry.id)
             spawned += 1
             arrival_index += 1
 
@@ -843,6 +900,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
+        passages.observe(sim, stage_to_waypoint_id)
 
         if step_index % steps_per_snapshot == 0:
             waypoint_loads: list[int] = []
@@ -853,7 +911,10 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 stage = sim.get_stage(stage_id)
                 current_agents = int(stage.count_targeting())
                 runtime = waypoint_runtimes.get(waypoint.id)
-                released_agents = runtime.released_agents if runtime is not None else 0
+                released_agents = max(
+                    runtime.released_agents if runtime is not None else 0,
+                    passages.released(waypoint.id),
+                )
                 waypoint_loads.append(current_agents)
                 waypoint_series[waypoint.id].append(
                     WaypointSample(
@@ -900,6 +961,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         sim.iterate()
         _apply_right_hand_bias(sim)
         completed += len(sim.removed_agents())
+        passages.observe(sim, stage_to_waypoint_id)
         if overtime_index % steps_per_snapshot == 0:
             frame_agents = []
             for agent in sim.agents():
@@ -929,10 +991,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             waypointType=waypoint.type,
             retentionSeconds=float(waypoint.retentionSeconds),
             maxActiveAgents=max((sample.activeAgents for sample in waypoint_series[waypoint.id]), default=0),
-            releasedAgents=(
-                max((sample.releasedAgents for sample in waypoint_series[waypoint.id]), default=0)
-                if waypoint.type != "exit"
-                else 0
+            releasedAgents=max(
+                max((sample.releasedAgents for sample in waypoint_series[waypoint.id]), default=0),
+                passages.released(waypoint.id),
             ),
             samples=waypoint_series[waypoint.id],
             **queue_wait_metrics(waypoint_runtimes.get(waypoint.id), current_time),

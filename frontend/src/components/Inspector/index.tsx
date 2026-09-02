@@ -7,6 +7,12 @@ import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram, FloorZone } from '../../types/cad';
 import { extendGondolaWidth, extendGondolaHeight, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
+import { fitPlanogramToFace } from '../../engine/planogramFit';
+import {
+  catalogCoveragePct,
+  computeFurnitureMetrics,
+  computeImplantationMetrics,
+} from '../../engine/assortmentMetrics';
 
 /** Minimum cm growth required before extending a linked planogram to fill new gondola space. */
 const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
@@ -386,6 +392,30 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
     }
   };
 
+  /**
+   * Resize an oversized planogram so it fits its face: the facings keep their
+   * physical size and the ones that no longer fit the module are de-listed.
+   */
+  const handleFitPlanogram = (faceId: FaceId, planogramId: string) => {
+    const detail = planogramDetails.get(planogramId);
+    if (!detail) return;
+    const { faceWidth, faceHeight } = getFaceDims(faceId, furniture.dimensions);
+    const fitted = fitPlanogramToFace(detail, faceWidth, faceHeight);
+    if (fitted === detail) return;
+    syncPlanogram(fitted);
+    if (projectId) cadApi.updatePlanogram(projectId, planogramId, fitted).catch(console.error);
+  };
+
+  /** Fit every oversized planogram of the furniture in one click. */
+  const handleFitAllPlanograms = () => {
+    for (const [faceId, planogramId] of faceEntries) {
+      if (planogramId) handleFitPlanogram(faceId, planogramId);
+    }
+  };
+
+  /** Implantation metrics of this piece of furniture (distinct EANs, facings). */
+  const furnitureMetrics = computeFurnitureMetrics(planogramDetails.values(), furniture.id);
+
   /** True if the planogram's declared dimensions exceed the furniture face. */
   const isFaceOverflowing = (faceId: FaceId, planogramId: string): boolean => {
     const summary = planograms.find(p => p.id === planogramId);
@@ -461,9 +491,17 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
       {anyOverflow && (
         <div className="flex items-start gap-2 px-2 py-2 rounded bg-red-900/25 border border-red-700/40 text-xs text-red-300">
           <span className="text-base leading-none mt-0.5">🔴</span>
-          <span>
-            Un ou plusieurs planogrammes dépassent les dimensions de la gondole.
-            Agrandissez la gondole ou réduisez le planogramme.
+          <span className="space-y-1.5">
+            <span className="block">
+              Un ou plusieurs planogrammes dépassent les dimensions du meuble.
+              Agrandissez le meuble ou ajustez le planogramme.
+            </span>
+            <button
+              onClick={handleFitAllPlanograms}
+              className="rounded bg-red-800/60 px-2 py-1 text-xs font-semibold text-red-100 hover:bg-red-700/60"
+            >
+              Ajuster au meuble
+            </button>
           </span>
         </div>
       )}
@@ -493,7 +531,18 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
                     <span className="flex-1">{FACE_LABELS[faceId]}</span>
                     {planogramId ? (
                       <>
-                        {overflow && <span className="text-red-400 font-semibold">DÉBORD</span>}
+                        {overflow && (
+                          <>
+                            <span className="text-red-400 font-semibold">DÉBORD</span>
+                            <button
+                              onClick={() => handleFitPlanogram(faceId, planogramId)}
+                              title="Redimensionner le planogramme aux dimensions de la face"
+                              className="text-amber-400 hover:text-amber-300"
+                            >
+                              Ajuster
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => onOpenPlanogram(planogramId)}
                           className="text-blue-400 hover:text-blue-300"
@@ -549,6 +598,31 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
                 </div>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Implantation metrics */}
+      {furnitureMetrics.planograms > 0 && (
+        <section>
+          <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
+            Implantation
+          </h4>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between text-gray-400">
+              <span>Produits différents</span>
+              <span className="text-gray-300">{furnitureMetrics.distinctProducts}</span>
+            </div>
+            <div className="flex justify-between text-gray-400">
+              <span>Facings</span>
+              <span className="text-gray-300">{furnitureMetrics.facings}</span>
+            </div>
+            <div className="flex justify-between text-gray-400">
+              <span>Facings / produit</span>
+              <span className="text-gray-300">
+                {furnitureMetrics.averageFacingsPerProduct.toFixed(1)}
+              </span>
+            </div>
           </div>
         </section>
       )}
@@ -669,6 +743,10 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const { activePlanogram, selectedCellIds, planograms, planogramDetails } = usePlanogramStore();
   const { products } = useCatalogStore();
   const { zones, selectedZoneId } = useZoneStore();
+
+  // Project-wide implantation metrics (distinct EANs, facings, catalog coverage).
+  const projectMetrics = computeImplantationMetrics(planogramDetails.values());
+  const coveragePct = catalogCoveragePct(projectMetrics.distinctProducts, products.length);
 
   const selectedFurniture = scene?.furniture.find(
     (f) => f.id === selectedFurnitureId,
@@ -831,6 +909,44 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                     <span>Surface magasin</span>
                     <span className="text-gray-300">
                       {scene.store.dimensions.width / 100}m × {scene.store.dimensions.depth / 100}m
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between text-gray-400"
+                    title="Nombre d'EAN distincts implantés dans les planogrammes du projet"
+                  >
+                    <span>Produits différents</span>
+                    <span className="text-gray-300">{projectMetrics.distinctProducts}</span>
+                  </div>
+                  <div
+                    className="flex justify-between text-gray-400"
+                    title="Nombre total d'emplacements produit implantés (un produit peut occuper plusieurs facings)"
+                  >
+                    <span>Facings implantés</span>
+                    <span className="text-gray-300">{projectMetrics.facings}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Facings / produit</span>
+                    <span className="text-gray-300">
+                      {projectMetrics.averageFacingsPerProduct.toFixed(1)}
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between text-gray-400"
+                    title="Planogrammes portant au moins un facing / planogrammes du projet"
+                  >
+                    <span>Planogrammes remplis</span>
+                    <span className="text-gray-300">
+                      {projectMetrics.filledPlanograms} / {projectMetrics.planograms}
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between text-gray-400"
+                    title="Part des références du catalogue effectivement implantées en rayon"
+                  >
+                    <span>Couverture catalogue</span>
+                    <span className="text-gray-300">
+                      {coveragePct.toFixed(1)} % ({products.length} réf.)
                     </span>
                   </div>
                 </div>

@@ -134,7 +134,9 @@ export default function App() {
 
       // Preload every product image used by a planogram into the shared cache so
       // the 3D face overlays are complete on first paint instead of only after
-      // the planogram editor has been opened once.
+      // the planogram editor has been opened once.  This runs in the background:
+      // opening a project — and starting its simulation — must never wait for
+      // the catalog images to be downloaded.
       const productByEan = new Map(catalog.products.map((p) => [p.ean, p]));
       const urlsByEan = new Map<string, string>();
       for (const detail of details) {
@@ -143,8 +145,9 @@ export default function App() {
           if (url && !urlsByEan.has(cell.ean)) urlsByEan.set(cell.ean, url);
         }
       }
-      await assets.preloadProductImages(urlsByEan);
-      assets.finishLoading();
+      void assets.preloadProductImages(urlsByEan).finally(() => {
+        if (loadingProjectIdRef.current === id) assets.finishLoading();
+      });
     } catch (err) {
       useAssetStore.getState().finishLoading();
       if (loadingProjectIdRef.current === id) {

@@ -30,6 +30,25 @@ describe('assetStore', () => {
     expect(next.productImages.size).toBe(0);
   });
 
+  it('suspends image downloads while the preload is paused', async () => {
+    useAssetStore.getState().reset();
+    useAssetStore.getState().setPreloadPaused(true);
+
+    const pending = useAssetStore
+      .getState()
+      .preloadProductImages(new Map([['1', 'data:image/png;base64,AA']]));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(useAssetStore.getState().imagesLoaded).toBe(0);
+    expect(useAssetStore.getState().productImages.size).toBe(0);
+
+    // Switching project must abort the suspended preload instead of leaking it
+    // into the next project's cache.
+    useAssetStore.getState().reset();
+    await pending;
+    expect(useAssetStore.getState().productImages.size).toBe(0);
+  });
+
   it('loadRatio combines planogram and image progress', () => {
     expect(loadRatio({ planogramsLoaded: 0, planogramsTotal: 0, imagesLoaded: 0, imagesTotal: 0 })).toBe(0);
     expect(loadRatio({ planogramsLoaded: 2, planogramsTotal: 2, imagesLoaded: 1, imagesTotal: 2 })).toBeCloseTo(0.75);

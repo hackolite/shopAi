@@ -6,6 +6,11 @@ const MAX_CONCURRENT_IMAGE_LOADS = 8;
 /** Minimum delay between two progress/cache notifications while preloading. */
 const PROGRESS_FLUSH_MS = 250;
 
+/** Poll interval used to wait for the preload to be resumed. */
+const PAUSE_POLL_MS = 200;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
+
 export interface LoadProgress {
   /** Number of planogram details already fetched. */
   planogramsLoaded: number;
@@ -26,6 +31,18 @@ interface AssetState extends LoadProgress {
   productImages: Map<string, HTMLImageElement>;
   /** Bumped whenever `productImages` gained entries, to re-render consumers. */
   imageVersion: number;
+  /**
+   * While true, image downloads are suspended: the live simulation owns the main
+   * thread (ticking, agent rendering, canvas texture rebuilds) and must never be
+   * slowed down by catalog images being fetched and decoded in the background.
+   */
+  preloadPaused: boolean;
+  /**
+   * Incremented on `reset()` so in-flight preloads started for a previous
+   * project abort instead of filling the cache of the newly opened one.
+   */
+  preloadGeneration: number;
+  setPreloadPaused: (paused: boolean) => void;
   startLoading: (planogramsTotal: number) => void;
   markPlanogramLoaded: () => void;
   finishLoading: () => void;
@@ -59,6 +76,10 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   imagesTotal: 0,
   productImages: new Map<string, HTMLImageElement>(),
   imageVersion: 0,
+  preloadPaused: false,
+  preloadGeneration: 0,
+
+  setPreloadPaused: (paused) => set({ preloadPaused: paused }),
 
   startLoading: (planogramsTotal) =>
     set({
@@ -100,12 +121,22 @@ export const useAssetStore = create<AssetState>((set, get) => ({
     };
 
     let cursor = 0;
+    const generation = get().preloadGeneration;
     const worker = async () => {
       for (;;) {
+        // Abort when the project changed under us.
+        if (get().preloadGeneration !== generation) return;
+        // Yield the main thread entirely while the simulation is running.
+        if (get().preloadPaused) {
+          flush();
+          await sleep(PAUSE_POLL_MS);
+          continue;
+        }
         const index = cursor++;
         if (index >= pending.length) return;
         const [ean, url] = pending[index];
         const img = await loadImage(url);
+        if (get().preloadGeneration !== generation) return;
         if (img) cache.set(ean, img);
         settledSinceFlush++;
         if (Date.now() - lastFlush >= PROGRESS_FLUSH_MS) flush();
@@ -115,19 +146,21 @@ export const useAssetStore = create<AssetState>((set, get) => ({
     await Promise.all(
       Array.from({ length: Math.min(MAX_CONCURRENT_IMAGE_LOADS, pending.length) }, worker),
     );
-    flush();
+    if (get().preloadGeneration === generation) flush();
   },
 
   reset: () =>
-    set({
+    set((state) => ({
       loading: false,
+      preloadPaused: false,
+      preloadGeneration: state.preloadGeneration + 1,
       planogramsLoaded: 0,
       planogramsTotal: 0,
       imagesLoaded: 0,
       imagesTotal: 0,
       productImages: new Map<string, HTMLImageElement>(),
       imageVersion: 0,
-    }),
+    })),
 }));
 
 /** Overall load ratio in [0,1] combining planogram fetches and image downloads. */

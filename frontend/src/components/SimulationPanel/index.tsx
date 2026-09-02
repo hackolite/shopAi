@@ -12,6 +12,7 @@ import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
 import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore, type HeatmapMode } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
+import { useAssetStore } from '../../store/assetStore';
 import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
 
 interface SimulationPanelProps {
@@ -397,6 +398,16 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setLiveSessionId(null);
     lastSimulationSignature.current = null;
   }, [setLiveSessionId, setPaused, setPlaying]);
+
+  // Catalog images are the heaviest background work of the app (hundreds of
+  // data-URL decodes and canvas texture rebuilds).  Suspend their preloading
+  // while agents are moving so a running simulation is never slowed down by it;
+  // downloads resume as soon as the simulation is stopped or paused.
+  useEffect(() => {
+    const active = Boolean(liveSessionId) && playing && !paused;
+    useAssetStore.getState().setPreloadPaused(active);
+    return () => { useAssetStore.getState().setPreloadPaused(false); };
+  }, [liveSessionId, paused, playing]);
 
   useEffect(() => {
     if (!projectId || loadedProjectId !== projectId) return;

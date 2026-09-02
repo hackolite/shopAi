@@ -10,7 +10,7 @@ import {
 } from '../../engine/simulationConstraint';
 import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
-import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore } from '../../store/simulationStore';
+import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore, type HeatmapMode } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
 import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
 
@@ -210,6 +210,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setAnalytics,
     showHeatmap,
     setShowHeatmap,
+    heatmapMode,
+    setHeatmapMode,
     showTrajectories,
     setShowTrajectories,
   } = useSimulationStore();
@@ -437,7 +439,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => {
     if (!projectId || loadedProjectId !== projectId) return;
     if (!liveSessionId || !playing) return;
-    if (!showHeatmap && !showTrajectories) {
+    // The margin heatmap is computed client-side from the assortment: it needs
+    // no analytics payload.
+    if ((!showHeatmap || heatmapMode !== 'traffic') && !showTrajectories) {
       setAnalytics(null);
       return;
     }
@@ -477,6 +481,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     projectId,
     setAnalytics,
     showHeatmap,
+    heatmapMode,
     showTrajectories,
   ]);
 
@@ -667,7 +672,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Analyse spatiale</h4>
           <label className="flex items-center justify-between text-xs text-gray-300">
-            <span className="text-gray-500">Heatmap de fréquentation</span>
+            <span className="text-gray-500">Heatmap au sol</span>
             <input
               type="checkbox"
               checked={showHeatmap}
@@ -675,6 +680,25 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               className="accent-blue-500"
             />
           </label>
+          {showHeatmap && (
+            <label className="flex items-center justify-between text-xs text-gray-300">
+              <span className="text-gray-500">Intensité</span>
+              <select
+                value={heatmapMode}
+                onChange={(event) => setHeatmapMode(event.target.value as HeatmapMode)}
+                className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-200"
+              >
+                <option value="traffic">Fréquentation</option>
+                <option value="margin">Marge (€)</option>
+              </select>
+            </label>
+          )}
+          {showHeatmap && heatmapMode === 'margin' && (
+            <p className="text-xs text-gray-600">
+              Marge cumulée colonne par colonne, diffusée sur l'allée devant chaque colonne de
+              planogramme. Indépendante de la simulation.
+            </p>
+          )}
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Trajectoires des agents</span>
             <input

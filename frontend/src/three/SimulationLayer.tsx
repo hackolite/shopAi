@@ -4,7 +4,10 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import { buildHeatmapPixels } from '../engine/heatmap';
+import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
+import { useCatalogStore } from '../store/catalogStore';
+import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { useUIStore } from '../store/uiStore';
@@ -620,6 +623,9 @@ export function SimulationLayer() {
   const paused = useSimulationStore((state) => state.paused);
   const analytics = useSimulationStore((state) => state.analytics);
   const showHeatmap = useSimulationStore((state) => state.showHeatmap);
+  const heatmapMode = useSimulationStore((state) => state.heatmapMode);
+  const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
+  const catalogProducts = useCatalogStore((state) => state.products);
   const showTrajectories = useSimulationStore((state) => state.showTrajectories);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
@@ -628,6 +634,13 @@ export function SimulationLayer() {
   const minZCm = storePos[2];
   const maxXCm = minXCm + (scene?.store.dimensions.width ?? 0);
   const maxZCm = minZCm + (scene?.store.dimensions.depth ?? 0);
+
+  // Margin heatmap is derived from the assortment, not from a running session:
+  // recompute it only while the margin mode is displayed.
+  const marginHeatmap = useMemo(() => {
+    if (!showHeatmap || heatmapMode !== 'margin' || !scene) return null;
+    return buildMarginHeatmap(scene, planogramDetails.values(), catalogProducts);
+  }, [catalogProducts, heatmapMode, planogramDetails, scene, showHeatmap]);
 
   // --- Smooth agent playback (no React state per frame) ---
   const prevAgentIds = useRef<Set<number>>(new Set());
@@ -885,7 +898,12 @@ export function SimulationLayer() {
           maxZCm={maxZCm}
         />
       ))}
-      {showHeatmap && analytics?.heatmap && <HeatmapOverlay heatmap={analytics.heatmap} />}
+      {showHeatmap && heatmapMode === 'traffic' && analytics?.heatmap && (
+        <HeatmapOverlay heatmap={analytics.heatmap} />
+      )}
+      {showHeatmap && heatmapMode === 'margin' && marginHeatmap && (
+        <HeatmapOverlay heatmap={marginHeatmap} />
+      )}
       {showTrajectories && analytics && analytics.trajectories.length > 0 && (
         <TrajectoryOverlay trajectories={analytics.trajectories} />
       )}

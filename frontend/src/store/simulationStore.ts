@@ -41,11 +41,16 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
   waypoints: [],
 });
 
+/** Floor heatmap intensity source. */
+export type HeatmapMode = 'traffic' | 'margin';
+
 interface SimulationState {
   config: SimulationConfig;
   result: SimulationResult | null;
   analytics: SimulationAnalytics | null;
   showHeatmap: boolean;
+  /** What drives the floor heatmap intensity: agent traffic or exposed margin. */
+  heatmapMode: HeatmapMode;
   showTrajectories: boolean;
   running: boolean;
   playing: boolean;
@@ -65,6 +70,7 @@ interface SimulationState {
   setResult: (result: SimulationResult | null) => void;
   setAnalytics: (analytics: SimulationAnalytics | null) => void;
   setShowHeatmap: (showHeatmap: boolean) => void;
+  setHeatmapMode: (heatmapMode: HeatmapMode) => void;
   setShowTrajectories: (showTrajectories: boolean) => void;
   setRunning: (running: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -81,6 +87,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   result: null,
   analytics: null,
   showHeatmap: false,
+  heatmapMode: 'traffic',
   showTrajectories: false,
   running: false,
   playing: false,
@@ -186,6 +193,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setResult: (result) => set({ result, invalidWaypointIds: [], invalidWaypointSuggestion: null }),
   setAnalytics: (analytics) => set({ analytics }),
   setShowHeatmap: (showHeatmap) => set({ showHeatmap }),
+  setHeatmapMode: (heatmapMode) => set({ heatmapMode }),
   setShowTrajectories: (showTrajectories) => set({ showTrajectories }),
   setRunning: (running) => set({ running }),
   setPlaying: (playing) => set({ playing }),

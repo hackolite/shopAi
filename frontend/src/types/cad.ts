@@ -202,6 +202,12 @@ export interface CADProduct {
   heightCm: number;
   weightG: number;
   imageUrl: string | null;
+  /** Prix d'achat estimé (€ HT). */
+  priceBuyEur?: number | null;
+  /** Prix de vente estimé (€ TTC). */
+  priceSellEur?: number | null;
+  /** Taux de marque estimé (%). */
+  marginPct?: number | null;
 }
 
 export interface Catalog {

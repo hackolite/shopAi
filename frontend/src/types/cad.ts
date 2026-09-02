@@ -46,7 +46,7 @@ export interface FurnitureDefinition {
 }
 
 // ─── Floor zones ──────────────────────────────────────────────────────────────
-export type ZoneType = 'entrance' | 'exit' | 'supply';
+export type ZoneType = 'entrance' | 'exit' | 'supply' | 'reserve';
 
 export interface FloorZone {
   id: string;

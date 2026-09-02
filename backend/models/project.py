@@ -125,6 +125,10 @@ class AgentTrajectory(CADBaseModel):
 class SimulationAnalytics(CADBaseModel):
     timeSeconds: float = 0.0
     heatmap: SimulationHeatmap | None = None
+    # Number of *agent entries* per cell (an agent walking into a cell counts
+    # once, however long it stays).  Divided by ``timeSeconds`` it yields an
+    # absolute client flow in persons per second, independent of the tick rate.
+    visitHeatmap: SimulationHeatmap | None = None
     trajectories: list[AgentTrajectory] = Field(default_factory=list)
 
 

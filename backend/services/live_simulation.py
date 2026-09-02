@@ -77,6 +77,9 @@ class LiveSimulationSession:
         self.exit_stage_ids: dict[str, int] = {}
         self.waypoint_by_stage_id: dict[int, SimulationWaypoint] = {}
         self.waypoint_runtimes: dict[str, simsvc._WaypointRuntime] = {}
+        # Throughput of every waypoint type (queue runtimes only cover retention waypoints).
+        self.passages = simsvc.WaypointPassageTracker()
+        self.stage_to_waypoint_id: dict[int, str] = {}
         self.metrics_waypoints: list[SimulationWaypoint] = []
         self.waypoint_series: dict[str, list[Any]] = {}
         self.average_load_accumulator = 0.0
@@ -191,6 +194,13 @@ class LiveSimulationSession:
                 self.waypoint_by_stage_id[stage_id] = waypoint
                 self.stage_to_token[stage_id] = waypoint.id
                 self.token_to_stage[waypoint.id] = stage_id
+
+        # Stage ids are rebuilt on every hot update: refresh the mapping and drop
+        # the per-agent stage memory while keeping the cumulative passage counts.
+        self.stage_to_waypoint_id = {
+            stage_id: waypoint_id for waypoint_id, stage_id in self.waypoint_stage_ids.items()
+        }
+        self.passages.forget_agent_positions()
 
         if not self.waypoint_series:
             self.waypoint_series = {waypoint.id: [] for waypoint in self.metrics_waypoints}
@@ -329,6 +339,9 @@ class LiveSimulationSession:
                 token_index=0,
             )
             self.agent_speeds[agent_id] = desired_speed
+            # Agents start already past their entry (first target is the next
+            # stage), so the entry throughput is credited at spawn time.
+            self.passages.record_passage(entry_wp.id)
             self.spawned += 1
             self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
 
@@ -382,7 +395,10 @@ class LiveSimulationSession:
             stage = self.sim.get_stage(stage_id)
             current_agents = int(stage.count_targeting())
             runtime = self.waypoint_runtimes.get(waypoint.id)
-            released_agents = runtime.released_agents if runtime is not None else 0
+            released_agents = max(
+                runtime.released_agents if runtime is not None else 0,
+                self.passages.released(waypoint.id),
+            )
             waypoint_loads.append(current_agents)
             self.waypoint_series[waypoint.id].append(
                 simsvc.WaypointSample(
@@ -424,6 +440,7 @@ class LiveSimulationSession:
                     self.agent_speeds.pop(removed_id, None)
                     self.frozen_agents.discard(removed_id)
                 self._update_agent_route_indices()
+                self.passages.observe(self.sim, self.stage_to_waypoint_id)
                 self.time_seconds += simsvc.SIMULATION_DT_S
             self._capture_frame()
             return self.snapshot()
@@ -466,13 +483,12 @@ class LiveSimulationSession:
                     (sample.activeAgents for sample in self.waypoint_series.get(waypoint.id, [])),
                     default=0,
                 ),
-                releasedAgents=(
+                releasedAgents=max(
                     max(
                         (sample.releasedAgents for sample in self.waypoint_series.get(waypoint.id, [])),
                         default=0,
-                    )
-                    if waypoint.type != "exit"
-                    else 0
+                    ),
+                    self.passages.released(waypoint.id),
                 ),
                 samples=self.waypoint_series.get(waypoint.id, [])[-LIVE_RESPONSE_SAMPLE_WINDOW:],
                 **simsvc.queue_wait_metrics(

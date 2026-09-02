@@ -96,6 +96,14 @@ def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:
     assert payload["summary"]["averageConfiguredRetentionSeconds"] >= 0
     assert payload["waypoints"][0]["samples"], "waypoint samples should be present"
 
+    # Throughput (débit) must be measurable on every waypoint, not just queues.
+    metrics_by_id = {item["waypointId"]: item for item in payload["waypoints"]}
+    assert metrics_by_id["entry-main"]["releasedAgents"] > 0
+    assert metrics_by_id["exit-main"]["releasedAgents"] > 0
+    for waypoint_id in ("entry-main", "wp-main"):
+        released = [sample["releasedAgents"] for sample in metrics_by_id[waypoint_id]["samples"]]
+        assert max(released) > 0, f"{waypoint_id} has a flat throughput"
+
     populated_frame = next(frame for frame in payload["frames"] if frame["agents"])
     first_agent = populated_frame["agents"][0]
     assert first_agent["visionAngleDeg"] == 60.0
@@ -927,3 +935,59 @@ def test_live_simulation_exposes_analytics_and_queue_wait_times() -> None:
 
     stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
     assert stop.status_code == 200, stop.text
+
+
+class _FakeAgent:
+    def __init__(self, agent_id: int, stage_id: int) -> None:
+        self.id = agent_id
+        self.stage_id = stage_id
+
+
+class _FakeSim:
+    def __init__(self) -> None:
+        self._agents: list[_FakeAgent] = []
+
+    def agents(self) -> list[_FakeAgent]:
+        return self._agents
+
+
+def test_passage_tracker_counts_every_waypoint_type() -> None:
+    """Throughput must be measured for plain waypoints, not only queues."""
+    tracker = simulation_service.WaypointPassageTracker()
+    stage_to_waypoint = {10: "entry", 20: "transit", 30: "exit"}
+    sim = _FakeSim()
+
+    # An agent spawns already past the entry and heads to the transit waypoint.
+    tracker.record_passage("entry")
+    sim._agents = [_FakeAgent(1, 20)]
+    tracker.observe(sim, stage_to_waypoint)
+    assert tracker.released("entry") == 1
+    assert tracker.released("transit") == 0
+
+    # It clears the transit waypoint and heads to the exit.
+    sim._agents = [_FakeAgent(1, 30)]
+    tracker.observe(sim, stage_to_waypoint)
+    assert tracker.released("transit") == 1
+
+    # Reaching the (unmapped) removal stage credits the exit it just left.
+    sim._agents = [_FakeAgent(1, 99)]
+    tracker.observe(sim, stage_to_waypoint)
+    assert tracker.released("exit") == 1
+
+    # Leaving the simulation from an unmapped stage adds nothing more.
+    sim._agents = []
+    tracker.observe(sim, stage_to_waypoint)
+    assert tracker.counts == {"entry": 1, "transit": 1, "exit": 1}
+
+
+def test_passage_tracker_forgets_stage_ids_on_hot_update() -> None:
+    """Stage ids are rebuilt on a hot update; counts survive, positions do not."""
+    tracker = simulation_service.WaypointPassageTracker()
+    sim = _FakeSim()
+    sim._agents = [_FakeAgent(1, 10)]
+    tracker.observe(sim, {10: "transit"})
+    tracker.forget_agent_positions()
+    # New stage ids: the agent is re-observed from scratch, no phantom passage.
+    sim._agents = [_FakeAgent(1, 40)]
+    tracker.observe(sim, {40: "transit"})
+    assert tracker.released("transit") == 0

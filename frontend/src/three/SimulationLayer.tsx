@@ -6,6 +6,7 @@ import { CM_TO_UNIT } from '../constants';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
+import { buildYieldHeatmap } from '../engine/yieldHeatmap';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
@@ -638,9 +639,16 @@ export function SimulationLayer() {
   // Margin heatmap is derived from the assortment, not from a running session:
   // recompute it only while the margin mode is displayed.
   const marginHeatmap = useMemo(() => {
-    if (!showHeatmap || heatmapMode !== 'margin' || !scene) return null;
+    if (!showHeatmap || (heatmapMode !== 'margin' && heatmapMode !== 'yield') || !scene) return null;
     return buildMarginHeatmap(scene, planogramDetails.values(), catalogProducts);
   }, [catalogProducts, heatmapMode, planogramDetails, scene, showHeatmap]);
+
+  // Yield per m²: margin exposed on a cell weighted by the client density
+  // measured there by the running simulation.
+  const yieldHeatmap = useMemo(() => {
+    if (!showHeatmap || heatmapMode !== 'yield') return null;
+    return buildYieldHeatmap(marginHeatmap, analytics?.heatmap ?? null);
+  }, [analytics, heatmapMode, marginHeatmap, showHeatmap]);
 
   // --- Smooth agent playback (no React state per frame) ---
   const prevAgentIds = useRef<Set<number>>(new Set());
@@ -903,6 +911,9 @@ export function SimulationLayer() {
       )}
       {showHeatmap && heatmapMode === 'margin' && marginHeatmap && (
         <HeatmapOverlay heatmap={marginHeatmap} />
+      )}
+      {showHeatmap && heatmapMode === 'yield' && yieldHeatmap && (
+        <HeatmapOverlay heatmap={yieldHeatmap} />
       )}
       {showTrajectories && analytics && analytics.trajectories.length > 0 && (
         <TrajectoryOverlay trajectories={analytics.trajectories} />

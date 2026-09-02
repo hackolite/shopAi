@@ -317,8 +317,68 @@ the whole project (bottom panel when nothing is selected).
 | **Planogrammes remplis** | `filledPlanograms / planograms` — a planogram counts as filled as soon as it carries at least one facing. Detects faces of furniture left empty. | count / count |
 | **Couverture catalogue** | `distinctProducts / catalogue size` — share of the catalogue actually implanted in the store. | % |
 
-The reference project `carrefour_express_aeroport` is validated at **2 800 /
-2 800** references implanted, 52 planograms, 3 818 facings.
+Current values of the reference projects (recomputed from
+`backend/storage/projects/*/planograms.json`):
+
+| Project | Catalogue | Planograms | Facings | Distinct refs | Facings / ref | Coverage |
+|---------|----------:|-----------:|--------:|--------------:|--------------:|---------:|
+| `carrefour_express_aeroport` | 2 800 | 52 | 3 818 | 2 800 | 1.4 | 100 % |
+| `carrefour_express` | 2 964 | 46 | 2 964 | 2 964 | 1.0 | 100 % |
+| `carrefour_city` | 5 000 | 306 | 15 300 | 5 000 | 3.1 | 100 % |
+| `retail_cad` (demo) | 200 | 50 | 1 324 | 200 | 6.6 | 100 % |
+| `demo` | 5 000 | 306 | 15 300 | 1 250 | 12.2 | 25 % |
+
+### Assortment policy
+
+The policy that decides **which references are carried and how many facings
+each one gets** is stored with the project, not in the code: it is described in
+`store-profile.json` (context modifiers) and audited in `validation-report.md`
+(`backend/storage/projects/carrefour_express_aeroport/`).
+
+| Rule | Content |
+|------|---------|
+| **Breadth before depth** | On a constrained sales area, every catalogue reference gets **exactly one facing** on its assigned furniture unit; a reference is duplicated only on end-gondolas. This keeps `facings / ref` close to 1 and coverage at 100 %. |
+| **No reference without a facing** | The whole catalogue must be implanted (2 800 / 2 800 for the airport project) — an unplaced reference means the assortment is over-sized for the store. |
+| **No empty slot** | A row is filled to the real width of the linear (`widthCm` per facing) then shortened with `rowColCounts`; holes are re-filled with new references first, then with extra facings of the best rotations. Enforced by `test_planograms_have_no_empty_slot`. |
+| **Context modifiers** | `store-profile.json` boosts (×1.6) or reduces (×0.5) the selection weight of categories according to the store context (airport: Snacking, Boissons, Presse, Hygiène boosted; Surgelés and Entretien reduced). |
+| **End-gondola duplication** | End-gondolas carry only references already in the aisle, sorted by decreasing `rotationIndice`, on a full grid without holes — extra exposure, no extra reference. |
+| **Adjacency** | Impulse categories (snacking, press) near the entrance, grab-and-go chilled next to it, grocery then beverages in the central aisles, non-food at the back. |
+| **Anti-duplication** | A reference is not repeated on two faces of the same furniture unit as long as another reference of the category can take the slot. |
+
+`assortment.json` at the repo root is the **read-only raw pool** (4 807
+products with barcode, brand, `is_mdd`, prices, category) the project catalogues
+are drawn from. It is never modified by the app.
+
+### Margin policy
+
+Margin is a **product attribute of the catalogue**, and every €-based metric
+(margin heatmap, absolute yield) is derived from it — nothing is hard-coded in
+the engines.
+
+| Field (`CADProduct` / backend `Product`) | Meaning |
+|------------------------------------------|---------|
+| `priceBuyEur` | Buying price (€ excl. tax), optional |
+| `priceSellEur` | Selling price (€ incl. tax), optional |
+| `marginPct` | Mark-up rate (%), optional |
+
+`engine/marginHeatmap.ts` → `productMarginEur()` computes the unit margin of a
+facing with this fallback order:
+
+1. `priceSellEur − priceBuyEur` when both prices are known (clamped at ≥ 0);
+2. else `priceSellEur × marginPct / 100`;
+3. else **0 €** — a product without pricing contributes nothing, it never
+   breaks the metric.
+
+How the reference projects are priced (see `validation-report.md` §4): each
+category carries a target margin rate (22 % baby / grocery savory … 40 %
+ready-to-eat) and a base buying price; `priceBuyEur` = base price × size factor
+derived from `quantity` (clamped 0.4–1.8), `priceSellEur` = commercial rounding
+to `,x9` above `priceBuyEur / (1 − rate)`, and `marginPct` is recomputed after
+rounding. No product is left with a null or zero price.
+
+> Consequence for the metrics: the margin exposed on the floor is a **facing
+> margin** (unit margin × number of facings), i.e. the € a shopper can see, not
+> a realised margin — there is no sales or stock feed yet (see Roadmap).
 
 ### Simulation metrics
 
@@ -342,9 +402,18 @@ Grids (`SimulationAnalytics`, polled every second while an overlay is on):
 |------|-----------|------|
 | `heatmap` | Cumulated **agent samples** per cell — a proxy for dwell time (a standing agent keeps adding samples). | samples |
 | `visitHeatmap` | Cumulated **agent entries** per cell (one count per entry, whatever the dwell). Divided by `timeSeconds` it gives an absolute flow. | persons/s |
-| `marginHeatmap` (`engine/marginHeatmap.ts`) | Client-side: each planogram column radiates its cumulated facing margin onto the aisle slice in front of it. No running session needed. | € |
-| `yieldHeatmap` (`engine/yieldHeatmap.ts`) | **Normalised** margin × traffic index, for relative colouring only. | 0–1 |
-| `absoluteYield` (`engine/absoluteYield.ts`) | Raw margin × traffic: € per facing × persons/s. Never normalise it. | €/s |
+| `marginHeatmap` (`engine/marginHeatmap.ts`) | Client-side: each planogram column radiates its cumulated facing margin onto the aisle slice in front of it, over `MARGIN_INFLUENCE_CM` = 100 cm, on a 50 cm grid (`MARGIN_HEATMAP_CELL_CM`, capped at 120 cells/axis). No running session needed. | € |
+| `yieldHeatmap` (`engine/yieldHeatmap.ts`) | **Normalised** margin × traffic index (`margin/maxMargin × traffic/maxTraffic`), for relative colouring only. | 0–1 |
+| `absoluteYield` (`engine/absoluteYield.ts`) | Raw margin × traffic: € exposed per facing × persons/s, summed on the *visit* grid. Never normalise it. Exposes `totalEurPerSecond`, `maxCellEurPerSecond`, `productiveCells`, `exposedFlowPerSecond`, `exposedMarginEur`. | €/s |
+
+Where they are displayed:
+
+| Surface | Metrics shown |
+|---------|---------------|
+| **Inspector** (furniture selected) | *Implantation*: distinct products, facings, facings/product; for the selected planogram cell: buying price, selling price, unit margin (€ and %) |
+| **Inspector** (nothing selected) | Same project-wide + filled planograms + catalogue coverage |
+| **SimulationPanel** | Live agent count, per-waypoint queue waiting times, floor-heatmap intensity selector (`traffic` or `margin`, `simulationStore.heatmapMode`) |
+| **CheckoutChartsOverlay** | Absolute yield (€/s: current, peak cell, exposed margin) + per-waypoint throughput (ag/s) |
 
 ### Proposed metrics (not implemented yet)
 

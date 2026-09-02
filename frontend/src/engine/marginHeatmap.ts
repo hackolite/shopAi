@@ -1,4 +1,5 @@
 import type { CADProduct, FurnitureInstance, Planogram, Scene, SimulationHeatmap } from '../types/cad';
+import { cellRectCm } from './planogramLayout';
 
 /** Default floor cell size (cm) of the margin grid — mirrors the traffic heatmap. */
 export const MARGIN_HEATMAP_CELL_CM = 50;
@@ -39,25 +40,15 @@ export interface MarginColumnSource {
   z1: number;
 }
 
-/** Effective per-column widths (cm), falling back to an even split. */
-function effectiveColWidths(planogram: Planogram): number[] {
-  return planogram.colWidthsCm?.length === planogram.cols
-    ? planogram.colWidthsCm
-    : Array(planogram.cols).fill(planogram.widthCm / Math.max(1, planogram.cols));
-}
-
-/** Horizontal span [t0, t1] (0..1 across the planogram width) of one cell. */
-function cellSpan(planogram: Planogram, row: number, col: number, colWidths: number[]): [number, number] {
-  const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
-  const widthOf = (index: number) =>
-    planogram.cellWidthOverrides?.[`${row}-${index}`] ??
-    colWidths[index] ??
-    planogram.widthCm / Math.max(1, rowColCount);
-  let start = 0;
-  for (let index = 0; index < col; index++) start += widthOf(index);
-  const width = widthOf(col);
+/**
+ * Horizontal span [t0, t1] (0..1 across the planogram width) of one cell, using
+ * the same normalised row layout as the 3D overlay so the heatmap bands line up
+ * with the columns as drawn.
+ */
+function cellSpan(planogram: Planogram, row: number, col: number): [number, number] {
+  const { xCm, widthCm } = cellRectCm(planogram, row, col);
   const total = Math.max(1, planogram.widthCm);
-  return [start / total, Math.min(1, (start + width) / total)];
+  return [xCm / total, Math.min(1, (xCm + widthCm) / total)];
 }
 
 /**
@@ -109,13 +100,12 @@ export function marginColumnSources(
   for (const planogram of planograms) {
     const furniture = planogram.furnitureId ? furnitureById.get(planogram.furnitureId) : undefined;
     if (!furniture) continue;
-    const colWidths = effectiveColWidths(planogram);
     // Cell spans may differ per row (per-row column counts and width
     // overrides): a column band covers the union of its cells' spans.
     const columns = new Map<number, { margin: number; t0: number; t1: number }>();
     for (const cell of planogram.cells) {
       const margin = marginByEan.get(cell.ean) ?? 0;
-      const [t0, t1] = cellSpan(planogram, cell.row, cell.col, colWidths);
+      const [t0, t1] = cellSpan(planogram, cell.row, cell.col);
       const current = columns.get(cell.col);
       if (current) {
         current.margin += margin;

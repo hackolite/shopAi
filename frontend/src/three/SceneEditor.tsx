@@ -11,6 +11,7 @@ import { useZoneStore } from '../store/zoneStore';
 import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { loadRatio, useAssetStore } from '../store/assetStore';
+import { cellRectCm, columnAtRatio } from '../engine/planogramLayout';
 import type { FloorZone, Planogram } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
@@ -172,13 +173,6 @@ function getWorldHitPoint(
   return raycaster.ray.intersectPlane(plane, out) !== null;
 }
 
-/** Returns per-column widths in cm, falling back to equal distribution. */
-function getEffectiveColWidths(p: { cols: number; widthCm: number; colWidthsCm?: number[] }): number[] {
-  return p.colWidthsCm?.length === p.cols
-    ? p.colWidthsCm
-    : Array(p.cols).fill(p.widthCm / p.cols);
-}
-
 /** Returns per-row heights in cm, falling back to equal distribution. */
 function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsCm?: number[] }): number[] {
   return p.rowHeightsCm?.length === p.rows
@@ -323,7 +317,6 @@ function PlanogramFaceOverlay({
     const productByEan = new Map(products.map((p) => [p.ean, p]));
 
     // Use proportional canvas dimensions based on physical cm sizes
-    const colWidths  = getEffectiveColWidths(planogram);
     const rowHeights = getEffectiveRowHeights(planogram);
     const aspect = planogram.heightCm / planogram.widthCm;
     const canvasW = OVERLAY_CANVAS_PX;
@@ -333,12 +326,11 @@ function PlanogramFaceOverlay({
     // x is determined by the widths of cells to the left in the same row;
     // y is determined by the heights of cells above in the same column.
     const getCellRectPx = (row: number, col: number) => {
-      const cellWCm = planogram.cellWidthOverrides?.[`${row}-${col}`] ?? colWidths[col];
+      // Row widths are normalised so they always span the whole face: a stored
+      // row whose cell widths fall short (fused cells keeping a single-cell
+      // width) must not leave an empty band on its right.
+      const { xCm, widthCm: cellWCm } = cellRectCm(planogram, row, col);
       const cellHCm = planogram.cellHeightOverrides?.[`${row}-${col}`] ?? rowHeights[row];
-      let xCm = 0;
-      for (let c = 0; c < col; c++) {
-        xCm += planogram.cellWidthOverrides?.[`${row}-${c}`] ?? colWidths[c];
-      }
       let yCm = 0;
       for (let r = 0; r < row; r++) {
         yCm += planogram.cellHeightOverrides?.[`${r}-${col}`] ?? rowHeights[r];
@@ -418,7 +410,6 @@ function PlanogramFaceOverlay({
 
     // Map UV coordinates to column/row using proportional physical sizes so that
     // clicking on a resized (wider/narrower) column correctly identifies it.
-    const colWidths  = getEffectiveColWidths(planogram);
     const rowHeights = getEffectiveRowHeights(planogram);
 
     // Determine the row first so we can use per-row cell widths when mapping the
@@ -440,14 +431,7 @@ function PlanogramFaceOverlay({
     // rotation) and the back texture is no longer flipped, so the same mapping applies
     // to every face: UV.x runs left→right over the columns exactly as drawn.
     const uvX = Math.min(1, Math.max(0, event.uv.x));
-    const rowColCount = planogram.rowColCounts?.[row] ?? planogram.cols;
-    let col = rowColCount - 1;
-    let cumW = 0;
-    for (let c = 0; c < rowColCount; c++) {
-      const cellW = planogram.cellWidthOverrides?.[`${row}-${c}`] ?? colWidths[c] ?? (planogram.widthCm / rowColCount);
-      cumW += cellW / planogram.widthCm;
-      if (uvX <= cumW) { col = c; break; }
-    }
+    const col = columnAtRatio(planogram, row, uvX);
 
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);
     if (!cell) return;
@@ -609,13 +593,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     // so that resized columns place the proximity disc at the correct position.
     // Use per-row cellWidthOverrides (set for every box by gondolaToLegacyPlanogram)
     // so that columns created/modified by add-col, fuse, or split are placed correctly.
-    const colWidths = getEffectiveColWidths(planogram);
-    const rowColCount = planogram.rowColCounts?.[cell.row] ?? planogram.cols;
-    let cumW = 0;
-    for (let i = 0; i < cell.col; i++) {
-      cumW += planogram.cellWidthOverrides?.[`${cell.row}-${i}`] ?? colWidths[i] ?? (planogram.widthCm / rowColCount);
-    }
-    const cellW = planogram.cellWidthOverrides?.[`${cell.row}-${cell.col}`] ?? colWidths[cell.col] ?? (planogram.widthCm / rowColCount);
+    const { xCm: cumW, widthCm: cellW } = cellRectCm(planogram, cell.row, cell.col);
     const t = (cumW + cellW / 2) / planogram.widthCm;
 
     const cellXf =  t * W - W / 2;  // front: col 0 → local −X
@@ -2811,6 +2789,7 @@ function AssetLoadingGauge() {
   const planogramsTotal  = useAssetStore((state) => state.planogramsTotal);
   const imagesLoaded     = useAssetStore((state) => state.imagesLoaded);
   const imagesTotal      = useAssetStore((state) => state.imagesTotal);
+  const throttled        = useAssetStore((state) => state.preloadThrottled);
 
   if (!loading) return null;
 
@@ -2824,7 +2803,10 @@ function AssetLoadingGauge() {
     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-64 pointer-events-none">
       <div className="rounded bg-gray-900/90 border border-gray-700 px-3 py-2 shadow-lg">
         <div className="flex justify-between text-[11px] text-gray-300 mb-1">
-          <span>Chargement — {label}</span>
+          <span>
+            Chargement — {label}
+            {throttled && <span className="text-gray-500"> · arrière-plan</span>}
+          </span>
           <span>{percent}%</span>
         </div>
         <div className="h-1.5 w-full rounded bg-gray-800 overflow-hidden">

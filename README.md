@@ -304,6 +304,9 @@ All metrics are raw (non-normalised) unless the table says otherwise: they keep
 their physical unit so two projects, two furniture units or two runs can be
 compared in absolute terms.
 
+> French reference sheet (computed metrics, metrics still to build, and the role
+> of each one): [METRIQUES.md](METRIQUES.md).
+
 ### Assortment metrics (`frontend/src/engine/assortmentMetrics.ts`)
 
 Shown in the **Inspector**: per furniture unit (section *Implantation*) and for

@@ -246,9 +246,9 @@
       "type": "pallet",
       "libraryId": "pallet",
       "position": [
-        240,
+        900,
         0.0,
-        100
+        120
       ],
       "rotation": [
         0.0,
@@ -281,9 +281,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        360,
+        300,
         0.0,
-        100
+        20
       ],
       "rotation": [
         0.0,
@@ -316,9 +316,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        460,
+        400,
         0.0,
-        100
+        20
       ],
       "rotation": [
         0.0,
@@ -351,9 +351,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        560,
+        500,
         0.0,
-        100
+        20
       ],
       "rotation": [
         0.0,
@@ -386,9 +386,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        660,
+        600,
         0.0,
-        100
+        20
       ],
       "rotation": [
         0.0,
@@ -421,9 +421,9 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        760,
+        700,
         0.0,
-        100
+        20
       ],
       "rotation": [
         0.0,
@@ -479,7 +479,7 @@
       "faces": {
         "front": "548df094-68dd-4b9f-bf5b-f4126570ffc8",
         "back": "8ebea8bc-ed67-4ad5-860a-b07b186bb38e",
-        "left": null,
+        "left": "3db48ce6-403b-47fd-a181-11cf9a9b8e19",
         "right": null,
         "top": null,
         "bottom": null
@@ -655,42 +655,7 @@
         "front": "ba9236a8-b93a-4608-bba5-01ab8554f089",
         "back": "1074f39a-0d14-4ded-aa80-399afe240073",
         "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "87c52cd3-09e0-49e9-92cd-291daca29e43",
-      "name": "Tête de gondole Snacking",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        950.0,
-        0.0,
-        310.0
-      ],
-      "rotation": [
-        0.0,
-        90,
-        0.0
-      ],
-      "dimensions": {
-        "width": 120,
-        "depth": 60,
-        "height": 200
-      },
-      "materialId": "metal_grey",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "4ae1fa48-ec5a-4b75-b5f0-5b3cd154c82d",
-        "back": null,
-        "left": null,
-        "right": null,
+        "right": "eca7ee06-e777-42ec-a5ed-4ff41d54aaf1",
         "top": null,
         "bottom": null
       }
@@ -724,7 +689,7 @@
       "faces": {
         "front": "fd5f1a77-95c0-4195-b341-503d4793a762",
         "back": "8532ed85-520e-4007-929c-4bac9729620c",
-        "left": null,
+        "left": "4a6db135-1282-4de9-8324-d20a3657fb2c",
         "right": null,
         "top": null,
         "bottom": null
@@ -900,42 +865,7 @@
         "front": "f807c2a9-810c-47ed-b37a-dcf575fbf99d",
         "back": null,
         "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "af6c9e40-ff1c-41db-aae7-5d231a7ec990",
-      "name": "Tête de gondole Boissons",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        950.0,
-        0.0,
-        530.0
-      ],
-      "rotation": [
-        0.0,
-        90,
-        0.0
-      ],
-      "dimensions": {
-        "width": 120,
-        "depth": 60,
-        "height": 200
-      },
-      "materialId": "metal_grey",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "05571633-f19a-456d-8dd9-4351619f7b2c",
-        "back": null,
-        "left": null,
-        "right": null,
+        "right": "2dda7d57-46c7-4615-914c-2ca2d987af36",
         "top": null,
         "bottom": null
       }
@@ -948,7 +878,7 @@
       "position": [
         260,
         0.0,
-        740
+        720
       ],
       "rotation": [
         0.0,
@@ -969,7 +899,7 @@
       "faces": {
         "front": "c6471869-e9d3-4a1c-8b39-8559daee3b81",
         "back": "f5337a04-eac6-498d-b52f-5b5395f7c74d",
-        "left": null,
+        "left": "bf924638-aeb2-4598-8f32-7509091f83da",
         "right": null,
         "top": null,
         "bottom": null
@@ -983,7 +913,7 @@
       "position": [
         380,
         0.0,
-        740
+        720
       ],
       "rotation": [
         0.0,
@@ -1018,7 +948,7 @@
       "position": [
         500,
         0.0,
-        740
+        720
       ],
       "rotation": [
         0.0,
@@ -1053,7 +983,7 @@
       "position": [
         620,
         0.0,
-        740
+        720
       ],
       "rotation": [
         0.0,
@@ -1075,42 +1005,7 @@
         "front": "aa5e9f54-fc1b-4405-8613-cd073121536a",
         "back": "e50ddfef-9215-46f6-b98b-49b4f68de1ba",
         "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      }
-    },
-    {
-      "id": "7634e647-1feb-46d8-9600-ef3b02d6a0be",
-      "name": "Tête de gondole Hygiène",
-      "type": "gondola_single",
-      "libraryId": "gondola_single",
-      "position": [
-        710.0,
-        0.0,
-        750.0
-      ],
-      "rotation": [
-        0.0,
-        90,
-        0.0
-      ],
-      "dimensions": {
-        "width": 120,
-        "depth": 60,
-        "height": 200
-      },
-      "materialId": "metal_grey",
-      "visible": true,
-      "locked": false,
-      "mounted": true,
-      "parentId": null,
-      "childIds": [],
-      "faces": {
-        "front": "23397b23-ba97-48e5-bc0c-944c5bb2f1b2",
-        "back": null,
-        "left": null,
-        "right": null,
+        "right": "971bd941-3831-4f5d-8906-eefab473b892",
         "top": null,
         "bottom": null
       }
@@ -1123,11 +1018,11 @@
       "position": [
         260,
         0.0,
-        940
+        920
       ],
       "rotation": [
         0.0,
-        0,
+        180,
         0.0
       ],
       "dimensions": {
@@ -1158,11 +1053,11 @@
       "position": [
         380,
         0.0,
-        940
+        920
       ],
       "rotation": [
         0.0,
-        0,
+        180,
         0.0
       ],
       "dimensions": {
@@ -1193,11 +1088,11 @@
       "position": [
         500,
         0.0,
-        940
+        920
       ],
       "rotation": [
         0.0,
-        0,
+        180,
         0.0
       ],
       "dimensions": {
@@ -1228,11 +1123,11 @@
       "position": [
         620,
         0.0,
-        940
+        920
       ],
       "rotation": [
         0.0,
-        0,
+        180,
         0.0
       ],
       "dimensions": {

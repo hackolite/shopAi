@@ -1,4 +1,5 @@
-"""Tests des projets de référence statiques (carrefour_city, carrefour_express).
+"""Tests des projets de référence statiques (carrefour_city, carrefour_express,
+carrefour_express_aeroport).
 
 Ces projets sont livrés uniquement sous forme de fichiers JSON committés dans
 ``backend/storage/projects/`` — il n'existe plus de script de génération.
@@ -10,13 +11,14 @@ from __future__ import annotations
 
 import itertools
 import json
+import math
 from pathlib import Path
 
 import pytest
 
 _STORAGE = Path(__file__).resolve().parent.parent / "storage"
 _LIBRARY_PATH = _STORAGE / "furniture_library.json"
-_PROJECT_IDS = ("carrefour_city", "carrefour_express")
+_PROJECT_IDS = ("carrefour_city", "carrefour_express", "carrefour_express_aeroport")
 
 # Largeur minimale d'une allée de circulation (cm).
 MIN_AISLE_CM = 100.0
@@ -184,3 +186,130 @@ def test_express_catalog_has_about_3000_skus() -> None:
 def test_express_store_surface_is_110_m2() -> None:
     dims = _load("carrefour_express", "scene.json")["store"]["dimensions"]
     assert dims["width"] * dims["depth"] == pytest.approx(110.0 * 10_000)
+
+
+# ---------------------------------------------------------------------------
+# Règles d'implantation spécifiques à carrefour_express_aeroport
+#
+# Un planogramme représente une face marchande : elle doit être accessible au
+# client. Une face tournée vers un mur (ou plaquée contre un autre meuble) n'a
+# aucun sens en merchandising — le rayon n'est ni shoppable ni réassortissable.
+# Les meubles muraux doivent donc être collés au mur, face produit vers
+# l'intérieur du magasin.
+# ---------------------------------------------------------------------------
+_AEROPORT_ID = "carrefour_express_aeroport"
+# Direction sortante d'une face, exprimée dans le repère local du meuble (x, z).
+_FACE_NORMALS = {"front": (0.0, 1.0), "back": (0.0, -1.0), "right": (1.0, 0.0), "left": (-1.0, 0.0)}
+
+
+def _face_normal(item: dict, face: str) -> tuple[float, float]:
+    """Normale sortante d'une face, en repère monde (rotation Y appliquée)."""
+    local_x, local_z = _FACE_NORMALS[face]
+    theta = math.radians(item["rotation"][1])
+    return (
+        math.cos(theta) * local_x + math.sin(theta) * local_z,
+        -math.sin(theta) * local_x + math.cos(theta) * local_z,
+    )
+
+
+def _sales_area(scene: dict) -> tuple[float, float, float, float]:
+    """Surface utile (x0, z0, x1, z1) : la boîte du magasin moins l'épaisseur des murs."""
+    dims = scene["store"]["dimensions"]
+    thickness = max((wall["dimensions"]["depth"] for wall in scene["store"]["walls"]), default=0.0)
+    return (thickness, thickness, dims["width"] - thickness, dims["depth"] - thickness)
+
+
+def _clearance_in_front_of(
+    item: dict,
+    face: str,
+    scene: dict,
+    furniture: list[dict],
+) -> tuple[float, str]:
+    """Espace libre (cm) devant une face, et ce qui la borne (mur ou meuble)."""
+    dir_x, dir_z = _face_normal(item, face)
+    x0, z0, x1, z1 = _rotated_footprint(item)
+    sx0, sz0, sx1, sz1 = _sales_area(scene)
+    if dir_x > 0.5:
+        clearance, blocker = sx1 - x1, "mur droit"
+    elif dir_x < -0.5:
+        clearance, blocker = x0 - sx0, "mur gauche"
+    elif dir_z > 0.5:
+        clearance, blocker = sz1 - z1, "mur du fond"
+    else:
+        clearance, blocker = z0 - sz0, "mur façade"
+
+    for other in furniture:
+        if other["id"] == item["id"]:
+            continue
+        a0, b0, a1, b1 = _rotated_footprint(other)
+        if abs(dir_z) > 0.5:
+            if min(x1, a1) - max(x0, a0) < MIN_FACING_OVERLAP_CM:
+                continue
+            gap = b0 - z1 if dir_z > 0.5 else z0 - b1
+        else:
+            if min(z1, b1) - max(z0, b0) < MIN_FACING_OVERLAP_CM:
+                continue
+            gap = a0 - x1 if dir_x > 0.5 else x0 - a1
+        if -0.01 <= gap < clearance:
+            clearance, blocker = gap, other["name"]
+    return clearance, blocker
+
+
+def test_aeroport_furniture_stays_inside_the_sales_area() -> None:
+    """Aucun meuble ne doit empiéter sur l'épaisseur des murs."""
+    scene = _load(_AEROPORT_ID, "scene.json")
+    sx0, sz0, sx1, sz1 = _sales_area(scene)
+    for item in scene["furniture"]:
+        x0, z0, x1, z1 = _rotated_footprint(item)
+        assert x0 >= sx0 - 0.01 and z0 >= sz0 - 0.01, item["name"]
+        assert x1 <= sx1 + 0.01 and z1 <= sz1 + 0.01, item["name"]
+
+
+def test_aeroport_no_planogram_faces_a_wall() -> None:
+    """Toute face marchande doit disposer d'au moins 1 m d'allée pour être shoppable."""
+    scene = _load(_AEROPORT_ID, "scene.json")
+    planograms = _load(_AEROPORT_ID, "planograms.json")["planograms"]
+    by_id = {item["id"]: item for item in scene["furniture"]}
+    violations: list[str] = []
+    for planogram in planograms:
+        if planogram["face"] == "top":
+            continue
+        item = by_id[planogram["furnitureId"]]
+        clearance, blocker = _clearance_in_front_of(
+            item, planogram["face"], scene, scene["furniture"]
+        )
+        if clearance < MIN_AISLE_CM:
+            violations.append(
+                f"{item['name']} face {planogram['face']} : {clearance:.0f} cm devant ({blocker})"
+            )
+    assert not violations, "\n".join(violations)
+
+
+def test_aeroport_double_gondola_runs_have_end_cap_planograms() -> None:
+    """Chaque allée de gondoles doubles porte une tête de gondole à chaque extrémité."""
+    scene = _load(_AEROPORT_ID, "scene.json")
+    planograms = {p["id"]: p for p in _load(_AEROPORT_ID, "planograms.json")["planograms"]}
+    doubles = [item for item in scene["furniture"] if item["type"] == "gondola_double"]
+    runs: dict[float, list[dict]] = {}
+    for item in doubles:
+        runs.setdefault(item["position"][2], []).append(item)
+    assert runs, "aucune allée de gondoles doubles"
+    for modules in runs.values():
+        modules.sort(key=lambda item: item["position"][0])
+        for module, face in ((modules[0], "left"), (modules[-1], "right")):
+            planogram_id = (module.get("faces") or {}).get(face)
+            assert planogram_id, f"{module['name']} sans tête de gondole ({face})"
+            planogram = planograms[planogram_id]
+            assert planogram["face"] == face
+            # La face latérale d'une gondole double est large comme sa profondeur.
+            assert planogram["widthCm"] == module["dimensions"]["depth"]
+            assert planogram["heightCm"] == module["dimensions"]["height"]
+            # Une tête de gondole se réassortit vite : aucun trou de facing.
+            assert len(planogram["cells"]) == planogram["rows"] * planogram["cols"]
+
+
+def test_aeroport_planogram_cells_fit_their_grid() -> None:
+    for planogram in _load(_AEROPORT_ID, "planograms.json")["planograms"]:
+        for cell in planogram["cells"]:
+            assert 0 <= cell["row"] < planogram["rows"], planogram["name"]
+            assert 0 <= cell["col"] < planogram["cols"], planogram["name"]

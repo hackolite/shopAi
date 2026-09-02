@@ -40,31 +40,47 @@ La demande précise que la réserve ne sera pas utilisée. En conséquence :
 
 Mobilier repris tel quel de `backend/storage/furniture_library.json`
 (aucune géométrie inventée) : `register`, `display`, `pallet`, `fridge`,
-`fridge_horizontal`, `gondola_double`, `gondola_single`. 32 meubles au
+`fridge_horizontal`, `gondola_double`, `gondola_single`. 29 meubles au
 total, choisis et dimensionnés pour maximiser le nombre de références
 présentables en une seule facing par produit sur seulement 120 m² :
 
 - **2 caisses** (`register`) entre l'entrée et la sortie.
-- **1 présentoir presse** (`display`) + **1 palette promo snacking**
-  (`pallet`, 4 faces) juste après les caisses : achat impulsif
-  aéroport (catégories boostées Presse et Snacking).
+- **1 présentoir presse** (`display`) devant le couloir de sortie et
+  **1 palette promo snacking** (`pallet`, 4 faces) posée en îlot sur le
+  flux d'entrée (x 900-1020, z 120-200), avec au moins 1 m dégagé sur
+  ses quatre faces : achat impulsif aéroport (catégories boostées Presse
+  et Snacking).
 - **5 frigos verticaux** (`fridge`) : crèmerie/fromages (×3) et
-  traiteur/charcuterie (×2), zone grab-and-go proche de l'entrée.
+  traiteur/charcuterie (×2), **collés au mur façade** (z 20-100) entre la
+  zone de sortie et la zone d'entrée, face produit tournée vers l'allée
+  pénétrante : zone grab-and-go proche de l'entrée, sans couloir mort
+  derrière le linéaire.
 - **3 allées de gondoles doubles** (`gondola_double`, 6 + 6 + 4 modules,
   faces avant/arrière) : épicerie salée/sucrée, boissons/vins, hygiène
   et beauté / entretien / puériculture / animalerie.
 - **Un rayon mural** (`gondola_single` ×3) pour boulangerie/pâtisserie
   et fruits & légumes, plus **1 frigo horizontal** (`fridge_horizontal`)
-  pour les surgelés (catégorie réduite).
-- **3 têtes de gondole** (`gondola_single` pivotées à 90°, en bout de
-  chaque allée, face tournée vers l'allée de circulation) : Snacking,
-  Boissons et Hygiène — les 3 catégories boostées les plus fortes en
-  trafic reçoivent une double exposition (produit déjà en rayon +
-  facing promotionnel supplémentaire en tête de gondole, cf. §5).
+  pour les surgelés (catégorie réduite) : **collés au mur du fond**
+  (z 920-980) et **pivotés à 180°** pour que la face marchande donne sur
+  l'allée intérieure. Aucun planogramme ne donne sur un mur : une face
+  produit tournée vers la cloison ne serait ni shoppable ni
+  réassortissable.
+- **6 têtes de gondole** portées par les **faces `left` / `right` des
+  gondoles doubles** elles-mêmes (bout de chaque allée, 80 × 200 cm) au
+  lieu de meubles `gondola_single` pivotés posés en travers de l'allée
+  périphérique : Épicerie (Snacking / Épicerie sucrée), Boissons (soft /
+  bières et spiritueux) et Hygiène (beauté / voyage). Les têtes côté
+  entrée (+X, face `right`) reçoivent les catégories boostées les plus
+  fortes en trafic ; chaque tête offre une double exposition (produit
+  déjà en rayon + facing promotionnel, cf. §5) et libère 200 cm d'allée
+  périphérique côté entrée.
 
 Validation géométrique (même logique que
-`backend/tests/test_reference_projects.py`) : **aucune collision**
-(AABB avec rotation), **toutes les allées ≥ 100 cm**, zones entrée/sortie
+`backend/tests/test_reference_projects.py`, projet désormais couvert par
+ces tests) : **aucune collision** (AABB avec rotation), **toutes les
+allées ≥ 100 cm**, **tous les meubles dans la surface utile** (hors
+épaisseur des murs), **aucune face de planogramme bouchée** (≥ 100 cm
+libres devant chaque face marchande, mur compris), zones entrée/sortie
 entièrement dégagées, tous les meubles utilisent uniquement les faces
 déclarées dans `furniture_library.json`.
 
@@ -116,12 +132,16 @@ facings comme dans un hypermarché classique.
   aucun produit sélectionné ne reste sans emplacement, donc aucune
   référence du catalogue n'est sans image affichée en rayon (vérifié :
   2 800 / 2 800 références placées).
-- **Têtes de gondole (têtes de rayon)** : les 3 têtes de gondole (voir
+- **Têtes de gondole (têtes de rayon)** : les 6 têtes de gondole (voir
   §3) reçoivent des facings supplémentaires dupliquant les meilleures
-  références déjà présentes en rayon (Snacking, Boissons, Hygiène — les
-  catégories boostées par le contexte aéroport), pour une double
-  exposition sans ajouter de nouvelles références au catalogue (72
-  facings promotionnels au total, cf. §6).
+  références déjà présentes en rayon (tri par `rotationIndice`
+  décroissant, catégories boostées par le contexte aéroport en
+  priorité), pour une double exposition sans ajouter de nouvelles
+  références au catalogue (144 facings promotionnels au total, cf. §6).
+  Chaque tête est une grille **pleine de 6 × 4 = 24 facings sans trou**,
+  garnie uniquement de produits dont la largeur ≤ 20 cm et la hauteur
+  ≤ 33 cm (le pas de la grille) : implantation réellement réassortissable
+  par un opérateur, sans facing impossible à remplir.
 - **Adjacence** : snacking/presse près de l'entrée (achat impulsif),
   frigos crèmerie/traiteur en grab-and-go proche de l'entrée, épicerie
   salée/sucrée puis boissons/vins en allées centrales, hygiène/entretien/
@@ -150,9 +170,9 @@ facings comme dans un hypermarché classique.
 | Presse et dépannage | 19 |
 | **Total** | **2 800** |
 
-`planograms.json` contient 47 planogrammes (une entrée par face de
-mobilier utilisée + 3 têtes de gondole) pour un total de 2 872 cellules
-(2 800 facings « catalogue », une par référence, + 72 facings promo en
+`planograms.json` contient 50 planogrammes (une entrée par face de
+mobilier utilisée + 6 têtes de gondole) pour un total de 2 944 cellules
+(2 800 facings « catalogue », une par référence, + 144 facings promo en
 tête de gondole).
 
 ## 7. Champs additionnels de `catalog.json` (schéma étendu, non destructif)

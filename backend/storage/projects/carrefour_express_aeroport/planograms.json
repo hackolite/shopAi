@@ -20129,541 +20129,1081 @@
       ]
     },
     {
-      "id": "4ae1fa48-ec5a-4b75-b5f0-5b3cd154c82d",
-      "name": "Tête de gondole Snacking – front (promo)",
-      "furnitureId": "87c52cd3-09e0-49e9-92cd-291daca29e43",
-      "face": "front",
-      "rows": 3,
-      "cols": 11,
-      "widthCm": 120,
-      "heightCm": 200,
+      "id": "eca7ee06-e777-42ec-a5ed-4ff41d54aaf1",
+      "name": "Tête de gondole Épicerie – Snacking (right)",
+      "furnitureId": "e937e32b-b3a7-4078-9d6f-48c3d675cf90",
+      "face": "right",
+      "rows": 6,
+      "cols": 4,
+      "widthCm": 80.0,
+      "heightCm": 200.0,
       "cells": [
         {
-          "id": "e5c90e03-3f32-485b-900c-86490abaab8d",
+          "id": "382ff9ee-4106-43c1-9a90-bd6c87489ba8",
           "ean": "3263859494315",
           "row": 0,
           "col": 0,
           "rotation": 0
         },
         {
-          "id": "580ae0ab-b856-4107-9ee7-315ab57a27d2",
+          "id": "d50bc93e-c2be-431d-9643-9af104db35f2",
           "ean": "3263859494711",
           "row": 0,
           "col": 1,
           "rotation": 0
         },
         {
-          "id": "7ab7751e-a518-4052-a903-ef8cf55561a4",
+          "id": "08ade053-11a3-4829-8a49-4ff6752ab6c6",
           "ean": "3222475401688",
           "row": 0,
           "col": 2,
           "rotation": 0
         },
         {
-          "id": "ed7506d6-f1b7-43d8-b3a4-014ac559d464",
+          "id": "bd0617e1-4805-4099-a78b-d0e9ad39d913",
           "ean": "3450970027694",
           "row": 0,
           "col": 3,
           "rotation": 0
         },
         {
-          "id": "4806d384-f16f-4a18-b75f-64a4a1627c55",
+          "id": "75a81bf2-a3bc-4d2e-aca7-b637cd3e2f9d",
           "ean": "8437000199137",
-          "row": 0,
-          "col": 4,
-          "rotation": 0
-        },
-        {
-          "id": "44663cef-44bc-493a-8021-d21eb01d38ce",
-          "ean": "3038354981451",
-          "row": 0,
-          "col": 5,
-          "rotation": 0
-        },
-        {
-          "id": "77e88b7d-311e-4afe-bed9-ca7705f68fa8",
-          "ean": "5690564105317",
-          "row": 0,
-          "col": 6,
-          "rotation": 0
-        },
-        {
-          "id": "4f50269c-9ed6-49d8-a33f-f21b19b6d28d",
-          "ean": "3256221113471",
-          "row": 0,
-          "col": 7,
-          "rotation": 0
-        },
-        {
-          "id": "adfdcecd-3aa7-47e9-b354-113ed7c1bfe9",
-          "ean": "3250392746162",
-          "row": 0,
-          "col": 8,
-          "rotation": 0
-        },
-        {
-          "id": "621dbe1b-1d01-4cb1-b31a-41ac28c29d33",
-          "ean": "3274470002261",
-          "row": 0,
-          "col": 9,
-          "rotation": 0
-        },
-        {
-          "id": "99a21223-aaf6-41c6-a06e-18999a525105",
-          "ean": "20146160",
-          "row": 0,
-          "col": 10,
-          "rotation": 0
-        },
-        {
-          "id": "48a4f8d0-2406-401b-aeec-730072db1361",
-          "ean": "3560071237424",
           "row": 1,
           "col": 0,
           "rotation": 0
         },
         {
-          "id": "7f4a12aa-7c22-429e-b0d2-b9d0af7f939e",
-          "ean": "3242272907251",
+          "id": "883a75fb-7865-4aca-83ef-ae95701cb798",
+          "ean": "5690564105317",
           "row": 1,
           "col": 1,
           "rotation": 0
         },
         {
-          "id": "93dd1e31-d2b2-4d97-a0c1-c2e41fc357b0",
-          "ean": "3560071517441",
+          "id": "4993bd37-1d69-4aff-9441-0816efb8dd69",
+          "ean": "3256221113471",
           "row": 1,
           "col": 2,
           "rotation": 0
         },
         {
-          "id": "c9f6645f-54f5-4254-a782-c06ba945aaf2",
-          "ean": "3283040827449",
+          "id": "d5922ece-426c-46b2-b3bc-89b6bb255ccc",
+          "ean": "3250392746162",
           "row": 1,
           "col": 3,
           "rotation": 0
         },
         {
-          "id": "07bc4f19-1f09-4624-8cb2-5af731a15815",
-          "ean": "3270160573769",
-          "row": 1,
-          "col": 4,
-          "rotation": 0
-        },
-        {
-          "id": "6822456b-dce5-4359-9ef3-d811d302bbe6",
-          "ean": "3256228975980",
-          "row": 1,
-          "col": 5,
-          "rotation": 0
-        },
-        {
-          "id": "95f15fb3-cb52-4f90-8699-41cb20f97e54",
-          "ean": "3505340030139",
-          "row": 1,
-          "col": 6,
-          "rotation": 0
-        },
-        {
-          "id": "704cbfc4-142d-4779-b768-4c713c5839fd",
-          "ean": "3596710400881",
-          "row": 1,
-          "col": 7,
-          "rotation": 0
-        },
-        {
-          "id": "8f7291bb-83d7-4076-b139-47033ce8ff5c",
-          "ean": "3571495110354",
-          "row": 1,
-          "col": 8,
-          "rotation": 0
-        },
-        {
-          "id": "ceb44cfb-f6b3-489c-8f48-bd57715948f4",
-          "ean": "3283040348111",
-          "row": 1,
-          "col": 9,
-          "rotation": 0
-        },
-        {
-          "id": "a53eabc3-b601-4c3f-a7f4-5f35986d0468",
-          "ean": "3596710400843",
-          "row": 1,
-          "col": 10,
-          "rotation": 0
-        },
-        {
-          "id": "9057f704-df5a-4560-85a1-8e9d44228f6f",
-          "ean": "3350030161385",
+          "id": "a9d3ec8d-b356-4356-ac57-ae92b6dfb851",
+          "ean": "3274470002261",
           "row": 2,
           "col": 0,
           "rotation": 0
         },
         {
-          "id": "575bd8c0-4c89-4b38-ac0c-838e63ae3dc4",
-          "ean": "3596710304448",
+          "id": "5675243b-1fc2-4948-a9a3-64a7f39d0fac",
+          "ean": "20146160",
           "row": 2,
           "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "26fd46d0-8520-4085-8e88-670fddd4c98e",
+          "ean": "3560071237424",
+          "row": 2,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "518910c9-a3de-4e00-8b27-6ff1e29b2907",
+          "ean": "3242272907251",
+          "row": 2,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "26947a91-f5fe-4c7b-8404-b930b1e4ad51",
+          "ean": "3560071517441",
+          "row": 3,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "efef19cf-e132-460c-9217-65db237a7abc",
+          "ean": "3283040827449",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "d1686337-fb16-41cb-8a5b-8521811a1feb",
+          "ean": "3270160573769",
+          "row": 3,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "b6d8be32-d35f-4464-be51-3b1e85ba1289",
+          "ean": "3256228975980",
+          "row": 3,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "e6a4269c-0ae3-4801-bb04-a3b3e4b92bef",
+          "ean": "3505340030139",
+          "row": 4,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "7f7c0fa0-fa07-4ee9-9b7c-8cdc8d668897",
+          "ean": "3596710400881",
+          "row": 4,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "e0e80a02-2291-428a-8c0a-eeb3f8141b8c",
+          "ean": "3283040348111",
+          "row": 4,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "897504e3-55eb-4222-925c-0d4f4b3c1ad0",
+          "ean": "3596710400843",
+          "row": 4,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "6fa6c57b-4225-4300-b2a7-4ad00d1fd2ac",
+          "ean": "3350030161385",
+          "row": 5,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "59c8946b-a0a4-4037-a4ca-d0b4ed4bb5f2",
+          "ean": "3596710304448",
+          "row": 5,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "b840fe20-37f2-4088-baff-fb9632499c1c",
+          "ean": "3596710338320",
+          "row": 5,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "cc31e4d2-45a6-41c0-b4b0-720395dd1f0d",
+          "ean": "3245412191817",
+          "row": 5,
+          "col": 3,
           "rotation": 0
         }
       ]
     },
     {
-      "id": "05571633-f19a-456d-8dd9-4351619f7b2c",
-      "name": "Tête de gondole Boissons – front (promo)",
-      "furnitureId": "af6c9e40-ff1c-41db-aae7-5d231a7ec990",
-      "face": "front",
-      "rows": 2,
-      "cols": 23,
-      "widthCm": 120,
-      "heightCm": 200,
+      "id": "3db48ce6-403b-47fd-a181-11cf9a9b8e19",
+      "name": "Tête de gondole Épicerie – Sucré (left)",
+      "furnitureId": "d9b2b2de-f5de-4c65-93a3-8a8d3a390521",
+      "face": "left",
+      "rows": 6,
+      "cols": 4,
+      "widthCm": 80.0,
+      "heightCm": 200.0,
       "cells": [
         {
-          "id": "b65a8133-33d1-4c8f-8299-37a778e66782",
+          "id": "ebe96e8d-f696-44ce-bbd9-779114623c93",
+          "ean": "3560070701148",
+          "row": 0,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "95429fb5-5826-4d8d-89cd-c7a5da0628e0",
+          "ean": "3421557921124",
+          "row": 0,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "5d3f184c-478d-4262-967a-2e4964d10f95",
+          "ean": "3116430215468",
+          "row": 0,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "82746412-d904-4cca-bbe2-602dbb4319d6",
+          "ean": "7613034626844",
+          "row": 0,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "68667743-c95a-4692-9c17-4ba03f04aaf9",
+          "ean": "3443271163031",
+          "row": 1,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "556f1e88-a7d0-41c9-8263-c4b1c9b8e124",
+          "ean": "3700152400228",
+          "row": 1,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "ee7b5065-836c-4a19-92d2-447f8a0c66c2",
+          "ean": "3329480013100",
+          "row": 1,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "24764b6f-8112-41e5-a22a-d924d51eca7d",
+          "ean": "3421557501890",
+          "row": 1,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "04ad7fe1-2b95-4beb-88c0-b5792c35bf4c",
+          "ean": "3175681261365",
+          "row": 2,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "cc9e06e7-b5e0-4e81-b7d8-5034a6524dea",
+          "ean": "3560071231132",
+          "row": 2,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "8ee0688f-601b-4188-89ef-c6256d570ad0",
+          "ean": "8008698005903",
+          "row": 2,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "a6d4a15e-b7bf-4c2e-8eba-e2405d47cf36",
+          "ean": "3560071232726",
+          "row": 2,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "6076dbc0-e805-4ff9-9070-a0871fda582c",
+          "ean": "3421557501869",
+          "row": 3,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "fd088458-095c-4561-ae93-c69a3d0601e8",
+          "ean": "3760151013287",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "51120091-05f4-4db8-9398-c1a5104d60a4",
+          "ean": "3250392489502",
+          "row": 3,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "e3752f90-f5eb-4bd8-bc5d-d31894c3fb2a",
+          "ean": "3258561021140",
+          "row": 3,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "191c0df8-6f76-41d5-9681-8ef2e26b0202",
+          "ean": "3435071010059",
+          "row": 4,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "9cfb3818-0e3f-4208-96bd-f062b490d469",
+          "ean": "3560070959518",
+          "row": 4,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "0c453e63-f939-489e-ace9-a3f615e5994d",
+          "ean": "3152280012093",
+          "row": 4,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "d196abe7-b713-4a72-a80f-42dd2e6a5cce",
+          "ean": "3256224762928",
+          "row": 4,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "c1c52f43-bea2-4262-939c-c4e90c2a8109",
+          "ean": "3560070702039",
+          "row": 5,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "17c75fc6-4839-400a-ac30-78f4113c3d71",
+          "ean": "4260363486071",
+          "row": 5,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "2ed7bce3-ab65-4c93-ab03-8b78a09a517f",
+          "ean": "5400101000452",
+          "row": 5,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "e21b6417-375f-479a-acac-f12ae5faacad",
+          "ean": "7622210729408",
+          "row": 5,
+          "col": 3,
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "2dda7d57-46c7-4615-914c-2ca2d987af36",
+      "name": "Tête de gondole Boissons – Soft (right)",
+      "furnitureId": "71735a23-06d8-4013-97b4-a9d8476fe997",
+      "face": "right",
+      "rows": 6,
+      "cols": 4,
+      "widthCm": 80.0,
+      "heightCm": 200.0,
+      "cells": [
+        {
+          "id": "ddd6d625-2c82-447f-a5ba-5dded32cf969",
           "ean": "3596710460625",
           "row": 0,
           "col": 0,
           "rotation": 0
         },
         {
-          "id": "9a75a13a-9405-4995-8588-6d3c39da6232",
+          "id": "c5d52b61-2a9f-4119-8501-592f96503dba",
           "ean": "3222475750960",
           "row": 0,
           "col": 1,
           "rotation": 0
         },
         {
-          "id": "47db3329-5234-4e19-9a4b-b92a19ec5db8",
+          "id": "039f738f-adf1-4184-b444-73d8a4c81760",
           "ean": "3257980978561",
           "row": 0,
           "col": 2,
           "rotation": 0
         },
         {
-          "id": "435c683c-dbc2-4582-a085-d69b939a2ee2",
+          "id": "bb8be07d-0635-43cb-81e9-bad20edca99f",
           "ean": "5411651090626",
           "row": 0,
           "col": 3,
           "rotation": 0
         },
         {
-          "id": "dd47b32a-e1fb-479f-b8bc-e5c35f2f2ced",
+          "id": "7faa54b0-9b9a-4873-a89d-9a6a41440f03",
           "ean": "3560071081270",
-          "row": 0,
-          "col": 4,
-          "rotation": 0
-        },
-        {
-          "id": "5c876dc3-1f4c-4963-b438-d0f13b13b599",
-          "ean": "3256221106411",
-          "row": 0,
-          "col": 5,
-          "rotation": 0
-        },
-        {
-          "id": "4c32e4c0-c3b4-4433-b8ea-9b3db6470c34",
-          "ean": "3560071176457",
-          "row": 0,
-          "col": 6,
-          "rotation": 0
-        },
-        {
-          "id": "92e1a3fe-f0be-4bac-8e20-36c92c2976b6",
-          "ean": "3257971080112",
-          "row": 0,
-          "col": 7,
-          "rotation": 0
-        },
-        {
-          "id": "48e7bf60-ddfb-437b-ac5f-6d022338a354",
-          "ean": "3560070791118",
-          "row": 0,
-          "col": 8,
-          "rotation": 0
-        },
-        {
-          "id": "79044ac7-2f3b-4c85-afae-af9bf52c35c7",
-          "ean": "3179732333919",
-          "row": 0,
-          "col": 9,
-          "rotation": 0
-        },
-        {
-          "id": "54c65d5c-289b-4c19-b2f3-f2297bb43298",
-          "ean": "3350031888748",
-          "row": 0,
-          "col": 10,
-          "rotation": 0
-        },
-        {
-          "id": "6db01102-541e-4040-a3f3-e0250bc7cf7a",
-          "ean": "3258561301563",
-          "row": 0,
-          "col": 11,
-          "rotation": 0
-        },
-        {
-          "id": "f0181c63-b8f5-4db3-88c3-393b399942a2",
-          "ean": "5690541004183",
-          "row": 0,
-          "col": 12,
-          "rotation": 0
-        },
-        {
-          "id": "6bdbde1e-e1f9-4771-bc29-6150609a963a",
-          "ean": "3250392207762",
-          "row": 0,
-          "col": 13,
-          "rotation": 0
-        },
-        {
-          "id": "f14b73aa-81ff-41e1-a432-bacf704ace78",
-          "ean": "8692813004157",
-          "row": 0,
-          "col": 14,
-          "rotation": 0
-        },
-        {
-          "id": "2781899e-2528-499f-a1b4-8869ee5e6c62",
-          "ean": "3560071081263",
-          "row": 0,
-          "col": 15,
-          "rotation": 0
-        },
-        {
-          "id": "e206f904-2903-488e-b942-c23c62e99ce4",
-          "ean": "3258561300931",
-          "row": 0,
-          "col": 16,
-          "rotation": 0
-        },
-        {
-          "id": "a4074348-3e8f-44cc-ae7f-96226e66a881",
-          "ean": "3596710178308",
-          "row": 0,
-          "col": 17,
-          "rotation": 0
-        },
-        {
-          "id": "2f3628b8-63d1-4213-ad11-a41be49388b9",
-          "ean": "3257971080617",
-          "row": 0,
-          "col": 18,
-          "rotation": 0
-        },
-        {
-          "id": "7d0cc09f-cab5-41fc-8e8c-1c37ce77e757",
-          "ean": "3498640773045",
-          "row": 0,
-          "col": 19,
-          "rotation": 0
-        },
-        {
-          "id": "b1802b3f-0d1c-4a26-af1d-459adede3f09",
-          "ean": "5400247061744",
-          "row": 0,
-          "col": 20,
-          "rotation": 0
-        },
-        {
-          "id": "e8fa5599-cd25-488e-a8d1-0a88311f886b",
-          "ean": "3257980698209",
-          "row": 0,
-          "col": 21,
-          "rotation": 0
-        },
-        {
-          "id": "2afda2fe-ab19-4434-92a4-2b153250bd4c",
-          "ean": "3560070309238",
-          "row": 0,
-          "col": 22,
-          "rotation": 0
-        },
-        {
-          "id": "ea8d1059-21b7-4890-b69d-49c354a22215",
-          "ean": "3542720162516",
           "row": 1,
           "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "818f45a7-3090-4791-86e6-d6e47233c4b4",
+          "ean": "3256221106411",
+          "row": 1,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "e533c311-69fb-4f3d-9d17-711986eb3b69",
+          "ean": "3560071176457",
+          "row": 1,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "28802dc1-cc52-4f0f-be5f-251a7732abb6",
+          "ean": "3257971080112",
+          "row": 1,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "1bd1566c-5f29-46bf-a17f-d6abf6c136da",
+          "ean": "3560070791118",
+          "row": 2,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "a2e21faf-757e-49e5-ba87-b1a73d473d6c",
+          "ean": "3179732333919",
+          "row": 2,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "633570e4-2e70-4907-848c-532f5e6a9847",
+          "ean": "3350031888748",
+          "row": 2,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "10a77fa4-f4e1-4e1f-b09a-8afce84807a2",
+          "ean": "3258561301563",
+          "row": 2,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "7389e1fd-92fe-4a09-8e05-6946001bd76d",
+          "ean": "5690541004183",
+          "row": 3,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "f566b706-f10e-4b4d-a990-7f5abe76bd42",
+          "ean": "3250392207762",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "a1f5eef5-2c4a-4f41-8888-d317119d1797",
+          "ean": "8692813004157",
+          "row": 3,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "8ffb74ad-d466-460d-936b-2d27a0b156b8",
+          "ean": "3560071081263",
+          "row": 3,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "9618d991-6b8d-4cbc-851f-0ce8a35da967",
+          "ean": "3258561300931",
+          "row": 4,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "18a1b581-1c0d-455d-8485-7069820f0880",
+          "ean": "3596710178308",
+          "row": 4,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "8f67689a-aa7f-4607-b12a-dee48b8160bb",
+          "ean": "3257971080617",
+          "row": 4,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "b36a4f9c-14ab-4b97-aa41-b5bd2d554a16",
+          "ean": "3498640773045",
+          "row": 4,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "074c067d-1ffa-40ca-bf64-54788efd265e",
+          "ean": "5400247061744",
+          "row": 5,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "59537726-6b36-4ad9-867d-68a607d6a564",
+          "ean": "3257980698209",
+          "row": 5,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "3984d48f-6cf0-43db-aa88-1a23e014c3f3",
+          "ean": "3560070309238",
+          "row": 5,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "0dcbc5f4-c79d-4dd6-805b-cc5f9a9eb700",
+          "ean": "3542720162516",
+          "row": 5,
+          "col": 3,
           "rotation": 0
         }
       ]
     },
     {
-      "id": "23397b23-ba97-48e5-bc0c-944c5bb2f1b2",
-      "name": "Tête de gondole Hygiène – front (promo)",
-      "furnitureId": "7634e647-1feb-46d8-9600-ef3b02d6a0be",
-      "face": "front",
-      "rows": 2,
-      "cols": 15,
-      "widthCm": 120,
-      "heightCm": 200,
+      "id": "4a6db135-1282-4de9-8324-d20a3657fb2c",
+      "name": "Tête de gondole Boissons – Bières & spiritueux (left)",
+      "furnitureId": "91fbd68c-ee5a-43ed-91e8-990a0f6166e8",
+      "face": "left",
+      "rows": 6,
+      "cols": 4,
+      "widthCm": 80.0,
+      "heightCm": 200.0,
       "cells": [
         {
-          "id": "9427d78b-99b5-4eca-8f15-3a8db1b94435",
+          "id": "16834faa-ed4f-41d0-a75d-5b956cd742e0",
+          "ean": "3760244770011",
+          "row": 0,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "219696be-5515-4f45-9d96-57ba9d2e23ee",
+          "ean": "3770019455029",
+          "row": 0,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "de10b8f0-ddf9-4302-9fe8-5d0f29452855",
+          "ean": "3113934004550",
+          "row": 0,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "e917c534-506c-4aed-aba8-e0ba1dd301cd",
+          "ean": "3353210019711",
+          "row": 0,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "eb8f0d07-22fe-4158-b122-7802cbf1b00e",
+          "ean": "3760244770042",
+          "row": 1,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "0a0e8b37-9101-467d-b5cb-fb174f0759cb",
+          "ean": "41051849",
+          "row": 1,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "80687db6-7ba9-424b-950f-3cbec72d4958",
+          "ean": "3233990000539",
+          "row": 1,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "85baad7d-bd84-42b8-9dfe-094258151d1a",
+          "ean": "3253958000012",
+          "row": 1,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "076b5d53-8be0-4916-8025-0ebc8d115fe7",
+          "ean": "3760172040330",
+          "row": 2,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "a32a0c5e-3e4a-4aa2-8935-93855f2eb2ec",
+          "ean": "8711406995631",
+          "row": 2,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "ff32538a-8a20-43ba-af57-db813e6834b8",
+          "ean": "3256930000307",
+          "row": 2,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "c2e412cb-cc14-4de8-a741-ef9a7f43f0e6",
+          "ean": "3267850000018",
+          "row": 2,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "f1b6f1c1-04a1-455e-9b7d-faa00003b298",
+          "ean": "3410280024547",
+          "row": 3,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "e0ceedbd-c543-4749-b876-acecff87bbee",
+          "ean": "3516910000223",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "59bd5292-0408-41ef-afa7-e02c713339a9",
+          "ean": "5410228201137",
+          "row": 3,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "b12c8132-7637-42cd-9c77-fc38a2a972cc",
+          "ean": "3012992421005",
+          "row": 3,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "bfada16d-9bb7-4fcd-96db-0b0523c13f4d",
+          "ean": "3560071419844",
+          "row": 4,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "ef87f981-75fb-46c9-a3ca-81ac744ec5be",
+          "ean": "3760191090149",
+          "row": 4,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "ee440ae4-3e7d-4431-b7f7-83b1b7747a20",
+          "ean": "2000000000000",
+          "row": 4,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "31b60e38-1540-4a4a-ad7b-9a89dd236921",
+          "ean": "3760084330406",
+          "row": 4,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "2440c619-b5de-4a73-b4bd-c3336d97819c",
+          "ean": "4901777279421",
+          "row": 5,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "93b4de24-5376-4608-90db-6cc9ea82eecb",
+          "ean": "5000281005423",
+          "row": 5,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "741eaccc-791a-4e71-b132-73b9c7db0cbb",
+          "ean": "3416180016101",
+          "row": 5,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "799934e7-6e89-40fc-8f14-dc22767ac619",
+          "ean": "3760008371133",
+          "row": 5,
+          "col": 3,
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "971bd941-3831-4f5d-8906-eefab473b892",
+      "name": "Tête de gondole Hygiène – Beauté (right)",
+      "furnitureId": "4265d598-bbdf-4f32-9602-d953e98d7601",
+      "face": "right",
+      "rows": 6,
+      "cols": 4,
+      "widthCm": 80.0,
+      "heightCm": 200.0,
+      "cells": [
+        {
+          "id": "92d198d2-8223-42da-a6c2-eacc53906db2",
           "ean": "3596710160747",
           "row": 0,
           "col": 0,
           "rotation": 0
         },
         {
-          "id": "cf90084e-b88b-4f3b-a76a-758b91b97fdd",
+          "id": "656be6f2-f161-418d-a47a-25be3d681944",
           "ean": "3273625827148",
           "row": 0,
           "col": 1,
           "rotation": 0
         },
         {
-          "id": "4d457765-2109-4a8f-9de0-ee4ce5d83139",
+          "id": "a7347111-60b8-404f-b046-b4b0aff53173",
           "ean": "3700520501212",
           "row": 0,
           "col": 2,
           "rotation": 0
         },
         {
-          "id": "ab8bf627-0005-43cd-8d3a-d437127baf81",
+          "id": "e61ae87d-c02f-4216-bb5f-9549add52443",
           "ean": "3596710464937",
           "row": 0,
           "col": 3,
           "rotation": 0
         },
         {
-          "id": "5ea45c0e-615b-40e1-8b6a-c3895c72f8a7",
+          "id": "88925f3c-6a49-466a-a0b2-d191aa184724",
           "ean": "8002461871870",
-          "row": 0,
-          "col": 4,
-          "rotation": 0
-        },
-        {
-          "id": "a48b7163-5f87-4b64-9785-e3e099697f4b",
-          "ean": "8437014001167",
-          "row": 0,
-          "col": 5,
-          "rotation": 0
-        },
-        {
-          "id": "50863a9c-b281-408d-a490-a4c113ce0d89",
-          "ean": "3222476475794",
-          "row": 0,
-          "col": 6,
-          "rotation": 0
-        },
-        {
-          "id": "b8aba88e-00f3-46e0-b4df-a02620867b13",
-          "ean": "3297680161016",
-          "row": 0,
-          "col": 7,
-          "rotation": 0
-        },
-        {
-          "id": "d34a17c3-92a4-46aa-a47c-e8f6366797ac",
-          "ean": "0200116021849",
-          "row": 0,
-          "col": 8,
-          "rotation": 0
-        },
-        {
-          "id": "1dffa8f0-f714-4f2a-9ad6-542b241e256e",
-          "ean": "3661112501488",
-          "row": 0,
-          "col": 9,
-          "rotation": 0
-        },
-        {
-          "id": "bfdcc0bc-4f18-471d-9b9f-71df1151c20e",
-          "ean": "3596710406258",
-          "row": 0,
-          "col": 10,
-          "rotation": 0
-        },
-        {
-          "id": "5274c56d-bd7f-4639-b3ea-5fa381603206",
-          "ean": "3760029863259",
-          "row": 0,
-          "col": 11,
-          "rotation": 0
-        },
-        {
-          "id": "993953a4-20cb-4c2d-8910-c591f6e35ec4",
-          "ean": "3180940087716",
-          "row": 0,
-          "col": 12,
-          "rotation": 0
-        },
-        {
-          "id": "4c17238c-5916-4e92-9716-d109e391e27b",
-          "ean": "2092825019082",
-          "row": 0,
-          "col": 13,
-          "rotation": 0
-        },
-        {
-          "id": "b7581acc-c5a5-4ca0-905d-3336a73b9bb4",
-          "ean": "2022000015851",
-          "row": 0,
-          "col": 14,
-          "rotation": 0
-        },
-        {
-          "id": "b451a6d7-f4d3-4624-8988-3d4d96ed5a86",
-          "ean": "3700311821734",
           "row": 1,
           "col": 0,
           "rotation": 0
         },
         {
-          "id": "1fcff7f3-23af-421d-b363-4281def395a2",
-          "ean": "3245415349024",
+          "id": "261ec19e-7989-49ec-8691-1cbe4c4cad4b",
+          "ean": "8437014001167",
           "row": 1,
           "col": 1,
           "rotation": 0
         },
         {
-          "id": "0c8f098a-35e5-45b1-9ea2-f925240e2250",
-          "ean": "3560070939114",
+          "id": "42b11e5c-091c-47a8-8e85-e498746ac549",
+          "ean": "3222476475794",
           "row": 1,
           "col": 2,
           "rotation": 0
         },
         {
-          "id": "e788e8b7-b2f6-44f1-a005-55e373a07fe5",
-          "ean": "3250392489748",
+          "id": "a082e942-1442-4607-be4a-4758b45b2a10",
+          "ean": "3297680161016",
           "row": 1,
           "col": 3,
           "rotation": 0
         },
         {
-          "id": "6b16de0f-fce7-4497-ba98-9c73eed90179",
+          "id": "2a37bf00-b6fa-4627-bfdf-a34a5b52fa5d",
+          "ean": "0200116021849",
+          "row": 2,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "0730e39d-c1e3-470b-9517-27f94e2d22f1",
+          "ean": "3661112501488",
+          "row": 2,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "3c7e3cbf-c6fa-4c69-85eb-dfd477f27ac4",
+          "ean": "3596710406258",
+          "row": 2,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "c72eb008-c622-4d72-ac75-c454aa507524",
+          "ean": "3760029863259",
+          "row": 2,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "260d9fb7-3dc5-47cc-9661-4da84ee08a3c",
+          "ean": "3180940087716",
+          "row": 3,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "c98ce91c-5ddf-44e6-aa79-a4c6f26c20cf",
+          "ean": "2092825019082",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "7384ec76-e030-4387-997d-9d5c6a738e06",
+          "ean": "2022000015851",
+          "row": 3,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "b1fc7146-3dc1-4339-9e0b-6a584bc9794c",
+          "ean": "3700311821734",
+          "row": 3,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "305be3ff-218f-4a46-8b4e-1824293030f8",
+          "ean": "3245415349024",
+          "row": 4,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "d2e2f18a-bf37-4aa7-a7f8-633db638fcf9",
+          "ean": "3560070939114",
+          "row": 4,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "bb7c6b49-d387-4719-9c06-f9368177a6f2",
+          "ean": "3250392489748",
+          "row": 4,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "4cb2116c-947b-450d-bdb9-e4ca86ff58fd",
           "ean": "3245678127391",
-          "row": 1,
-          "col": 4,
+          "row": 4,
+          "col": 3,
           "rotation": 0
         },
         {
-          "id": "ac0c6f23-ba08-49dc-8579-eccc59fac076",
+          "id": "55ad8477-e251-4814-8906-9f45a6f4129d",
           "ean": "3760039503183",
-          "row": 1,
-          "col": 5,
+          "row": 5,
+          "col": 0,
           "rotation": 0
         },
         {
-          "id": "2916852f-eac0-4b53-b5dd-3b309cae375c",
+          "id": "5e5cb29b-4e74-404b-ae70-60631629e746",
           "ean": "3273625860015",
-          "row": 1,
-          "col": 6,
+          "row": 5,
+          "col": 1,
           "rotation": 0
         },
         {
-          "id": "3faf8d18-656a-48ef-8015-55dbff18cf50",
+          "id": "0370130a-2a16-4348-a1c3-30bdb6f6a5db",
           "ean": "3700311812404",
-          "row": 1,
-          "col": 7,
+          "row": 5,
+          "col": 2,
           "rotation": 0
         },
         {
-          "id": "be6a42b5-754a-4dd5-8a43-cef4053d46ce",
+          "id": "6e57f259-167e-4e8c-b8fc-fccd22b2a5c4",
           "ean": "3614819998426",
+          "row": 5,
+          "col": 3,
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "bf924638-aeb2-4598-8f32-7509091f83da",
+      "name": "Tête de gondole Hygiène – Voyage (left)",
+      "furnitureId": "0217f634-7b9e-4356-9576-87623b2758ae",
+      "face": "left",
+      "rows": 6,
+      "cols": 4,
+      "widthCm": 80.0,
+      "heightCm": 200.0,
+      "cells": [
+        {
+          "id": "e87cf4df-88b3-4a3a-8f0a-a2bdfd5cc05e",
+          "ean": "80466437",
+          "row": 0,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "66d60baa-0db5-4947-8459-0d6f9b03f34e",
+          "ean": "8711700822985",
+          "row": 0,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "81025725-a9ab-403a-b91e-4d0c6bf7b872",
+          "ean": "3523680461123",
+          "row": 0,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "156014cd-847c-44e2-8891-b13857a91777",
+          "ean": "3523680461093",
+          "row": 0,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "c7c2fe84-d0de-460c-b6fa-a2f3640096c4",
+          "ean": "3596710333264",
           "row": 1,
-          "col": 8,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "209f3919-7f84-487a-8ce5-ce5aa23551f0",
+          "ean": "3700520502714",
+          "row": 1,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "e45391d9-c783-4ee6-9bb9-cdef724a3ed7",
+          "ean": "0202513028735",
+          "row": 1,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "58b4f2f5-5bcd-4460-be6d-ecfe9b695e12",
+          "ean": "3560071014520",
+          "row": 1,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "ed0d1b38-2b4a-49cf-a794-d80b5bc21cc6",
+          "ean": "3614900924785",
+          "row": 2,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "b3c2898a-2642-45f0-afa5-42d5c0e8a68c",
+          "ean": "2254593020602",
+          "row": 2,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "57f1e632-c347-44e0-8942-79089780f9dc",
+          "ean": "3048971281728",
+          "row": 2,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "48e8c115-0d7b-4570-9520-7cb421ab4bc9",
+          "ean": "3760273080730",
+          "row": 2,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "89c7a31c-c83f-4d70-83a5-5e61ab03dafa",
+          "ean": "9996015650648",
+          "row": 3,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "7de988b8-ffa1-47ba-8ec2-503b2a40ee41",
+          "ean": "3342010030088",
+          "row": 3,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "94579192-55f6-4c52-9191-5ad1c8880b07",
+          "ean": "3596710450541",
+          "row": 3,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "af77b1dd-2c66-43d0-a06f-571819809cd1",
+          "ean": "0200321019358",
+          "row": 3,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "7309bd9e-b9ca-461c-8d96-c3530621930e",
+          "ean": "2671047017979",
+          "row": 4,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "bc27e1d9-0c15-4e3d-9f9f-c09aa08d28e8",
+          "ean": "3700179500154",
+          "row": 4,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "42d830a7-bf44-499c-baa0-ead8dda3f456",
+          "ean": "8710522417379",
+          "row": 4,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "815a9e64-228a-4131-930e-33dc1454cc3e",
+          "ean": "3245678127322",
+          "row": 4,
+          "col": 3,
+          "rotation": 0
+        },
+        {
+          "id": "ec78b380-6584-4c27-9157-d842985cfcd0",
+          "ean": "3250392496791",
+          "row": 5,
+          "col": 0,
+          "rotation": 0
+        },
+        {
+          "id": "4bf8d15c-6109-4db3-a379-90c003f630ac",
+          "ean": "2200815037989",
+          "row": 5,
+          "col": 1,
+          "rotation": 0
+        },
+        {
+          "id": "de70ba32-a116-43eb-9cf5-ee000416d5cc",
+          "ean": "2527517800001",
+          "row": 5,
+          "col": 2,
+          "rotation": 0
+        },
+        {
+          "id": "4234192c-d790-4ccd-bf97-9d8c579aeaad",
+          "ean": "3222476425317",
+          "row": 5,
+          "col": 3,
           "rotation": 0
         }
       ]

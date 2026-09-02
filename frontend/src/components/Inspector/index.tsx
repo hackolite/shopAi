@@ -15,6 +15,11 @@ const DEFAULT_PLANOGRAM_ROWS = 3;
 /** Default column width in cm when auto-creating a planogram from the Inspector. */
 const DEFAULT_COLUMN_WIDTH_CM = 40;
 
+/** Format an optional euro amount for display, "—" when unknown. */
+function formatEur(value: number | null | undefined): string {
+  return value == null ? '—' : `${value.toFixed(2)} €`;
+}
+
 const FACE_LABELS: Record<FaceId, string> = {
   front:  'Face avant',
   back:   'Face arrière',
@@ -696,6 +701,10 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const selectedEanProduct = selection.type === 'planogram_cell' && selection.ean
     ? (products.find((product) => product.ean === selection.ean) ?? null)
     : null;
+  const productMarginEur =
+    selectedEanProduct && selectedEanProduct.priceSellEur != null && selectedEanProduct.priceBuyEur != null
+      ? selectedEanProduct.priceSellEur - selectedEanProduct.priceBuyEur
+      : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -771,6 +780,23 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                   <div className="flex justify-between gap-3">
                     <span className="text-gray-500">Catégorie</span>
                     <span className="text-right">{selectedEanProduct.category}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Prix d'achat</span>
+                    <span className="text-right">{formatEur(selectedEanProduct.priceBuyEur)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Prix de vente</span>
+                    <span className="text-right">{formatEur(selectedEanProduct.priceSellEur)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-500">Marge</span>
+                    <span className="text-right">
+                      {formatEur(productMarginEur)}
+                      {selectedEanProduct.marginPct != null && (
+                        <span className="text-gray-500"> ({selectedEanProduct.marginPct.toFixed(1)} %)</span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-3">
                     <span className="text-gray-500">Dimensions</span>

@@ -13,8 +13,8 @@
       0.0
     ],
     "dimensions": {
-      "width": 1200.0,
       "depth": 1000.0,
+      "width": 1200.0,
       "height": 350.0
     },
     "walls": [
@@ -27,9 +27,9 @@
           990.0
         ],
         "rotation": [
-          0,
-          0,
-          0
+          0.0,
+          0.0,
+          0.0
         ],
         "dimensions": {
           "depth": 20.0,
@@ -49,9 +49,9 @@
           500.0
         ],
         "rotation": [
-          0,
-          0,
-          0
+          0.0,
+          0.0,
+          0.0
         ],
         "dimensions": {
           "depth": 20.0,
@@ -71,9 +71,9 @@
           500.0
         ],
         "rotation": [
-          0,
-          0,
-          0
+          0.0,
+          0.0,
+          0.0
         ],
         "dimensions": {
           "depth": 20.0,
@@ -93,9 +93,9 @@
           10.0
         ],
         "rotation": [
-          0,
-          0,
-          0
+          0.0,
+          0.0,
+          0.0
         ],
         "dimensions": {
           "depth": 20.0,
@@ -114,8 +114,8 @@
         "id": "87d7b3db-7826-4f94-b21f-275189441ede",
         "type": "entrance",
         "label": "Entrée",
-        "x": 820.0,
-        "z": 20.0,
+        "x": 800.0,
+        "z": 0.0,
         "width": 280.0,
         "depth": 60.0,
         "rows": null,
@@ -141,19 +141,19 @@
       "type": "register",
       "libraryId": "register",
       "position": [
-        20,
+        20.0,
         0.0,
-        100
+        100.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 80,
-        "depth": 60,
-        "height": 90
+        "depth": 60.0,
+        "width": 80.0,
+        "height": 90.0
       },
       "materialId": "plastic_white",
       "visible": true,
@@ -176,19 +176,19 @@
       "type": "register",
       "libraryId": "register",
       "position": [
-        100,
+        100.0,
         0.0,
-        100
+        100.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 80,
-        "depth": 60,
-        "height": 90
+        "depth": 60.0,
+        "width": 80.0,
+        "height": 90.0
       },
       "materialId": "plastic_white",
       "visible": true,
@@ -211,19 +211,19 @@
       "type": "display",
       "libraryId": "display",
       "position": [
-        180,
+        180.0,
         0.0,
-        100
+        100.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 60,
-        "depth": 80,
-        "height": 180
+        "depth": 80.0,
+        "width": 60.0,
+        "height": 180.0
       },
       "materialId": "plastic_white",
       "visible": true,
@@ -246,19 +246,19 @@
       "type": "pallet",
       "libraryId": "pallet",
       "position": [
-        900,
+        800.0,
         0.0,
-        120
+        100.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "cardboard_brown",
       "visible": true,
@@ -281,19 +281,19 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        300,
+        1100.0,
         0.0,
-        20
+        800.0
       ],
       "rotation": [
         0.0,
-        0,
+        -90.0,
         0.0
       ],
       "dimensions": {
-        "width": 100,
-        "depth": 80,
-        "height": 210
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -316,19 +316,19 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        400,
+        1100.0,
         0.0,
-        20
+        600.0
       ],
       "rotation": [
         0.0,
-        0,
+        -90.0,
         0.0
       ],
       "dimensions": {
-        "width": 100,
-        "depth": 80,
-        "height": 210
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -351,19 +351,19 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        500,
+        1100.0,
         0.0,
-        20
+        400.0
       ],
       "rotation": [
         0.0,
-        0,
+        -90.0,
         0.0
       ],
       "dimensions": {
-        "width": 100,
-        "depth": 80,
-        "height": 210
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -386,19 +386,19 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        600,
+        1100.0,
         0.0,
-        20
+        700.0
       ],
       "rotation": [
         0.0,
-        0,
+        -90.0,
         0.0
       ],
       "dimensions": {
-        "width": 100,
-        "depth": 80,
-        "height": 210
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -421,19 +421,19 @@
       "type": "fridge",
       "libraryId": "fridge",
       "position": [
-        700,
+        1100.0,
         0.0,
-        20
+        500.0
       ],
       "rotation": [
         0.0,
-        0,
+        -90.0,
         0.0
       ],
       "dimensions": {
-        "width": 100,
-        "depth": 80,
-        "height": 210
+        "depth": 80.0,
+        "width": 100.0,
+        "height": 210.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -456,19 +456,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        260,
+        260.0,
         0.0,
-        300
+        300.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -491,19 +491,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        380,
+        380.0,
         0.0,
-        300
+        300.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -526,19 +526,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        500,
+        500.0,
         0.0,
-        300
+        300.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -561,19 +561,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        620,
+        620.0,
         0.0,
-        300
+        300.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -596,19 +596,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        740,
+        740.0,
         0.0,
-        300
+        300.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -631,19 +631,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        860,
+        860.0,
         0.0,
-        300
+        300.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -666,19 +666,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        260,
+        260.0,
         0.0,
-        520
+        520.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -701,19 +701,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        380,
+        380.0,
         0.0,
-        520
+        520.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -736,19 +736,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        500,
+        500.0,
         0.0,
-        520
+        520.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -771,19 +771,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        620,
+        620.0,
         0.0,
-        520
+        520.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -806,19 +806,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        740,
+        740.0,
         0.0,
-        520
+        520.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -841,19 +841,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        860,
+        860.0,
         0.0,
-        520
+        520.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -876,19 +876,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        260,
+        260.0,
         0.0,
-        720
+        720.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -911,19 +911,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        380,
+        380.0,
         0.0,
-        720
+        720.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -946,19 +946,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        500,
+        500.0,
         0.0,
-        720
+        720.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -981,19 +981,19 @@
       "type": "gondola_double",
       "libraryId": "gondola_double",
       "position": [
-        620,
+        620.0,
         0.0,
-        720
+        720.0
       ],
       "rotation": [
         0.0,
-        0,
+        0.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 80,
-        "height": 200
+        "depth": 80.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -1016,19 +1016,19 @@
       "type": "gondola_single",
       "libraryId": "gondola_single",
       "position": [
-        260,
+        260.0,
         0.0,
-        920
+        920.0
       ],
       "rotation": [
         0.0,
-        180,
+        180.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 60,
-        "height": 200
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -1051,19 +1051,19 @@
       "type": "gondola_single",
       "libraryId": "gondola_single",
       "position": [
-        380,
+        380.0,
         0.0,
-        920
+        920.0
       ],
       "rotation": [
         0.0,
-        180,
+        180.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 60,
-        "height": 200
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -1086,19 +1086,19 @@
       "type": "gondola_single",
       "libraryId": "gondola_single",
       "position": [
-        500,
+        500.0,
         0.0,
-        920
+        920.0
       ],
       "rotation": [
         0.0,
-        180,
+        180.0,
         0.0
       ],
       "dimensions": {
-        "width": 120,
-        "depth": 60,
-        "height": 200
+        "depth": 60.0,
+        "width": 120.0,
+        "height": 200.0
       },
       "materialId": "metal_grey",
       "visible": true,
@@ -1121,19 +1121,19 @@
       "type": "fridge_horizontal",
       "libraryId": "fridge_horizontal",
       "position": [
-        620,
+        620.0,
         0.0,
-        920
+        920.0
       ],
       "rotation": [
         0.0,
-        180,
+        180.0,
         0.0
       ],
       "dimensions": {
-        "width": 300,
-        "depth": 60,
-        "height": 100
+        "depth": 60.0,
+        "width": 300.0,
+        "height": 100.0
       },
       "materialId": "metal_grey",
       "visible": true,

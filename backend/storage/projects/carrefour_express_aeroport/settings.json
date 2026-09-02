@@ -7,12 +7,117 @@
   "ambientLight": 0.8,
   "simulation": {
     "enabled": true,
-    "arrivalRatePerSecond": 0.6,
+    "arrivalRatePerSecond": 0.1,
     "durationSeconds": 120,
-    "maxCustomers": 200,
+    "maxCustomers": 30,
     "randomSeed": 42,
-    "desiredSpeedMps": 1.35,
+    "desiredSpeedMps": 0.55,
     "speedVariation": 0.2,
-    "waypoints": []
+    "waypoints": [
+      {
+        "id": "9da88a69-199d-4627-95e7-6300fdb7a4f8",
+        "label": "Entrée 1",
+        "type": "entry",
+        "x": 1117.0,
+        "z": 85.0,
+        "radiusCm": 120.0,
+        "optional": false,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "6f471c2b-4d5d-449f-a6ef-268e12989600",
+        "label": "Point 1",
+        "type": "transit",
+        "x": 970.0,
+        "z": 870.0,
+        "radiusCm": 120.0,
+        "optional": false,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "441c1dbd-6638-419c-93cf-af99bae64fbd",
+        "label": "Point 2",
+        "type": "transit",
+        "x": 97.0,
+        "z": 874.0,
+        "radiusCm": 120.0,
+        "optional": true,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "0476ca78-bd9f-419b-820e-65c62e69762f",
+        "label": "Point 3",
+        "type": "transit",
+        "x": 176.0,
+        "z": 582.0,
+        "radiusCm": 120.0,
+        "optional": true,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "c4e1f000-acf9-47e2-a0f5-dad6cb9772d4",
+        "label": "Point 4",
+        "type": "transit",
+        "x": 839.0,
+        "z": 468.0,
+        "radiusCm": 120.0,
+        "optional": true,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "5788f881-fdcb-4be9-b956-7b658c84d8a1",
+        "label": "Sortie 1",
+        "type": "exit",
+        "x": 301.0,
+        "z": 94.0,
+        "radiusCm": 120.0,
+        "optional": false,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "38ef0bc6-835e-454a-902f-d875882de8c1",
+        "label": "Point 5",
+        "type": "transit",
+        "x": 122.0,
+        "z": 321.0,
+        "radiusCm": 120.0,
+        "optional": false,
+        "visitProbability": 0.65,
+        "retentionSeconds": 1.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      },
+      {
+        "id": "c376e582-45b4-47ff-bf18-e47d1d606525",
+        "label": "Point 6",
+        "type": "transit",
+        "x": 1138.0,
+        "z": 271.0,
+        "radiusCm": 120.0,
+        "optional": true,
+        "visitProbability": 0.65,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0
+      }
+    ]
   }
 }

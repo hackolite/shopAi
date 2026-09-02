@@ -142,6 +142,13 @@ facings comme dans un hypermarché classique.
   garnie uniquement de produits dont la largeur ≤ 20 cm et la hauteur
   ≤ 33 cm (le pas de la grille) : implantation réellement réassortissable
   par un opérateur, sans facing impossible à remplir.
+- **Remplissage des trous** : les emplacements laissés vides par le
+  remplissage capacité-first (fin de rangée trop étroite pour la
+  référence suivante) sont garnis avec des produits des catégories déjà
+  présentes sur la face — nouvelles références d'abord, puis facings
+  supplémentaires des meilleures rotations — tant que la largeur
+  restante de la rangée le permet. Une rangée physiquement pleine est
+  raccourcie (`rowColCounts`) : jamais de trou dans la grille.
 - **Adjacence** : snacking/presse près de l'entrée (achat impulsif),
   frigos crèmerie/traiteur en grab-and-go proche de l'entrée, épicerie
   salée/sucrée puis boissons/vins en allées centrales, hygiène/entretien/
@@ -171,9 +178,18 @@ facings comme dans un hypermarché classique.
 | **Total** | **2 800** |
 
 `planograms.json` contient 50 planogrammes (une entrée par face de
-mobilier utilisée + 6 têtes de gondole) pour un total de 2 944 cellules
+mobilier utilisée + 6 têtes de gondole) pour un total de 3 498 cellules
 (2 800 facings « catalogue », une par référence, + 144 facings promo en
-tête de gondole).
+tête de gondole, + 554 facings de complément ajoutés lors du remplissage
+des trous, cf. §5).
+
+**Aucun emplacement de planogramme n'est vide** : chaque rangée est
+garnie jusqu'à saturation de sa largeur réelle, puis raccourcie via
+`rowColCounts` quand plus aucun produit de ses catégories n'entre dans
+la largeur restante. Les facings d'une même rangée sont regroupés par
+catégorie / sous-catégorie / marque, colonnes numérotées sans trou. La
+règle est vérifiée par `test_planograms_have_no_empty_slot` et
+`test_aeroport_shelf_rows_fit_the_linear_width`.
 
 ## 7. Champs additionnels de `catalog.json` (schéma étendu, non destructif)
 

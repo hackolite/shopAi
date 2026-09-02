@@ -170,6 +170,26 @@ def test_every_cell_references_a_catalog_product(catalog: dict, planograms: list
             assert cell["ean"] in eans
 
 
+def test_planograms_have_no_empty_slot(planograms: list[dict]) -> None:
+    """Aucun emplacement de planogramme ne doit rester vide.
+
+    Un trou dans une grille correspond à un segment de linéaire non marchand :
+    chaque emplacement déclaré (``rowColCounts`` quand il est présent, sinon
+    ``cols``) doit porter exactement un facing. Les rangées physiquement pleines
+    en largeur sont raccourcies via ``rowColCounts`` plutôt que laissées à trou.
+    """
+    for planogram in planograms:
+        counts = planogram.get("rowColCounts") or [planogram["cols"]] * planogram["rows"]
+        assert len(counts) == planogram["rows"], planogram["name"]
+        assert max(counts) == planogram["cols"], planogram["name"]
+        slots = {(cell["row"], cell["col"]) for cell in planogram["cells"]}
+        assert len(slots) == len(planogram["cells"]), f"{planogram['name']} : doublon de cellule"
+        expected = {(row, col) for row, count in enumerate(counts) for col in range(count)}
+        assert slots == expected, f"{planogram['name']} : {len(expected - slots)} emplacement(s) vide(s)"
+        for row, count in enumerate(counts):
+            assert count > 0, f"{planogram['name']} rangée {row} vide"
+
+
 def test_planogram_faces_match_furniture_capabilities(furniture: list[dict], library: dict) -> None:
     faces_by_id = {entry["id"]: set(entry["hasFaces"]) for entry in library["furniture"]}
     for item in furniture:
@@ -306,6 +326,22 @@ def test_aeroport_double_gondola_runs_have_end_cap_planograms() -> None:
             assert planogram["heightCm"] == module["dimensions"]["height"]
             # Une tête de gondole se réassortit vite : aucun trou de facing.
             assert len(planogram["cells"]) == planogram["rows"] * planogram["cols"]
+
+
+def test_aeroport_shelf_rows_fit_the_linear_width() -> None:
+    """Les facings d'une rangée ne doivent pas déborder de la largeur du linéaire.
+
+    C'est cette contrainte qui borne le remplissage : une rangée déjà pleine en
+    largeur est raccourcie (``rowColCounts``) au lieu de garder un emplacement
+    vide impossible à garnir.
+    """
+    products = {p["ean"]: p for p in _load(_AEROPORT_ID, "catalog.json")["products"]}
+    for planogram in _load(_AEROPORT_ID, "planograms.json")["planograms"]:
+        widths: dict[int, float] = {}
+        for cell in planogram["cells"]:
+            widths[cell["row"]] = widths.get(cell["row"], 0.0) + products[cell["ean"]]["widthCm"]
+        for row, width in widths.items():
+            assert width <= planogram["widthCm"] + 0.01, f"{planogram['name']} rangée {row}"
 
 
 def test_aeroport_planogram_cells_fit_their_grid() -> None:

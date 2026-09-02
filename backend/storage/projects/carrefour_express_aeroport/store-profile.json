@@ -1,0 +1,19 @@
+{
+  "enseigne": "Carrefour Express",
+  "surfaceTotaleM2": 400,
+  "surfaceVenteM2": 340,
+  "contexteLieu": "aeroport",
+  "format": "proximite",
+  "modificateursContexte": {
+    "categoriesBoostees": [
+      "Snacking et prêt-à-manger",
+      "Boissons",
+      "Presse et dépannage",
+      "Hygiène et beauté"
+    ],
+    "categoriesReduites": [
+      "Surgelés",
+      "Entretien et droguerie"
+    ]
+  }
+}

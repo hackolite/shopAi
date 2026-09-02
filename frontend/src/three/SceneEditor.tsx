@@ -2811,6 +2811,7 @@ function AssetLoadingGauge() {
   const planogramsTotal  = useAssetStore((state) => state.planogramsTotal);
   const imagesLoaded     = useAssetStore((state) => state.imagesLoaded);
   const imagesTotal      = useAssetStore((state) => state.imagesTotal);
+  const throttled        = useAssetStore((state) => state.preloadThrottled);
 
   if (!loading) return null;
 
@@ -2824,7 +2825,10 @@ function AssetLoadingGauge() {
     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-64 pointer-events-none">
       <div className="rounded bg-gray-900/90 border border-gray-700 px-3 py-2 shadow-lg">
         <div className="flex justify-between text-[11px] text-gray-300 mb-1">
-          <span>Chargement — {label}</span>
+          <span>
+            Chargement — {label}
+            {throttled && <span className="text-gray-500"> · arrière-plan</span>}
+          </span>
           <span>{percent}%</span>
         </div>
         <div className="h-1.5 w-full rounded bg-gray-800 overflow-hidden">

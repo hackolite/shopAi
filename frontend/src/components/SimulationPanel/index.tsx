@@ -400,13 +400,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [setLiveSessionId, setPaused, setPlaying]);
 
   // Catalog images are the heaviest background work of the app (hundreds of
-  // data-URL decodes and canvas texture rebuilds).  Suspend their preloading
-  // while agents are moving so a running simulation is never slowed down by it;
-  // downloads resume as soon as the simulation is stopped or paused.
+  // data-URL decodes and canvas texture rebuilds).  While agents are moving,
+  // downgrade the preload to low priority instead of stopping it: it keeps
+  // progressing (and the loading gauge with it) without ever competing with the
+  // simulation render loop.  Full speed is restored on pause/stop.
   useEffect(() => {
     const active = Boolean(liveSessionId) && playing && !paused;
-    useAssetStore.getState().setPreloadPaused(active);
-    return () => { useAssetStore.getState().setPreloadPaused(false); };
+    useAssetStore.getState().setPreloadThrottled(active);
+    return () => { useAssetStore.getState().setPreloadThrottled(false); };
   }, [liveSessionId, paused, playing]);
 
   useEffect(() => {

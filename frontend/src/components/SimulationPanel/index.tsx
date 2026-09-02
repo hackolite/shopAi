@@ -695,8 +695,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           )}
           {showHeatmap && heatmapMode === 'margin' && (
             <p className="text-xs text-gray-600">
-              Marge cumulée des produits implantés, diffusée sur l'allée devant chaque meuble.
-              Indépendante de la simulation.
+              Marge cumulée colonne par colonne, diffusée sur l'allée devant chaque colonne de
+              planogramme. Indépendante de la simulation.
             </p>
           )}
           <label className="flex items-center justify-between text-xs text-gray-300">

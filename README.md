@@ -283,7 +283,7 @@ The simulation engine models customer foot traffic inside the store using an age
 ### Frontend Simulation Features
 
 - **SimulationPanel**: waypoint placement, live controls (play/pause/stop), agent-count display, heatmap/trajectory toggles, floor-heatmap intensity selector (traffic or exposed margin), per-waypoint queue waiting times (average, max, live)
-- **SimulationLayer**: instanced rendering of 40+ agents at 100 ms tick, 220 ms render buffer, 200 ms extrapolation cap, floor heatmap and agent trajectory overlays (analytics polled every second). The margin heatmap (`engine/marginHeatmap.ts`) is computed client-side from the planograms and the catalogue, so it needs no running session.
+- **SimulationLayer**: instanced rendering of 40+ agents at 100 ms tick, 220 ms render buffer, 200 ms extrapolation cap, floor heatmap and agent trajectory overlays (analytics polled every second). The margin heatmap (`engine/marginHeatmap.ts`) is computed client-side, column by column: each planogram column radiates its cumulated facing margin onto the aisle in front of its own footprint slice, so it needs no running session.
 - **New object placement**: furniture and waypoints created from the panels appear at the bottom-left corner of the store grid
 - **Undo history**: simulation waypoint edits have their own undo stack (Ctrl/Cmd+Z in simulation context)
 - **Video recording**: on-screen labels use `TextSprite3D` (WebGL sprite) so they appear in `canvas.captureStream()` recordings

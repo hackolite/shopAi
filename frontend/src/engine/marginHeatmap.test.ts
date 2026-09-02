@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildMarginHeatmap, marginByFurniture, productMarginEur } from './marginHeatmap';
-import type { CADProduct, FurnitureInstance, Planogram, Scene } from '../types/cad';
+import { buildMarginHeatmap, marginColumnSources, productMarginEur } from './marginHeatmap';
+import type { CADProduct, FaceId, FurnitureInstance, Planogram, Scene } from '../types/cad';
 
 function product(ean: string, patch: Partial<CADProduct> = {}): CADProduct {
   return {
@@ -25,7 +25,7 @@ function furniture(id: string, patch: Partial<FurnitureInstance> = {}): Furnitur
     libraryId: 'gondola',
     position: [0, 0, 0],
     rotation: [0, 0, 0],
-    dimensions: { width: 100, depth: 50, height: 180 },
+    dimensions: { width: 200, depth: 50, height: 180 },
     materialId: 'm',
     visible: true,
     locked: false,
@@ -37,17 +37,18 @@ function furniture(id: string, patch: Partial<FurnitureInstance> = {}): Furnitur
   };
 }
 
-function planogram(id: string, furnitureId: string, eans: string[]): Planogram {
+/** Single-row planogram whose columns hold the given EANs. */
+function planogram(id: string, furnitureId: string, eans: string[], face: FaceId = 'front'): Planogram {
   return {
     id,
     name: id,
     furnitureId,
-    face: 'front',
+    face,
     rows: 1,
     cols: eans.length,
-    widthCm: 100,
+    widthCm: 200,
     heightCm: 180,
-    cells: eans.map((ean, index) => ({ id: `${id}-${index}`, ean, row: 0, col: index, rotation: 0 })),
+    cells: eans.map((ean, col) => ({ id: `${id}-${col}`, ean, row: 0, col, rotation: 0 })),
   };
 }
 
@@ -65,6 +66,11 @@ function scene(furnitureList: FurnitureInstance[]): Scene {
   };
 }
 
+const products = [
+  product('rich', { priceBuyEur: 1, priceSellEur: 5 }),
+  product('poor', { priceBuyEur: 1, priceSellEur: 1.2 }),
+];
+
 describe('productMarginEur', () => {
   it('uses the price difference when both prices are known', () => {
     expect(productMarginEur(product('1', { priceBuyEur: 1, priceSellEur: 1.6 }))).toBeCloseTo(0.6);
@@ -80,77 +86,117 @@ describe('productMarginEur', () => {
   });
 });
 
-describe('marginByFurniture', () => {
-  it('sums facings across every planogram of a furniture', () => {
-    const products = [
-      product('a', { priceBuyEur: 1, priceSellEur: 2 }),
-      product('b', { priceBuyEur: 1, priceSellEur: 1.5 }),
-    ];
-    const totals = marginByFurniture(
-      [planogram('p1', 'f1', ['a', 'a']), planogram('p2', 'f1', ['b'])],
-      products,
-    );
-    expect(totals.get('f1')).toBeCloseTo(2.5);
+describe('marginColumnSources', () => {
+  const furnitureById = new Map([['f1', furniture('f1')]]);
+
+  it('emits one source per column, each on its own slice of the footprint', () => {
+    const sources = marginColumnSources([planogram('p1', 'f1', ['rich', 'poor'])], products, furnitureById)
+      .sort((a, b) => a.col - b.col);
+    expect(sources).toHaveLength(2);
+    expect(sources[0].marginEur).toBeCloseTo(4);
+    expect(sources[1].marginEur).toBeCloseTo(0.2);
+    // 200 cm wide furniture, 2 columns: local X spans [-100, 0] then [0, 100].
+    expect([sources[0].x0, sources[0].x1]).toEqual([-100, 0]);
+    expect([sources[1].x0, sources[1].x1]).toEqual([0, 100]);
+    // A front planogram radiates on the +Z half of the footprint.
+    expect([sources[0].z0, sources[0].z1]).toEqual([0, 25]);
   });
 
-  it('ignores unknown EANs and margin-free furniture', () => {
-    const totals = marginByFurniture([planogram('p1', 'f1', ['ghost'])], [product('a')]);
-    expect(totals.size).toBe(0);
+  it('sums the facings of every row of a column', () => {
+    const stacked = planogram('p1', 'f1', ['rich', 'poor']);
+    stacked.rows = 2;
+    stacked.cells.push({ id: 'p1-extra', ean: 'rich', row: 1, col: 0, rotation: 0 });
+    const sources = marginColumnSources([stacked], products, furnitureById);
+    expect(sources.find((source) => source.col === 0)?.marginEur).toBeCloseTo(8);
+  });
+
+  it('honours per-column widths', () => {
+    const uneven = planogram('p1', 'f1', ['rich', 'rich']);
+    uneven.colWidthsCm = [150, 50];
+    const sources = marginColumnSources([uneven], products, furnitureById).sort((a, b) => a.col - b.col);
+    expect([sources[0].x0, sources[0].x1]).toEqual([-100, 50]);
+    expect([sources[1].x0, sources[1].x1]).toEqual([50, 100]);
+  });
+
+  it('mirrors columns on the back face and radiates on the other aisle', () => {
+    const sources = marginColumnSources(
+      [planogram('p1', 'f1', ['rich', 'poor'], 'back')],
+      products,
+      furnitureById,
+    );
+    const first = sources.find((source) => source.col === 0)!;
+    expect([first.x0, first.x1]).toEqual([0, 100]);
+    expect([first.z0, first.z1]).toEqual([-25, 0]);
+  });
+
+  it('ignores unknown EANs, margin-free columns and unplaced planograms', () => {
+    expect(marginColumnSources([planogram('p1', 'f1', ['ghost'])], products, furnitureById)).toHaveLength(0);
+    expect(marginColumnSources([planogram('p1', 'nope', ['rich'])], products, furnitureById)).toHaveLength(0);
   });
 });
 
 describe('buildMarginHeatmap', () => {
-  const products = [product('a', { priceBuyEur: 1, priceSellEur: 3 })];
+  const cellAt = (grid: NonNullable<ReturnType<typeof buildMarginHeatmap>>, xCm: number, zCm: number) =>
+    grid.counts[Math.floor(zCm / grid.cellSizeCm) * grid.cols + Math.floor(xCm / grid.cellSizeCm)];
 
-  it('returns null when no furniture exposes margin', () => {
+  it('returns null when no column exposes margin', () => {
     expect(buildMarginHeatmap(scene([furniture('f1')]), [], products)).toBeNull();
   });
 
-  it('peaks on the furniture footprint and fades with distance', () => {
+  it('is hotter in front of the high-margin column than the low-margin one', () => {
     const grid = buildMarginHeatmap(
-      scene([furniture('f1', { position: [0, 0, 0] })]),
-      [planogram('p1', 'f1', ['a'])],
+      scene([furniture('f1')]),
+      [planogram('p1', 'f1', ['rich', 'poor'])],
       products,
-    );
-    expect(grid).not.toBeNull();
-    const cellAt = (xCm: number, zCm: number) => {
-      const col = Math.floor(xCm / grid!.cellSizeCm);
-      const row = Math.floor(zCm / grid!.cellSizeCm);
-      return grid!.counts[row * grid!.cols + col];
-    };
-    expect(cellAt(50, 25)).toBeCloseTo(grid!.maxCount);
-    expect(cellAt(50, 75)).toBeGreaterThan(0);
-    expect(cellAt(50, 75)).toBeLessThan(cellAt(50, 25));
-    expect(cellAt(50, 375)).toBe(0);
+    )!;
+    // Left half of the shelf holds the rich column, right half the poor one.
+    expect(cellAt(grid, 50, 25)).toBeGreaterThan(cellAt(grid, 150, 25));
   });
 
-  it('accumulates the margin of neighbouring furniture', () => {
-    const single = buildMarginHeatmap(
+  it('fades in front of the column and stays inside the influence band', () => {
+    const grid = buildMarginHeatmap(
       scene([furniture('f1')]),
-      [planogram('p1', 'f1', ['a'])],
+      [planogram('p1', 'f1', ['rich', 'rich'])],
       products,
-    );
-    const pair = buildMarginHeatmap(
-      scene([furniture('f1'), furniture('f2', { position: [0, 0, 100] })]),
-      [planogram('p1', 'f1', ['a']), planogram('p2', 'f2', ['a'])],
+    )!;
+    expect(cellAt(grid, 50, 25)).toBeCloseTo(grid.maxCount);
+    expect(cellAt(grid, 50, 75)).toBeGreaterThan(0);
+    expect(cellAt(grid, 50, 75)).toBeLessThan(cellAt(grid, 50, 25));
+    expect(cellAt(grid, 50, 375)).toBe(0);
+  });
+
+  it('radiates on the front aisle only for a front planogram', () => {
+    const grid = buildMarginHeatmap(
+      scene([furniture('f1', { position: [0, 0, 150] })]),
+      [planogram('p1', 'f1', ['rich', 'rich'])],
       products,
-    );
-    expect(pair!.maxCount).toBeGreaterThan(single!.maxCount);
+    )!;
+    // The furniture spans Z 150..200 and its front face is the +Z side.
+    expect(cellAt(grid, 50, 225)).toBeGreaterThan(cellAt(grid, 50, 125));
   });
 
   it('follows the furniture rotation around its centre', () => {
     const grid = buildMarginHeatmap(
       scene([furniture('f1', { position: [100, 0, 100], rotation: [0, 90, 0] })]),
-      [planogram('p1', 'f1', ['a'])],
+      [planogram('p1', 'f1', ['rich', 'rich'])],
       products,
-    );
-    const cellAt = (xCm: number, zCm: number) => {
-      const col = Math.floor(xCm / grid!.cellSizeCm);
-      const row = Math.floor(zCm / grid!.cellSizeCm);
-      return grid!.counts[row * grid!.cols + col];
-    };
-    // A 100×50 shelf rotated 90° spans 50 cm in X and 100 cm in Z around (150, 125).
-    expect(cellAt(150, 175)).toBeCloseTo(grid!.maxCount);
-    expect(cellAt(250, 125)).toBeLessThan(cellAt(150, 175));
+    )!;
+    // A 200×50 shelf rotated 90° around (200, 125) spans 50 cm in X, 200 cm in Z.
+    expect(cellAt(grid, 175, 175)).toBeGreaterThan(0);
+    expect(cellAt(grid, 375, 375)).toBe(0);
+  });
+
+  it('accumulates the margin of the two faces of a gondola', () => {
+    const single = buildMarginHeatmap(
+      scene([furniture('f1')]),
+      [planogram('p1', 'f1', ['rich', 'rich'])],
+      products,
+    )!;
+    const doubled = buildMarginHeatmap(
+      scene([furniture('f1')]),
+      [planogram('p1', 'f1', ['rich', 'rich']), planogram('p2', 'f1', ['rich', 'rich'])],
+      products,
+    )!;
+    expect(doubled.maxCount).toBeGreaterThan(single.maxCount);
   });
 });

@@ -3,6 +3,7 @@ import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
 import { usePlanogramStore } from './store/planogramStore';
+import { useAssetStore } from './store/assetStore';
 import { useUIStore } from './store/uiStore';
 import { defaultSimulationConfig, useSimulationStore } from './store/simulationStore';
 import { SceneEditor } from './three/SceneEditor';
@@ -20,7 +21,7 @@ import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore } from './store/zoneStore';
 import { useProjectStore } from './store/projectStore';
 import { resetProjectStores } from './store/projectSwitch';
-import type { FurnitureInstance } from './types/cad';
+import type { FurnitureInstance, Planogram } from './types/cad';
 
 const DEFAULT_PROJECT = 'retail_cad';
 /** Offset in cm applied to X and Z when pasting a copied gondola. */
@@ -108,6 +109,12 @@ export default function App() {
       setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
       setLoadedProjectId(id);
 
+      // Track the remaining work so the viewport can show a progress gauge:
+      // planogram details first, then every product image they reference.
+      const assets = useAssetStore.getState();
+      assets.startLoading(planoData.planograms.length);
+
+      const details: Planogram[] = [];
       await Promise.all(
         planoData.planograms.map(async (summary) => {
           try {
@@ -115,12 +122,31 @@ export default function App() {
             // Guard again — planogram fetches are the longest-running part.
             if (loadingProjectIdRef.current !== id) return;
             setPlanogramDetail(detail);
+            details.push(detail);
           } catch (err) {
             console.warn(`Failed to load planogram detail for ${summary.id}:`, err);
+          } finally {
+            if (loadingProjectIdRef.current === id) assets.markPlanogramLoaded();
           }
         }),
       );
+      if (loadingProjectIdRef.current !== id) return;
+
+      // Preload every product image used by a planogram into the shared cache so
+      // the 3D face overlays are complete on first paint instead of only after
+      // the planogram editor has been opened once.
+      const productByEan = new Map(catalog.products.map((p) => [p.ean, p]));
+      const urlsByEan = new Map<string, string>();
+      for (const detail of details) {
+        for (const cell of detail.cells) {
+          const url = productByEan.get(cell.ean)?.imageUrl;
+          if (url && !urlsByEan.has(cell.ean)) urlsByEan.set(cell.ean, url);
+        }
+      }
+      await assets.preloadProductImages(urlsByEan);
+      assets.finishLoading();
     } catch (err) {
+      useAssetStore.getState().finishLoading();
       if (loadingProjectIdRef.current === id) {
         console.error('Failed to load project data:', err);
       } else {
@@ -138,6 +164,16 @@ export default function App() {
     setSimulationConfig,
     setLoadedProjectId,
   ]);
+
+  // ── Auto-open the Inspector when a planogram product is selected in 3D ────
+  // Clicking a product cell on a gondola face is an inspection gesture: switch
+  // the right panel to the Inspector so the product details are shown without
+  // an extra click on the tab.
+  const selectionType     = useSceneStore((state) => state.selection.type);
+  const selectionCellKey  = useSceneStore((state) => state.selection.cellIds?.join(',') ?? '');
+  useEffect(() => {
+    if (selectionType === 'planogram_cell' && selectionCellKey) setRightTab('inspector');
+  }, [selectionType, selectionCellKey]);
 
   // ── Boot: load default project ────────────────────────────────────────────
   useEffect(() => {

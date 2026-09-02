@@ -10,6 +10,7 @@ import { useCatalogStore } from '../store/catalogStore';
 import { useZoneStore } from '../store/zoneStore';
 import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
+import { loadRatio, useAssetStore } from '../store/assetStore';
 import type { FloorZone, Planogram } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
@@ -81,8 +82,22 @@ let _persistedCameraState: {
   target: [number, number, number];
 } | null = null;
 
-/** Default OrbitControls look-at point (store centre). */
+/** Fallback OrbitControls look-at point used when no store is loaded yet. */
 const DEFAULT_ORBIT_TARGET: [number, number, number] = [25, 0, 15];
+
+/**
+ * World-space centre of the store floor: the orbit pivot must sit inside the
+ * scene, otherwise the camera swings around a point outside the store and the
+ * view is very hard to manoeuvre.
+ */
+function storeCenterTarget(store: StoreConfig | null | undefined): [number, number, number] {
+  if (!store) return DEFAULT_ORBIT_TARGET;
+  const originX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const originZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
+  const w = (store.dimensions?.width  ?? 0) * CM_TO_UNIT;
+  const d = (store.dimensions?.depth  ?? 0) * CM_TO_UNIT;
+  return [originX + w / 2, 0, originZ + d / 2];
+}
 
 // ─── Mesh registry context ───────────────────────────────────────────────────
 type RegisterFn = (id: string, group: THREE.Group | null) => void;
@@ -279,45 +294,29 @@ function PlanogramFaceOverlay({
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
 
-  // Preload product images so they can be drawn into the canvas texture.
-  const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
+  // Product images come from the shared cache: every face overlay of every
+  // gondola reuses the same decoded images, which are preloaded once when the
+  // project is opened (see App.loadProjectData).  `imageVersion` changes each
+  // time an image finishes downloading so the texture is redrawn progressively.
+  const loadedImages = useAssetStore((state) => state.productImages);
+  const imageVersion = useAssetStore((state) => state.imageVersion);
+  const preloadProductImages = useAssetStore((state) => state.preloadProductImages);
 
+  // Safety net: any product image missing from the cache (e.g. a planogram or an
+  // image added after the initial project load) is fetched into the shared cache.
   useEffect(() => {
+    if (!planogram) return;
     const productByEan = new Map(products.map((p) => [p.ean, p]));
-    const urlsByEan = new Map<string, string>();
-    if (planogram) {
-      for (const cell of planogram.cells) {
-        const prod = productByEan.get(cell.ean);
-        if (prod?.imageUrl && !urlsByEan.has(prod.ean)) {
-          urlsByEan.set(prod.ean, prod.imageUrl);
-        }
+    const missing = new Map<string, string>();
+    const cached = useAssetStore.getState().productImages;
+    for (const cell of planogram.cells) {
+      const url = productByEan.get(cell.ean)?.imageUrl;
+      if (url && !cached.has(cell.ean) && !missing.has(cell.ean)) {
+        missing.set(cell.ean, url);
       }
     }
-
-    if (urlsByEan.size === 0) {
-      setLoadedImages(new Map());
-      return;
-    }
-
-    let cancelled = false;
-    const newImages = new Map<string, HTMLImageElement>();
-    let pending = urlsByEan.size;
-    const settle = () => {
-      pending--;
-      if (!cancelled && pending === 0) setLoadedImages(new Map(newImages));
-    };
-    for (const [ean, url] of urlsByEan) {
-      const img = new Image();
-      // Images are served from the same backend origin; crossOrigin is set so that
-      // canvas.drawImage() does not taint the canvas when running from a dev server
-      // that may differ from the API origin.
-      img.crossOrigin = 'anonymous';
-      img.onload  = () => { newImages.set(ean, img); settle(); };
-      img.onerror = () => settle();
-      img.src = url;
-    }
-    return () => { cancelled = true; };
-  }, [planogram, products]);
+    if (missing.size > 0) void preloadProductImages(missing);
+  }, [planogram, products, preloadProductImages]);
 
   const texture = useMemo(() => {
     if (!planogram) return null;
@@ -396,7 +395,10 @@ function PlanogramFaceOverlay({
     // planogram (its left) therefore lands on the same physical (+X) end of the
     // gondola as a column appended to the front — keeping the two faces coherent.
     return tex;
-  }, [planogram, products, selectedCellId, loadedImages]);
+  // `imageVersion` is a dependency (not read in the body) so the texture is
+  // rebuilt each time a product image lands in the shared cache.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planogram, products, selectedCellId, loadedImages, imageVersion]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -2619,8 +2621,23 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // a prop when its reference hasn't changed, which prevents OrbitControls from
   // resetting the target back to this value after the user has panned/orbited.
   const initialOrbitTarget = useRef<[number, number, number]>(
-    _persistedCameraState?.target ?? DEFAULT_ORBIT_TARGET
+    _persistedCameraState?.target ?? storeCenterTarget(scene?.store)
   );
+
+  // Once the store is loaded, make sure the orbit pivot sits at the centre of the
+  // store floor.  Without this the camera orbits around the hard-coded default
+  // point, which for most stores lies outside the scene and makes the view very
+  // hard to manoeuvre.  Applied only while the user has not moved the camera
+  // (no persisted state), so it never fights a manual pan/orbit.
+  const orbitTargetInitialised = useRef(_persistedCameraState != null);
+  const controls = useThree((state) => state.controls) as { target?: THREE.Vector3; update?: () => void } | null;
+  useEffect(() => {
+    if (orbitTargetInitialised.current || !scene?.store || !controls?.target) return;
+    const [tx, ty, tz] = storeCenterTarget(scene.store);
+    controls.target.set(tx, ty, tz);
+    controls.update?.();
+    orbitTargetInitialised.current = true;
+  }, [controls, scene?.store]);
 
   const registerGroup = useCallback<RegisterFn>((id, group) => {
     if (group) {
@@ -2782,6 +2799,45 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   );
 }
 
+// ─── Asset loading gauge ─────────────────────────────────────────────────────
+/**
+ * Progress bar shown while the project's planograms and their product images are
+ * still downloading, so the user knows why the planogram faces are not textured
+ * yet instead of seeing them pop in silently.
+ */
+function AssetLoadingGauge() {
+  const loading          = useAssetStore((state) => state.loading);
+  const planogramsLoaded = useAssetStore((state) => state.planogramsLoaded);
+  const planogramsTotal  = useAssetStore((state) => state.planogramsTotal);
+  const imagesLoaded     = useAssetStore((state) => state.imagesLoaded);
+  const imagesTotal      = useAssetStore((state) => state.imagesTotal);
+
+  if (!loading) return null;
+
+  const ratio = loadRatio({ planogramsLoaded, planogramsTotal, imagesLoaded, imagesTotal });
+  const percent = Math.round(ratio * 100);
+  const label = planogramsLoaded < planogramsTotal
+    ? `Planogrammes ${planogramsLoaded}/${planogramsTotal}`
+    : `Images ${imagesLoaded}/${imagesTotal}`;
+
+  return (
+    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-64 pointer-events-none">
+      <div className="rounded bg-gray-900/90 border border-gray-700 px-3 py-2 shadow-lg">
+        <div className="flex justify-between text-[11px] text-gray-300 mb-1">
+          <span>Chargement — {label}</span>
+          <span>{percent}%</span>
+        </div>
+        <div className="h-1.5 w-full rounded bg-gray-800 overflow-hidden">
+          <div
+            className="h-full bg-blue-500 transition-all duration-200"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── SceneEditor ─────────────────────────────────────────────────────────────
 function SceneEditor({ projectId }: { projectId: string | null }) {
   const { scene } = useSceneStore();
@@ -2882,6 +2938,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           <p className="text-gray-500 text-sm">Loading scene…</p>
         </div>
       )}
+      <AssetLoadingGauge />
       <ErrorBoundary
         fallback={
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-950 text-white gap-3">

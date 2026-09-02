@@ -1,3 +1,4 @@
+import { useAssetStore } from './assetStore';
 import { useCatalogStore } from './catalogStore';
 import { usePlanogramStore } from './planogramStore';
 import { useProjectStore } from './projectStore';
@@ -25,4 +26,5 @@ export function resetProjectStores(): void {
   usePlanogramStore.getState().reset();
   useSimulationStore.getState().reset();
   useCatalogStore.getState().setProducts([]);
+  useAssetStore.getState().reset();
 }

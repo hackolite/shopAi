@@ -156,6 +156,11 @@ export interface AgentTrajectory {
 export interface SimulationAnalytics {
   timeSeconds: number;
   heatmap: SimulationHeatmap | null;
+  /**
+   * Agent *entries* per cell (a shopper standing still is counted once): divided
+   * by `timeSeconds` it gives an absolute client flow in persons per second.
+   */
+  visitHeatmap?: SimulationHeatmap | null;
   trajectories: AgentTrajectory[];
 }
 

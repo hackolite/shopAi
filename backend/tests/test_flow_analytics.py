@@ -65,6 +65,30 @@ def test_heatmap_ignores_positions_outside_the_store_grid() -> None:
     assert recorder.heatmap().maxCount == 0
 
 
+def test_visit_heatmap_counts_cell_entries_not_samples() -> None:
+    recorder = FlowAnalyticsRecorder(_scene(), cell_size_cm=100.0)
+    # Agent 1 stays three ticks in the same cell, then moves to the next one.
+    recorder.record_frame(_frame(0.0, [(1, 50.0, 50.0), (2, 50.0, 50.0)]))
+    recorder.record_frame(_frame(0.1, [(1, 60.0, 60.0), (2, 50.0, 50.0)]))
+    recorder.record_frame(_frame(0.2, [(1, 150.0, 50.0), (2, 50.0, 50.0)]))
+
+    visits = recorder.visit_heatmap()
+    assert visits.cols == recorder.heatmap().cols
+    # Two agents entered the first cell once each, one entered the next cell.
+    assert visits.counts[0] == 2
+    assert visits.counts[1] == 1
+    assert visits.maxCount == 2
+
+
+def test_visit_heatmap_counts_a_new_visit_when_an_agent_comes_back() -> None:
+    recorder = FlowAnalyticsRecorder(_scene(), cell_size_cm=100.0)
+    recorder.record_frame(_frame(0.0, [(1, 50.0, 50.0)]))
+    recorder.record_frame(_frame(0.1, [(1, 150.0, 50.0)]))
+    recorder.record_frame(_frame(0.2, [(1, 50.0, 50.0)]))
+
+    assert recorder.visit_heatmap().counts[0] == 2
+
+
 def test_trajectories_record_moving_agents_only() -> None:
     recorder = FlowAnalyticsRecorder(_scene(), cell_size_cm=100.0)
     recorder.record_frame(_frame(0.0, [(1, 100.0, 100.0), (2, 300.0, 300.0)]))
@@ -101,6 +125,9 @@ def test_build_analytics_from_frames() -> None:
     assert analytics.timeSeconds == 0.1
     assert analytics.heatmap is not None
     assert analytics.heatmap.maxCount == 1
+    assert analytics.visitHeatmap is not None
+    assert analytics.visitHeatmap.maxCount == 1
+    assert sum(analytics.visitHeatmap.counts) == 2
     assert [item.agentId for item in analytics.trajectories] == [1]
 
 

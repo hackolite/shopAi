@@ -4,7 +4,7 @@ import type { SimulationHeatmap } from '../types/cad';
  * Sample a heatmap at a world position (cm), returning the raw cell value.
  * Positions outside the grid return 0.
  */
-function sampleAt(heatmap: SimulationHeatmap, xCm: number, zCm: number): number {
+export function sampleHeatmapAt(heatmap: SimulationHeatmap, xCm: number, zCm: number): number {
   const col = Math.floor((xCm - heatmap.originXCm) / heatmap.cellSizeCm);
   const row = Math.floor((zCm - heatmap.originZCm) / heatmap.cellSizeCm);
   if (col < 0 || row < 0 || col >= heatmap.cols || row >= heatmap.rows) return 0;
@@ -39,7 +39,7 @@ export function buildYieldHeatmap(
       const margin = marginHeatmap.counts[row * cols + col] ?? 0;
       if (margin <= 0) continue;
       const xCm = originXCm + (col + 0.5) * cellSizeCm;
-      const traffic = sampleAt(trafficHeatmap, xCm, zCm);
+      const traffic = sampleHeatmapAt(trafficHeatmap, xCm, zCm);
       if (traffic <= 0) continue;
       const value = (margin / marginMax) * (traffic / trafficMax);
       counts[row * cols + col] = value;

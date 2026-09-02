@@ -179,6 +179,7 @@ class ZoneTypeEnum(str, Enum):
     entrance = "entrance"
     exit = "exit"
     supply = "supply"
+    reserve = "reserve"
 
 
 class FloorZone(CADBaseModel):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import re
 import threading
 from typing import Any
@@ -60,6 +61,36 @@ def _get_project_lock(project_id: str) -> threading.Lock:
         if project_id not in _project_locks:
             _project_locks[project_id] = threading.Lock()
         return _project_locks[project_id]
+
+
+def _furniture_overlaps(first: FurnitureInstance, second: FurnitureInstance) -> bool:
+    """Return whether two furniture footprints overlap (touching edges is allowed)."""
+    def bounds(item: FurnitureInstance) -> tuple[float, float, float, float]:
+        width = item.dimensions["width"]
+        depth = item.dimensions["depth"]
+        radians = math.radians(item.rotation[1])
+        half_x = (abs(math.cos(radians)) * width + abs(math.sin(radians)) * depth) / 2
+        half_z = (abs(math.sin(radians)) * width + abs(math.cos(radians)) * depth) / 2
+        centre_x = item.position[0] + width / 2
+        centre_z = item.position[2] + depth / 2
+        return centre_x - half_x, centre_x + half_x, centre_z - half_z, centre_z + half_z
+
+    first_min_x, first_max_x, first_min_z, first_max_z = bounds(first)
+    second_min_x, second_max_x, second_min_z, second_max_z = bounds(second)
+    return (
+        first_min_x < second_max_x
+        and first_max_x > second_min_x
+        and first_min_z < second_max_z
+        and first_max_z > second_min_z
+    )
+
+
+def _ensure_furniture_does_not_overlap(
+    furniture: FurnitureInstance,
+    others: list[FurnitureInstance],
+) -> None:
+    if any(_furniture_overlaps(furniture, item) for item in others if item.id != furniture.id):
+        raise HTTPException(status_code=409, detail="Furniture cannot overlap another furniture item")
 
 
 class CreateProjectPayload(BaseModel):
@@ -296,6 +327,7 @@ def add_furniture(project_id: str, payload: dict[str, Any] = Body(...)):
         scene = _load_scene(project_id)
         if any(item.id == furniture.id for item in scene.furniture):
             raise HTTPException(status_code=409, detail=f"Furniture '{furniture.id}' already exists")
+        _ensure_furniture_does_not_overlap(furniture, scene.furniture)
         scene.furniture.append(furniture)
         _save_scene(project_id, scene)
     return furniture.model_dump(mode="json")
@@ -307,6 +339,7 @@ def update_furniture(project_id: str, furniture_id: str, payload: dict[str, Any]
         scene = _load_scene(project_id)
         index = _find_index(scene.furniture, "id", furniture_id)
         updated = _merge_model(FurnitureInstance, scene.furniture[index], {**payload, "id": furniture_id})
+        _ensure_furniture_does_not_overlap(updated, scene.furniture)
         scene.furniture[index] = updated
         _save_scene(project_id, scene)
     return updated.model_dump(mode="json")

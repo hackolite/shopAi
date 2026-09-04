@@ -5,6 +5,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import { bottomLeftFurniturePosition } from '../../engine/placement';
+import { findFreeFurniturePosition } from '../../engine/furnitureCollision';
 import type { FurnitureInstance, FaceId, FurnitureDefinition, Planogram, PlanogramCell } from '../../types/cad';
 
 const FURNITURE_EMOJI: Record<string, string> = {
@@ -209,6 +210,12 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
       childIds:   [],
       faces:      {},
     };
+    const position = findFreeFurniturePosition(newFurniture, scene.furniture, scene.store);
+    if (!position) {
+      setAddLoading(false);
+      return;
+    }
+    newFurniture.position = position;
 
     try {
       const created = await cadApi.addFurniture(projectId, newFurniture);

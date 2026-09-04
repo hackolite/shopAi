@@ -21,16 +21,34 @@ import { SimulationLayer } from './SimulationLayer';
 import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
+import {
+  GRID_CELL_CM,
+  gridPlaneSpec,
+  snapFurnitureCentreCm,
+  snapFurniturePositionCm,
+  snapSizeToCell,
+  snapToCell,
+  type GridOriginCm,
+} from '../engine/gridSnap';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
-/** Snap grid step in centimetres (0.5 m). */
-const SNAP_CM   = 50;
+/** Snap grid step in centimetres (0.5 m) — one grid cell. */
+const SNAP_CM   = GRID_CELL_CM;
 /** Snap grid step in Three.js units (1 unit = 100 cm → 0.5 m = 0.5 unit). */
 const SNAP_UNIT = SNAP_CM * CM_TO_UNIT;
 /** Minimum furniture dimension allowed after a resize (cm). */
 const MIN_DIM_CM = 20;
-/** Round a centimetre value to the nearest snap grid step. */
-const snapToCm = (v: number) => Math.round(v / SNAP_CM) * SNAP_CM;
+/**
+ * Grid origin (cm) the snap lattice is anchored on: the store's (0,0) corner.
+ * Snapping relative to it guarantees objects land exactly on the drawn cells
+ * even when the store origin or size is not a multiple of the cell size.
+ */
+function useGridOrigin(): GridOriginCm {
+  const store = useSceneStore((s) => s.scene?.store);
+  const x = store?.position?.[0] ?? 0;
+  const z = store?.position?.[2] ?? 0;
+  return useMemo(() => ({ x, z }), [x, z]);
+}
 /**
  * Fade-out distance multiplier for the Grid component relative to the store's
  * longest dimension.  1.8× keeps the grid visible even at a high camera angle.
@@ -762,6 +780,26 @@ interface TransformProxyProps {
 
 function TransformProxy({ furniture, transformTarget, mode, projectId }: TransformProxyProps) {
   const { updateFurniture } = useSceneStore();
+  const gridOrigin = useGridOrigin();
+
+  /**
+   * Snap the dragged object so the corner of its (possibly rotated) footprint
+   * sits exactly on a grid cell border.  `transformTarget.position` holds the
+   * footprint centre, so the correction is applied there.
+   */
+  const snapTargetToGrid = useCallback(() => {
+    const obj = transformTarget;
+    if (!obj || mode !== 'translate') return;
+    const centre = snapFurnitureCentreCm(
+      obj.position.x / CM_TO_UNIT,
+      obj.position.z / CM_TO_UNIT,
+      furniture.dimensions,
+      furniture.rotation[1],
+      gridOrigin,
+    );
+    obj.position.x = centre.x * CM_TO_UNIT;
+    obj.position.z = centre.z * CM_TO_UNIT;
+  }, [transformTarget, mode, furniture.dimensions, furniture.rotation, gridOrigin]);
 
   const handleMouseUp = useCallback(() => {
     const obj = transformTarget;
@@ -771,11 +809,16 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const W = furniture.dimensions.width  * CM_TO_UNIT;
       const H = furniture.dimensions.height * CM_TO_UNIT;
       const D = furniture.dimensions.depth  * CM_TO_UNIT;
-      const newPos: [number, number, number] = [
-        snapToCm((obj.position.x - W / 2) / CM_TO_UNIT),
-        0,
-        snapToCm((obj.position.z - D / 2) / CM_TO_UNIT),
-      ];
+      const newPos = snapFurniturePositionCm(
+        [
+          (obj.position.x - W / 2) / CM_TO_UNIT,
+          0,
+          (obj.position.z - D / 2) / CM_TO_UNIT,
+        ],
+        furniture.dimensions,
+        furniture.rotation[1],
+        gridOrigin,
+      );
       obj.position.set(newPos[0] * CM_TO_UNIT + W / 2, H / 2, newPos[2] * CM_TO_UNIT + D / 2);
       const updated = { ...furniture, position: newPos };
       updateFurniture(updated);
@@ -801,7 +844,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
     }
-  }, [furniture, transformTarget, mode, projectId, updateFurniture]);
+  }, [furniture, transformTarget, mode, projectId, updateFurniture, gridOrigin]);
 
   return (
     <TransformControls
@@ -809,6 +852,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       mode={mode}
       translationSnap={SNAP_UNIT}
       rotationSnap={Math.PI / 2}
+      onObjectChange={snapTargetToGrid}
       onMouseUp={handleMouseUp}
     />
   );
@@ -851,6 +895,12 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
 
+  // <Grid> draws its lines at multiples of `cellSize` from the centre of its
+  // plane: re-centre (and pad) the plane on the lattice anchored on the store
+  // origin so the drawn cells match exactly where objects snap.
+  const gridX = gridPlaneSpec(store.position?.[0] ?? 0, store.dimensions.width);
+  const gridZ = gridPlaneSpec(store.position?.[2] ?? 0, store.dimensions.depth);
+
   const handleFloorClick = () => {
     selectFurniture(null);
     selectZone(null);
@@ -866,8 +916,8 @@ function StoreFloor({ store }: { store: StoreConfig }) {
 
       {/* Fine grid: 0.5 m cells matching the snap step, subtle blue tint */}
       <Grid
-        position={[storeOriginX + w / 2, GRID_Y_OFFSET, storeOriginZ + d / 2]}
-        args={[w, d]}
+        position={[gridX.centreCm * CM_TO_UNIT, GRID_Y_OFFSET, gridZ.centreCm * CM_TO_UNIT]}
+        args={[gridX.sizeCm * CM_TO_UNIT, gridZ.sizeCm * CM_TO_UNIT]}
         cellSize={SNAP_UNIT}
         cellThickness={1.2}
         cellColor="#2e4d6e"
@@ -1062,7 +1112,7 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       const cur   = curStoreRef.current;
       const base  = baseStoreRef.current;
       const sign  = dragSign.current;
-      const snapDim = (v: number) => snapToCm(Math.max(MIN_STORE_DIM_CM, v));
+      const snapDim = (v: number) => snapSizeToCell(v, MIN_STORE_DIM_CM);
 
       const snappedW = snapDim(cur.dimensions.width);
       const snappedD = snapDim(cur.dimensions.depth);
@@ -1252,6 +1302,9 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
   const { planogramDetails, syncPlanogram } = usePlanogramStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
+  const gridOrigin = useGridOrigin();
+  const gridOriginRef = useRef(gridOrigin);
+  gridOriginRef.current = gridOrigin;
 
   const ry  = furniture.rotation[1] * (Math.PI / 180);
   const px  = furniture.position[0] * CM_TO_UNIT;
@@ -1355,9 +1408,9 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
       const sign = dragSign.current;
       const base = baseFurnitureRef.current;
 
-      const snappedW = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.width));
-      const snappedD = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.depth));
-      const snappedPos: [number, number, number] = [...cur.position];
+      const snappedW = snapSizeToCell(cur.dimensions.width, MIN_DIM_CM);
+      const snappedD = snapSizeToCell(cur.dimensions.depth, MIN_DIM_CM);
+      let snappedPos: [number, number, number] = [...cur.position];
 
       if (sign === -1) {
         if (dragAxis.current === 'width') {
@@ -1366,6 +1419,14 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
           snappedPos[2] = base.position[2] + base.dimensions.depth - snappedD;
         }
       }
+
+      // Re-align the resized footprint on the grid cells.
+      snappedPos = snapFurniturePositionCm(
+        snappedPos,
+        { width: snappedW, depth: snappedD },
+        cur.rotation[1],
+        gridOriginRef.current,
+      );
 
       const snapped: FurnitureInstance = {
         ...cur,
@@ -1456,6 +1517,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
   const [hovered, setHovered] = useState(false);
+  const gridOrigin = useGridOrigin();
+  const gridOriginRef = useRef(gridOrigin);
+  gridOriginRef.current = gridOrigin;
 
   const isSelected = selectedZoneId === zone.id;
   const W = zone.width  * CM_TO_UNIT;
@@ -1498,7 +1562,11 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       isDragging.current = false;
       const cur = curZoneRef.current;
-      updateZone({ ...cur, x: snapToCm(cur.x), z: snapToCm(cur.z) });
+      updateZone({
+        ...cur,
+        x: snapToCell(cur.x, gridOriginRef.current.x),
+        z: snapToCell(cur.z, gridOriginRef.current.z),
+      });
     };
 
     gl.domElement.addEventListener('pointermove', onMove);
@@ -1624,6 +1692,9 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
   const { updateZone } = useZoneStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
+  const gridOrigin = useGridOrigin();
+  const gridOriginRef = useRef(gridOrigin);
+  gridOriginRef.current = gridOrigin;
 
   const W  = zone.width  * CM_TO_UNIT;
   const D  = zone.depth  * CM_TO_UNIT;
@@ -1711,11 +1782,11 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
       }
 
       const cur      = curZoneRef.current;
-      const snapDim  = (v: number) => snapToCm(Math.max(MIN_DIM_CM, v));
+      const snapDim  = (v: number) => snapSizeToCell(v, MIN_DIM_CM);
       updateZone({
         ...cur,
-        x:     snapToCm(cur.x),
-        z:     snapToCm(cur.z),
+        x:     snapToCell(cur.x, gridOriginRef.current.x),
+        z:     snapToCell(cur.z, gridOriginRef.current.z),
         width: snapDim(cur.width),
         depth: snapDim(cur.depth),
       });
@@ -1827,6 +1898,9 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   const { gl, raycaster, camera } = useThree();
   const registerGroup = useContext(MeshRegistryCtx);
   const [hovered, setHovered] = useState(false);
+  const gridOrigin = useGridOrigin();
+  const gridOriginRef = useRef(gridOrigin);
+  gridOriginRef.current = gridOrigin;
 
   const isSelected = selectedFurnitureId === furniture.id;
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
@@ -1867,9 +1941,16 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
+        // Snap live so the item visibly clicks onto the grid cells while dragging.
+        const position = snapFurniturePositionCm(
+          [base.position[0] + dx / CM_TO_UNIT, base.position[1], base.position[2] + dz / CM_TO_UNIT],
+          base.dimensions,
+          base.rotation[1],
+          gridOriginRef.current,
+        );
         // Record a single undo snapshot for the whole drag gesture.
         updateFurniture(
-          { ...base, position: [base.position[0] + dx / CM_TO_UNIT, base.position[1], base.position[2] + dz / CM_TO_UNIT] },
+          { ...base, position },
           { recordHistory: !historyCapturedRef.current },
         );
         historyCapturedRef.current = true;
@@ -1883,7 +1964,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       const cur = curFurnRef.current;
       const snapped: FurnitureInstance = {
         ...cur,
-        position: [snapToCm(cur.position[0]), cur.position[1], snapToCm(cur.position[2])],
+        position: snapFurniturePositionCm(cur.position, cur.dimensions, cur.rotation[1], gridOriginRef.current),
       };
       // If no move frame captured history but snapping still changes the
       // furniture, record one undo entry so the change stays undoable.
@@ -2011,6 +2092,9 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   const { planogramDetails, syncPlanogram } = usePlanogramStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
+  const gridOrigin = useGridOrigin();
+  const gridOriginRef = useRef(gridOrigin);
+  gridOriginRef.current = gridOrigin;
 
   const ry = furniture.rotation[1] * (Math.PI / 180);
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
@@ -2142,9 +2226,9 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
       const sign = dragSign.current;
       const base = baseFurnRef.current;
 
-      const snappedW = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.width));
-      const snappedD = snapToCm(Math.max(MIN_DIM_CM, cur.dimensions.depth));
-      const snappedPos: [number, number, number] = [...cur.position];
+      const snappedW = snapSizeToCell(cur.dimensions.width, MIN_DIM_CM);
+      const snappedD = snapSizeToCell(cur.dimensions.depth, MIN_DIM_CM);
+      let snappedPos: [number, number, number] = [...cur.position];
 
       {
         const curRy = cur.rotation[1] * (Math.PI / 180);
@@ -2171,6 +2255,14 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
           }
         }
       }
+
+      // Re-align the resized footprint on the grid cells.
+      snappedPos = snapFurniturePositionCm(
+        snappedPos,
+        { width: snappedW, depth: snappedD },
+        cur.rotation[1],
+        gridOriginRef.current,
+      );
 
       const snapped: FurnitureInstance = {
         ...cur,
@@ -2347,8 +2439,8 @@ function MeasureTool({ store }: { store: StoreConfig }) {
 
   const snapToGrid = (v: THREE.Vector3) => {
     const snapped = v.clone();
-    snapped.x = Math.round(snapped.x / SNAP_UNIT) * SNAP_UNIT;
-    snapped.z = Math.round(snapped.z / SNAP_UNIT) * SNAP_UNIT;
+    snapped.x = snapToCell(snapped.x / CM_TO_UNIT, store.position?.[0] ?? 0) * CM_TO_UNIT;
+    snapped.z = snapToCell(snapped.z / CM_TO_UNIT, store.position?.[2] ?? 0) * CM_TO_UNIT;
     snapped.y = GRID_Y_OFFSET + 0.03;
     return snapped;
   };

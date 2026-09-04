@@ -4,17 +4,16 @@ import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import type { FurnitureInstance } from '../../types/cad';
 import type { FloorZone } from '../../types/cad';
+import { GRID_CELL_CM, snapSizeToCell, snapToCell } from '../../engine/gridSnap';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SNAP_CM = 100;
+/** One grid cell — same magnet step as the 3D editor. */
+const SNAP_CM = GRID_CELL_CM;
 const MIN_DIM_CM = 20;
 
-function snapToCm(v: number) {
-  return Math.round(v / SNAP_CM) * SNAP_CM;
-}
 function snapDim(v: number) {
-  return Math.max(MIN_DIM_CM, Math.round(v / SNAP_CM) * SNAP_CM);
+  return snapSizeToCell(v, MIN_DIM_CM);
 }
 
 // ─── Color map per furniture type ─────────────────────────────────────────────
@@ -300,6 +299,12 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
 
   const storeW = scene?.store.dimensions.width  ?? 2000;
   const storeD = scene?.store.dimensions.depth  ?? 1500;
+  // Grid origin: the store's (0,0) corner, so cells line up with the 3D editor.
+  const storeX = scene?.store.position?.[0] ?? 0;
+  const storeZ = scene?.store.position?.[2] ?? 0;
+
+  const snapX = useCallback((v: number) => snapToCell(v, storeX), [storeX]);
+  const snapZ = useCallback((v: number) => snapToCell(v, storeZ), [storeZ]);
 
   // ── Drag start helpers ────────────────────────────────────────────────────
 
@@ -346,27 +351,27 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
     const dy = svgY - drag.startSvgY;
 
     if (drag.kind === 'move') {
-      setLivePos({ x: snapToCm(drag.origX + dx), z: snapToCm(drag.origZ + dy) });
+      setLivePos({ x: snapX(drag.origX + dx), z: snapZ(drag.origZ + dy) });
     } else if (drag.kind === 'zone-move') {
-      setLivePos({ x: snapToCm(drag.origX + dx), z: snapToCm(drag.origZ + dy) });
+      setLivePos({ x: snapX(drag.origX + dx), z: snapZ(drag.origZ + dy) });
     } else if (drag.kind === 'resize') {
       const { handle, origX, origZ, origW, origD } = drag;
       let nx = origX, nz = origZ, nw = origW, nd = origD;
       if (handle.includes('e')) { nw = snapDim(origW + dx); }
-      if (handle.includes('w')) { nw = snapDim(origW - dx); nx = snapToCm(origX + origW - nw); }
+      if (handle.includes('w')) { nw = snapDim(origW - dx); nx = snapX(origX + origW - nw); }
       if (handle.includes('s')) { nd = snapDim(origD + dy); }
-      if (handle.includes('n')) { nd = snapDim(origD - dy); nz = snapToCm(origZ + origD - nd); }
+      if (handle.includes('n')) { nd = snapDim(origD - dy); nz = snapZ(origZ + origD - nd); }
       setLivePos({ x: nx, z: nz, w: nw, d: nd });
     } else if (drag.kind === 'zone-resize') {
       const { handle, origX, origZ, origW, origD } = drag;
       let nx = origX, nz = origZ, nw = origW, nd = origD;
       if (handle.includes('e')) { nw = snapDim(origW + dx); }
-      if (handle.includes('w')) { nw = snapDim(origW - dx); nx = snapToCm(origX + origW - nw); }
+      if (handle.includes('w')) { nw = snapDim(origW - dx); nx = snapX(origX + origW - nw); }
       if (handle.includes('s')) { nd = snapDim(origD + dy); }
-      if (handle.includes('n')) { nd = snapDim(origD - dy); nz = snapToCm(origZ + origD - nd); }
+      if (handle.includes('n')) { nd = snapDim(origD - dy); nz = snapZ(origZ + origD - nd); }
       setLivePos({ x: nx, z: nz, w: nw, d: nd });
     }
-  }, [drag]);
+  }, [drag, snapX, snapZ]);
 
   const handlePointerUp = useCallback((_e: React.PointerEvent<SVGSVGElement>) => {
     if (!drag || !livePos || !scene) { setDrag(null); setLivePos(null); return; }
@@ -453,18 +458,20 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
 
   const gridLines = useMemo(() => {
     const lines: React.ReactElement[] = [];
-    for (let gx = 0; gx <= storeW; gx += SNAP_CM) {
-      lines.push(<line key={`vx${gx}`} x1={gx} y1={0} x2={gx} y2={storeD} stroke="#334155" strokeWidth={gx % 500 === 0 ? 1.5 : 0.5} />);
+    for (let i = 0; i * SNAP_CM <= storeW; i += 1) {
+      const gx = storeX + i * SNAP_CM;
+      lines.push(<line key={`vx${i}`} x1={gx} y1={storeZ} x2={gx} y2={storeZ + storeD} stroke="#334155" strokeWidth={(i * SNAP_CM) % 500 === 0 ? 1.5 : 0.5} />);
     }
-    for (let gz = 0; gz <= storeD; gz += SNAP_CM) {
-      lines.push(<line key={`hz${gz}`} x1={0} y1={gz} x2={storeW} y2={gz} stroke="#334155" strokeWidth={gz % 500 === 0 ? 1.5 : 0.5} />);
+    for (let i = 0; i * SNAP_CM <= storeD; i += 1) {
+      const gz = storeZ + i * SNAP_CM;
+      lines.push(<line key={`hz${i}`} x1={storeX} y1={gz} x2={storeX + storeW} y2={gz} stroke="#334155" strokeWidth={(i * SNAP_CM) % 500 === 0 ? 1.5 : 0.5} />);
     }
     return lines;
-  }, [storeW, storeD]);
+  }, [storeW, storeD, storeX, storeZ]);
 
   // ── Padding/margin around the store ──────────────────────────────────────
   const PAD = 150;
-  const vb = `-${PAD} -${PAD} ${storeW + PAD * 2} ${storeD + PAD * 2}`;
+  const vb = `${storeX - PAD} ${storeZ - PAD} ${storeW + PAD * 2} ${storeD + PAD * 2}`;
 
   // Disable default touch/scroll while dragging
   useEffect(() => {
@@ -494,19 +501,19 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
         </defs>
 
         {/* Store background */}
-        <rect x={0} y={0} width={storeW} height={storeD} fill="#0F172A" rx={4} />
+        <rect x={storeX} y={storeZ} width={storeW} height={storeD} fill="#0F172A" rx={4} />
 
         {/* Grid */}
         {gridLines}
 
         {/* Store boundary */}
-        <rect x={0} y={0} width={storeW} height={storeD} fill="none" stroke="#475569" strokeWidth={2} rx={4} />
+        <rect x={storeX} y={storeZ} width={storeW} height={storeD} fill="none" stroke="#475569" strokeWidth={2} rx={4} />
 
         {/* Dimension labels */}
-        <text x={storeW / 2} y={-PAD / 2} textAnchor="middle" fontSize={20} fill="#64748B">
+        <text x={storeX + storeW / 2} y={storeZ - PAD / 2} textAnchor="middle" fontSize={20} fill="#64748B">
           {(storeW / 100).toFixed(0)} m
         </text>
-        <text x={-PAD / 2} y={storeD / 2} textAnchor="middle" fontSize={20} fill="#64748B" transform={`rotate(-90 ${-PAD / 2} ${storeD / 2})`}>
+        <text x={storeX - PAD / 2} y={storeZ + storeD / 2} textAnchor="middle" fontSize={20} fill="#64748B" transform={`rotate(-90 ${storeX - PAD / 2} ${storeZ + storeD / 2})`}>
           {(storeD / 100).toFixed(0)} m
         </text>
 

@@ -146,10 +146,9 @@ export default function App() {
           if (url && !urlsByEan.has(cell.ean)) urlsByEan.set(cell.ean, url);
         }
       }
-      // Image decoding and canvas texture refreshes must not compete with the
-      // newly displayed viewport. Start them at low priority; simulation state
-      // can keep that setting while active and restores full speed on stop.
-      assets.setPreloadThrottled(true);
+      // Images download at full speed on project open (no simulation is running
+      // right after a project switch). SimulationPanel downgrades the preload to
+      // low priority while agents are moving and restores full speed on stop.
       void assets.preloadProductImages(urlsByEan).finally(() => {
         if (loadingProjectIdRef.current === id) assets.finishLoading();
       });

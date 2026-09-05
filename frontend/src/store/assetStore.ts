@@ -100,25 +100,33 @@ async function cachedImageSource(url: string): Promise<{ source: string; revoke:
 /** Loads one image, resolving to null when it fails (broken URL, 404, CORS…). */
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
   const { source, revoke } = await cachedImageSource(url);
-  return new Promise((resolve) => {
-    const img = new Image();
-    const cleanup = () => {
-      if (revoke) URL.revokeObjectURL(source);
-    };
-    // Images are served from the same backend origin; crossOrigin is set so that
-    // canvas.drawImage() does not taint the canvas when running from a dev server
-    // that may differ from the API origin.
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      cleanup();
-      resolve(img);
-    };
-    img.onerror = () => {
-      cleanup();
-      resolve(null);
-    };
-    img.src = source;
+  const img = new Image();
+  // Images are served from the same backend origin; crossOrigin is set so that
+  // canvas.drawImage() does not taint the canvas when running from a dev server
+  // that may differ from the API origin.
+  img.crossOrigin = 'anonymous';
+  // Handlers must be attached before `src` so synchronous failures are caught.
+  const loaded = new Promise<boolean>((resolve) => {
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
   });
+  img.src = source;
+  try {
+    if (typeof img.decode === 'function') {
+      // decode() performs the (expensive) pixel decode off the main thread, so
+      // the first canvas.drawImage() of this image never blocks the UI.
+      await img.decode();
+    } else if (!(await loaded)) {
+      return null;
+    }
+    return img;
+  } catch {
+    // decode() can reject for a valid image (e.g. transient memory pressure):
+    // fall back to the load result instead of dropping the image.
+    return (await loaded) ? img : null;
+  } finally {
+    if (revoke) URL.revokeObjectURL(source);
+  }
 }
 
 export const useAssetStore = create<AssetState>((set, get) => ({

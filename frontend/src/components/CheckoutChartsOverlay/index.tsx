@@ -3,8 +3,9 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSimulationStore } from '../../store/simulationStore';
-import { buildMarginHeatmap, isPointInMarginSource, marginColumnSources, productMarginEur } from '../../engine/marginHeatmap';
+import { buildMarginHeatmap } from '../../engine/marginHeatmap';
 import { computeAbsoluteYield } from '../../engine/absoluteYield';
+import { computeSelectedProductMetrics } from '../../engine/selectedProductMetrics';
 import { waypointThroughput } from '../../engine/waypointThroughput';
 
 /** Margin (px) kept between the panel and the edges of the 3D viewport. */
@@ -161,35 +162,14 @@ export default function CheckoutChartsOverlay() {
     if (!scene || selection.type !== 'planogram_cell' || !selection.planogramId || !selection.cellIds?.length) return null;
     const planogram = planogramDetails.get(selection.planogramId);
     if (!planogram) return null;
-    const selectedCells = planogram.cells.filter((cell) => selection.cellIds!.includes(cell.id));
-    const productsByEan = new Map(catalogProducts.map((product) => [product.ean, product]));
-    const marginEur = selectedCells.reduce((total, cell) => {
-      const product = productsByEan.get(cell.ean);
-      return total + (product ? productMarginEur(product) : 0);
-    }, 0);
-    const furnitureById = new Map(scene.furniture.map((furniture) => [furniture.id, furniture]));
-    const selectedColumns = new Set(selectedCells.map((cell) => cell.col));
-    const sources = marginColumnSources([planogram], catalogProducts, furnitureById, true)
-      .filter((source) => selectedColumns.has(source.col));
-    const visits = analytics?.visitHeatmap;
-    const furniture = furnitureById.get(planogram.furnitureId);
-    let passages = 0;
-    if (visits && furniture) {
-      for (let row = 0; row < visits.rows; row++) {
-        for (let col = 0; col < visits.cols; col++) {
-          const xCm = visits.originXCm + (col + 0.5) * visits.cellSizeCm;
-          const zCm = visits.originZCm + (row + 0.5) * visits.cellSizeCm;
-          if (sources.some((source) => isPointInMarginSource(source, furniture, xCm, zCm))) {
-            passages += visits.counts[row * visits.cols + col] ?? 0;
-          }
-        }
-      }
-    }
-    return {
-      count: selectedCells.length,
-      marginEur,
-      passagesPerSecond: passages / Math.max(analytics?.timeSeconds ?? 0, 1),
-    };
+    return computeSelectedProductMetrics(
+      scene,
+      planogram,
+      selection.cellIds,
+      catalogProducts,
+      analytics?.visitHeatmap,
+      analytics?.timeSeconds ?? 0,
+    );
   }, [analytics, catalogProducts, planogramDetails, scene, selection]);
 
   useEffect(() => {
@@ -392,20 +372,42 @@ export default function CheckoutChartsOverlay() {
             {selectedProductMetrics && <Section
               id="selected-products"
               title={`Produits sélectionnés (${selectedProductMetrics.count})`}
-              subtitle={`${formatNumber(selectedProductMetrics.passagesPerSecond)} passages/s`}
+              subtitle={`${formatNumber(selectedProductMetrics.eurPerSecond)} €/s`}
               open={openSections.has('selected-products')}
               onToggle={toggleSection}
             >
-              <dl className="grid grid-cols-2 gap-x-2 text-[10px] text-gray-500">
-                <dt>passages</dt>
-                <dd className="text-right text-gray-400">
-                  {formatNumber(selectedProductMetrics.passagesPerSecond)} /s
-                </dd>
-                <dt>marge exposée</dt>
-                <dd className="text-right text-gray-400">{formatNumber(selectedProductMetrics.marginEur)} €</dd>
-              </dl>
+              <table className="w-full text-[10px] text-gray-500">
+                <thead>
+                  <tr className="text-left text-gray-600">
+                    <th className="font-normal">produit</th>
+                    <th className="text-right font-normal">passages/s</th>
+                    <th className="text-right font-normal">marge €</th>
+                    <th className="text-right font-normal">€/s</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedProductMetrics.products.map((product) => (
+                    <tr key={product.ean} className="border-t border-gray-800">
+                      <td className="max-w-24 truncate pr-1 text-gray-400" title={product.name}>
+                        {product.name}
+                        {product.facings > 1 ? ` ×${product.facings}` : ''}
+                      </td>
+                      <td className="text-right text-gray-400">{formatNumber(product.passagesPerSecond)}</td>
+                      <td className="text-right text-gray-400">{formatNumber(product.marginEur)}</td>
+                      <td className="text-right text-gray-400">{formatNumber(product.eurPerSecond)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-gray-700 font-semibold text-gray-300">
+                    <td className="pr-1">Total</td>
+                    <td className="text-right">{formatNumber(selectedProductMetrics.passagesPerSecond)}</td>
+                    <td className="text-right">{formatNumber(selectedProductMetrics.marginEur)}</td>
+                    <td className="text-right">{formatNumber(selectedProductMetrics.eurPerSecond)}</td>
+                  </tr>
+                </tbody>
+              </table>
               <p className="mt-1 text-[10px] leading-tight text-gray-600">
-                Shift+clic sur les produits du même planogramme pour les cumuler.
+                €/s = passages/s × marge exposée (€). Shift+clic sur les produits du même
+                planogramme pour les cumuler.
               </p>
             </Section>}
 

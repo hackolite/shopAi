@@ -10,8 +10,13 @@ const MAX_CONCURRENT_IMAGE_LOADS = 8;
  */
 const THROTTLED_CONCURRENT_IMAGE_LOADS = 1;
 
-/** Minimum delay between two progress/cache notifications while preloading. */
-const PROGRESS_FLUSH_MS = 250;
+/**
+ * Minimum delay between two progress/cache notifications while preloading.
+ * Each notification bumps `imageVersion`, which makes every planogram face
+ * overlay rebuild its canvas texture on the main thread — keep them rare so
+ * the preload never makes the UI feel sluggish.
+ */
+const PROGRESS_FLUSH_MS = 1000;
 
 /**
  * Notification interval used in throttled mode. Each flush rebuilds every
@@ -24,6 +29,23 @@ const THROTTLED_IDLE_GAP_MS = 120;
 
 /** Persistent browser cache shared between sessions and project reloads. */
 const PRODUCT_IMAGE_CACHE_NAME = 'shop-ai-product-images-v1';
+
+/**
+ * The Cache Storage handle is opened once and reused: opening it per image
+ * adds a measurable per-image latency when preloading thousands of products.
+ */
+let productImageCachePromise: Promise<Cache | null> | null = null;
+
+function openProductImageCache(): Promise<Cache | null> {
+  if (!productImageCachePromise) {
+    productImageCachePromise = caches.open(PRODUCT_IMAGE_CACHE_NAME).catch(() => {
+      // Cache storage can be unavailable (for example in private browsing).
+      productImageCachePromise = null;
+      return null;
+    });
+  }
+  return productImageCachePromise;
+}
 
 /**
  * Decoded images kept for the whole tab lifetime, keyed by URL. Unlike the
@@ -45,9 +67,10 @@ function rememberDecodedImage(url: string, img: HTMLImageElement): void {
   decodedImagesByUrl.set(url, img);
 }
 
-/** Empties the tab-lifetime decoded-image cache (used by tests). */
+/** Empties the tab-lifetime caches (decoded images + cache handle, for tests). */
 export function clearDecodedImageCache(): void {
   decodedImagesByUrl.clear();
+  productImageCachePromise = null;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
@@ -72,6 +95,13 @@ interface AssetState extends LoadProgress {
   productImages: Map<string, HTMLImageElement>;
   /** Bumped whenever `productImages` gained entries, to re-render consumers. */
   imageVersion: number;
+  /**
+   * EANs whose image download is currently in flight. Concurrent
+   * `preloadProductImages` calls (the project-open preload and the per-overlay
+   * safety nets) skip these so the same image is never downloaded — nor counted
+   * in the loading gauge — twice. Mutated in place; replaced on `reset()`.
+   */
+  pendingImageEans: Set<string>;
   /**
    * While true, image downloads run in low-priority mode: one image at a time,
    * with an idle gap between them and rare cache notifications. The live
@@ -107,7 +137,8 @@ async function cachedImageSource(url: string): Promise<{ source: string; revoke:
   }
 
   try {
-    const cache = await caches.open(PRODUCT_IMAGE_CACHE_NAME);
+    const cache = await openProductImageCache();
+    if (!cache) return { source: url, revoke: false };
     let response = await cache.match(url);
     if (!response) {
       const fetched = await fetch(url);
@@ -162,6 +193,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   imagesTotal: 0,
   productImages: new Map<string, HTMLImageElement>(),
   imageVersion: 0,
+  pendingImageEans: new Set<string>(),
   preloadThrottled: false,
   preloadGeneration: 0,
 
@@ -183,18 +215,23 @@ export const useAssetStore = create<AssetState>((set, get) => ({
 
   preloadProductImages: async (urlsByEan) => {
     const cache = get().productImages;
+    const pendingEans = get().pendingImageEans;
     const pending: [string, string][] = [];
     // URLs already decoded during this tab's lifetime (e.g. a previously opened
     // project) are served instantly from memory: no download, no decode.
     let servedFromMemory = 0;
     for (const [ean, url] of urlsByEan) {
-      if (cache.has(ean)) continue;
+      // Skip EANs already cached or currently downloading (a concurrent
+      // preload — e.g. an overlay safety net racing the project-open preload —
+      // must not download or count the same image a second time).
+      if (cache.has(ean) || pendingEans.has(ean)) continue;
       const decoded = decodedImagesByUrl.get(url);
       if (decoded) {
         cache.set(ean, decoded);
         servedFromMemory++;
       } else {
         pending.push([ean, url]);
+        pendingEans.add(ean);
       }
     }
     set((state) => ({
@@ -239,6 +276,8 @@ export const useAssetStore = create<AssetState>((set, get) => ({
         const [ean, url] = pending[index];
         const img = await loadImage(url);
         if (img) rememberDecodedImage(url, img);
+        // Settled (success or failure): a later preload may retry failed EANs.
+        pendingEans.delete(ean);
         if (get().preloadGeneration !== generation) return;
         if (img) cache.set(ean, img);
         settledSinceFlush++;
@@ -269,6 +308,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
       imagesTotal: 0,
       productImages: new Map<string, HTMLImageElement>(),
       imageVersion: 0,
+      pendingImageEans: new Set<string>(),
     })),
 }));
 

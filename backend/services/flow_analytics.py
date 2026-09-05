@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from models.project import (
     AgentTrajectory,
+    CustomerJourney,
     SceneData,
     SimulationAnalytics,
     SimulationFrame,
@@ -31,6 +32,7 @@ MAX_HEATMAP_CELLS_PER_AXIS = 120
 # response size stays constant over long sessions.
 MAX_TRACKED_TRAJECTORIES = 40
 MAX_TRAJECTORY_POINTS = 160
+MAX_TRACKED_CUSTOMERS = 100
 # Minimum distance between two recorded trajectory points.
 TRAJECTORY_MIN_STEP_CM = 15.0
 
@@ -55,6 +57,8 @@ class FlowAnalyticsRecorder:
         self._trajectories: dict[int, list[float]] = {}
         self._active_agents: set[int] = set()
         self._agent_cells: dict[int, int] = {}
+        self._customers: dict[int, CustomerJourney] = {}
+        self._last_positions: dict[int, tuple[float, float]] = {}
         self._time_seconds = 0.0
         self._max_count = 0
         self.configure(scene)
@@ -86,14 +90,46 @@ class FlowAnalyticsRecorder:
         self._time_seconds = float(frame.timeSeconds)
         seen: set[int] = set()
         for agent in frame.agents:
-            seen.add(int(agent.id))
+            agent_id = int(agent.id)
+            seen.add(agent_id)
+            self._record_customer(agent_id, float(agent.xCm), float(agent.zCm), float(frame.timeSeconds))
             self._record_occupancy(float(agent.xCm), float(agent.zCm))
             self._record_visit(int(agent.id), float(agent.xCm), float(agent.zCm))
             self._record_trajectory_point(int(agent.id), float(agent.xCm), float(agent.zCm))
         self._active_agents = seen
         for agent_id in [agent_id for agent_id in self._agent_cells if agent_id not in seen]:
             del self._agent_cells[agent_id]
+        for agent_id, customer in self._customers.items():
+            if agent_id not in seen and customer.active:
+                customer.active = False
+                customer.exitTimeSeconds = float(frame.timeSeconds)
+                customer.totalTimeSeconds = round(customer.exitTimeSeconds - customer.entryTimeSeconds, 2)
+                self._last_positions.pop(agent_id, None)
         self._evict_old_trajectories()
+        self._evict_old_customers()
+
+    def _record_customer(self, agent_id: int, x_cm: float, z_cm: float, time_seconds: float) -> None:
+        customer = self._customers.get(agent_id)
+        if customer is None:
+            customer = CustomerJourney(
+                customerId=agent_id,
+                entryTimeSeconds=round(time_seconds, 2),
+                totalTimeSeconds=0.0,
+            )
+            self._customers[agent_id] = customer
+        previous = self._last_positions.get(agent_id)
+        if previous is not None:
+            customer.distanceCm = round(customer.distanceCm + ((x_cm - previous[0]) ** 2 + (z_cm - previous[1]) ** 2) ** 0.5, 2)
+        customer.totalTimeSeconds = round(time_seconds - customer.entryTimeSeconds, 2)
+        self._last_positions[agent_id] = (x_cm, z_cm)
+
+    def _evict_old_customers(self) -> None:
+        while len(self._customers) > MAX_TRACKED_CUSTOMERS:
+            oldest_id = next(iter(self._customers))
+            if self._customers[oldest_id].active:
+                break
+            del self._customers[oldest_id]
+            self._last_positions.pop(oldest_id, None)
 
     def _record_occupancy(self, x_cm: float, z_cm: float) -> None:
         col = int((x_cm - self._origin_x) // self._cell_cm)
@@ -194,12 +230,16 @@ class FlowAnalyticsRecorder:
             if len(points) >= 4
         ]
 
+    def customers(self) -> list[CustomerJourney]:
+        return list(self._customers.values())
+
     def snapshot(self) -> SimulationAnalytics:
         return SimulationAnalytics(
             timeSeconds=round(self._time_seconds, 2),
             heatmap=self.heatmap(),
             visitHeatmap=self.visit_heatmap(),
             trajectories=self.trajectories(),
+            customers=self.customers(),
         )
 
 

@@ -122,6 +122,15 @@ class AgentTrajectory(CADBaseModel):
     pointsCm: list[float] = Field(default_factory=list)
 
 
+class CustomerJourney(CADBaseModel):
+    customerId: int
+    entryTimeSeconds: float
+    exitTimeSeconds: float | None = None
+    totalTimeSeconds: float = 0.0
+    distanceCm: float = 0.0
+    active: bool = True
+
+
 class SimulationAnalytics(CADBaseModel):
     timeSeconds: float = 0.0
     heatmap: SimulationHeatmap | None = None
@@ -130,6 +139,7 @@ class SimulationAnalytics(CADBaseModel):
     # absolute client flow in persons per second, independent of the tick rate.
     visitHeatmap: SimulationHeatmap | None = None
     trajectories: list[AgentTrajectory] = Field(default_factory=list)
+    customers: list[CustomerJourney] = Field(default_factory=list)
 
 
 class SimulationFrame(CADBaseModel):

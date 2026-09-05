@@ -131,6 +131,21 @@ def test_build_analytics_from_frames() -> None:
     assert [item.agentId for item in analytics.trajectories] == [1]
 
 
+def test_customer_journey_tracks_distance_duration_and_exit() -> None:
+    recorder = FlowAnalyticsRecorder(_scene(), cell_size_cm=100.0)
+    recorder.record_frame(_frame(0.0, [(1, 0.0, 0.0)]))
+    recorder.record_frame(_frame(2.0, [(1, 300.0, 400.0)]))
+    recorder.record_frame(_frame(3.0, []))
+
+    customer = recorder.snapshot().customers[0]
+    assert customer.customerId == 1
+    assert customer.entryTimeSeconds == 0.0
+    assert customer.exitTimeSeconds == 3.0
+    assert customer.totalTimeSeconds == 3.0
+    assert customer.distanceCm == 500.0
+    assert customer.active is False
+
+
 def test_queue_wait_metrics_track_time_spent_in_the_queue() -> None:
     stage = _FakeQueueStage()
     runtime = _WaypointRuntime(

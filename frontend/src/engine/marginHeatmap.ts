@@ -40,6 +40,27 @@ export interface MarginColumnSource {
   z1: number;
 }
 
+/** Whether a floor point belongs to the aisle influence area of a margin source. */
+export function isPointInMarginSource(
+  source: MarginColumnSource,
+  furniture: FurnitureInstance,
+  xCm: number,
+  zCm: number,
+): boolean {
+  const centerX = furniture.position[0] + furniture.dimensions.width / 2;
+  const centerZ = furniture.position[2] + furniture.dimensions.depth / 2;
+  const theta = ((furniture.rotation[1] ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+  const dx = xCm - centerX;
+  const dz = zCm - centerZ;
+  const localX = dx * cos - dz * sin;
+  const localZ = dx * sin + dz * cos;
+  const overflowX = Math.max(source.x0 - localX, localX - source.x1, 0);
+  const overflowZ = Math.max(source.z0 - localZ, localZ - source.z1, 0);
+  return Math.hypot(overflowX, overflowZ) <= MARGIN_INFLUENCE_CM;
+}
+
 /**
  * Horizontal span [t0, t1] (0..1 across the planogram width) of one cell, using
  * the same normalised row layout as the 3D overlay so the heatmap bands line up
@@ -116,7 +137,6 @@ export function marginColumnSources(
       }
     }
     for (const [col, column] of columns) {
-      if (column.margin <= 0) continue;
       sources.push({
         furnitureId: furniture.id,
         planogramId: planogram.id,

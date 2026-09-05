@@ -451,14 +451,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => {
     if (!projectId || loadedProjectId !== projectId) return;
     if (!liveSessionId || !playing) return;
-    // The margin heatmap is computed client-side from the assortment: it needs
-    // no analytics payload.  The yield heatmap does, since it weights the margin
-    // by the measured client density.
-    const heatmapNeedsAnalytics = heatmapMode === 'traffic' || heatmapMode === 'yield';
-    if ((!showHeatmap || !heatmapNeedsAnalytics) && !showTrajectories) {
-      setAnalytics(null);
-      return;
-    }
+    // The analytics overlay includes client journeys and selected-product
+    // traffic, so refresh it throughout every active simulation.
     const fetchAnalytics = () => {
       if (isStale(projectId) || pendingAnalytics.current) return;
       pendingAnalytics.current = true;

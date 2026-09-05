@@ -201,6 +201,36 @@ function getEffectiveRowHeights(p: { rows: number; heightCm: number; rowHeightsC
 }
 
 /**
+ * Canvas pixel bounds of a planogram cell, respecting per-cell width/height
+ * overrides. x is determined by the widths of cells to the left in the same
+ * row; y is determined by the heights of cells above in the same column.
+ */
+function cellRectPx(
+  planogram: Planogram,
+  rowHeights: number[],
+  canvasW: number,
+  canvasH: number,
+  row: number,
+  col: number,
+) {
+  // Row widths are normalised so they always span the whole face: a stored
+  // row whose cell widths fall short (fused cells keeping a single-cell
+  // width) must not leave an empty band on its right.
+  const { xCm, widthCm: cellWCm } = cellRectCm(planogram, row, col);
+  const cellHCm = planogram.cellHeightOverrides?.[`${row}-${col}`] ?? rowHeights[row];
+  let yCm = 0;
+  for (let r = 0; r < row; r++) {
+    yCm += planogram.cellHeightOverrides?.[`${r}-${col}`] ?? rowHeights[r];
+  }
+  return {
+    x: Math.round((xCm / planogram.widthCm) * canvasW),
+    y: Math.round((yCm / planogram.heightCm) * canvasH),
+    w: Math.max(1, Math.round((cellWCm / planogram.widthCm) * canvasW) - 2),
+    h: Math.max(1, Math.round((cellHCm / planogram.heightCm) * canvasH) - 2),
+  };
+}
+
+/**
  * Per-face Euler rotation [rx, ry, rz] (XYZ order) that places the proximity
  * half-disc flat on the floor with the curved arc extending away from the gondola
  * face toward the customer.
@@ -301,11 +331,13 @@ function PlanogramFaceOverlay({
   const selType         = useSceneStore((state) => state.selection.type);
   const selCells        = useSceneStore((state) => state.selection.cells);
   const selCellIds      = useSceneStore((state) => state.selection.cellIds);
-  // Every selected cell belonging to this planogram (cell ids are globally
-  // unique UUIDs, so filtering on this planogram's own cells is safe).
-  const selectedCellIdsKey = selType === 'planogram_cell' && selCellIds?.length
-    ? selCellIds.join(',')
-    : '';
+  // Only the selected cells belonging to THIS planogram: a selection on another
+  // gondola must not invalidate (and thus rebuild) this overlay's textures.
+  const selectedCellIdsKey = selType !== 'planogram_cell'
+    ? ''
+    : selCells?.length
+      ? selCells.filter((ref) => ref.planogramId === planogramId).map((ref) => ref.cellId).join(',')
+      : selCellIds?.join(',') ?? '';
   const setRequestOpenPlanogramId = usePlanogramStore((state) => state.setRequestOpenPlanogramId);
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
@@ -345,25 +377,8 @@ function PlanogramFaceOverlay({
     const canvasH = Math.max(1, Math.round(OVERLAY_CANVAS_PX * aspect));
 
     // Compute canvas pixel bounds for a cell, respecting per-cell width/height overrides.
-    // x is determined by the widths of cells to the left in the same row;
-    // y is determined by the heights of cells above in the same column.
-    const getCellRectPx = (row: number, col: number) => {
-      // Row widths are normalised so they always span the whole face: a stored
-      // row whose cell widths fall short (fused cells keeping a single-cell
-      // width) must not leave an empty band on its right.
-      const { xCm, widthCm: cellWCm } = cellRectCm(planogram, row, col);
-      const cellHCm = planogram.cellHeightOverrides?.[`${row}-${col}`] ?? rowHeights[row];
-      let yCm = 0;
-      for (let r = 0; r < row; r++) {
-        yCm += planogram.cellHeightOverrides?.[`${r}-${col}`] ?? rowHeights[r];
-      }
-      return {
-        x: Math.round((xCm / planogram.widthCm) * canvasW),
-        y: Math.round((yCm / planogram.heightCm) * canvasH),
-        w: Math.max(1, Math.round((cellWCm / planogram.widthCm) * canvasW) - 2),
-        h: Math.max(1, Math.round((cellHCm / planogram.heightCm) * canvasH) - 2),
-      };
-    };
+    const getCellRectPx = (row: number, col: number) =>
+      cellRectPx(planogram, rowHeights, canvasW, canvasH, row, col);
 
     const canvas = document.createElement('canvas');
     canvas.width  = Math.max(1, canvasW);
@@ -387,20 +402,6 @@ function PlanogramFaceOverlay({
       }
     }
 
-    // Highlight every selected cell with a bright yellow outline + tint
-    if (selectedCellIdsKey) {
-      const selectedIds = new Set(selectedCellIdsKey.split(','));
-      for (const selCell of planogram.cells) {
-        if (!selectedIds.has(selCell.id)) continue;
-        const { x: cx, y: cy, w: cw, h: ch } = getCellRectPx(selCell.row, selCell.col);
-        ctx.fillStyle = 'rgba(255,230,0,0.35)';
-        ctx.fillRect(cx + 1, cy + 1, cw, ch);
-        ctx.strokeStyle = '#ffe000';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(cx + 1, cy + 1, cw, ch);
-      }
-    }
-
     const tex = new THREE.CanvasTexture(canvas);
     // The back overlay plane is rotated π about Y (see position/rotation below). We
     // deliberately keep the texture un-flipped so the back reads as a true MIRROR of
@@ -413,11 +414,46 @@ function PlanogramFaceOverlay({
   // `imageVersion` is a dependency (not read in the body) so the texture is
   // rebuilt each time a product image lands in the shared cache.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planogram, products, selectedCellIdsKey, loadedImages, imageVersion]);
+  }, [planogram, products, loadedImages, imageVersion]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
   }, [texture]);
+
+  // Yellow selection highlight, drawn on its own transparent canvas so that
+  // selecting products never rebuilds the heavy product texture above (which
+  // redraws every product image and was making the selection feel laggy).
+  const highlightTexture = useMemo(() => {
+    if (!planogram || !selectedCellIdsKey) return null;
+    const rowHeights = getEffectiveRowHeights(planogram);
+    const aspect = planogram.heightCm / planogram.widthCm;
+    const canvasW = OVERLAY_CANVAS_PX;
+    const canvasH = Math.max(1, Math.round(OVERLAY_CANVAS_PX * aspect));
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.max(1, canvasW);
+    canvas.height = Math.max(1, canvasH);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    // Highlight every selected cell with a bright yellow outline + tint
+    const selectedIds = new Set(selectedCellIdsKey.split(','));
+    for (const selCell of planogram.cells) {
+      if (!selectedIds.has(selCell.id)) continue;
+      const { x: cx, y: cy, w: cw, h: ch } = cellRectPx(planogram, rowHeights, canvasW, canvasH, selCell.row, selCell.col);
+      ctx.fillStyle = 'rgba(255,230,0,0.35)';
+      ctx.fillRect(cx + 1, cy + 1, cw, ch);
+      ctx.strokeStyle = '#ffe000';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx + 1, cy + 1, cw, ch);
+    }
+
+    return new THREE.CanvasTexture(canvas);
+  }, [planogram, selectedCellIdsKey]);
+
+  useEffect(() => {
+    return () => { highlightTexture?.dispose(); };
+  }, [highlightTexture]);
 
   const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
     if (!planogram) return;
@@ -561,10 +597,20 @@ function PlanogramFaceOverlay({
   }
 
   return (
-    <mesh position={position} rotation={rotation} onClick={handleClick}>
-      <planeGeometry args={[planoW, planoH]} />
-      <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
-    </mesh>
+    <group position={position} rotation={rotation}>
+      <mesh onClick={handleClick}>
+        <planeGeometry args={[planoW, planoH]} />
+        <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
+      </mesh>
+      {highlightTexture && (
+        // Selection highlight plane sits just in front of the product plane
+        // (along its local normal) and ignores pointer events.
+        <mesh position={[0, 0, OVERLAY_Z_OFFSET / 2]} raycast={() => null}>
+          <planeGeometry args={[planoW, planoH]} />
+          <meshBasicMaterial map={highlightTexture} transparent depthWrite={false} />
+        </mesh>
+      )}
+    </group>
   );
 }
 

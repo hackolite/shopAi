@@ -5,7 +5,7 @@ import { useSceneStore } from '../../store/sceneStore';
 import { useSimulationStore } from '../../store/simulationStore';
 import { buildMarginHeatmap } from '../../engine/marginHeatmap';
 import { computeAbsoluteYield } from '../../engine/absoluteYield';
-import { computeSelectedProductMetrics } from '../../engine/selectedProductMetrics';
+import { computeMultiSelectedProductMetrics, computeSelectedProductMetrics } from '../../engine/selectedProductMetrics';
 import { waypointThroughput } from '../../engine/waypointThroughput';
 
 /** Margin (px) kept between the panel and the edges of the 3D viewport. */
@@ -159,7 +159,28 @@ export default function CheckoutChartsOverlay() {
   const currentYieldTime = absoluteYield?.elapsedSeconds ?? null;
 
   const selectedProductMetrics = useMemo(() => {
-    if (!scene || selection.type !== 'planogram_cell' || !selection.planogramId || !selection.cellIds?.length) return null;
+    if (!scene || selection.type !== 'planogram_cell') return null;
+    // Multi-planogram selection: group the selected cells per planogram.
+    if (selection.cells?.length) {
+      const cellIdsByPlanogram = new Map<string, string[]>();
+      for (const ref of selection.cells) {
+        const ids = cellIdsByPlanogram.get(ref.planogramId);
+        if (ids) ids.push(ref.cellId);
+        else cellIdsByPlanogram.set(ref.planogramId, [ref.cellId]);
+      }
+      const selections = [...cellIdsByPlanogram.entries()].flatMap(([planogramId, cellIds]) => {
+        const planogram = planogramDetails.get(planogramId);
+        return planogram ? [{ planogram, cellIds }] : [];
+      });
+      return computeMultiSelectedProductMetrics(
+        scene,
+        selections,
+        catalogProducts,
+        analytics?.visitHeatmap,
+        analytics?.timeSeconds ?? 0,
+      );
+    }
+    if (!selection.planogramId || !selection.cellIds?.length) return null;
     const planogram = planogramDetails.get(selection.planogramId);
     if (!planogram) return null;
     return computeSelectedProductMetrics(

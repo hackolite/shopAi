@@ -12,7 +12,7 @@ import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { loadRatio, useAssetStore } from '../store/assetStore';
 import { cellRectCm, columnAtRatio } from '../engine/planogramLayout';
-import type { FloorZone, Planogram } from '../types/cad';
+import type { FloorZone, Planogram, SelectedCellRef } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -23,6 +23,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
 import {
   GRID_CELL_CM,
+  furnitureCentreCm,
   gridPlaneSpec,
   snapFurnitureCentreCm,
   snapFurniturePositionCm,
@@ -30,6 +31,7 @@ import {
   snapToCell,
   type GridOriginCm,
 } from '../engine/gridSnap';
+import { canPlaceFurniture } from '../engine/furnitureCollision';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m) — one grid cell. */
@@ -297,11 +299,13 @@ function PlanogramFaceOverlay({
   const { planogramDetails } = usePlanogramStore();
   const setSelection    = useSceneStore((state) => state.setSelection);
   const selType         = useSceneStore((state) => state.selection.type);
-  const selPlanogramId  = useSceneStore((state) => state.selection.planogramId);
+  const selCells        = useSceneStore((state) => state.selection.cells);
   const selCellIds      = useSceneStore((state) => state.selection.cellIds);
-  const selectedCellId  = selType === 'planogram_cell' && selPlanogramId === planogramId && selCellIds?.length === 1
-    ? selCellIds[0]
-    : null;
+  // Every selected cell belonging to this planogram (cell ids are globally
+  // unique UUIDs, so filtering on this planogram's own cells is safe).
+  const selectedCellIdsKey = selType === 'planogram_cell' && selCellIds?.length
+    ? selCellIds.join(',')
+    : '';
   const setRequestOpenPlanogramId = usePlanogramStore((state) => state.setRequestOpenPlanogramId);
   const { products } = useCatalogStore();
   const planogram = planogramDetails.get(planogramId);
@@ -383,10 +387,11 @@ function PlanogramFaceOverlay({
       }
     }
 
-    // Highlight the selected cell with a bright yellow outline + tint
-    if (selectedCellId) {
-      const selCell = planogram.cells.find((c) => c.id === selectedCellId);
-      if (selCell) {
+    // Highlight every selected cell with a bright yellow outline + tint
+    if (selectedCellIdsKey) {
+      const selectedIds = new Set(selectedCellIdsKey.split(','));
+      for (const selCell of planogram.cells) {
+        if (!selectedIds.has(selCell.id)) continue;
         const { x: cx, y: cy, w: cw, h: ch } = getCellRectPx(selCell.row, selCell.col);
         ctx.fillStyle = 'rgba(255,230,0,0.35)';
         ctx.fillRect(cx + 1, cy + 1, cw, ch);
@@ -408,7 +413,7 @@ function PlanogramFaceOverlay({
   // `imageVersion` is a dependency (not read in the body) so the texture is
   // rebuilt each time a product image lands in the shared cache.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planogram, products, selectedCellId, loadedImages, imageVersion]);
+  }, [planogram, products, selectedCellIdsKey, loadedImages, imageVersion]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -455,35 +460,41 @@ function PlanogramFaceOverlay({
     if (!cell) return;
     event.stopPropagation();
 
-    const selectedCellIds =
-      event.nativeEvent.shiftKey &&
-      selType === 'planogram_cell' &&
-      selPlanogramId === planogram.id
-        ? new Set(selCellIds)
-        : new Set<string>();
-    if (selectedCellIds.has(cell.id)) {
-      selectedCellIds.delete(cell.id);
-    } else {
-      selectedCellIds.add(cell.id);
-    }
+    // Shift+click cumulates cells across every planogram; a plain click starts
+    // a fresh selection with only the clicked cell.
+    const previousCells: SelectedCellRef[] =
+      event.nativeEvent.shiftKey && selType === 'planogram_cell'
+        ? selCells ?? []
+        : [];
+    const clickedRef: SelectedCellRef = {
+      planogramId: planogram.id,
+      furnitureId: planogram.furnitureId,
+      cellId: cell.id,
+      ean: cell.ean,
+    };
+    const alreadySelected = previousCells.some((ref) => ref.cellId === cell.id);
+    const nextCells = alreadySelected
+      ? previousCells.filter((ref) => ref.cellId !== cell.id)
+      : [...previousCells, clickedRef];
 
     // A regular second click deselects; Shift+click retains the other selected
-    // products from this planogram.
-    if (
-      selectedCellIds.size === 0
-    ) {
+    // products (from this planogram or any other).
+    if (nextCells.length === 0) {
       setSelection({ type: null });
       return;
     }
 
+    // Legacy single-planogram fields reflect the last selected cell.
+    const last = alreadySelected ? nextCells[nextCells.length - 1] : clickedRef;
     setSelection({
       type: 'planogram_cell',
-      ean: cell.ean,
-      furnitureId: planogram.furnitureId,
-      planogramId: planogram.id,
-      cellIds: [...selectedCellIds],
+      ean: last.ean,
+      furnitureId: last.furnitureId,
+      planogramId: last.planogramId,
+      cellIds: nextCells.map((ref) => ref.cellId),
+      cells: nextCells,
     });
-  }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId]);
+  }, [planogram, selType, selCells, setSelection, setRequestOpenPlanogramId]);
 
   if (!texture || !planogram) return null;
 
@@ -587,15 +598,32 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const { selectZone } = useZoneStore();
   const { planogramDetails } = usePlanogramStore();
 
-  // Detect product selection on this gondola (planogram cell click)
-  const isProductSelected =
-    selection.type === 'planogram_cell' && selection.furnitureId === furniture.id;
+  // Detect product selection on this gondola (planogram cell click). With a
+  // multi-planogram selection, every furniture holding a selected cell shows
+  // its own proximity disc.
+  const cellsOnThisFurniture = useMemo(
+    () =>
+      selection.type === 'planogram_cell'
+        ? (selection.cells ?? []).filter((ref) => ref.furnitureId === furniture.id)
+        : [],
+    [selection.type, selection.cells, furniture.id],
+  );
+  const firstCellRef = cellsOnThisFurniture[0]
+    ?? (selection.type === 'planogram_cell' && selection.furnitureId === furniture.id && selection.planogramId
+      ? {
+          planogramId: selection.planogramId,
+          furnitureId: furniture.id,
+          cellId: selection.cellIds?.[0] ?? '',
+          ean: selection.ean ?? '',
+        }
+      : null);
+  const isProductSelected = firstCellRef != null;
 
   // Determine which face of the gondola the selected planogram belongs to, so
   // the semi-circle can be oriented correctly (flat edge = gondola face, arc = aisle).
-  const selectedFace = isProductSelected && selection.planogramId
+  const selectedFace = firstCellRef
     ? (Object.entries(furniture.faces) as [string, string | null][])
-        .find(([, pid]) => pid === selection.planogramId)?.[0] ?? 'front'
+        .find(([, pid]) => pid === firstCellRef.planogramId)?.[0] ?? 'front'
     : 'front';
 
   // Per-face Euler rotation is defined at module level as SEMI_ROT.
@@ -613,9 +641,9 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   type SemiConfig = Record<string, { pos: [number, number, number]; rot: [number, number, number] }>;
 
   const computedSemiCircleConfig = useMemo<SemiConfig | null>(() => {
-    if (!isProductSelected || !selection.planogramId || !selection.cellIds?.length) return null;
-    const planogram = planogramDetails.get(selection.planogramId);
-    const cell = planogram?.cells.find((c) => c.id === selection.cellIds![0]);
+    if (!firstCellRef?.cellId) return null;
+    const planogram = planogramDetails.get(firstCellRef.planogramId);
+    const cell = planogram?.cells.find((c) => c.id === firstCellRef.cellId);
     if (!planogram || !cell) return null;
 
     // t ∈ [0,1]: normalised centre of the cell column using actual physical widths
@@ -637,9 +665,10 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
     };
   // Deps explanation: W, H, D are included intentionally — resizing the furniture shifts
   // the disc positions so the config must be recomputed when dimensions change.
-  // `selection.cellIds` is an array whose reference changes on every selection update;
-  // using it directly is correct because any selection change should retrigger the lookup.
-  }, [isProductSelected, selection.planogramId, selection.cellIds, planogramDetails, W, H, D]);
+  // `firstCellRef` changes reference on every selection update; using it directly is
+  // correct because any selection change should retrigger the lookup.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstCellRef?.planogramId, firstCellRef?.cellId, planogramDetails, W, H, D]);
 
   const semiCircleConfig: SemiConfig = computedSemiCircleConfig ?? defaultSemiCircleConfig;
   const scc = semiCircleConfig[selectedFace] ?? semiCircleConfig.front;
@@ -793,10 +822,34 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
   const { updateFurniture } = useSceneStore();
   const gridOrigin = useGridOrigin();
 
+  // Latest scene furniture, read through a ref so drag callbacks never go stale.
+  const sceneFurnitureRef = useRef<readonly FurnitureInstance[]>([]);
+  sceneFurnitureRef.current = useSceneStore((state) => state.scene?.furniture) ?? [];
+
+  // Last collision-free snapped centre (cm) of the dragged footprint; used to
+  // block the gizmo from entering a cell already occupied by another furniture.
+  const lastFreeCentreRef = useRef<{ x: number; z: number } | null>(null);
+  useEffect(() => {
+    lastFreeCentreRef.current = furnitureCentreCm(furniture.position, furniture.dimensions);
+  }, [furniture.position, furniture.dimensions]);
+
+  /** Stored-convention position (bottom-left corner, cm) implied by a footprint centre. */
+  const positionFromCentre = useCallback(
+    (centreX: number, centreZ: number): [number, number, number] => [
+      centreX - furniture.dimensions.width / 2,
+      furniture.position[1],
+      centreZ - furniture.dimensions.depth / 2,
+    ],
+    [furniture.dimensions, furniture.position],
+  );
+
   /**
    * Snap the dragged object so the corner of its (possibly rotated) footprint
-   * sits exactly on a grid cell border.  `transformTarget.position` holds the
-   * footprint centre, so the correction is applied there.
+   * sits exactly on a grid cell border, and block ("aimantage") any snapped
+   * cell already occupied by another furniture — the object stays magnetised
+   * on the last collision-free cell instead of overlapping.
+   * `transformTarget.position` holds the footprint centre, so the correction
+   * is applied there.
    */
   const snapTargetToGrid = useCallback(() => {
     const obj = transformTarget;
@@ -808,9 +861,19 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       furniture.rotation[1],
       gridOrigin,
     );
+    const candidate: FurnitureInstance = {
+      ...furniture,
+      position: positionFromCentre(centre.x, centre.z),
+    };
+    if (canPlaceFurniture(candidate, sceneFurnitureRef.current)) {
+      lastFreeCentreRef.current = centre;
+    } else if (lastFreeCentreRef.current) {
+      centre.x = lastFreeCentreRef.current.x;
+      centre.z = lastFreeCentreRef.current.z;
+    }
     obj.position.x = centre.x * CM_TO_UNIT;
     obj.position.z = centre.z * CM_TO_UNIT;
-  }, [transformTarget, mode, furniture.dimensions, furniture.rotation, gridOrigin]);
+  }, [transformTarget, mode, furniture, gridOrigin, positionFromCentre]);
 
   const handleMouseUp = useCallback(() => {
     const obj = transformTarget;
@@ -820,7 +883,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const W = furniture.dimensions.width  * CM_TO_UNIT;
       const H = furniture.dimensions.height * CM_TO_UNIT;
       const D = furniture.dimensions.depth  * CM_TO_UNIT;
-      const newPos = snapFurniturePositionCm(
+      let newPos = snapFurniturePositionCm(
         [
           (obj.position.x - W / 2) / CM_TO_UNIT,
           0,
@@ -830,6 +893,13 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
         furniture.rotation[1],
         gridOrigin,
       );
+      // Never persist an overlapping drop: fall back to the last free cell
+      // seen during the drag, or to the furniture's stored position.
+      if (!canPlaceFurniture({ ...furniture, position: newPos }, sceneFurnitureRef.current)) {
+        newPos = lastFreeCentreRef.current
+          ? positionFromCentre(lastFreeCentreRef.current.x, lastFreeCentreRef.current.z)
+          : furniture.position;
+      }
       obj.position.set(newPos[0] * CM_TO_UNIT + W / 2, H / 2, newPos[2] * CM_TO_UNIT + D / 2);
       const updated = { ...furniture, position: newPos };
       updateFurniture(updated);
@@ -846,16 +916,22 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const rotYRad = 2 * Math.atan2(q.y, q.w);
       const newRotY = rotYRad * (180 / Math.PI);
       const snappedRotY = Math.round(newRotY / 90) * 90;
-      // Reset to a clean Euler so R3F reconciliation doesn't fight the (π,0,π) state.
-      obj.rotation.set(0, snappedRotY * (Math.PI / 180), 0);
       const updated = {
         ...furniture,
         rotation: [furniture.rotation[0], snappedRotY, furniture.rotation[2]] as [number, number, number],
       };
+      // A rotation changes the footprint: refuse it when the rotated furniture
+      // would overlap a neighbour, and put the gizmo back on the stored angle.
+      if (!canPlaceFurniture(updated, sceneFurnitureRef.current)) {
+        obj.rotation.set(0, furniture.rotation[1] * (Math.PI / 180), 0);
+        return;
+      }
+      // Reset to a clean Euler so R3F reconciliation doesn't fight the (π,0,π) state.
+      obj.rotation.set(0, snappedRotY * (Math.PI / 180), 0);
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
     }
-  }, [furniture, transformTarget, mode, projectId, updateFurniture, gridOrigin]);
+  }, [furniture, transformTarget, mode, projectId, updateFurniture, gridOrigin, positionFromCentre]);
 
   return (
     <TransformControls

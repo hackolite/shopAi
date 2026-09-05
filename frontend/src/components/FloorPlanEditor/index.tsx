@@ -5,6 +5,7 @@ import { cadApi } from '../../api/cad';
 import type { FurnitureInstance } from '../../types/cad';
 import type { FloorZone } from '../../types/cad';
 import { GRID_CELL_CM, snapSizeToCell, snapToCell } from '../../engine/gridSnap';
+import { canPlaceFurniture } from '../../engine/furnitureCollision';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -380,8 +381,12 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
       const f = scene.furniture.find((fi) => fi.id === drag.furnitureId);
       if (f) {
         const updated: FurnitureInstance = { ...f, position: [livePos.x, f.position[1], livePos.z] };
-        updateFurniture(updated);
-        if (projectId) cadApi.updateFurniture(projectId, f.id, updated).catch(console.error);
+        // Snap/aimantage anti-collision: never persist a drop overlapping
+        // another furniture — the item stays on its last valid cell.
+        if (canPlaceFurniture(updated, scene.furniture)) {
+          updateFurniture(updated);
+          if (projectId) cadApi.updateFurniture(projectId, f.id, updated).catch(console.error);
+        }
       }
     } else if (drag.kind === 'resize') {
       const f = scene.furniture.find((fi) => fi.id === drag.furnitureId);
@@ -391,8 +396,10 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
           position: [livePos.x, f.position[1], livePos.z],
           dimensions: { ...f.dimensions, width: livePos.w, depth: livePos.d },
         };
-        updateFurniture(updated);
-        if (projectId) cadApi.updateFurniture(projectId, f.id, updated).catch(console.error);
+        if (canPlaceFurniture(updated, scene.furniture)) {
+          updateFurniture(updated);
+          if (projectId) cadApi.updateFurniture(projectId, f.id, updated).catch(console.error);
+        }
       }
     } else if (drag.kind === 'zone-move') {
       const zone = zones.find((z) => z.id === drag.zoneId);

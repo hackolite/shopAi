@@ -123,3 +123,56 @@ export function computeSelectedProductMetrics(
     eurPerSecond: totalPassagesPerSecond * totalMarginEur,
   };
 }
+
+/**
+ * Metrics of a Shift+click selection spanning several planograms: per-planogram
+ * metrics are computed independently then merged (facings, margins and flows
+ * are summed per product; €/s totals use the summed flow × summed margin).
+ *
+ * Returns `null` when no planogram yields metrics.
+ */
+export function computeMultiSelectedProductMetrics(
+  scene: Scene,
+  selections: Array<{ planogram: Planogram; cellIds: string[] }>,
+  catalogProducts: CADProduct[],
+  visits: SimulationHeatmap | null | undefined,
+  timeSeconds: number,
+): SelectedProductsMetrics | null {
+  const partials = selections
+    .map(({ planogram, cellIds }) =>
+      computeSelectedProductMetrics(scene, planogram, cellIds, catalogProducts, visits, timeSeconds))
+    .filter((metrics): metrics is SelectedProductsMetrics => metrics !== null);
+  if (partials.length === 0) return null;
+  if (partials.length === 1) return partials[0];
+
+  const byEan = new Map<string, SelectedProductMetric>();
+  let count = 0;
+  let marginEur = 0;
+  let passagesPerSecond = 0;
+  for (const partial of partials) {
+    count += partial.count;
+    marginEur += partial.marginEur;
+    passagesPerSecond += partial.passagesPerSecond;
+    for (const product of partial.products) {
+      const entry = byEan.get(product.ean);
+      if (entry) {
+        entry.facings += product.facings;
+        entry.marginEur += product.marginEur;
+        entry.passagesPerSecond += product.passagesPerSecond;
+        entry.eurPerSecond = entry.passagesPerSecond * entry.marginEur;
+      } else {
+        byEan.set(product.ean, { ...product });
+      }
+    }
+  }
+  const products = [...byEan.values()]
+    .sort((a, b) => b.eurPerSecond - a.eurPerSecond || b.marginEur - a.marginEur);
+
+  return {
+    products,
+    count,
+    marginEur,
+    passagesPerSecond,
+    eurPerSecond: passagesPerSecond * marginEur,
+  };
+}

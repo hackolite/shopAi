@@ -5,6 +5,7 @@ import type {
   SimulationResult,
   SimulationWaypoint,
 } from '../types/cad';
+import type { JourneyMetricId } from '../engine/journeyMetrics';
 
 const MAX_HISTORY = 50;
 
@@ -59,6 +60,12 @@ interface SimulationState {
   selectedWaypointId: string | null;
   invalidWaypointIds: string[];
   invalidWaypointSuggestion: { waypointId: string; xCm: number; zCm: number } | null;
+  /**
+   * Journey metric tiles selected in the « Waypoints & rendement » panel: they
+   * are displayed as a large HUD at the top-right of the 3D scene (drawn inside
+   * the WebGL canvas so it appears in the video recording).
+   */
+  pinnedJourneyMetrics: JourneyMetricId[];
   history: SimulationConfig[];
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
@@ -78,6 +85,8 @@ interface SimulationState {
   setLiveSessionId: (liveSessionId: string | null) => void;
   setInvalidWaypointIds: (ids: string[]) => void;
   setInvalidWaypointSuggestion: (suggestion: { waypointId: string; xCm: number; zCm: number } | null) => void;
+  /** Toggles one journey metric tile in/out of the pinned HUD selection. */
+  toggleJourneyMetric: (id: JourneyMetricId) => void;
   /** Clears every simulation state. Called when switching project. */
   reset: () => void;
 }
@@ -96,6 +105,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   selectedWaypointId: null,
   invalidWaypointIds: [],
   invalidWaypointSuggestion: null,
+  pinnedJourneyMetrics: [],
   history: [],
   setConfig: (config) =>
     set({
@@ -201,6 +211,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setLiveSessionId: (liveSessionId) => set({ liveSessionId }),
   setInvalidWaypointIds: (ids) => set({ invalidWaypointIds: [...new Set(ids)] }),
   setInvalidWaypointSuggestion: (suggestion) => set({ invalidWaypointSuggestion: suggestion }),
+  toggleJourneyMetric: (id) =>
+    set((state) => ({
+      pinnedJourneyMetrics: state.pinnedJourneyMetrics.includes(id)
+        ? state.pinnedJourneyMetrics.filter((metricId) => metricId !== id)
+        : [...state.pinnedJourneyMetrics, id],
+    })),
   reset: () =>
     set({
       config: defaultSimulationConfig(),
@@ -213,6 +229,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       selectedWaypointId: null,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
+      pinnedJourneyMetrics: [],
       history: [],
     }),
 }));

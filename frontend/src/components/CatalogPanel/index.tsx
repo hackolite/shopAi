@@ -27,6 +27,11 @@ function CatalogThumb({ product }: { product: CADProduct }) {
       <img
         src={product.imageUrl}
         alt={product.name}
+        width={32}
+        height={32}
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
         className="w-8 h-8 object-contain rounded shrink-0"
         onError={() => setImgError(true)}
       />

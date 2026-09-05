@@ -153,6 +153,15 @@ export interface AgentTrajectory {
   pointsCm: number[];
 }
 
+export interface CustomerJourney {
+  customerId: number;
+  entryTimeSeconds: number;
+  exitTimeSeconds: number | null;
+  totalTimeSeconds: number;
+  distanceCm: number;
+  active: boolean;
+}
+
 export interface SimulationAnalytics {
   timeSeconds: number;
   heatmap: SimulationHeatmap | null;
@@ -162,6 +171,7 @@ export interface SimulationAnalytics {
    */
   visitHeatmap?: SimulationHeatmap | null;
   trajectories: AgentTrajectory[];
+  customers?: CustomerJourney[];
 }
 
 export interface SimulationFrame {

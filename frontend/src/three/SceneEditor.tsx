@@ -455,11 +455,22 @@ function PlanogramFaceOverlay({
     if (!cell) return;
     event.stopPropagation();
 
-    // Second click on the same cell → deselect and hide the proximity disc
-    if (
+    const selectedCellIds =
+      event.nativeEvent.shiftKey &&
       selType === 'planogram_cell' &&
-      selPlanogramId === planogram.id &&
-      selCellIds?.includes(cell.id)
+      selPlanogramId === planogram.id
+        ? new Set(selCellIds)
+        : new Set<string>();
+    if (selectedCellIds.has(cell.id)) {
+      selectedCellIds.delete(cell.id);
+    } else {
+      selectedCellIds.add(cell.id);
+    }
+
+    // A regular second click deselects; Shift+click retains the other selected
+    // products from this planogram.
+    if (
+      selectedCellIds.size === 0
     ) {
       setSelection({ type: null });
       return;
@@ -470,7 +481,7 @@ function PlanogramFaceOverlay({
       ean: cell.ean,
       furnitureId: planogram.furnitureId,
       planogramId: planogram.id,
-      cellIds: [cell.id],
+      cellIds: [...selectedCellIds],
     });
   }, [planogram, selType, selPlanogramId, selCellIds, setSelection, setRequestOpenPlanogramId]);
 

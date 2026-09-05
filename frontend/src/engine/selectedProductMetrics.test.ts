@@ -129,7 +129,7 @@ describe('computeSelectedProductMetrics', () => {
     }
   });
 
-  it('groups several facings of the same product on one line', () => {
+  it('keeps one line per selected facing even for the same product', () => {
     const stacked = planogram('p1', 'f1', ['rich', 'rich']);
     const metrics = computeSelectedProductMetrics(
       testScene,
@@ -139,9 +139,13 @@ describe('computeSelectedProductMetrics', () => {
       visits(),
       10,
     )!;
-    expect(metrics.products).toHaveLength(1);
-    expect(metrics.products[0].facings).toBe(2);
-    expect(metrics.products[0].marginEur).toBeCloseTo(8);
+    expect(metrics.products).toHaveLength(2);
+    expect(metrics.products.map((item) => item.key).sort()).toEqual(['p1:p1-0', 'p1:p1-1']);
+    for (const item of metrics.products) {
+      expect(item.ean).toBe('rich');
+      expect(item.marginEur).toBeCloseTo(4);
+    }
+    expect(metrics.marginEur).toBeCloseTo(8);
   });
 
   it('reports zero flow without analytics but still exposes the margin', () => {
@@ -196,11 +200,11 @@ describe('computeMultiSelectedProductMetrics', () => {
       10,
     )!;
     expect(metrics.count).toBe(3);
-    // 'rich' facings from both planograms are merged on one line.
-    expect(metrics.products).toHaveLength(2);
-    const rich = metrics.products.find((item) => item.ean === 'rich')!;
-    expect(rich.facings).toBe(2);
-    expect(rich.marginEur).toBeCloseTo(8);
+    // 'rich' facings from both planograms stay on separate lines.
+    expect(metrics.products).toHaveLength(3);
+    const rich = metrics.products.filter((item) => item.ean === 'rich');
+    expect(rich).toHaveLength(2);
+    for (const item of rich) expect(item.marginEur).toBeCloseTo(4);
     // Totals sum across planograms: 4 + 0.2 + 4 € of exposed margin.
     expect(metrics.marginEur).toBeCloseTo(8.2);
     expect(metrics.eurPerSecond).toBeCloseTo(metrics.passagesPerSecond * metrics.marginEur);

@@ -408,10 +408,9 @@ export default function CheckoutChartsOverlay() {
                 </thead>
                 <tbody>
                   {selectedProductMetrics.products.map((product) => (
-                    <tr key={product.ean} className="border-t border-gray-800">
+                    <tr key={product.key} className="border-t border-gray-800">
                       <td className="max-w-24 truncate pr-1 text-gray-400" title={product.name}>
                         {product.name}
-                        {product.facings > 1 ? ` ×${product.facings}` : ''}
                       </td>
                       <td className="text-right text-gray-400">{formatNumber(product.passagesPerSecond)}</td>
                       <td className="text-right text-gray-400">{formatNumber(product.marginEur)}</td>

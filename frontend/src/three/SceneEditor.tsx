@@ -721,6 +721,10 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    // Keep an active product (planogram cell) selection: clicking the gondola body
+    // must not replace it — products deselect one by one or by clicking outside
+    // the scene entirely.
+    if (selection.type === 'planogram_cell') return;
     // Ctrl/Cmd+click → toggle this furniture in the multi-selection group.
     if (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey) {
       toggleFurnitureSelection(furniture.id);
@@ -1035,6 +1039,9 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const gridZ = gridPlaneSpec(store.position?.[2] ?? 0, store.dimensions.depth);
 
   const handleFloorClick = () => {
+    // Keep an active product (planogram cell) selection: clicking the floor must
+    // not clear it — products deselect one by one or by clicking outside the scene.
+    if (useSceneStore.getState().selection.type === 'planogram_cell') return;
     selectFurniture(null);
     selectZone(null);
   };
@@ -3153,7 +3160,17 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           </div>
         }
       >
-        <Canvas dpr={recordingDpr ?? DEFAULT_DPR} camera={{ position: [25, 15, 35], fov: 50 }} shadows style={{ width: '100%', height: '100%' }}>
+        <Canvas
+          dpr={recordingDpr ?? DEFAULT_DPR}
+          camera={{ position: [25, 15, 35], fov: 50 }}
+          shadows
+          style={{ width: '100%', height: '100%' }}
+          onPointerMissed={() => {
+            // Click in the total void (no 3D object hit) clears the product selection.
+            const { selection, setSelection } = useSceneStore.getState();
+            if (selection.type === 'planogram_cell') setSelection({ type: null });
+          }}
+        >
           <color attach="background" args={['#111827']} />
           <Suspense fallback={null}>
             <SceneContent projectId={projectId} />

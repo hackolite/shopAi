@@ -2705,20 +2705,18 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     _persistedCameraState?.target ?? storeCenterTarget(scene?.store)
   );
 
-  // Once the store is loaded, make sure the orbit pivot sits at the centre of the
-  // store floor.  Without this the camera orbits around the hard-coded default
-  // point, which for most stores lies outside the scene and makes the view very
-  // hard to manoeuvre.  Applied only while the user has not moved the camera
-  // (no persisted state), so it never fights a manual pan/orbit.
-  const orbitTargetInitialised = useRef(_persistedCameraState != null);
+  // Keep the orbit pivot inside the current store. Project changes can replace a
+  // store at different coordinates without remounting the canvas; retaining the
+  // old target would make the camera rotate around a point outside the scene.
+  const orbitTargetProjectId = useRef<string | null>(_persistedCameraState ? projectId : null);
   const controls = useThree((state) => state.controls) as { target?: THREE.Vector3; update?: () => void } | null;
   useEffect(() => {
-    if (orbitTargetInitialised.current || !scene?.store || !controls?.target) return;
+    if (orbitTargetProjectId.current === projectId || !scene?.store || !controls?.target) return;
     const [tx, ty, tz] = storeCenterTarget(scene.store);
     controls.target.set(tx, ty, tz);
     controls.update?.();
-    orbitTargetInitialised.current = true;
-  }, [controls, scene?.store]);
+    orbitTargetProjectId.current = projectId;
+  }, [controls, projectId, scene?.store]);
 
   const registerGroup = useCallback<RegisterFn>((id, group) => {
     if (group) {

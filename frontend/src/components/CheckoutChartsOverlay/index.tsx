@@ -426,8 +426,8 @@ export default function CheckoutChartsOverlay() {
                 </tbody>
               </table>
               <p className="mt-1 text-[10px] leading-tight text-gray-600">
-                €/s = passages/s × marge exposée (€). Shift+clic sur les produits du même
-                planogramme pour les cumuler.
+                €/s = passages/s × marge exposée (€). Shift+clic sur les produits (même sur des
+                planogrammes différents) pour les cumuler. Total = addition des lignes.
               </p>
             </Section>}
 

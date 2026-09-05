@@ -21,11 +21,11 @@ export interface SelectedProductsMetrics {
   products: SelectedProductMetric[];
   /** Total number of selected facings. */
   count: number;
-  /** Total exposed margin (€) of the selection. */
+  /** Total exposed margin (€): plain sum of the rows. */
   marginEur: number;
-  /** Client flow (pers/s) measured on the union of the selected columns. */
+  /** Total client flow (pers/s): plain sum of the rows. */
   passagesPerSecond: number;
-  /** Total passages/s × total exposed margin (€), in €/s. */
+  /** Total €/s: plain sum of the per-row €/s. */
   eurPerSecond: number;
 }
 
@@ -56,9 +56,8 @@ function passagesPerSecondOver(
 
 /**
  * Metrics of the products selected with Shift+click in one planogram: one line
- * per selected facing (cells of the same EAN are never merged) and in total,
- * the exposed margin (€), the client flow measured in front of the selected
- * columns (pers/s) and their product (€/s).
+ * per selected facing (cells of the same EAN are never merged). Totals are
+ * always plain sums of the rows (margin, flow and €/s).
  *
  * Returns `null` when the selection is empty or the planogram has no furniture.
  */
@@ -99,25 +98,20 @@ export function computeSelectedProductMetrics(
   }
   products.sort((a, b) => b.eurPerSecond - a.eurPerSecond || b.marginEur - a.marginEur);
 
-  const selectedColumns = new Set(selectedCells.map((cell) => cell.col));
-  const totalSources = allSources.filter((source) => selectedColumns.has(source.col));
-  const totalPassagesPerSecond = passagesPerSecondOver(totalSources, furniture, visits, timeSeconds);
-  const totalMarginEur = products.reduce((total, product) => total + product.marginEur, 0);
-
+  // Totals are always plain sums of the rows.
   return {
     products,
     count: selectedCells.length,
-    marginEur: totalMarginEur,
-    passagesPerSecond: totalPassagesPerSecond,
-    eurPerSecond: totalPassagesPerSecond * totalMarginEur,
+    marginEur: products.reduce((total, product) => total + product.marginEur, 0),
+    passagesPerSecond: products.reduce((total, product) => total + product.passagesPerSecond, 0),
+    eurPerSecond: products.reduce((total, product) => total + product.eurPerSecond, 0),
   };
 }
 
 /**
  * Metrics of a Shift+click selection spanning several planograms: per-planogram
  * metrics are computed independently then concatenated (one line per selected
- * facing, never merged per EAN); totals sum margins and flows, and the €/s
- * total uses the summed flow × summed margin.
+ * facing, never merged per EAN); totals are plain sums of the rows.
  *
  * Returns `null` when no planogram yields metrics.
  */
@@ -139,10 +133,12 @@ export function computeMultiSelectedProductMetrics(
   let count = 0;
   let marginEur = 0;
   let passagesPerSecond = 0;
+  let eurPerSecond = 0;
   for (const partial of partials) {
     count += partial.count;
     marginEur += partial.marginEur;
     passagesPerSecond += partial.passagesPerSecond;
+    eurPerSecond += partial.eurPerSecond;
     products.push(...partial.products);
   }
   products.sort((a, b) => b.eurPerSecond - a.eurPerSecond || b.marginEur - a.marginEur);
@@ -152,6 +148,6 @@ export function computeMultiSelectedProductMetrics(
     count,
     marginEur,
     passagesPerSecond,
-    eurPerSecond: passagesPerSecond * marginEur,
+    eurPerSecond,
   };
 }

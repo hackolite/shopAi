@@ -120,9 +120,11 @@ describe('computeSelectedProductMetrics', () => {
     expect(both.products).toHaveLength(2);
     expect(both.marginEur).toBeCloseTo(4.2);
     expect(both.marginEur).toBeGreaterThan(one.marginEur);
-    // Total flow never double-counts a visit cell shared by two columns.
-    expect(both.passagesPerSecond).toBeCloseTo(12 / 10);
-    expect(both.eurPerSecond).toBeCloseTo(both.passagesPerSecond * both.marginEur);
+    // Totals are plain sums of the rows, whatever the column overlaps.
+    const rowFlowSum = both.products.reduce((total, item) => total + item.passagesPerSecond, 0);
+    const rowEurSum = both.products.reduce((total, item) => total + item.eurPerSecond, 0);
+    expect(both.passagesPerSecond).toBeCloseTo(rowFlowSum);
+    expect(both.eurPerSecond).toBeCloseTo(rowEurSum);
     // Per-product €/s = its own flow × its own margin.
     for (const item of both.products) {
       expect(item.eurPerSecond).toBeCloseTo(item.passagesPerSecond * item.marginEur);
@@ -207,6 +209,10 @@ describe('computeMultiSelectedProductMetrics', () => {
     for (const item of rich) expect(item.marginEur).toBeCloseTo(4);
     // Totals sum across planograms: 4 + 0.2 + 4 € of exposed margin.
     expect(metrics.marginEur).toBeCloseTo(8.2);
-    expect(metrics.eurPerSecond).toBeCloseTo(metrics.passagesPerSecond * metrics.marginEur);
+    // Totals are plain sums of the rows.
+    const rowFlowSum = metrics.products.reduce((total, item) => total + item.passagesPerSecond, 0);
+    const rowEurSum = metrics.products.reduce((total, item) => total + item.eurPerSecond, 0);
+    expect(metrics.passagesPerSecond).toBeCloseTo(rowFlowSum);
+    expect(metrics.eurPerSecond).toBeCloseTo(rowEurSum);
   });
 });

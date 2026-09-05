@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { loadRatio, useAssetStore } from './assetStore';
+import { clearDecodedImageCache, loadRatio, useAssetStore } from './assetStore';
 
 describe('assetStore', () => {
   it('tracks planogram load progress', () => {
@@ -42,6 +42,7 @@ describe('assetStore', () => {
     };
 
     useAssetStore.getState().reset();
+    clearDecodedImageCache();
     useAssetStore.getState().setPreloadThrottled(true);
     expect(useAssetStore.getState().preloadThrottled).toBe(true);
 
@@ -88,6 +89,7 @@ describe('assetStore', () => {
     try {
       const urls = new Map([['1', 'https://example.com/product.png']]);
       useAssetStore.getState().reset();
+      clearDecodedImageCache();
       await useAssetStore.getState().preloadProductImages(urls);
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -97,8 +99,47 @@ describe('assetStore', () => {
       expect(useAssetStore.getState().productImages.size).toBe(1);
     } finally {
       useAssetStore.getState().reset();
+      clearDecodedImageCache();
       Object.defineProperty(globalThis, 'caches', { configurable: true, value: previousCaches });
       globalThis.fetch = previousFetch;
+      (globalThis as { Image?: unknown }).Image = previousImage;
+    }
+  });
+
+  it('reuses decoded images from memory across project switches without reloading', async () => {
+    const previousImage = (globalThis as { Image?: unknown }).Image;
+    let constructed = 0;
+    (globalThis as { Image?: unknown }).Image = class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin = '';
+      constructor() { constructed++; }
+      set src(_value: string) { this.onload?.(); }
+    };
+
+    try {
+      const urls = new Map([['1', 'data:image/png;base64,AA']]);
+      useAssetStore.getState().reset();
+      clearDecodedImageCache();
+      await useAssetStore.getState().preloadProductImages(urls);
+      expect(constructed).toBe(1);
+      expect(useAssetStore.getState().productImages.size).toBe(1);
+
+      // Project switch wipes the per-project cache…
+      useAssetStore.getState().reset();
+      expect(useAssetStore.getState().productImages.size).toBe(0);
+
+      // …but the decoded image is served instantly from the tab-lifetime cache:
+      // no new Image is constructed and progress counters report it as loaded.
+      await useAssetStore.getState().preloadProductImages(urls);
+      expect(constructed).toBe(1);
+      const state = useAssetStore.getState();
+      expect(state.productImages.size).toBe(1);
+      expect(state.imagesTotal).toBe(1);
+      expect(state.imagesLoaded).toBe(1);
+    } finally {
+      useAssetStore.getState().reset();
+      clearDecodedImageCache();
       (globalThis as { Image?: unknown }).Image = previousImage;
     }
   });

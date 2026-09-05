@@ -25,6 +25,31 @@ const THROTTLED_IDLE_GAP_MS = 120;
 /** Persistent browser cache shared between sessions and project reloads. */
 const PRODUCT_IMAGE_CACHE_NAME = 'shop-ai-product-images-v1';
 
+/**
+ * Decoded images kept for the whole tab lifetime, keyed by URL. Unlike the
+ * per-project `productImages` map (keyed by EAN and wiped on project switch),
+ * this cache survives `reset()`, so reopening a project — or switching between
+ * projects sharing catalog images — reuses already-decoded pixels instead of
+ * re-downloading and re-decoding every image.
+ */
+const decodedImagesByUrl = new Map<string, HTMLImageElement>();
+
+/** Soft cap on the decoded-image cache (oldest entries evicted first). */
+const MAX_DECODED_IMAGES = 6000;
+
+function rememberDecodedImage(url: string, img: HTMLImageElement): void {
+  if (decodedImagesByUrl.size >= MAX_DECODED_IMAGES) {
+    const oldest = decodedImagesByUrl.keys().next().value;
+    if (oldest !== undefined) decodedImagesByUrl.delete(oldest);
+  }
+  decodedImagesByUrl.set(url, img);
+}
+
+/** Empties the tab-lifetime decoded-image cache (used by tests). */
+export function clearDecodedImageCache(): void {
+  decodedImagesByUrl.clear();
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 
 export interface LoadProgress {
@@ -100,25 +125,33 @@ async function cachedImageSource(url: string): Promise<{ source: string; revoke:
 /** Loads one image, resolving to null when it fails (broken URL, 404, CORS…). */
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
   const { source, revoke } = await cachedImageSource(url);
-  return new Promise((resolve) => {
-    const img = new Image();
-    const cleanup = () => {
-      if (revoke) URL.revokeObjectURL(source);
-    };
-    // Images are served from the same backend origin; crossOrigin is set so that
-    // canvas.drawImage() does not taint the canvas when running from a dev server
-    // that may differ from the API origin.
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      cleanup();
-      resolve(img);
-    };
-    img.onerror = () => {
-      cleanup();
-      resolve(null);
-    };
-    img.src = source;
+  const img = new Image();
+  // Images are served from the same backend origin; crossOrigin is set so that
+  // canvas.drawImage() does not taint the canvas when running from a dev server
+  // that may differ from the API origin.
+  img.crossOrigin = 'anonymous';
+  // Handlers must be attached before `src` so synchronous failures are caught.
+  const loaded = new Promise<boolean>((resolve) => {
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
   });
+  img.src = source;
+  try {
+    if (typeof img.decode === 'function') {
+      // decode() performs the (expensive) pixel decode off the main thread, so
+      // the first canvas.drawImage() of this image never blocks the UI.
+      await img.decode();
+    } else if (!(await loaded)) {
+      return null;
+    }
+    return img;
+  } catch {
+    // decode() can reject for a valid image (e.g. transient memory pressure):
+    // fall back to the load result instead of dropping the image.
+    return (await loaded) ? img : null;
+  } finally {
+    if (revoke) URL.revokeObjectURL(source);
+  }
 }
 
 export const useAssetStore = create<AssetState>((set, get) => ({
@@ -151,10 +184,24 @@ export const useAssetStore = create<AssetState>((set, get) => ({
   preloadProductImages: async (urlsByEan) => {
     const cache = get().productImages;
     const pending: [string, string][] = [];
+    // URLs already decoded during this tab's lifetime (e.g. a previously opened
+    // project) are served instantly from memory: no download, no decode.
+    let servedFromMemory = 0;
     for (const [ean, url] of urlsByEan) {
-      if (!cache.has(ean)) pending.push([ean, url]);
+      if (cache.has(ean)) continue;
+      const decoded = decodedImagesByUrl.get(url);
+      if (decoded) {
+        cache.set(ean, decoded);
+        servedFromMemory++;
+      } else {
+        pending.push([ean, url]);
+      }
     }
-    set((state) => ({ imagesTotal: state.imagesTotal + pending.length }));
+    set((state) => ({
+      imagesTotal: state.imagesTotal + pending.length + servedFromMemory,
+      imagesLoaded: state.imagesLoaded + servedFromMemory,
+      imageVersion: servedFromMemory > 0 ? state.imageVersion + 1 : state.imageVersion,
+    }));
     if (pending.length === 0) return;
 
     // Images land in the shared (mutable) cache one by one, but the store is
@@ -191,6 +238,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
         if (index >= pending.length) return;
         const [ean, url] = pending[index];
         const img = await loadImage(url);
+        if (img) rememberDecodedImage(url, img);
         if (get().preloadGeneration !== generation) return;
         if (img) cache.set(ean, img);
         settledSinceFlush++;

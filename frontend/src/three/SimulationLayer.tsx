@@ -125,6 +125,9 @@ function WaypointMarker({
     <group
       ref={groupRef}
       position={[x * CM_TO_UNIT, 0, z * CM_TO_UNIT]}
+      // Keep the click from bubbling to the floor slab's deselect handler so
+      // the current product/furniture selection survives waypoint clicks.
+      onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => {
         event.stopPropagation();
         selectWaypoint(id);

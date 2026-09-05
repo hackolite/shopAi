@@ -169,7 +169,7 @@ export default function CheckoutChartsOverlay() {
     }, 0);
     const furnitureById = new Map(scene.furniture.map((furniture) => [furniture.id, furniture]));
     const selectedColumns = new Set(selectedCells.map((cell) => cell.col));
-    const sources = marginColumnSources([planogram], catalogProducts, furnitureById)
+    const sources = marginColumnSources([planogram], catalogProducts, furnitureById, true)
       .filter((source) => selectedColumns.has(source.col));
     const visits = analytics?.visitHeatmap;
     const furniture = furnitureById.get(planogram.furnitureId);
@@ -459,15 +459,18 @@ export default function CheckoutChartsOverlay() {
             >
               <div className="max-h-36 overflow-y-auto text-[10px] text-gray-500">
                 {(analytics?.customers ?? []).map((customer) => (
-                  <div key={customer.customerId} className="grid grid-cols-4 gap-1 border-b border-gray-800 py-1">
+                  <div key={customer.customerId} className="grid grid-cols-5 gap-1 border-b border-gray-800 py-1">
                     <span>#{customer.customerId}</span>
                     <span>{formatNumber(customer.distanceCm / 100, 1)} m</span>
                     <span>{formatNumber(customer.totalTimeSeconds, 1)} s</span>
-                    <span className="text-right">{customer.active ? 'en magasin' : 'sorti'}</span>
+                    <span>{formatNumber(customer.entryTimeSeconds, 1)} s</span>
+                    <span className="text-right">
+                      {customer.exitTimeSeconds == null ? 'en cours' : `${formatNumber(customer.exitTimeSeconds, 1)} s`}
+                    </span>
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-gray-600">Distance · temps total · état entrée/sortie</p>
+              <p className="mt-1 text-[10px] text-gray-600">Distance · temps total · entrée · sortie</p>
             </Section>
 
             {result.waypoints.map((waypoint, index) => {

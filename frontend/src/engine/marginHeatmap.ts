@@ -113,6 +113,7 @@ export function marginColumnSources(
   planograms: Iterable<Planogram>,
   products: CADProduct[],
   furnitureById: Map<string, FurnitureInstance>,
+  includeZeroMargin = false,
 ): MarginColumnSource[] {
   const marginByEan = new Map<string, number>();
   for (const product of products) marginByEan.set(product.ean, productMarginEur(product));
@@ -137,6 +138,7 @@ export function marginColumnSources(
       }
     }
     for (const [col, column] of columns) {
+      if (!includeZeroMargin && column.margin <= 0) continue;
       sources.push({
         furnitureId: furniture.id,
         planogramId: planogram.id,

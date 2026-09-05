@@ -335,10 +335,24 @@ export interface ProjectSettings {
 // ─── Selection ────────────────────────────────────────────────────────────────
 export type SelectionType = 'furniture' | 'planogram_cell' | 'product' | null;
 
+/** One selected planogram cell, with enough context to locate it in any planogram. */
+export interface SelectedCellRef {
+  planogramId: string;
+  furnitureId: string;
+  cellId: string;
+  ean: string;
+}
+
 export interface Selection {
   type: SelectionType;
   furnitureId?: string;
   planogramId?: string;
   cellIds?: string[];
   ean?: string;
+  /**
+   * Multi-planogram product selection (Shift+click): every selected cell with
+   * its planogram/furniture context. `furnitureId`/`planogramId`/`ean` above
+   * reflect the last-clicked cell; `cellIds` lists every selected cell id.
+   */
+  cells?: SelectedCellRef[];
 }

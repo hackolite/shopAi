@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeSelectedProductMetrics } from './selectedProductMetrics';
+import { computeMultiSelectedProductMetrics, computeSelectedProductMetrics } from './selectedProductMetrics';
 import type { CADProduct, FurnitureInstance, Planogram, Scene, SimulationHeatmap } from '../types/cad';
 
 function product(ean: string, patch: Partial<CADProduct> = {}): CADProduct {
@@ -149,5 +149,60 @@ describe('computeSelectedProductMetrics', () => {
     expect(metrics.marginEur).toBeCloseTo(4);
     expect(metrics.passagesPerSecond).toBe(0);
     expect(metrics.eurPerSecond).toBe(0);
+  });
+});
+
+describe('computeMultiSelectedProductMetrics', () => {
+  const f1 = furniture('f1');
+  const f2 = furniture('f2', { position: [0, 0, 200] });
+  const testScene = scene([f1, f2]);
+  const plano1 = planogram('p1', 'f1', ['rich', 'poor']);
+  const plano2 = planogram('p2', 'f2', ['rich']);
+
+  it('returns null when no planogram yields metrics', () => {
+    expect(computeMultiSelectedProductMetrics(testScene, [], products, visits(), 10)).toBeNull();
+    expect(
+      computeMultiSelectedProductMetrics(
+        testScene,
+        [{ planogram: plano1, cellIds: [] }],
+        products,
+        visits(),
+        10,
+      ),
+    ).toBeNull();
+  });
+
+  it('matches the single-planogram metrics when only one planogram is selected', () => {
+    const single = computeSelectedProductMetrics(testScene, plano1, ['p1-0'], products, visits(), 10);
+    const multi = computeMultiSelectedProductMetrics(
+      testScene,
+      [{ planogram: plano1, cellIds: ['p1-0'] }],
+      products,
+      visits(),
+      10,
+    );
+    expect(multi).toEqual(single);
+  });
+
+  it('cumulates cells selected across several planograms', () => {
+    const metrics = computeMultiSelectedProductMetrics(
+      testScene,
+      [
+        { planogram: plano1, cellIds: ['p1-0', 'p1-1'] },
+        { planogram: plano2, cellIds: ['p2-0'] },
+      ],
+      products,
+      visits(),
+      10,
+    )!;
+    expect(metrics.count).toBe(3);
+    // 'rich' facings from both planograms are merged on one line.
+    expect(metrics.products).toHaveLength(2);
+    const rich = metrics.products.find((item) => item.ean === 'rich')!;
+    expect(rich.facings).toBe(2);
+    expect(rich.marginEur).toBeCloseTo(8);
+    // Totals sum across planograms: 4 + 0.2 + 4 € of exposed margin.
+    expect(metrics.marginEur).toBeCloseTo(8.2);
+    expect(metrics.eurPerSecond).toBeCloseTo(metrics.passagesPerSecond * metrics.marginEur);
   });
 });

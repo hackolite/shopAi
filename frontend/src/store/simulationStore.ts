@@ -6,6 +6,7 @@ import type {
   SimulationWaypoint,
 } from '../types/cad';
 import type { JourneyMetricId } from '../engine/journeyMetrics';
+import type { YieldMetricId } from '../engine/yieldMetrics';
 
 const MAX_HISTORY = 50;
 
@@ -66,6 +67,8 @@ interface SimulationState {
    * the WebGL canvas so it appears in the video recording).
    */
   pinnedJourneyMetrics: JourneyMetricId[];
+  /** Same as `pinnedJourneyMetrics` for the exposed-margin (rendement) tiles. */
+  pinnedYieldMetrics: YieldMetricId[];
   history: SimulationConfig[];
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
@@ -87,6 +90,8 @@ interface SimulationState {
   setInvalidWaypointSuggestion: (suggestion: { waypointId: string; xCm: number; zCm: number } | null) => void;
   /** Toggles one journey metric tile in/out of the pinned HUD selection. */
   toggleJourneyMetric: (id: JourneyMetricId) => void;
+  /** Toggles one exposed-margin metric tile in/out of the pinned HUD selection. */
+  toggleYieldMetric: (id: YieldMetricId) => void;
   /** Clears every simulation state. Called when switching project. */
   reset: () => void;
 }
@@ -106,6 +111,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   invalidWaypointIds: [],
   invalidWaypointSuggestion: null,
   pinnedJourneyMetrics: [],
+  pinnedYieldMetrics: [],
   history: [],
   setConfig: (config) =>
     set({
@@ -217,6 +223,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         ? state.pinnedJourneyMetrics.filter((metricId) => metricId !== id)
         : [...state.pinnedJourneyMetrics, id],
     })),
+  toggleYieldMetric: (id) =>
+    set((state) => ({
+      pinnedYieldMetrics: state.pinnedYieldMetrics.includes(id)
+        ? state.pinnedYieldMetrics.filter((metricId) => metricId !== id)
+        : [...state.pinnedYieldMetrics, id],
+    })),
   reset: () =>
     set({
       config: defaultSimulationConfig(),
@@ -230,6 +242,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       pinnedJourneyMetrics: [],
+      pinnedYieldMetrics: [],
       history: [],
     }),
 }));

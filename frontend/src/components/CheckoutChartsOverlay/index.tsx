@@ -7,6 +7,11 @@ import { buildMarginHeatmap } from '../../engine/marginHeatmap';
 import { computeAbsoluteYield } from '../../engine/absoluteYield';
 import { computeMultiSelectedProductMetrics, computeSelectedProductMetrics } from '../../engine/selectedProductMetrics';
 import { waypointThroughput } from '../../engine/waypointThroughput';
+import {
+  JOURNEY_METRIC_IDS,
+  computeJourneySummary,
+  journeyMetricDisplay,
+} from '../../engine/journeyMetrics';
 
 /** Margin (px) kept between the panel and the edges of the 3D viewport. */
 const PANEL_MARGIN_PX = 16;
@@ -128,6 +133,8 @@ export default function CheckoutChartsOverlay() {
   const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
   const catalogProducts = useCatalogStore((state) => state.products);
   const selection = useSceneStore((state) => state.selection);
+  const pinnedJourneyMetrics = useSimulationStore((state) => state.pinnedJourneyMetrics);
+  const toggleJourneyMetric = useSimulationStore((state) => state.toggleJourneyMetric);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragOffset = useRef<Point | null>(null);
@@ -192,6 +199,12 @@ export default function CheckoutChartsOverlay() {
       analytics?.timeSeconds ?? 0,
     );
   }, [analytics, catalogProducts, planogramDetails, scene, selection]);
+
+  // Aggregated customer-journey metrics displayed as selectable tiles.
+  const journeySummary = useMemo(
+    () => computeJourneySummary(analytics?.customers),
+    [analytics?.customers],
+  );
 
   useEffect(() => {
     if (currentYield == null || currentYieldTime == null) return;
@@ -479,6 +492,35 @@ export default function CheckoutChartsOverlay() {
               open={openSections.has('customers')}
               onToggle={toggleSection}
             >
+              <div className="mb-2 grid grid-cols-2 gap-1">
+                {JOURNEY_METRIC_IDS.map((metricId) => {
+                  const pinned = pinnedJourneyMetrics.includes(metricId);
+                  const { label, value } = journeyMetricDisplay(metricId, journeySummary);
+                  return (
+                    <button
+                      key={metricId}
+                      type="button"
+                      aria-pressed={pinned}
+                      title="Afficher en grand en haut à droite de la scène 3D (visible dans l'enregistrement vidéo)"
+                      onClick={() => toggleJourneyMetric(metricId)}
+                      className={`rounded border px-1.5 py-1 text-left transition-colors ${
+                        pinned
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-200'
+                          : 'border-gray-800 bg-black/30 text-gray-400 hover:border-gray-600 hover:bg-gray-800/60'
+                      }`}
+                    >
+                      <span className="block truncate text-[9px] uppercase tracking-wide opacity-80">
+                        {label}
+                      </span>
+                      <span className="block text-[12px] font-semibold">{value}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mb-1 text-[10px] leading-tight text-gray-600">
+                Cliquer sur une tuile pour l'afficher en grand en haut à droite de la scène
+                (incluse dans l'enregistrement vidéo). Totaux = addition sur tous les clients.
+              </p>
               <div className="max-h-36 overflow-y-auto text-[10px] text-gray-500">
                 {(analytics?.customers ?? []).map((customer) => (
                   <div key={customer.customerId} className="grid grid-cols-5 gap-1 border-b border-gray-800 py-1">

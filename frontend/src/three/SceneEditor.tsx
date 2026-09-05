@@ -18,6 +18,7 @@ import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
 import { SimulationLayer } from './SimulationLayer';
+import { JourneyMetricsHud } from './JourneyMetricsHud';
 import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
@@ -3174,6 +3175,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           <color attach="background" args={['#111827']} />
           <Suspense fallback={null}>
             <SceneContent projectId={projectId} />
+            <JourneyMetricsHud />
             <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
               <GizmoViewport axisColors={['#e84545', '#52b788', '#4a9eff']} />
             </GizmoHelper>

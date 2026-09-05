@@ -144,6 +144,47 @@ describe('assetStore', () => {
     }
   });
 
+  it('does not download nor count an EAN twice when preloads overlap', async () => {
+    const previousImage = (globalThis as { Image?: unknown }).Image;
+    let constructed = 0;
+    const loaders: (() => void)[] = [];
+    (globalThis as { Image?: unknown }).Image = class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin = '';
+      constructor() { constructed++; }
+      // Loading stays pending until the test releases it, so a second preload
+      // for the same EAN can race the first one.
+      set src(_value: string) { loaders.push(() => this.onload?.()); }
+    };
+
+    try {
+      const urls = new Map([['1', 'data:image/png;base64,AA']]);
+      useAssetStore.getState().reset();
+      clearDecodedImageCache();
+      const first = useAssetStore.getState().preloadProductImages(urls);
+      // Concurrent call (e.g. an overlay safety net) while '1' is in flight:
+      // it must be a no-op for both the download and the gauge total.
+      const second = useAssetStore.getState().preloadProductImages(urls);
+      expect(useAssetStore.getState().imagesTotal).toBe(1);
+      // The image `src` is assigned after async cache lookups: wait for it.
+      while (loaders.length === 0) await new Promise((r) => { setTimeout(r, 0); });
+      loaders.forEach((resolve) => resolve());
+      await Promise.all([first, second]);
+
+      expect(constructed).toBe(1);
+      const state = useAssetStore.getState();
+      expect(state.imagesTotal).toBe(1);
+      expect(state.imagesLoaded).toBe(1);
+      expect(state.productImages.size).toBe(1);
+      expect(state.pendingImageEans.size).toBe(0);
+    } finally {
+      useAssetStore.getState().reset();
+      clearDecodedImageCache();
+      (globalThis as { Image?: unknown }).Image = previousImage;
+    }
+  });
+
   it('loadRatio combines planogram and image progress', () => {
     expect(loadRatio({ planogramsLoaded: 0, planogramsTotal: 0, imagesLoaded: 0, imagesTotal: 0 })).toBe(0);
     expect(loadRatio({ planogramsLoaded: 2, planogramsTotal: 2, imagesLoaded: 1, imagesTotal: 2 })).toBeCloseTo(0.75);

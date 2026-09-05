@@ -23,6 +23,8 @@ export interface AbsoluteYieldStats {
   productiveCells: number;
   /** Total client flow (pers/s) measured on cells exposed to margin. */
   exposedFlowPerSecond: number;
+  /** Raw number of client passages counted on cells exposed to margin. */
+  exposedPassages: number;
   /** Total margin (€) exposed on those productive cells. */
   exposedMarginEur: number;
 }
@@ -51,6 +53,7 @@ export function computeAbsoluteYield(
   let maxCellEurPerSecond = 0;
   let productiveCells = 0;
   let exposedFlowPerSecond = 0;
+  let exposedPassages = 0;
   let exposedMarginEur = 0;
 
   for (let row = 0; row < rows; row++) {
@@ -65,6 +68,7 @@ export function computeAbsoluteYield(
       const value = marginEur * flowPerSecond;
       totalEurPerSecond += value;
       exposedFlowPerSecond += flowPerSecond;
+      exposedPassages += visits;
       exposedMarginEur += marginEur;
       productiveCells += 1;
       if (value > maxCellEurPerSecond) maxCellEurPerSecond = value;
@@ -77,6 +81,7 @@ export function computeAbsoluteYield(
     maxCellEurPerSecond,
     productiveCells,
     exposedFlowPerSecond,
+    exposedPassages,
     exposedMarginEur,
   };
 }

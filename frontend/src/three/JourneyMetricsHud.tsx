@@ -1,7 +1,7 @@
 /**
  * Large HUD pinned to the top-right of the 3D viewport showing the customer
- * journey metrics selected (« squares ») in the « Waypoints & rendement »
- * panel.
+ * journey and exposed-margin (rendement) metrics selected (« squares ») in the
+ * « Waypoints & rendement » panel.
  *
  * It is drawn as a THREE sprite *inside* the WebGL canvas — unlike an HTML
  * overlay — so it is captured by `canvas.captureStream` and therefore appears
@@ -10,6 +10,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useCatalogStore } from '../store/catalogStore';
+import { usePlanogramStore } from '../store/planogramStore';
+import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import {
   computeJourneySummary,
@@ -17,6 +20,9 @@ import {
   type JourneyMetricId,
   type JourneySummary,
 } from '../engine/journeyMetrics';
+import { buildMarginHeatmap } from '../engine/marginHeatmap';
+import { computeAbsoluteYield, type AbsoluteYieldStats } from '../engine/absoluteYield';
+import { yieldMetricDisplay, type YieldMetricId } from '../engine/yieldMetrics';
 
 /** Distance (camera units) at which the HUD plane is placed in front of the camera. */
 const HUD_DISTANCE = 10;
@@ -30,16 +36,23 @@ const ROW_HEIGHT_PX = 96;
 const ROW_WIDTH_PX = 560;
 const PADDING_PX = 18;
 
-function drawHudTexture(metrics: JourneyMetricId[], summary: JourneySummary): THREE.CanvasTexture {
+function drawHudTexture(
+  journeyMetrics: JourneyMetricId[],
+  summary: JourneySummary,
+  yieldMetrics: YieldMetricId[],
+  yieldStats: AbsoluteYieldStats | null,
+): THREE.CanvasTexture {
+  const rows = [
+    ...yieldMetrics.map((metricId) => yieldMetricDisplay(metricId, yieldStats)),
+    ...journeyMetrics.map((metricId) => journeyMetricDisplay(metricId, summary)),
+  ];
   const canvas = document.createElement('canvas');
   canvas.width = ROW_WIDTH_PX;
-  canvas.height = ROW_HEIGHT_PX * metrics.length;
+  canvas.height = ROW_HEIGHT_PX * rows.length;
   const ctx = canvas.getContext('2d')!;
 
-  metrics.forEach((metricId, index) => {
+  rows.forEach(({ label, value }, index) => {
     const top = index * ROW_HEIGHT_PX;
-    const { label, value } = journeyMetricDisplay(metricId, summary);
-
     ctx.fillStyle = 'rgba(3, 7, 18, 0.82)';
     ctx.fillRect(0, top + 2, ROW_WIDTH_PX, ROW_HEIGHT_PX - 4);
     ctx.strokeStyle = 'rgba(251, 191, 36, 0.9)';
@@ -63,14 +76,36 @@ function drawHudTexture(metrics: JourneyMetricId[], summary: JourneySummary): TH
 
 export function JourneyMetricsHud() {
   const pinnedJourneyMetrics = useSimulationStore((state) => state.pinnedJourneyMetrics);
+  const pinnedYieldMetrics = useSimulationStore((state) => state.pinnedYieldMetrics);
   const customers = useSimulationStore((state) => state.analytics?.customers);
+  const visitHeatmap = useSimulationStore((state) => state.analytics?.visitHeatmap);
+  const timeSeconds = useSimulationStore((state) => state.analytics?.timeSeconds);
+  const scene = useSceneStore((state) => state.scene);
+  const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
+  const catalogProducts = useCatalogStore((state) => state.products);
   const spriteRef = useRef<THREE.Sprite>(null);
 
   const summary = useMemo(() => computeJourneySummary(customers), [customers]);
 
+  // Margin (€) exposed on the floor: derived from the assortment only, so it is
+  // recomputed when the layout changes, not on every analytics tick.
+  const marginHeatmap = useMemo(() => {
+    if (pinnedYieldMetrics.length === 0 || !scene) return null;
+    return buildMarginHeatmap(scene, planogramDetails.values(), catalogProducts);
+  }, [catalogProducts, pinnedYieldMetrics.length, planogramDetails, scene]);
+
+  const yieldStats = useMemo(
+    () => computeAbsoluteYield(marginHeatmap, visitHeatmap, timeSeconds ?? 0),
+    [marginHeatmap, timeSeconds, visitHeatmap],
+  );
+
+  const rowCount = pinnedYieldMetrics.length + pinnedJourneyMetrics.length;
   const texture = useMemo(
-    () => (pinnedJourneyMetrics.length > 0 ? drawHudTexture(pinnedJourneyMetrics, summary) : null),
-    [pinnedJourneyMetrics, summary],
+    () =>
+      rowCount > 0
+        ? drawHudTexture(pinnedJourneyMetrics, summary, pinnedYieldMetrics, yieldStats)
+        : null,
+    [pinnedJourneyMetrics, pinnedYieldMetrics, rowCount, summary, yieldStats],
   );
   useEffect(() => () => { texture?.dispose(); }, [texture]);
 
@@ -82,7 +117,7 @@ export function JourneyMetricsHud() {
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * HUD_DISTANCE;
     const halfW = halfH * camera.aspect;
     const rowH = ROW_SCREEN_FRACTION * 2 * halfH;
-    const spriteH = rowH * pinnedJourneyMetrics.length;
+    const spriteH = rowH * rowCount;
     const spriteW = rowH * (ROW_WIDTH_PX / ROW_HEIGHT_PX);
     const margin = MARGIN_SCREEN_FRACTION * 2 * halfH;
     sprite.scale.set(spriteW, spriteH, 1);

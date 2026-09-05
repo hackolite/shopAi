@@ -26,6 +26,7 @@ describe('computeAbsoluteYield', () => {
     expect(stats!.maxCellEurPerSecond).toBeCloseTo(20);
     expect(stats!.productiveCells).toBe(2);
     expect(stats!.exposedFlowPerSecond).toBeCloseTo(2.5);
+    expect(stats!.exposedPassages).toBe(25);
     expect(stats!.exposedMarginEur).toBeCloseTo(14);
   });
 

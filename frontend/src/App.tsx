@@ -22,6 +22,7 @@ import { useZoneStore } from './store/zoneStore';
 import { useProjectStore } from './store/projectStore';
 import { resetProjectStores } from './store/projectSwitch';
 import type { FurnitureInstance, Planogram } from './types/cad';
+import { findFreeFurniturePosition } from './engine/furnitureCollision';
 
 const DEFAULT_PROJECT = 'retail_cad';
 /** Offset in cm applied to X and Z when pasting a copied gondola. */
@@ -317,9 +318,10 @@ export default function App() {
   }, [selectedFurnitureId, selectedFurnitureIds, scene, setClipboard]);
 
   const pasteClipboard = useCallback(async () => {
-    if (!clipboard || clipboard.items.length === 0) return;
+    if (!clipboard || clipboard.items.length === 0 || !scene) return;
 
     const lastCreatedId: string[] = [];
+    const occupiedFurniture = [...scene.furniture];
     for (const { furniture: src, planogramIds } of clipboard.items) {
       const newId = crypto.randomUUID();
 
@@ -332,6 +334,9 @@ export default function App() {
         childIds: [],
         parentId: null,
       };
+      const position = findFreeFurniturePosition(newFurniture, occupiedFurniture, scene.store);
+      if (!position) continue;
+      newFurniture.position = position;
 
       try {
         const created = await cadApi.addFurniture(projectId, newFurniture);
@@ -356,6 +361,7 @@ export default function App() {
 
         await cadApi.updateFurniture(projectId, created.id, created);
         addFurniture(created);
+        occupiedFurniture.push(created);
         lastCreatedId.push(created.id);
       } catch (err) {
         console.error('Paste failed:', err);
@@ -374,7 +380,7 @@ export default function App() {
 
     const planoData = await cadApi.listPlanograms(projectId);
     setPlanograms(planoData.planograms);
-  }, [clipboard, projectId, addFurniture, selectFurniture, toggleFurnitureSelection, setPlanograms, setPlanogramDetail]);
+  }, [clipboard, projectId, scene, addFurniture, selectFurniture, toggleFurnitureSelection, setPlanograms, setPlanogramDetail]);
 
   // ── Delete selected furniture ─────────────────────────────────────────────
   const deleteSelected = useCallback(() => {

@@ -22,6 +22,9 @@ const THROTTLED_PROGRESS_FLUSH_MS = 3000;
 /** Idle gap left to the main thread between two images in throttled mode. */
 const THROTTLED_IDLE_GAP_MS = 120;
 
+/** Persistent browser cache shared between sessions and project reloads. */
+const PRODUCT_IMAGE_CACHE_NAME = 'shop-ai-product-images-v1';
+
 const sleep = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 
 export interface LoadProgress {
@@ -69,17 +72,52 @@ interface AssetState extends LoadProgress {
   reset: () => void;
 }
 
+/**
+ * Returns a local source for an image, preferring the persistent Cache API.
+ * Data URLs are already local and must not be copied into the browser cache.
+ */
+async function cachedImageSource(url: string): Promise<{ source: string; revoke: boolean }> {
+  if (url.startsWith('data:') || typeof caches === 'undefined') {
+    return { source: url, revoke: false };
+  }
+
+  try {
+    const cache = await caches.open(PRODUCT_IMAGE_CACHE_NAME);
+    let response = await cache.match(url);
+    if (!response) {
+      const fetched = await fetch(url);
+      if (!fetched.ok || fetched.type === 'opaque') return { source: url, revoke: false };
+      await cache.put(url, fetched.clone());
+      response = fetched;
+    }
+    return { source: URL.createObjectURL(await response.blob()), revoke: true };
+  } catch {
+    // Cache storage can be unavailable (for example in private browsing).
+    return { source: url, revoke: false };
+  }
+}
+
 /** Loads one image, resolving to null when it fails (broken URL, 404, CORS…). */
-function loadImage(url: string): Promise<HTMLImageElement | null> {
+async function loadImage(url: string): Promise<HTMLImageElement | null> {
+  const { source, revoke } = await cachedImageSource(url);
   return new Promise((resolve) => {
     const img = new Image();
+    const cleanup = () => {
+      if (revoke) URL.revokeObjectURL(source);
+    };
     // Images are served from the same backend origin; crossOrigin is set so that
     // canvas.drawImage() does not taint the canvas when running from a dev server
     // that may differ from the API origin.
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
+    img.onload = () => {
+      cleanup();
+      resolve(img);
+    };
+    img.onerror = () => {
+      cleanup();
+      resolve(null);
+    };
+    img.src = source;
   });
 }
 

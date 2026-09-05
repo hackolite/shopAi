@@ -40,14 +40,14 @@ def _create_project() -> str:
     return resp.json()["id"]
 
 
-def _add_furniture(project_id: str) -> str:
+def _add_furniture(project_id: str, x: float = 0.0) -> str:
     furniture_id = str(uuid4())
     payload = {
         "id": furniture_id,
         "name": "Gondola",
         "type": "gondola",
         "libraryId": "gondola-standard",
-        "position": [0.0, 0.0, 0.0],
+        "position": [x, 0.0, 0.0],
         "rotation": [0.0, 0.0, 0.0],
         "dimensions": {"width": 120.0, "depth": 60.0, "height": 200.0},
     }
@@ -124,7 +124,7 @@ def test_concurrent_furniture_updates_no_lost_write() -> None:
     """Two concurrent furniture updates on the same project must both survive."""
     project_id = _create_project()
     furniture_id_a = _add_furniture(project_id)
-    furniture_id_b = _add_furniture(project_id)
+    furniture_id_b = _add_furniture(project_id, x=300.0)
 
     rotation_a = [0.0, 1.5707963267948966, 0.0]
     rotation_b = [0.0, 3.141592653589793, 0.0]
@@ -169,3 +169,24 @@ def test_concurrent_furniture_updates_no_lost_write() -> None:
     assert item_b["rotation"] == rotation_b, (
         f"Furniture B rotation lost: {item_b['rotation']}"
     )
+
+
+def test_furniture_cannot_overlap_an_existing_footprint() -> None:
+    """The API rejects inserts that would occupy an existing furniture footprint."""
+    project_id = _create_project()
+    _add_furniture(project_id)
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/scene/furniture",
+        json={
+            "id": str(uuid4()),
+            "name": "Overlapping gondola",
+            "type": "gondola",
+            "libraryId": "gondola-standard",
+            "position": [50.0, 0.0, 0.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 120.0, "depth": 60.0, "height": 200.0},
+        },
+    )
+
+    assert response.status_code == 409

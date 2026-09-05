@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { loadRatio, useAssetStore } from './assetStore';
 
 describe('assetStore', () => {
@@ -61,6 +61,46 @@ describe('assetStore', () => {
     expect(useAssetStore.getState().preloadThrottled).toBe(false);
 
     (globalThis as { Image?: unknown }).Image = previousImage;
+  });
+
+  it('persists remotely hosted product images across store resets', async () => {
+    const previousImage = (globalThis as { Image?: unknown }).Image;
+    const previousCaches = globalThis.caches;
+    const previousFetch = globalThis.fetch;
+    const stored = new Map<string, Response>();
+    const cache = {
+      match: async (url: string) => stored.get(url)?.clone(),
+      put: async (url: string, response: Response) => { stored.set(url, response.clone()); },
+    };
+    Object.defineProperty(globalThis, 'caches', {
+      configurable: true,
+      value: { open: async () => cache },
+    });
+    const fetchMock = vi.fn(async () => new Response('product image'));
+    globalThis.fetch = fetchMock;
+    (globalThis as { Image?: unknown }).Image = class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin = '';
+      set src(_value: string) { this.onload?.(); }
+    };
+
+    try {
+      const urls = new Map([['1', 'https://example.com/product.png']]);
+      useAssetStore.getState().reset();
+      await useAssetStore.getState().preloadProductImages(urls);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      useAssetStore.getState().reset();
+      await useAssetStore.getState().preloadProductImages(urls);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useAssetStore.getState().productImages.size).toBe(1);
+    } finally {
+      useAssetStore.getState().reset();
+      Object.defineProperty(globalThis, 'caches', { configurable: true, value: previousCaches });
+      globalThis.fetch = previousFetch;
+      (globalThis as { Image?: unknown }).Image = previousImage;
+    }
   });
 
   it('loadRatio combines planogram and image progress', () => {

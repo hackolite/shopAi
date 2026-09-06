@@ -25,11 +25,23 @@ import type { FurnitureInstance, Planogram } from './types/cad';
 import { findFreeFurniturePosition } from './engine/furnitureCollision';
 
 const DEFAULT_PROJECT = 'retail_cad';
+/** localStorage key remembering the last opened project so F5 restores it. */
+const LAST_PROJECT_STORAGE_KEY = 'shopai.lastProjectId';
 /** Offset in cm applied to X and Z when pasting a copied gondola. */
 const PASTE_OFFSET_CM = 150;
 
+function readStoredProjectId(): string {
+  try {
+    return localStorage.getItem(LAST_PROJECT_STORAGE_KEY) ?? DEFAULT_PROJECT;
+  } catch {
+    return DEFAULT_PROJECT;
+  }
+}
+
 export default function App() {
-  const [projectId, setProjectId]     = useState<string>(DEFAULT_PROJECT);
+  // Restore the last opened project so a page refresh (F5) brings the user
+  // back into the project they were working on instead of the default one.
+  const [projectId, setProjectId]     = useState<string>(readStoredProjectId);
   const [projectName, setProjectName] = useState<string>('Retail CAD');
   const [projects, setProjects]       = useState<{ id: string; name: string }[]>([]);
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
@@ -63,6 +75,15 @@ export default function App() {
   // without depending on the state value (which would recreate the callback).
   const projectIdRef = useRef<string>(projectId);
   projectIdRef.current = projectId;
+
+  // Remember the current project so a reload (F5) reopens it.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAST_PROJECT_STORAGE_KEY, projectId);
+    } catch {
+      // Storage unavailable (private mode…): reload will fall back to default.
+    }
+  }, [projectId]);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const simulationHistoryLength = useSimulationStore((state) => state.history.length);
   const selectSimulationWaypoint = useSimulationStore((state) => state.selectWaypoint);
@@ -156,6 +177,16 @@ export default function App() {
       useAssetStore.getState().finishLoading();
       if (loadingProjectIdRef.current === id) {
         console.error('Failed to load project data:', err);
+        // The restored project may have been deleted since the last visit:
+        // fall back to the default project instead of showing an empty app.
+        if (id !== DEFAULT_PROJECT) {
+          try {
+            localStorage.removeItem(LAST_PROJECT_STORAGE_KEY);
+          } catch {
+            // ignore storage failures
+          }
+          setProjectId(DEFAULT_PROJECT);
+        }
       } else {
         // Stale load that was superseded — log at lower severity so the error
         // isn't silently lost but doesn't spam the console.

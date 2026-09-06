@@ -514,13 +514,31 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         .catch((error) => {
           if (isStale(projectId)) return;
           console.error('Failed to hot-update live simulation:', error);
-          if (isSessionNotFoundError(error)) handleLostSession();
+          if (isSessionNotFoundError(error)) {
+            handleLostSession();
+            return;
+          }
+          // Constraint rejection (e.g. furniture moved too close to a
+          // waypoint): the backend kept the previous layout running, so keep
+          // the session alive and highlight the offending waypoint instead.
+          const correction = extractConstraintCorrection(error);
+          const point = correction ? null : extractConstraintPoint(error);
+          const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, config.waypoints) : null);
+          if (invalidWaypointId) {
+            setInvalidWaypointIds([invalidWaypointId]);
+            setInvalidWaypointSuggestion(
+              correction && correction.waypointId && hasDistinctConstraintSuggestion(correction)
+                ? { waypointId: correction.waypointId, xCm: correction.suggestedXcm as number, zCm: correction.suggestedZcm as number }
+                : null,
+            );
+            selectWaypoint(invalidWaypointId);
+          }
         });
     }, 200);
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [config, handleLostSession, isStale, liveSessionId, playing, projectId, scene, setPaused, setResult]);
+  }, [config, handleLostSession, isStale, liveSessionId, playing, projectId, scene, selectWaypoint, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
 
   // Stop the backend live session when the panel unmounts *or* when the user
   // switches project, so the previous project's session does not keep running

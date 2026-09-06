@@ -454,16 +454,35 @@ class LiveSimulationSession:
     def update(self, scene: SceneData, config: SimulationConfig) -> SimulationResult:
         with self.lock:
             self.last_accessed_at = time()
+            # Validate the new layout BEFORE touching any session state.  A
+            # constraint violation (e.g. furniture moved too close to a
+            # waypoint) must reject the update and leave the running session
+            # fully intact; mutating first used to leave the session half
+            # rebuilt (new scene, old sim) and broke every later tick/update.
+            walkable = simsvc._build_walkable_geometry(scene)
+            entries, transit, exits = simsvc._partition_waypoints(scene, config)
+            simsvc._validate_waypoint_constraints([*entries, *transit, *exits], walkable)
             carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]] = []
             for agent in self.sim.agents():
                 route = self.agent_routes.get(int(agent.id))
                 if route is None:
                     continue
                 carry_agents.append((route, (float(agent.position[0]), float(agent.position[1]))))
-            self.scene = scene
-            self.config = config
-            self.analytics_recorder.configure(scene)
-            self._init_runtime(carry_agents=carry_agents)
+            previous_scene = self.scene
+            previous_config = self.config
+            try:
+                self.scene = scene
+                self.config = config
+                self.analytics_recorder.configure(scene)
+                self._init_runtime(carry_agents=carry_agents)
+            except Exception:
+                # Any failure while rebuilding the runtime: roll back to the
+                # previous (known-good) scene so the session keeps working.
+                self.scene = previous_scene
+                self.config = previous_config
+                self.analytics_recorder.configure(previous_scene)
+                self._init_runtime(carry_agents=carry_agents)
+                raise
             self._capture_frame()
             return self.snapshot()
 

@@ -26,13 +26,15 @@ import {
   GRID_CELL_CM,
   furnitureCentreCm,
   gridPlaneSpec,
-  snapFurnitureCentreCm,
-  snapFurniturePositionCm,
   snapSizeToCell,
   snapToCell,
   type GridOriginCm,
 } from '../engine/gridSnap';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
+import {
+  magnetiseFurnitureCentreCm,
+  magnetiseFurniturePositionCm,
+} from '../engine/furnitureMagnet';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m) — one grid cell. */
@@ -894,14 +896,13 @@ interface TransformProxyProps {
 
 function TransformProxy({ furniture, transformTarget, mode, projectId }: TransformProxyProps) {
   const { updateFurniture } = useSceneStore();
-  const gridOrigin = useGridOrigin();
 
   // Latest scene furniture, read through a ref so drag callbacks never go stale.
   const sceneFurnitureRef = useRef<readonly FurnitureInstance[]>([]);
   sceneFurnitureRef.current = useSceneStore((state) => state.scene?.furniture) ?? [];
 
-  // Last collision-free snapped centre (cm) of the dragged footprint; used to
-  // block the gizmo from entering a cell already occupied by another furniture.
+  // Last collision-free centre (cm) of the dragged footprint; used to block
+  // the gizmo from entering a spot already occupied by another furniture.
   const lastFreeCentreRef = useRef<{ x: number; z: number } | null>(null);
   useEffect(() => {
     lastFreeCentreRef.current = furnitureCentreCm(furniture.position, furniture.dimensions);
@@ -918,22 +919,21 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
   );
 
   /**
-   * Snap the dragged object so the corner of its (possibly rotated) footprint
-   * sits exactly on a grid cell border, and block ("aimantage") any snapped
-   * cell already occupied by another furniture — the object stays magnetised
-   * on the last collision-free cell instead of overlapping.
+   * Magnetise the dragged object onto neighbouring furniture ("aimantation
+   * mobilier") — collage face à face et alignement des arêtes, sans aucun
+   * calage sur la grille sol — and block any position that would overlap a
+   * neighbour: the object stays on the last collision-free spot instead.
    * `transformTarget.position` holds the footprint centre, so the correction
    * is applied there.
    */
-  const snapTargetToGrid = useCallback(() => {
+  const magnetiseTarget = useCallback(() => {
     const obj = transformTarget;
     if (!obj || mode !== 'translate') return;
-    const centre = snapFurnitureCentreCm(
+    const centre = magnetiseFurnitureCentreCm(
       obj.position.x / CM_TO_UNIT,
       obj.position.z / CM_TO_UNIT,
-      furniture.dimensions,
-      furniture.rotation[1],
-      gridOrigin,
+      furniture,
+      sceneFurnitureRef.current,
     );
     const candidate: FurnitureInstance = {
       ...furniture,
@@ -947,7 +947,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
     }
     obj.position.x = centre.x * CM_TO_UNIT;
     obj.position.z = centre.z * CM_TO_UNIT;
-  }, [transformTarget, mode, furniture, gridOrigin, positionFromCentre]);
+  }, [transformTarget, mode, furniture, positionFromCentre]);
 
   const handleMouseUp = useCallback(() => {
     const obj = transformTarget;
@@ -957,17 +957,15 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const W = furniture.dimensions.width  * CM_TO_UNIT;
       const H = furniture.dimensions.height * CM_TO_UNIT;
       const D = furniture.dimensions.depth  * CM_TO_UNIT;
-      let newPos = snapFurniturePositionCm(
-        [
-          (obj.position.x - W / 2) / CM_TO_UNIT,
-          0,
-          (obj.position.z - D / 2) / CM_TO_UNIT,
-        ],
-        furniture.dimensions,
-        furniture.rotation[1],
-        gridOrigin,
+      // Free-precision drop, magnetised on the neighbouring furniture only.
+      const centre = magnetiseFurnitureCentreCm(
+        obj.position.x / CM_TO_UNIT,
+        obj.position.z / CM_TO_UNIT,
+        furniture,
+        sceneFurnitureRef.current,
       );
-      // Never persist an overlapping drop: fall back to the last free cell
+      let newPos = positionFromCentre(centre.x, centre.z);
+      // Never persist an overlapping drop: fall back to the last free spot
       // seen during the drag, or to the furniture's stored position.
       if (!canPlaceFurniture({ ...furniture, position: newPos }, sceneFurnitureRef.current)) {
         newPos = lastFreeCentreRef.current
@@ -1005,15 +1003,14 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       updateFurniture(updated);
       if (projectId) cadApi.updateFurniture(projectId, furniture.id, updated).catch(console.error);
     }
-  }, [furniture, transformTarget, mode, projectId, updateFurniture, gridOrigin, positionFromCentre]);
+  }, [furniture, transformTarget, mode, projectId, updateFurniture, positionFromCentre]);
 
   return (
     <TransformControls
       object={transformTarget}
       mode={mode}
-      translationSnap={SNAP_UNIT}
       rotationSnap={Math.PI / 2}
-      onObjectChange={snapTargetToGrid}
+      onObjectChange={magnetiseTarget}
       onMouseUp={handleMouseUp}
     />
   );
@@ -1466,9 +1463,6 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
   const { planogramDetails, syncPlanogram } = usePlanogramStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
-  const gridOrigin = useGridOrigin();
-  const gridOriginRef = useRef(gridOrigin);
-  gridOriginRef.current = gridOrigin;
 
   const ry  = furniture.rotation[1] * (Math.PI / 180);
   const px  = furniture.position[0] * CM_TO_UNIT;
@@ -1574,7 +1568,7 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
 
       const snappedW = snapSizeToCell(cur.dimensions.width, MIN_DIM_CM);
       const snappedD = snapSizeToCell(cur.dimensions.depth, MIN_DIM_CM);
-      let snappedPos: [number, number, number] = [...cur.position];
+      const snappedPos: [number, number, number] = [...cur.position];
 
       if (sign === -1) {
         if (dragAxis.current === 'width') {
@@ -1583,14 +1577,6 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
           snappedPos[2] = base.position[2] + base.dimensions.depth - snappedD;
         }
       }
-
-      // Re-align the resized footprint on the grid cells.
-      snappedPos = snapFurniturePositionCm(
-        snappedPos,
-        { width: snappedW, depth: snappedD },
-        cur.rotation[1],
-        gridOriginRef.current,
-      );
 
       const snapped: FurnitureInstance = {
         ...cur,
@@ -2062,9 +2048,10 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   const { gl, raycaster, camera } = useThree();
   const registerGroup = useContext(MeshRegistryCtx);
   const [hovered, setHovered] = useState(false);
-  const gridOrigin = useGridOrigin();
-  const gridOriginRef = useRef(gridOrigin);
-  gridOriginRef.current = gridOrigin;
+
+  // Latest scene furniture, read through a ref so drag callbacks never go stale.
+  const sceneFurnitureRef = useRef<readonly FurnitureInstance[]>([]);
+  sceneFurnitureRef.current = useSceneStore((state) => state.scene?.furniture) ?? [];
 
   const isSelected = selectedFurnitureId === furniture.id;
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
@@ -2105,12 +2092,12 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
-        // Snap live so the item visibly clicks onto the grid cells while dragging.
-        const position = snapFurniturePositionCm(
+        // Free-precision move, magnetised on the neighbouring furniture only
+        // (collage bord à bord) — no floor-grid snapping.
+        const position = magnetiseFurniturePositionCm(
           [base.position[0] + dx / CM_TO_UNIT, base.position[1], base.position[2] + dz / CM_TO_UNIT],
-          base.dimensions,
-          base.rotation[1],
-          gridOriginRef.current,
+          base,
+          sceneFurnitureRef.current,
         );
         // Record a single undo snapshot for the whole drag gesture.
         updateFurniture(
@@ -2125,17 +2112,11 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       if (!isDragging.current) return;
       cancelAnimationFrame(rafId);
       isDragging.current = false;
+      // The store already holds the last collision-free magnetised position:
+      // persist it as-is, with total precision.
       const cur = curFurnRef.current;
-      const snapped: FurnitureInstance = {
-        ...cur,
-        position: snapFurniturePositionCm(cur.position, cur.dimensions, cur.rotation[1], gridOriginRef.current),
-      };
-      // If no move frame captured history but snapping still changes the
-      // furniture, record one undo entry so the change stays undoable.
-      const snapChanged = snapped.position[0] !== cur.position[0] || snapped.position[2] !== cur.position[2];
-      updateFurniture(snapped, { recordHistory: !historyCapturedRef.current && snapChanged });
       historyCapturedRef.current = false;
-      if (projectId) cadApi.updateFurniture(projectId, snapped.id, snapped).catch(console.error);
+      if (projectId) cadApi.updateFurniture(projectId, cur.id, cur).catch(console.error);
     };
 
     gl.domElement.addEventListener('pointermove', onMove);
@@ -2256,9 +2237,6 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
   const { planogramDetails, syncPlanogram } = usePlanogramStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
-  const gridOrigin = useGridOrigin();
-  const gridOriginRef = useRef(gridOrigin);
-  gridOriginRef.current = gridOrigin;
 
   const ry = furniture.rotation[1] * (Math.PI / 180);
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
@@ -2392,7 +2370,7 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
 
       const snappedW = snapSizeToCell(cur.dimensions.width, MIN_DIM_CM);
       const snappedD = snapSizeToCell(cur.dimensions.depth, MIN_DIM_CM);
-      let snappedPos: [number, number, number] = [...cur.position];
+      const snappedPos: [number, number, number] = [...cur.position];
 
       {
         const curRy = cur.rotation[1] * (Math.PI / 180);
@@ -2419,14 +2397,6 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
           }
         }
       }
-
-      // Re-align the resized footprint on the grid cells.
-      snappedPos = snapFurniturePositionCm(
-        snappedPos,
-        { width: snappedW, depth: snappedD },
-        cur.rotation[1],
-        gridOriginRef.current,
-      );
 
       const snapped: FurnitureInstance = {
         ...cur,

@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import type { FurnitureInstance, Scene, Selection, StoreConfig } from '../types/cad';
 import type { Vec3 } from '../types/cad';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
-import { snapFurniturePositionCm } from '../engine/gridSnap';
 
 /** Maximum number of undo steps to keep in memory. */
 const MAX_HISTORY = 50;
@@ -113,20 +112,9 @@ export const useSceneStore = create<SceneState>((set) => ({
   updateFurniture: (furniture, options) =>
     set((state) => {
       if (!state.scene) return {};
-      const origin = {
-        x: state.scene.store.position?.[0] ?? 0,
-        z: state.scene.store.position?.[2] ?? 0,
-      };
-      const snapped = {
-        ...furniture,
-        position: snapFurniturePositionCm(
-          furniture.position,
-          furniture.dimensions,
-          furniture.rotation[1],
-          origin,
-        ),
-      };
-      if (!canPlaceFurniture(snapped, state.scene.furniture)) return {};
+      // Free-precision placement: no floor-grid snapping, only the
+      // collision guard — overlapping updates are rejected.
+      if (!canPlaceFurniture(furniture, state.scene.furniture)) return {};
       return {
         history: options?.recordHistory === false
           ? state.history
@@ -134,7 +122,7 @@ export const useSceneStore = create<SceneState>((set) => ({
         scene: {
           ...state.scene,
           furniture: state.scene.furniture.map((item) =>
-            item.id === snapped.id ? snapped : item,
+            item.id === furniture.id ? furniture : item,
           ),
         },
       };

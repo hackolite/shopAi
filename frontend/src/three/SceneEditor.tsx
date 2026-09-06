@@ -64,6 +64,23 @@ const GRID_Y_OFFSET = 0.005;
 /** Shared up-vector reused across components to avoid per-render allocations. */
 const UP_VEC3 = new THREE.Vector3(0, 1, 0);
 
+/**
+ * Maximum pointer travel (px between pointer-down and pointer-up) for a gesture
+ * to still count as a "click" on selection-changing handlers.
+ *
+ * react-three-fiber fires `onClick` on pointer-up no matter how far the pointer
+ * moved — it only exposes the travelled distance as `event.delta` and leaves
+ * filtering to the application. Without this guard, releasing an orbit drag or
+ * a TransformControls gizmo drag over the floor/a mesh was treated as a click:
+ * the floor's deselect handler then removed the selection, unmounting the
+ * transform gizmo mid-gesture ("the move/rotate axes disappear and furniture
+ * cannot be moved").
+ */
+const CLICK_DELTA_PX = 5;
+
+/** True when the pointer travelled too far for the gesture to be a click. */
+const isDragRelease = (event: ThreeEvent<MouseEvent>): boolean => event.delta > CLICK_DELTA_PX;
+
 // ─── Resize handle appearance ─────────────────────────────────────────────────
 const HANDLE_SIZE    = 0.12;
 const HANDLE_COLOR   = '#ffcc00';
@@ -483,6 +500,8 @@ function PlanogramFaceOverlay({
 
   const handleClick = useCallback((event: ThreeEvent<MouseEvent>) => {
     if (!planogram) return;
+    // Ignore drag releases (camera orbit / gizmo drag ending on this face).
+    if (isDragRelease(event)) return;
 
     // Ctrl+click (or Cmd+click on Mac) → open the planogram in the editor
     if (event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) {
@@ -747,6 +766,8 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    // Ignore drag releases (camera orbit / gizmo drag ending on this furniture).
+    if (isDragRelease(e)) return;
     // Keep an active product (planogram cell) selection: clicking the gondola body
     // must not replace it — products deselect one by one or by clicking outside
     // the scene entirely.
@@ -1059,7 +1080,11 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const gridX = gridPlaneSpec(store.position?.[0] ?? 0, store.dimensions.width);
   const gridZ = gridPlaneSpec(store.position?.[2] ?? 0, store.dimensions.depth);
 
-  const handleFloorClick = () => {
+  const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
+    // Never deselect on a drag release: ending an orbit/pan or a transform-gizmo
+    // drag over the floor is not a click, and deselecting here would unmount the
+    // TransformControls gizmo in the middle of the user's gesture.
+    if (isDragRelease(event)) return;
     // Keep an active product (planogram cell) selection: clicking the floor must
     // not clear it — products deselect one by one or by clicking outside the scene.
     if (useSceneStore.getState().selection.type === 'planogram_cell') return;
@@ -1135,6 +1160,7 @@ function StoreBoundary({
   };
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    if (isDragRelease(e)) return;
     onSelect();
   };
 
@@ -1666,6 +1692,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const { selectFurniture } = useSceneStore();
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
+  const setResizeDragging = useContext(ResizeDragCtx);
   const [hovered, setHovered] = useState(false);
   const gridOrigin = useGridOrigin();
   const gridOriginRef = useRef(gridOrigin);
@@ -1711,6 +1738,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       if (!isDragging.current) return;
       cancelAnimationFrame(rafId);
       isDragging.current = false;
+      setResizeDragging(false);
       const cur = curZoneRef.current;
       updateZone({
         ...cur,
@@ -1726,7 +1754,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, raycaster, camera, dragPlane, updateZone]);
+  }, [gl, raycaster, camera, dragPlane, updateZone, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -1738,6 +1766,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, e.clientX, e.clientY, _ndc.current, dragStart.current)) return;
     baseZoneRef.current = curZoneRef.current;
     isDragging.current  = true;
+    // Freeze OrbitControls for the whole body-drag so the camera cannot
+    // rotate/pan at the same time as the zone is being moved.
+    setResizeDragging(true);
     gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
   };
 
@@ -2047,6 +2078,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
   const registerGroup = useContext(MeshRegistryCtx);
+  const setResizeDragging = useContext(ResizeDragCtx);
   const [hovered, setHovered] = useState(false);
 
   // Latest scene furniture, read through a ref so drag callbacks never go stale.
@@ -2112,6 +2144,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       if (!isDragging.current) return;
       cancelAnimationFrame(rafId);
       isDragging.current = false;
+      setResizeDragging(false);
       // The store already holds the last collision-free magnetised position:
       // persist it as-is, with total precision.
       const cur = curFurnRef.current;
@@ -2126,7 +2159,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
     };
-  }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId]);
+  }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId, setResizeDragging]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -2141,6 +2174,9 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
     baseFurnRef.current = curFurnRef.current;
     historyCapturedRef.current = false;
     isDragging.current  = true;
+    // Freeze OrbitControls for the whole body-drag so the camera cannot
+    // rotate/pan at the same time as the furniture is being moved.
+    setResizeDragging(true);
     gl.domElement.setPointerCapture(e.nativeEvent.pointerId);
   };
 
@@ -2148,7 +2184,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
     if (activeTool === 'measure') return;
     e.stopPropagation();
     // In rotate mode, clicking still selects the piece (pointer down doesn't do it above).
-    if (activeTool === 'rotate') {
+    if (activeTool === 'rotate' && !isDragRelease(e)) {
       selectFurniture(furniture.id);
       selectZone(null);
     }
@@ -2512,6 +2548,7 @@ function MeasureLineHit({
       }}
       onClick={(e) => {
         e.stopPropagation();
+        if (isDragRelease(e)) return;
         onSelect();
       }}
     >
@@ -2581,6 +2618,8 @@ function MeasureTool({ store }: { store: StoreConfig }) {
 
   const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
+    // A camera-drag release over the floor must not drop a measure point.
+    if (isDragRelease(event)) return;
     const point = snapToGrid(event.point.clone());
 
     if (!drawStart) {
@@ -2981,15 +3020,19 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         )}
 
         {/*
-          Orbit controls: fully disabled while any resize drag is in progress so
-          that the camera does not spin / pan at the same time.  Rotation is also
-          disabled whenever furniture or a zone is selected, or in BEV mode.
+          Orbit controls: fully disabled while any body/resize drag is in
+          progress so that the camera does not spin / pan at the same time.
+          Rotation stays available while furniture or a zone is selected —
+          drei's TransformControls automatically disables these (makeDefault)
+          controls for the duration of a gizmo drag via its 'dragging-changed'
+          event, so there is no conflict between moving the camera and moving
+          the selection.
         */}
         <OrbitControls
           makeDefault
           target={initialOrbitTarget.current}
           enabled={!isResizeDragging && !selectedWaypointId}
-          enableRotate={!isResizeDragging && !selectedFurnitureId && !selectedZoneId && !selectedWaypointId && !bevMode}
+          enableRotate={!isResizeDragging && !selectedWaypointId && !bevMode}
           maxPolarAngle={bevMode ? BEV_MAX_POLAR_ANGLE : Math.PI}
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}

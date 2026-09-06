@@ -436,15 +436,18 @@ function InstancedAgents({
     <>
       <instancedMesh ref={envelopeRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
         <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
-        <meshBasicMaterial transparent opacity={0.55} depthWrite={false} vertexColors />
+        {/* No `vertexColors` here: these geometries have no `color` attribute, and
+            the flag would multiply by an unbound (black) attribute, erasing the
+            per-instance colours.  setColorAt() is applied automatically. */}
+        <meshBasicMaterial transparent opacity={0.55} depthWrite={false} />
       </instancedMesh>
       <instancedMesh ref={bodyRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
         <sphereGeometry args={[0.11, 20, 20]} />
-        <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} vertexColors />
+        <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} />
       </instancedMesh>
       <instancedMesh ref={coneRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
         <circleGeometry args={[coneRange, 28, coneThetaStart, coneThetaLength]} />
-        <meshBasicMaterial transparent opacity={0.18} depthWrite={false} vertexColors />
+        <meshBasicMaterial transparent opacity={0.18} depthWrite={false} />
       </instancedMesh>
     </>
   );

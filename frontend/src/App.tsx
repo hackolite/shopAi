@@ -23,6 +23,7 @@ import { useProjectStore } from './store/projectStore';
 import { resetProjectStores } from './store/projectSwitch';
 import type { FurnitureInstance, Planogram } from './types/cad';
 import { findFreeFurniturePosition } from './engine/furnitureCollision';
+import { directionFromKey, navigatePlanogramCell } from './engine/planogramCellNavigation';
 
 const DEFAULT_PROJECT = 'retail_cad';
 /** localStorage key remembering the last opened project so F5 restores it. */
@@ -495,6 +496,35 @@ export default function App() {
         selectFurniture(null);
         selectSimulationWaypoint(null);
         return;
+      }
+
+      // Arrow keys → navigate between products of the planogram selected in 3D
+      const arrowDirection = directionFromKey(e.key);
+      if (arrowDirection && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const selection = useSceneStore.getState().selection;
+        if (selection.type === 'planogram_cell' && selection.planogramId && selection.cellIds?.length) {
+          // Arrows are captured while a product is selected: never scroll the page.
+          e.preventDefault();
+          const planogram = usePlanogramStore.getState().planogramDetails.get(selection.planogramId);
+          if (!planogram) return;
+          const currentCellId = selection.cellIds[selection.cellIds.length - 1];
+          const next = navigatePlanogramCell(planogram, currentCellId, arrowDirection);
+          if (!next) return;
+          useSceneStore.getState().setSelection({
+            type: 'planogram_cell',
+            ean: next.ean,
+            furnitureId: planogram.furnitureId,
+            planogramId: planogram.id,
+            cellIds: [next.id],
+            cells: [{
+              planogramId: planogram.id,
+              furnitureId: planogram.furnitureId,
+              cellId: next.id,
+              ean: next.ean,
+            }],
+          });
+          return;
+        }
       }
 
       // Tool shortcuts (no modifier)

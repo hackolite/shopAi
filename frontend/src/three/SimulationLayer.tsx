@@ -416,7 +416,10 @@ function InstancedAgents({
       bodyRef.current.setMatrixAt(index, dummy.matrix);
 
       dummy.position.set(pose.x, 0.015, pose.z);
-      dummy.rotation.set(-Math.PI / 2, pose.heading, 0);
+      // Heading must spin the flattened circle around its own normal (local Z
+      // after the -PI/2 X flip). Putting it on the Y euler tilts the sector
+      // vertically off the floor because XYZ order applies Y before X.
+      dummy.rotation.set(-Math.PI / 2, 0, pose.heading);
       dummy.updateMatrix();
       coneRef.current.setMatrixAt(index, dummy.matrix);
       lastPoseById.current.set(id, pose);

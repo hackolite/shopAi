@@ -840,6 +840,129 @@ def test_live_simulation_hot_update_keeps_agents_when_furniture_covers_them() ->
     assert stop.status_code == 200, stop.text
 
 
+def test_live_simulation_hot_update_rejects_invalid_layout_and_keeps_session() -> None:
+    """Furniture moved onto a waypoint must reject the update, not break the session.
+
+    The constraint violation used to be raised *after* the session had already
+    swapped in the new scene, leaving it half rebuilt: every later tick/update
+    failed and the UI froze until a full reload.  The update must now be
+    transactional: 422 with the waypoint detail, previous layout kept running.
+    """
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["store"]["zones"] = []
+    scene["furniture"] = []
+    config = {
+        "arrivalRatePerSecond": 0.6,
+        "maxCustomers": 20,
+        "randomSeed": 9,
+        "waypoints": [
+            {
+                "id": "entry-main",
+                "type": "entry",
+                "label": "Entrée",
+                "x": 2500.0,
+                "z": 220.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "transit-main",
+                "type": "transit",
+                "label": "Allée",
+                "x": 2500.0,
+                "z": 1700.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+            {
+                "id": "exit-main",
+                "type": "exit",
+                "label": "Sortie",
+                "x": 2500.0,
+                "z": 2800.0,
+                "radiusCm": 120.0,
+                "optional": False,
+                "visitProbability": 1.0,
+                "retentionSeconds": 0.0,
+                "visionAngleDeg": 70.0,
+                "visionRangeCm": 220.0,
+            },
+        ],
+    }
+
+    start = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={"scene": scene, "config": config},
+    )
+    assert start.status_code == 200, start.text
+    session_id = start.json()["sessionId"]
+
+    tick = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 5},
+    )
+    assert tick.status_code == 200, tick.text
+    time_before = tick.json()["result"]["frames"][-1]["timeSeconds"]
+
+    # Move a furniture block right on top of the transit waypoint.
+    bad_scene = {
+        **scene,
+        "furniture": [
+            {
+                "id": "block-on-waypoint",
+                "name": "Bloc",
+                "type": "gondola",
+                "libraryId": "fixture-block",
+                "position": [2300.0, 0.0, 1500.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 400.0, "depth": 400.0, "height": 200.0},
+                "visible": True,
+                "mounted": True,
+                "locked": False,
+                "childIds": [],
+                "faces": {},
+            }
+        ],
+    }
+    update = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/update",
+        json={"scene": bad_scene, "config": config},
+    )
+    assert update.status_code == 422, update.text
+    detail = update.json()["detail"]
+    assert detail["waypointId"] == "transit-main"
+
+    # The session keeps running on the previous (valid) layout.
+    tick_after = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 5},
+    )
+    assert tick_after.status_code == 200, tick_after.text
+    assert tick_after.json()["result"]["frames"][-1]["timeSeconds"] > time_before
+
+    # A subsequent valid hot update still succeeds.
+    ok_update = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/update",
+        json={"scene": scene, "config": config},
+    )
+    assert ok_update.status_code == 200, ok_update.text
+
+    stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
+    assert stop.status_code == 200, stop.text
+
+
 def test_live_simulation_exposes_analytics_and_queue_wait_times() -> None:
     project_id = _create_project()
     scene_response = client.get(f"/api/cad/projects/{project_id}/scene")

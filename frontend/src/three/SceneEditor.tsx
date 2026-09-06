@@ -367,6 +367,28 @@ function PlanogramFaceOverlay({
     if (missing.size > 0) void preloadProductImages(missing);
   }, [planogram, products, preloadProductImages]);
 
+  // Per-planogram image key: number of THIS planogram's product images present in
+  // the shared cache. `imageVersion` bumps globally each time any image lands, but
+  // rebuilding every face texture on every global bump allocates hundreds of MB of
+  // canvases while the catalogue preloads (notably during a live simulation) and was
+  // a major source of browser out-of-memory crashes. Recomputing this cheap count on
+  // each bump — and only rebuilding the texture when it changes — keeps the same
+  // progressive redraw behaviour for this planogram at a fraction of the cost.
+  const loadedImagesKey = useMemo(() => {
+    if (!planogram) return 0;
+    let loaded = 0;
+    const seen = new Set<string>();
+    for (const cell of planogram.cells) {
+      if (seen.has(cell.ean)) continue;
+      seen.add(cell.ean);
+      if (loadedImages.has(cell.ean)) loaded += 1;
+    }
+    return loaded;
+  // `imageVersion` is a dependency (not read in the body) because `loadedImages`
+  // is a Map mutated in place: the version bump is what signals new entries.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planogram, loadedImages, imageVersion]);
+
   const texture = useMemo(() => {
     if (!planogram) return null;
     const productByEan = new Map(products.map((p) => [p.ean, p]));
@@ -412,10 +434,11 @@ function PlanogramFaceOverlay({
     // planogram (its left) therefore lands on the same physical (+X) end of the
     // gondola as a column appended to the front — keeping the two faces coherent.
     return tex;
-  // `imageVersion` is a dependency (not read in the body) so the texture is
-  // rebuilt each time a product image lands in the shared cache.
+  // `loadedImagesKey` is a dependency (not read in the body) so the texture is
+  // rebuilt each time one of THIS planogram's product images lands in the shared
+  // cache — never when unrelated planograms' images load.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planogram, products, loadedImages, imageVersion]);
+  }, [planogram, products, loadedImages, loadedImagesKey]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };

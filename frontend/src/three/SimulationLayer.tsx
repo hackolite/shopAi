@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -275,11 +275,6 @@ const AGENT_VISION_ANGLE_DEG = 70;
 const AGENT_VISION_RANGE_CM = 220;
 const RENDER_BUFFER_SECONDS = 0.25;
 const MAX_EXTRAPOLATION_SECONDS = 0.35;
-const INSTANCED_AGENT_THRESHOLD = 40;
-// Hysteresis: once instanced mode is entered it is not abandoned until the count
-// drops well below the on-threshold, preventing constant mode flipping (and the
-// material / texture loss that comes with it) when agent count hovers around 40.
-const INSTANCED_AGENT_HYSTERESIS_OFF = 30;
 // Fixed GPU buffer capacity: the instancedMesh is allocated once with this
 // many slots so Three.js never destroys/recreates it when agents arrive or
 // depart.  mesh.count is updated imperatively to tell the renderer how many
@@ -307,64 +302,17 @@ interface AgentPose {
   heading: number;
 }
 
-interface AgentMarkerHandle {
-  setPosition(x: number, z: number): void;
-  setConeHeading(y: number): void;
-}
-
 function steerAngle(current: number, target: number, maxDelta: number): number {
   const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
   const clampedDelta = Math.max(-maxDelta, Math.min(maxDelta, wrappedDelta));
   return current + clampedDelta;
 }
 
-const AgentMarker = forwardRef<AgentMarkerHandle, { colorDark: string; colorLight: string }>(
-  function AgentMarker({ colorDark, colorLight }, ref) {
-    const groupRef = useRef<THREE.Group>(null);
-    const coneGroupRef = useRef<THREE.Group>(null);
-
-    useImperativeHandle(ref, () => ({
-      setPosition(x: number, z: number) {
-        if (groupRef.current) {
-          groupRef.current.position.x = x;
-          groupRef.current.position.z = z;
-        }
-      },
-      setConeHeading(y: number) {
-        if (coneGroupRef.current) {
-          coneGroupRef.current.rotation.y = y;
-        }
-      },
-    }));
-
-    const thetaLength = THREE.MathUtils.degToRad(AGENT_VISION_ANGLE_DEG);
-    const thetaStart = -thetaLength / 2;
-    const envelopeOuter = ANTICOLLISION_RADIUS_CM * CM_TO_UNIT;
-    const envelopeInner = envelopeOuter * 0.82;
-
-    return (
-      <group ref={groupRef}>
-        {/* Anti-collision envelope ring */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
-          <meshBasicMaterial color={colorLight} transparent opacity={0.55} depthWrite={false} />
-        </mesh>
-        {/* Centre body sphere */}
-        <mesh position={[0, 0.22, 0]}>
-          <sphereGeometry args={[0.11, 20, 20]} />
-          <meshStandardMaterial color={colorDark} emissive={colorDark} emissiveIntensity={0.4} />
-        </mesh>
-        {/* Direction cone sector — rotates with heading */}
-        <group ref={coneGroupRef}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
-            <circleGeometry args={[AGENT_VISION_RANGE_CM * CM_TO_UNIT, 28, thetaStart, thetaLength]} />
-            <meshBasicMaterial color={colorLight} transparent opacity={0.18} depthWrite={false} />
-          </mesh>
-        </group>
-      </group>
-    );
-  },
-);
+// Agents are ALWAYS rendered through the fixed-capacity instanced meshes below.
+// A previous per-agent React component path (<AgentMarker>) leaked orphaned
+// Group/Mesh subtrees into the Three.js scene on every agent arrival/departure
+// (never removed nor disposed), which grew the renderer memory without bound
+// during long live sessions and eventually crashed the tab out of memory.
 
 function InstancedAgents({
   agentSlots,
@@ -657,7 +605,6 @@ export function SimulationLayer() {
   const prevAgentIds = useRef<Set<number>>(new Set());
   const colorAssignments = useRef<Map<number, number>>(new Map());
   const nextColorCounter = useRef(0);
-  const agentRefs = useRef<Map<number, AgentMarkerHandle>>(new Map());
   const agentPoses = useRef<Map<number, AgentPose>>(new Map());
   const cachedFrameAIdx = useRef(-1);
   const cachedResultFrames = useRef<import('../types/cad').SimulationFrame[] | null>(null);
@@ -674,18 +621,7 @@ export function SimulationLayer() {
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
     () => new Map(),
   );
-  // Hysteresis: once instanced mode activates (≥ INSTANCED_AGENT_THRESHOLD) it stays
-  // active until count drops below INSTANCED_AGENT_HYSTERESIS_OFF.  This prevents
-  // repeated instanced↔standard flipping when the agent count hovers near the
-  // threshold, which destroys and recreates materials causing texture-loss glitches.
-  const instancedActiveRef = useRef(false);
-  const count = agentSlots.size;
-  if (count >= INSTANCED_AGENT_THRESHOLD) instancedActiveRef.current = true;
-  else if (count < INSTANCED_AGENT_HYSTERESIS_OFF) instancedActiveRef.current = false;
-  const useInstancedAgents = instancedActiveRef.current;
-  const useInstancedAgentsRef = useRef(useInstancedAgents);
   const showProfilingHud = import.meta.env.DEV;
-  useInstancedAgentsRef.current = useInstancedAgents;
 
   useEffect(() => {
     prevAgentIds.current = new Set();
@@ -698,7 +634,6 @@ export function SimulationLayer() {
     cachedFrameB.current = null;
     cachedCurrentIds.current = new Set();
     renderTimeRef.current = -1;
-    instancedActiveRef.current = false;
     profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
     setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
@@ -878,10 +813,6 @@ export function SimulationLayer() {
         : targetHeading;
 
       agentPoses.current.set(agentB.id, { x, z, heading });
-      if (!useInstancedAgentsRef.current) {
-        agentRefs.current.get(agentB.id)?.setPosition(x, z);
-        agentRefs.current.get(agentB.id)?.setConeHeading(heading);
-      }
     }
   });
   // --- end smooth playback ---
@@ -921,25 +852,11 @@ export function SimulationLayer() {
       {showTrajectories && analytics && analytics.trajectories.length > 0 && (
         <TrajectoryOverlay trajectories={analytics.trajectories} />
       )}
-      {useInstancedAgents ? (
-        <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
-      ) : (
-        [...agentSlots.entries()].map(([id, { colorDark, colorLight }]) => (
-          <AgentMarker
-            key={id}
-            ref={(handle) => {
-              if (handle) agentRefs.current.set(id, handle);
-              else agentRefs.current.delete(id);
-            }}
-            colorDark={colorDark}
-            colorLight={colorLight}
-          />
-        ))
-      )}
+      <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
       {showProfilingHud && (
         <Html position={[0, 2.2, 0]} distanceFactor={12}>
           <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">
-            {profilingText} · agents {agentSlots.size} · {useInstancedAgents ? 'instanced' : 'standard'}
+            {profilingText} · agents {agentSlots.size} · instanced
           </div>
         </Html>
       )}

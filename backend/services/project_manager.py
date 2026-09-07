@@ -27,6 +27,7 @@ _ALLOWED_FILENAMES = frozenset({
     "materials.json",
     "settings.json",
     "textures.json",
+    "pedestrians.json",
 })
 _SAFE_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 

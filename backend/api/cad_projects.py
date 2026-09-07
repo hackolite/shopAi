@@ -805,3 +805,43 @@ def get_pedestrians(project_id: str):
     if stored is None:
         return PedestrianImportResult(pedestrianCount=0, rowCount=0).model_dump(mode="json")
     return PedestrianImportResult.model_validate(stored).model_dump(mode="json")
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/load-pedestrians")
+def load_pedestrians_into_live_simulation(project_id: str, session_id: str):
+    """Load the project's last imported pedestrian CSV into a running session.
+
+    Once loaded, spawning switches from the Poisson arrival process to the
+    CSV schedule (pedestrians spawn in ``start_unix_ts`` order), and each
+    pedestrian's journey is augmented with a pickup stop (variable 1s-4s
+    retention) for every product resolved to a shelf position.
+    """
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+    stored = load_project_file(project_id, "pedestrians.json")
+    if stored is None:
+        raise HTTPException(status_code=404, detail="No pedestrian CSV has been imported for this project yet")
+    result = PedestrianImportResult.model_validate(stored)
+    session.load_pedestrian_plans(result.plans)
+    return {"sessionId": session_id, "pedestrianCount": len(result.plans)}
+
+
+@router.get("/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket")
+def get_live_agent_basket(project_id: str, session_id: str, agent_id: int):
+    """Detail panel for one pedestrian: its basket with pick/not-picked status."""
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+    basket = session.basket_for(agent_id)
+    if basket is None:
+        raise HTTPException(status_code=404, detail=f"No pedestrian basket found for agent '{agent_id}'")
+    return basket.model_dump(mode="json")

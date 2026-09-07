@@ -652,7 +652,7 @@ def _vision_for_agent(config: SimulationConfig, stage_waypoint):
     return (float(stage_waypoint.visionAngleDeg), float(stage_waypoint.visionRangeCm))
 
 
-def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
+def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> int | None:
     """Advance the retention queue for one simulation step.
 
     Each agent is individually timed from the moment it reaches its queue slot
@@ -661,6 +661,9 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
     (``pop(1)``) and moves on to the next stage.  The next agent's personal timer
     then governs its own wait — so every agent waits the full configured retention
     duration regardless of when others arrived.
+
+    Returns the agent id released this tick (its journey has just moved on to the
+    stage after this waypoint), or ``None`` if nobody was released.
     """
     current_enqueued: set[int] = set(runtime.stage.enqueued())
 
@@ -675,7 +678,7 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
             del runtime.enqueue_times[agent_id]
 
     if not current_enqueued:
-        return
+        return None
 
     # The front-of-queue is the agent who reached its slot earliest.
     front_agent = min(runtime.enqueue_times, key=runtime.enqueue_times.__getitem__)
@@ -690,6 +693,8 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> None:
         # cleanup does not find a stale record and the newly promoted front
         # agent is correctly identified from the start.
         del runtime.enqueue_times[front_agent]
+        return front_agent
+    return None
 
 
 def _freeze_retained_agents(

@@ -78,6 +78,31 @@ export function advancePlaybackClock(
   return Math.max(previousRenderTime, Math.min(ceiling, advanced));
 }
 
+/**
+ * Whether the next `advancePlaybackClock` call will hard-snap the render clock
+ * (large desync — CSV import stalling the live tick loop, backgrounded tab,
+ * server session reset…) rather than smoothly catching up.
+ *
+ * Callers should reset any per-agent position smoothing state when this
+ * returns true: `advancePlaybackClock` snaps the *time*, but the agents'
+ * on-screen positions are still exponentially smoothed towards their new
+ * (now far away) target, which otherwise makes them visibly dash/teleport
+ * across the whole scene over the following frames instead of cleanly
+ * reappearing at their resynced position.
+ */
+export function isClockResnap(
+  previousRenderTime: number,
+  latestFrameTime: number,
+  options: Pick<PlaybackClockOptions, 'targetBufferSeconds' | 'resnapThresholdSeconds'>,
+): boolean {
+  if (previousRenderTime < 0) return true;
+  const idealRenderTime = Math.max(0, latestFrameTime - options.targetBufferSeconds);
+  return (
+    idealRenderTime - previousRenderTime > options.resnapThresholdSeconds ||
+    previousRenderTime - latestFrameTime > options.resnapThresholdSeconds
+  );
+}
+
 export function clampNoReverseStep(
   previousX: number,
   previousZ: number,

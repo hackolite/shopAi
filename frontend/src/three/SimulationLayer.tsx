@@ -12,6 +12,7 @@ import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { useUIStore } from '../store/uiStore';
+import { PickupPopups } from './PickupPopups';
 import type { AgentTrajectory, SimulationHeatmap } from '../types/cad';
 
 const WAYPOINT_CONE_BASE_Y = 0.95;
@@ -435,16 +436,32 @@ function InstancedAgents({
 
   if (count === 0) return null;
 
+  const handleAgentClick = (event: { stopPropagation: () => void; instanceId?: number }) => {
+    event.stopPropagation();
+    if (event.instanceId == null) return;
+    const entry = orderedAgents[event.instanceId];
+    if (!entry) return;
+    useSimulationStore.getState().selectAgent(entry[0]);
+  };
+
   return (
     <>
-      <instancedMesh ref={envelopeRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
+      <instancedMesh
+        ref={envelopeRef}
+        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
+        onPointerDown={handleAgentClick}
+      >
         <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
         {/* No `vertexColors` here: these geometries have no `color` attribute, and
             the flag would multiply by an unbound (black) attribute, erasing the
             per-instance colours.  setColorAt() is applied automatically. */}
         <meshBasicMaterial transparent opacity={0.55} depthWrite={false} />
       </instancedMesh>
-      <instancedMesh ref={bodyRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
+      <instancedMesh
+        ref={bodyRef}
+        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
+        onPointerDown={handleAgentClick}
+      >
         <sphereGeometry args={[0.11, 20, 20]} />
         <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} />
       </instancedMesh>
@@ -585,6 +602,7 @@ export function SimulationLayer() {
   const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
   const catalogProducts = useCatalogStore((state) => state.products);
   const showTrajectories = useSimulationStore((state) => state.showTrajectories);
+  const pickupPopups = useSimulationStore((state) => state.pickupPopups);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
@@ -859,6 +877,7 @@ export function SimulationLayer() {
         <TrajectoryOverlay trajectories={analytics.trajectories} />
       )}
       <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
+      <PickupPopups popups={pickupPopups} agentPoses={agentPoses} />
       {showProfilingHud && (
         <Html position={[0, 2.2, 0]} distanceFactor={12}>
           <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">

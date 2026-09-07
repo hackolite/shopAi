@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
 import { isSessionNotFoundError } from '../../engine/liveSession';
 import {
@@ -215,6 +215,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setHeatmapMode,
     showTrajectories,
     setShowTrajectories,
+    pedestrianImport,
+    setPedestrianImport,
+    selectedAgentId,
+    setAgentBasket,
+    setJourneyBaskets,
+    pushPickupEvents,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,6 +229,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analyticsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingAnalytics = useRef(false);
+  const journeyBasketsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingJourneyBaskets = useRef(false);
+  const pendingAgentBasket = useRef(false);
+  const pedestrianFileInput = useRef<HTMLInputElement>(null);
+  const [pedestrianImportStatus, setPedestrianImportStatus] = useState<string | null>(null);
+  const [pedestrianLoadStatus, setPedestrianLoadStatus] = useState<string | null>(null);
   const lastSimulationSignature = useRef<string | null>(null);
   /**
    * The live session currently running on the backend, together with the
@@ -427,6 +439,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           if (isStale(projectId)) return;
           setResult(live.result);
           setPaused(live.paused);
+          const events = live.result.pickupEvents;
+          if (events && events.length > 0) {
+            const lastFrame = live.result.frames[live.result.frames.length - 1];
+            const positions = new Map<number, { xCm: number; zCm: number }>(
+              (lastFrame?.agents ?? []).map((agent) => [agent.id, { xCm: agent.xCm, zCm: agent.zCm }]),
+            );
+            pushPickupEvents(events, positions);
+          }
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -443,7 +463,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         tickTimer.current = null;
       }
     };
-  }, [handleLostSession, isStale, liveSessionId, loadedProjectId, paused, playing, projectId, setPaused, setResult]);
+  }, [handleLostSession, isStale, liveSessionId, loadedProjectId, paused, playing, projectId, pushPickupEvents, setPaused, setResult]);
 
   // Heatmap and trajectories are only fetched while one of the overlays is on,
   // and at a much lower rate than the agent ticks: their payload is far bigger
@@ -492,6 +512,101 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     heatmapMode,
     showTrajectories,
   ]);
+
+  // « Parcours client » panel: every pedestrian basket seen so far, refreshed
+  // at the same low rate as analytics (its payload grows with the CSV size).
+  useEffect(() => {
+    if (!projectId || loadedProjectId !== projectId) return;
+    if (!liveSessionId || !playing) return;
+    const fetchJourneyBaskets = () => {
+      if (isStale(projectId) || pendingJourneyBaskets.current) return;
+      pendingJourneyBaskets.current = true;
+      void cadApi
+        .listLiveAgentBaskets(projectId, liveSessionId)
+        .then((payload) => {
+          if (isStale(projectId)) return;
+          setJourneyBaskets(payload.baskets);
+        })
+        .catch((error) => {
+          if (isStale(projectId)) return;
+          console.error('Failed to fetch pedestrian baskets:', error);
+          if (isSessionNotFoundError(error)) handleLostSession();
+        })
+        .finally(() => {
+          pendingJourneyBaskets.current = false;
+        });
+    };
+    fetchJourneyBaskets();
+    if (journeyBasketsTimer.current) clearInterval(journeyBasketsTimer.current);
+    journeyBasketsTimer.current = setInterval(fetchJourneyBaskets, ANALYTICS_INTERVAL_MS);
+    return () => {
+      if (journeyBasketsTimer.current) {
+        clearInterval(journeyBasketsTimer.current);
+        journeyBasketsTimer.current = null;
+      }
+    };
+  }, [handleLostSession, isStale, liveSessionId, loadedProjectId, playing, projectId, setJourneyBaskets]);
+
+  // Pedestrian detail panel: refresh the selected agent's basket whenever the
+  // selection changes and while the simulation keeps ticking.
+  useEffect(() => {
+    if (!projectId || !liveSessionId || selectedAgentId == null) return;
+    const fetchBasket = () => {
+      if (isStale(projectId) || pendingAgentBasket.current) return;
+      pendingAgentBasket.current = true;
+      void cadApi
+        .getLiveAgentBasket(projectId, liveSessionId, selectedAgentId)
+        .then((basket) => {
+          if (isStale(projectId)) return;
+          setAgentBasket(basket);
+        })
+        .catch((error) => {
+          if (isStale(projectId)) return;
+          console.error('Failed to fetch pedestrian basket:', error);
+        })
+        .finally(() => {
+          pendingAgentBasket.current = false;
+        });
+    };
+    fetchBasket();
+    const timer = setInterval(fetchBasket, ANALYTICS_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [isStale, liveSessionId, projectId, selectedAgentId, setAgentBasket]);
+
+  const importPedestrianCsv = useCallback(
+    async (file: File) => {
+      if (!projectId) return;
+      setPedestrianImportStatus('Import en cours…');
+      try {
+        const result = await cadApi.importPedestrians(projectId, file);
+        setPedestrianImport(result);
+        setPedestrianImportStatus(
+          `✓ ${result.pedestrianCount} piéton(s), ${result.anomalies.length} anomalie(s)`,
+        );
+      } catch (error) {
+        console.error('Failed to import pedestrian CSV:', error);
+        setPedestrianImportStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur import');
+      }
+    },
+    [projectId, setPedestrianImport],
+  );
+
+  const loadPedestriansIntoSession = useCallback(async () => {
+    if (!projectId || !liveSessionId) return;
+    setPedestrianLoadStatus('Chargement…');
+    try {
+      const response = await cadApi.loadPedestriansIntoLiveSimulation(projectId, liveSessionId);
+      setPedestrianLoadStatus(`✓ ${response.pedestrianCount} piéton(s) planifié(s)`);
+    } catch (error) {
+      console.error('Failed to load pedestrians into live simulation:', error);
+      setPedestrianLoadStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur chargement');
+    }
+  }, [liveSessionId, projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    cadApi.getPedestrians(projectId).then(setPedestrianImport).catch(() => undefined);
+  }, [projectId, setPedestrianImport]);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
@@ -644,6 +759,52 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               {running ? '⏳ Simulation en cours…' : '▶ Lancer la simulation'}
             </button>
           )}
+        </section>
+
+        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Piétons &amp; paniers (CSV)
+          </h4>
+          <p className="text-[11px] leading-snug text-gray-500">
+            Colonnes attendues : pedestrian_id, start_unix_ts, speed_mps, profile_json, ean
+          </p>
+          <button
+            onClick={() => pedestrianFileInput.current?.click()}
+            className="w-full rounded bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+          >
+            Importer un CSV piétons
+          </button>
+          <input
+            ref={pedestrianFileInput}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importPedestrianCsv(file);
+              event.target.value = '';
+            }}
+          />
+          {pedestrianImportStatus && <p className="text-[11px] text-gray-400">{pedestrianImportStatus}</p>}
+          {pedestrianImport && pedestrianImport.pedestrianCount > 0 && (
+            <p className="text-[11px] text-gray-500">
+              Dernier import : {pedestrianImport.pedestrianCount} piéton(s), {pedestrianImport.rowCount} ligne(s)
+              {pedestrianImport.anomalies.length > 0 ? `, ${pedestrianImport.anomalies.length} anomalie(s)` : ''}
+            </p>
+          )}
+          <button
+            onClick={() => void loadPedestriansIntoSession()}
+            disabled={!liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0}
+            className={[
+              'w-full rounded px-3 py-2 text-xs font-semibold text-white transition-colors',
+              !liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0
+                ? 'bg-emerald-700 opacity-50 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-500 cursor-pointer',
+            ].join(' ')}
+          >
+            Charger dans la simulation live
+          </button>
+          {pedestrianLoadStatus && <p className="text-[11px] text-gray-400">{pedestrianLoadStatus}</p>}
         </section>
 
         <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">

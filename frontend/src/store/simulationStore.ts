@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import type {
+  AgentBasket,
+  PedestrianImportResult,
+  PickupEvent,
   SimulationAnalytics,
   SimulationConfig,
   SimulationResult,
@@ -46,6 +49,21 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
 /** Floor heatmap intensity source. */
 export type HeatmapMode = 'traffic' | 'margin' | 'yield';
 
+/** How long a gamified pickup pop-up stays on screen before fading out. */
+export const PICKUP_POPUP_DURATION_MS = 1600;
+
+/** A transient, world-anchored pop-up shown when an agent picks a product. */
+export interface PickupPopup {
+  id: string;
+  agentId: number;
+  pedestrianId: number;
+  ean: string;
+  name: string | null;
+  xCm: number;
+  zCm: number;
+  createdAt: number;
+}
+
 interface SimulationState {
   config: SimulationConfig;
   result: SimulationResult | null;
@@ -70,6 +88,17 @@ interface SimulationState {
   /** Same as `pinnedJourneyMetrics` for the exposed-margin (rendement) tiles. */
   pinnedYieldMetrics: YieldMetricId[];
   history: SimulationConfig[];
+  /** Last pedestrian CSV imported for this project (basket import feature). */
+  pedestrianImport: PedestrianImportResult | null;
+  /** Stable agent id of the pedestrian clicked in the 3D scene, if any. */
+  selectedAgentId: number | null;
+  /** Basket detail (picked/not-picked) of the currently selected pedestrian. */
+  agentBasket: AgentBasket | null;
+  /** Every pedestrian basket seen so far in the running session, for the
+   * « parcours client » panel. */
+  journeyBaskets: AgentBasket[];
+  /** Transient gamified pop-ups shown above agents that just picked a product. */
+  pickupPopups: PickupPopup[];
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
   addWaypoint: (type?: SimulationWaypoint['type'], position?: { x: number; z: number }) => void;
@@ -92,6 +121,16 @@ interface SimulationState {
   toggleJourneyMetric: (id: JourneyMetricId) => void;
   /** Toggles one exposed-margin metric tile in/out of the pinned HUD selection. */
   toggleYieldMetric: (id: YieldMetricId) => void;
+  setPedestrianImport: (result: PedestrianImportResult | null) => void;
+  selectAgent: (id: number | null) => void;
+  setAgentBasket: (basket: AgentBasket | null) => void;
+  setJourneyBaskets: (baskets: AgentBasket[]) => void;
+  /** Turns freshly-completed pickup events into transient world-anchored pop-ups. */
+  pushPickupEvents: (
+    events: PickupEvent[],
+    agentPositions: Map<number, { xCm: number; zCm: number }>,
+  ) => void;
+  removePickupPopup: (id: string) => void;
   /** Clears every simulation state. Called when switching project. */
   reset: () => void;
 }
@@ -113,6 +152,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   pinnedJourneyMetrics: [],
   pinnedYieldMetrics: [],
   history: [],
+  pedestrianImport: null,
+  selectedAgentId: null,
+  agentBasket: null,
+  journeyBaskets: [],
+  pickupPopups: [],
   setConfig: (config) =>
     set({
       config: normalizeConfig(config),
@@ -229,6 +273,36 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         ? state.pinnedYieldMetrics.filter((metricId) => metricId !== id)
         : [...state.pinnedYieldMetrics, id],
     })),
+  setPedestrianImport: (result) => set({ pedestrianImport: result }),
+  selectAgent: (id) => set({ selectedAgentId: id, agentBasket: null }),
+  setAgentBasket: (basket) => set({ agentBasket: basket }),
+  setJourneyBaskets: (baskets) => set({ journeyBaskets: baskets }),
+  pushPickupEvents: (events, agentPositions) =>
+    set((state) => {
+      if (events.length === 0) return {};
+      const now = performance.now();
+      const created = events.map((event) => {
+        const position = agentPositions.get(event.agentId);
+        return {
+          id: `${event.agentId}-${event.ean}-${event.timeSeconds}-${Math.random().toString(36).slice(2, 8)}`,
+          agentId: event.agentId,
+          pedestrianId: event.pedestrianId,
+          ean: event.ean,
+          name: event.name,
+          xCm: position?.xCm ?? 0,
+          zCm: position?.zCm ?? 0,
+          createdAt: now,
+        };
+      });
+      created.forEach((popup) => {
+        window.setTimeout(() => {
+          useSimulationStore.getState().removePickupPopup(popup.id);
+        }, PICKUP_POPUP_DURATION_MS);
+      });
+      return { pickupPopups: [...state.pickupPopups, ...created] };
+    }),
+  removePickupPopup: (id) =>
+    set((state) => ({ pickupPopups: state.pickupPopups.filter((popup) => popup.id !== id) })),
   reset: () =>
     set({
       config: defaultSimulationConfig(),
@@ -244,5 +318,10 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       pinnedJourneyMetrics: [],
       pinnedYieldMetrics: [],
       history: [],
+      pedestrianImport: null,
+      selectedAgentId: null,
+      agentBasket: null,
+      journeyBaskets: [],
+      pickupPopups: [],
     }),
 }));

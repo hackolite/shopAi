@@ -1,9 +1,11 @@
 import type {
+  AgentBasket,
   CADProduct,
   Catalog,
   FurnitureDefinition,
   FurnitureInstance,
   Material,
+  PedestrianImportResult,
   Planogram,
   PlanogramSummary,
   ProjectMeta,
@@ -227,6 +229,26 @@ export const cadApi = {
     request<{ stopped: boolean; sessionId: string }>(`${BASE}/${id}/simulation/live/${sessionId}/stop`, {
       method: 'POST',
     }),
+
+  importPedestrians: (id: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<PedestrianImportResult>(`${BASE}/${id}/simulation/import-pedestrians`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+  getPedestrians: (id: string) =>
+    request<PedestrianImportResult>(`${BASE}/${id}/simulation/pedestrians`),
+  loadPedestriansIntoLiveSimulation: (id: string, sessionId: string) =>
+    request<{ sessionId: string; pedestrianCount: number }>(
+      `${BASE}/${id}/simulation/live/${sessionId}/load-pedestrians`,
+      { method: 'POST' },
+    ),
+  getLiveAgentBasket: (id: string, sessionId: string, agentId: number) =>
+    request<AgentBasket>(`${BASE}/${id}/simulation/live/${sessionId}/agents/${agentId}/basket`),
+  listLiveAgentBaskets: (id: string, sessionId: string) =>
+    request<{ baskets: AgentBasket[] }>(`${BASE}/${id}/simulation/live/${sessionId}/baskets`),
 
   getFurnitureLibrary: () =>
     request<{ furniture: FurnitureDefinition[] }>(LIB_BASE),

@@ -22,6 +22,13 @@ interface SimulationPanelProps {
 const LIVE_TICK_INTERVAL_MS = 100;
 /** Heatmap and trajectories change slowly: refresh them far less often than agents. */
 const ANALYTICS_INTERVAL_MS = 1000;
+/**
+ * Upper bound on the number of backend steps requested by a single tick, so a
+ * tab that was hidden/throttled for a long time catches up progressively
+ * (a few ticks in a row) instead of one huge, slow request. At 100ms/step
+ * this is 5 simulated seconds per call.
+ */
+const MAX_CATCH_UP_STEPS = 50;
 
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)} s`;
@@ -34,6 +41,8 @@ function NumberField({
   min,
   max,
   step,
+  disabled,
+  title,
 }: {
   label: string;
   value: number;
@@ -41,9 +50,17 @@ function NumberField({
   min?: number;
   max?: number;
   step?: number;
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-gray-300">
+    <label
+      className={[
+        'flex items-center gap-2 text-xs text-gray-300',
+        disabled ? 'opacity-40' : '',
+      ].join(' ')}
+      title={title}
+    >
       <span className="w-28 shrink-0 text-gray-500">{label}</span>
       <input
         type="number"
@@ -51,8 +68,9 @@ function NumberField({
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none"
+        className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       />
     </label>
   );
@@ -226,6 +244,18 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingTick = useRef(false);
+  /**
+   * Wall-clock timestamp (ms) the simulation clock was last advanced up to.
+   * Background/inactive browser tabs throttle `setInterval` (down to ~1
+   * call/s, sometimes less), so a fixed "1 step per tick" would make the
+   * pedestrian CSV dequeue (driven by `time_seconds`, see
+   * `live_simulation.py::_spawn_pedestrians_if_due`) fall behind real time
+   * whenever the user navigates away from the tab. Tracking elapsed
+   * real time here lets every tick request the exact number of backend
+   * steps needed to catch the simulation clock back up to now, so it keeps
+   * running on schedule even while hidden.
+   */
+  const lastTickAt = useRef<number | null>(null);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analyticsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingAnalytics = useRef(false);
@@ -235,6 +265,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const pedestrianFileInput = useRef<HTMLInputElement>(null);
   const [pedestrianImportStatus, setPedestrianImportStatus] = useState<string | null>(null);
   const [pedestrianLoadStatus, setPedestrianLoadStatus] = useState<string | null>(null);
+  const [isImportingPedestrians, setIsImportingPedestrians] = useState(false);
+  const [isLoadingPedestrians, setIsLoadingPedestrians] = useState(false);
   const lastSimulationSignature = useRef<string | null>(null);
   /**
    * The live session currently running on the backend, together with the
@@ -426,15 +458,25 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (!projectId || loadedProjectId !== projectId) return;
     if (!liveSessionId || !playing || paused) return;
     pendingTick.current = false;
+    lastTickAt.current = performance.now();
     if (tickTimer.current) clearInterval(tickTimer.current);
     tickTimer.current = setInterval(() => {
       // Stop as soon as another project is being loaded, without waiting for
       // React to re-render this panel and clean the effect up.
       if (isStale(projectId)) return;
       if (pendingTick.current) return;
+      // Catch the simulation clock up to real elapsed time instead of always
+      // advancing by a single step: this keeps the pedestrian CSV dequeue
+      // (and every other time-driven behaviour) on schedule even when the
+      // browser throttles this interval in a background/hidden tab.
+      const now = performance.now();
+      const previousTickAt = lastTickAt.current ?? now;
+      const elapsedSteps = Math.max(1, Math.round((now - previousTickAt) / LIVE_TICK_INTERVAL_MS));
+      const steps = Math.min(MAX_CATCH_UP_STEPS, elapsedSteps);
+      lastTickAt.current = previousTickAt + steps * LIVE_TICK_INTERVAL_MS;
       pendingTick.current = true;
       void cadApi
-        .tickLiveSimulation(projectId, liveSessionId)
+        .tickLiveSimulation(projectId, liveSessionId, steps)
         .then((live) => {
           if (isStale(projectId)) return;
           setResult(live.result);
@@ -576,6 +618,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const importPedestrianCsv = useCallback(
     async (file: File) => {
       if (!projectId) return;
+      setIsImportingPedestrians(true);
       setPedestrianImportStatus('Import en cours…');
       try {
         const result = await cadApi.importPedestrians(projectId, file);
@@ -586,6 +629,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       } catch (error) {
         console.error('Failed to import pedestrian CSV:', error);
         setPedestrianImportStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur import');
+      } finally {
+        setIsImportingPedestrians(false);
       }
     },
     [projectId, setPedestrianImport],
@@ -593,6 +638,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   const loadPedestriansIntoSession = useCallback(async () => {
     if (!projectId || !liveSessionId) return;
+    setIsLoadingPedestrians(true);
     setPedestrianLoadStatus('Chargement…');
     try {
       const response = await cadApi.loadPedestriansIntoLiveSimulation(projectId, liveSessionId);
@@ -600,6 +646,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     } catch (error) {
       console.error('Failed to load pedestrians into live simulation:', error);
       setPedestrianLoadStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur chargement');
+    } finally {
+      setIsLoadingPedestrians(false);
     }
   }, [liveSessionId, projectId]);
 
@@ -669,6 +717,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     }
   }, [projectId]);
 
+  const pedestrianCsvLoaded = Boolean(pedestrianImport && pedestrianImport.pedestrianCount > 0);
+  const jupedsimFieldOverriddenTitle =
+    'Ce paramètre JuPedSim est ignoré : les piétons proviennent du CSV panier importé (arrivée et vitesse fixées par le CSV).';
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-gray-800 px-3 py-2">
@@ -690,6 +742,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             value={config.arrivalRatePerSecond}
             min={0}
             step={0.05}
+            disabled={pedestrianCsvLoaded}
+            title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ arrivalRatePerSecond: Math.max(0, value) })}
           />
           <NumberField
@@ -703,6 +757,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             label="Seed random"
             value={config.randomSeed}
             step={1}
+            disabled={pedestrianCsvLoaded}
+            title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ randomSeed: Math.round(value) })}
           />
           <NumberField
@@ -710,6 +766,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             value={config.desiredSpeedMps}
             min={0.5}
             step={0.05}
+            disabled={pedestrianCsvLoaded}
+            title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ desiredSpeedMps: Math.max(0.5, value) })}
           />
           <NumberField
@@ -717,6 +775,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             value={config.speedVariation}
             min={0}
             step={0.05}
+            disabled={pedestrianCsvLoaded}
+            title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ speedVariation: Math.max(0, value) })}
           />
           {playing ? (
@@ -770,9 +830,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           </p>
           <button
             onClick={() => pedestrianFileInput.current?.click()}
-            className="w-full rounded bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+            disabled={isImportingPedestrians}
+            className={[
+              'w-full rounded px-3 py-2 text-xs font-medium transition-colors',
+              isImportingPedestrians
+                ? 'bg-gray-800 text-gray-500 opacity-50 cursor-not-allowed'
+                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 cursor-pointer',
+            ].join(' ')}
           >
-            Importer un CSV piétons
+            {isImportingPedestrians ? '⏳ Import en cours…' : 'Importer un CSV piétons'}
           </button>
           <input
             ref={pedestrianFileInput}
@@ -794,15 +860,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           )}
           <button
             onClick={() => void loadPedestriansIntoSession()}
-            disabled={!liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0}
+            disabled={!liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0 || isLoadingPedestrians}
             className={[
               'w-full rounded px-3 py-2 text-xs font-semibold text-white transition-colors',
-              !liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0
+              !liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0 || isLoadingPedestrians
                 ? 'bg-emerald-700 opacity-50 cursor-not-allowed'
                 : 'bg-emerald-600 hover:bg-emerald-500 cursor-pointer',
             ].join(' ')}
           >
-            Charger dans la simulation live
+            {isLoadingPedestrians ? '⏳ Chargement…' : 'Charger dans la simulation live'}
           </button>
           {pedestrianLoadStatus && <p className="text-[11px] text-gray-400">{pedestrianLoadStatus}</p>}
         </section>

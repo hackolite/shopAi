@@ -1,7 +1,7 @@
 /**
  * Gamified pop-up shown above an agent right after it picks up a product:
  * a small bubble with a star/product icon (and the product name when short
- * enough to fit) that floats up and fades out over ~1.6s.
+ * enough to fit) that floats up and fades out slowly, over ~5s.
  *
  * Drawn as a THREE sprite (CanvasTexture) so it renders inside the WebGL
  * canvas — like `JourneyMetricsHud` — and stays visible in recorded videos.

@@ -50,7 +50,7 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
 export type HeatmapMode = 'traffic' | 'margin' | 'yield';
 
 /** How long a gamified pickup pop-up stays on screen before fading out. */
-export const PICKUP_POPUP_DURATION_MS = 1600;
+export const PICKUP_POPUP_DURATION_MS = 5000;
 
 /** A transient, world-anchored pop-up shown when an agent picks a product. */
 export interface PickupPopup {

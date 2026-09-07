@@ -174,3 +174,10 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
     assert basket_body["pedestrianId"] == 1
     assert basket_body["items"][0]["ean"] == "TESTEAN0"
     assert basket_body["items"][0]["picked"] is True
+
+    baskets = client.get(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/baskets"
+    )
+    assert baskets.status_code == 200, baskets.text
+    all_baskets = baskets.json()["baskets"]
+    assert any(basket["pedestrianId"] == 1 and basket["items"][0]["picked"] for basket in all_baskets)

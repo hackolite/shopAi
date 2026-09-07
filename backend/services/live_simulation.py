@@ -543,6 +543,17 @@ class LiveSimulationSession:
             active=active,
         )
 
+    def list_baskets(self) -> list[AgentBasket]:
+        """« Parcours client » panel payload: every pedestrian seen so far.
+
+        Baskets are kept for the lifetime of the session even after a
+        pedestrian has exited (``self.agent_baskets`` is never pruned), so
+        this always reflects the full run, not just currently active agents.
+        """
+        with self.lock:
+            baskets = [self.basket_for(stable_id) for stable_id in self.agent_baskets]
+        return [basket for basket in baskets if basket is not None]
+
     def _update_agent_route_indices(self) -> None:
         for agent in self.sim.agents():
             agent_id = int(agent.id)

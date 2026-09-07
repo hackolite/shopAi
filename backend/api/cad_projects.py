@@ -845,3 +845,16 @@ def get_live_agent_basket(project_id: str, session_id: str, agent_id: int):
     if basket is None:
         raise HTTPException(status_code=404, detail=f"No pedestrian basket found for agent '{agent_id}'")
     return basket.model_dump(mode="json")
+
+
+@router.get("/{project_id}/simulation/live/{session_id}/baskets")
+def list_live_agent_baskets(project_id: str, session_id: str):
+    """« Parcours client » panel: every pedestrian's basket seen in this session."""
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+    return {"baskets": [basket.model_dump(mode="json") for basket in session.list_baskets()]}

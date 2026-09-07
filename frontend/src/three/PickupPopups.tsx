@@ -1,7 +1,9 @@
 /**
  * Gamified pop-up shown above an agent right after it picks up a product:
- * a small bubble with a star/product icon (and the product name when short
- * enough to fit) that floats up and fades out slowly, over ~5s.
+ * a small bubble with a star/product icon and the product name (brand
+ * included when known) — always shown, wrapped/truncated onto a few lines
+ * when long rather than dropped — that floats up and fades out slowly,
+ * over ~5s.
  *
  * Drawn as a THREE sprite (CanvasTexture) so it renders inside the WebGL
  * canvas — like `JourneyMetricsHud` — and stays visible in recorded videos.
@@ -12,8 +14,6 @@ import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import { PICKUP_POPUP_DURATION_MS, type PickupPopup } from '../store/simulationStore';
 
-/** Product names longer than this are replaced by the icon alone. */
-const MAX_INLINE_NAME_LENGTH = 20;
 const CANVAS_WIDTH_PX = 320;
 const CANVAS_HEIGHT_PX = 150;
 const POPUP_WORLD_HEIGHT = 0.55;
@@ -36,7 +36,7 @@ const TARGET_NAME_WORLD_TEXT_HEIGHT =
  * at `TARGET_NAME_WORLD_TEXT_HEIGHT`, whatever canvas size wrapping needs. */
 const NAME_FONT_PX = 64;
 const NAME_LINE_HEIGHT_PX = Math.round(NAME_FONT_PX * 1.2);
-const MAX_NAME_LINES = 2;
+const MAX_NAME_LINES = 3;
 const NAME_CANVAS_WIDTH_PX = 480;
 const NAME_STAR_FONT_PX = 56;
 
@@ -119,7 +119,7 @@ function drawBubbleBackdrop(ctx: CanvasRenderingContext2D, canvasWidth: number, 
  * canvas aspect ratio and the world height to apply so the label (when
  * shown) always renders at `TARGET_NAME_WORLD_TEXT_HEIGHT`. */
 function drawPopupTexture(name: string | null): { texture: THREE.CanvasTexture; aspect: number; worldHeight: number } {
-  const showName = Boolean(name) && (name as string).length <= MAX_INLINE_NAME_LENGTH;
+  const showName = Boolean(name);
 
   if (!showName) {
     const canvas = document.createElement('canvas');

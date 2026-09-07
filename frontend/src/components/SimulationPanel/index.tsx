@@ -267,6 +267,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const [pedestrianLoadStatus, setPedestrianLoadStatus] = useState<string | null>(null);
   const [isImportingPedestrians, setIsImportingPedestrians] = useState(false);
   const [isLoadingPedestrians, setIsLoadingPedestrians] = useState(false);
+  /**
+   * The live session id the imported CSV was successfully loaded into (via
+   * `loadPedestriansIntoSession`). Cleared whenever a new CSV is imported, so
+   * the "Charger" button and the JuPedSim overrides only reflect the CSV
+   * actually running in the *current* live session — not merely imported.
+   */
+  const [pedestrianLoadedSessionId, setPedestrianLoadedSessionId] = useState<string | null>(null);
   const lastSimulationSignature = useRef<string | null>(null);
   /**
    * The live session currently running on the backend, together with the
@@ -626,6 +633,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         setPedestrianImportStatus(
           `✓ ${result.pedestrianCount} piéton(s), ${result.anomalies.length} anomalie(s)`,
         );
+        // A freshly imported CSV always needs an explicit "Charger" click
+        // before it drives the live simulation, so drop any previous
+        // "loaded" state (which would otherwise wrongly grey out the
+        // JuPedSim fields and disable the load button for the new CSV).
+        setPedestrianLoadedSessionId(null);
+        setPedestrianLoadStatus(null);
       } catch (error) {
         console.error('Failed to import pedestrian CSV:', error);
         setPedestrianImportStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur import');
@@ -643,6 +656,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     try {
       const response = await cadApi.loadPedestriansIntoLiveSimulation(projectId, liveSessionId);
       setPedestrianLoadStatus(`✓ ${response.pedestrianCount} piéton(s) planifié(s)`);
+      setPedestrianLoadedSessionId(liveSessionId);
     } catch (error) {
       console.error('Failed to load pedestrians into live simulation:', error);
       setPedestrianLoadStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur chargement');
@@ -717,9 +731,34 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     }
   }, [projectId]);
 
-  const pedestrianCsvLoaded = Boolean(pedestrianImport && pedestrianImport.pedestrianCount > 0);
+  // The CSV is only actually driving the live simulation once it has been
+  // explicitly loaded into the *current* session (see `loadPedestriansIntoSession`)
+  // and that session is running — not merely imported. Importing a new CSV
+  // (or losing/stopping the session) clears `pedestrianLoadedSessionId`.
+  const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
+  const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
   const jupedsimFieldOverriddenTitle =
-    'Ce paramètre JuPedSim est ignoré : les piétons proviennent du CSV panier importé (arrivée et vitesse fixées par le CSV).';
+    'Ce paramètre JuPedSim est ignoré : les piétons proviennent du CSV panier importé (arrivée et vitesse fixées par le CSV), chargé et en cours d\u2019exécution.';
+
+  // Countdown until the next CSV-scheduled pedestrian enters the store, shown
+  // while the loaded CSV drives spawning. Pedestrians are spawned in
+  // `startUnixTs` order (see `live_simulation.py::_spawn_pedestrians_if_due`),
+  // offset so the earliest one arrives at simulation time 0, so the next
+  // pending pedestrian is the one at index `spawnedCustomers`.
+  let nextPedestrianCountdownSeconds: number | null = null;
+  if (pedestrianCsvLoaded && pedestrianImport && pedestrianImport.plans.length > 0) {
+    const orderedPlans = [...pedestrianImport.plans].sort((a, b) => a.startUnixTs - b.startUnixTs);
+    const spawnedCount = result?.summary.spawnedCustomers ?? 0;
+    const nextPlan = orderedPlans[spawnedCount];
+    if (nextPlan) {
+      const firstStartUnixTs = orderedPlans[0].startUnixTs;
+      const scheduledAtSeconds = nextPlan.startUnixTs - firstStartUnixTs;
+      const currentTimeSeconds = result?.frames.length
+        ? result.frames[result.frames.length - 1].timeSeconds
+        : 0;
+      nextPedestrianCountdownSeconds = Math.max(0, scheduledAtSeconds - currentTimeSeconds);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -860,18 +899,38 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           )}
           <button
             onClick={() => void loadPedestriansIntoSession()}
-            disabled={!liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0 || isLoadingPedestrians}
+            disabled={
+              !liveSessionId ||
+              !pedestrianImport ||
+              pedestrianImport.pedestrianCount === 0 ||
+              isLoadingPedestrians ||
+              pedestrianLoadedIntoSession
+            }
             className={[
               'w-full rounded px-3 py-2 text-xs font-semibold text-white transition-colors',
-              !liveSessionId || !pedestrianImport || pedestrianImport.pedestrianCount === 0 || isLoadingPedestrians
+              !liveSessionId ||
+              !pedestrianImport ||
+              pedestrianImport.pedestrianCount === 0 ||
+              isLoadingPedestrians ||
+              pedestrianLoadedIntoSession
                 ? 'bg-emerald-700 opacity-50 cursor-not-allowed'
                 : 'bg-emerald-600 hover:bg-emerald-500 cursor-pointer',
             ].join(' ')}
           >
-            {isLoadingPedestrians ? '⏳ Chargement…' : 'Charger dans la simulation live'}
+            {isLoadingPedestrians
+              ? '⏳ Chargement…'
+              : pedestrianLoadedIntoSession
+                ? '✓ Chargé dans la simulation live'
+                : 'Charger dans la simulation live'}
           </button>
           {pedestrianLoadStatus && <p className="text-[11px] text-gray-400">{pedestrianLoadStatus}</p>}
+          {nextPedestrianCountdownSeconds !== null && (
+            <p className="text-[11px] font-medium text-emerald-400">
+              Prochain piéton entrant dans {formatSeconds(nextPedestrianCountdownSeconds)}
+            </p>
+          )}
         </section>
+
 
         <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
           <div className="flex items-center justify-between">

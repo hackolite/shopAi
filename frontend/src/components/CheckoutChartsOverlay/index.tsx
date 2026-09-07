@@ -13,6 +13,7 @@ import {
   journeyMetricDisplay,
 } from '../../engine/journeyMetrics';
 import { YIELD_METRIC_IDS, yieldMetricDisplay } from '../../engine/yieldMetrics';
+import { REVENUE_METRIC_IDS, computeRevenueSummary, revenueMetricDisplay } from '../../engine/revenueMetrics';
 
 /** Margin (px) kept between the panel and the edges of the 3D viewport. */
 const PANEL_MARGIN_PX = 16;
@@ -138,6 +139,9 @@ export default function CheckoutChartsOverlay() {
   const toggleJourneyMetric = useSimulationStore((state) => state.toggleJourneyMetric);
   const pinnedYieldMetrics = useSimulationStore((state) => state.pinnedYieldMetrics);
   const toggleYieldMetric = useSimulationStore((state) => state.toggleYieldMetric);
+  const pinnedRevenueMetrics = useSimulationStore((state) => state.pinnedRevenueMetrics);
+  const toggleRevenueMetric = useSimulationStore((state) => state.toggleRevenueMetric);
+  const journeyBaskets = useSimulationStore((state) => state.journeyBaskets);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragOffset = useRef<Point | null>(null);
@@ -207,6 +211,12 @@ export default function CheckoutChartsOverlay() {
   const journeySummary = useMemo(
     () => computeJourneySummary(analytics?.customers),
     [analytics?.customers],
+  );
+
+  // Aggregated revenue (CA) / margin metrics displayed as selectable tiles.
+  const revenueSummary = useMemo(
+    () => computeRevenueSummary(journeyBaskets, catalogProducts, analytics?.timeSeconds ?? 0),
+    [analytics?.timeSeconds, catalogProducts, journeyBaskets],
   );
 
   useEffect(() => {
@@ -515,6 +525,48 @@ export default function CheckoutChartsOverlay() {
                   Nécessite une simulation en cours et un assortiment valorisé (prix / marge).
                 </p>
               )}
+            </Section>
+
+            <Section
+              id="revenue"
+              title="Chiffre d'affaires (CA)"
+              subtitle={`${formatNumber(revenueSummary.totalRevenueEur, 0)} €`}
+              open={openSections.has('revenue')}
+              onToggle={toggleSection}
+            >
+              <p className="mb-1 text-[10px] leading-tight text-gray-500">
+                CA et marge réellement réalisés (articles pickés dans les paniers piétons),
+                cumulés depuis le début de la session.
+              </p>
+              <div className="mb-2 grid grid-cols-2 gap-1">
+                {REVENUE_METRIC_IDS.map((metricId) => {
+                  const pinned = pinnedRevenueMetrics.includes(metricId);
+                  const { label, value } = revenueMetricDisplay(metricId, revenueSummary);
+                  return (
+                    <button
+                      key={metricId}
+                      type="button"
+                      aria-pressed={pinned}
+                      title="Afficher en grand en haut à droite de la scène 3D (visible dans l'enregistrement vidéo)"
+                      onClick={() => toggleRevenueMetric(metricId)}
+                      className={`rounded border px-1.5 py-1 text-left transition-colors ${
+                        pinned
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-200'
+                          : 'border-gray-800 bg-black/30 text-gray-400 hover:border-gray-600 hover:bg-gray-800/60'
+                      }`}
+                    >
+                      <span className="block truncate text-[9px] uppercase tracking-wide opacity-80">
+                        {label}
+                      </span>
+                      <span className="block text-[12px] font-semibold">{value}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-[10px] leading-tight text-gray-600">
+                Cliquer sur une tuile pour l'afficher en grand en haut à droite de la scène
+                (incluse dans l'enregistrement vidéo). Totaux = addition sur tous les clients.
+              </p>
             </Section>
 
             <Section

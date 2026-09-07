@@ -10,6 +10,7 @@ import type {
 } from '../types/cad';
 import type { JourneyMetricId } from '../engine/journeyMetrics';
 import type { YieldMetricId } from '../engine/yieldMetrics';
+import type { RevenueMetricId } from '../engine/revenueMetrics';
 
 const MAX_HISTORY = 50;
 
@@ -87,6 +88,8 @@ interface SimulationState {
   pinnedJourneyMetrics: JourneyMetricId[];
   /** Same as `pinnedJourneyMetrics` for the exposed-margin (rendement) tiles. */
   pinnedYieldMetrics: YieldMetricId[];
+  /** Same as `pinnedJourneyMetrics` for the CA/marge (revenue) tiles. */
+  pinnedRevenueMetrics: RevenueMetricId[];
   history: SimulationConfig[];
   /** Last pedestrian CSV imported for this project (basket import feature). */
   pedestrianImport: PedestrianImportResult | null;
@@ -121,6 +124,8 @@ interface SimulationState {
   toggleJourneyMetric: (id: JourneyMetricId) => void;
   /** Toggles one exposed-margin metric tile in/out of the pinned HUD selection. */
   toggleYieldMetric: (id: YieldMetricId) => void;
+  /** Toggles one CA/marge metric tile in/out of the pinned HUD selection. */
+  toggleRevenueMetric: (id: RevenueMetricId) => void;
   setPedestrianImport: (result: PedestrianImportResult | null) => void;
   selectAgent: (id: number | null) => void;
   setAgentBasket: (basket: AgentBasket | null) => void;
@@ -151,6 +156,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   invalidWaypointSuggestion: null,
   pinnedJourneyMetrics: [],
   pinnedYieldMetrics: [],
+  pinnedRevenueMetrics: [],
   history: [],
   pedestrianImport: null,
   selectedAgentId: null,
@@ -273,6 +279,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         ? state.pinnedYieldMetrics.filter((metricId) => metricId !== id)
         : [...state.pinnedYieldMetrics, id],
     })),
+  toggleRevenueMetric: (id) =>
+    set((state) => ({
+      pinnedRevenueMetrics: state.pinnedRevenueMetrics.includes(id)
+        ? state.pinnedRevenueMetrics.filter((metricId) => metricId !== id)
+        : [...state.pinnedRevenueMetrics, id],
+    })),
   setPedestrianImport: (result) => set({ pedestrianImport: result }),
   selectAgent: (id) => set({ selectedAgentId: id, agentBasket: null }),
   setAgentBasket: (basket) => set({ agentBasket: basket }),
@@ -317,6 +329,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointSuggestion: null,
       pinnedJourneyMetrics: [],
       pinnedYieldMetrics: [],
+      pinnedRevenueMetrics: [],
       history: [],
       pedestrianImport: null,
       selectedAgentId: null,

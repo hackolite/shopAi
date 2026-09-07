@@ -12,7 +12,6 @@ import SceneHierarchy from './components/SceneHierarchy';
 import CatalogPanel from './components/CatalogPanel';
 import Inspector from './components/Inspector';
 import PedestrianDetailPanel from './components/PedestrianDetailPanel';
-import CustomerJourneyPanel from './components/CustomerJourneyPanel';
 import PlanogramEditor from './components/PlanogramEditor';
 import NameDialog from './components/NameDialog';
 import ExportDialog from './components/ExportDialog';
@@ -50,7 +49,7 @@ export default function App() {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
   const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [rightTab, setRightTab] = useState<'inspector' | 'simulation' | 'pedestrian' | 'journey'>('simulation');
+  const [rightTab, setRightTab] = useState<'inspector' | 'simulation' | 'pedestrian'>('simulation');
 
   // Dialog states
   const [nameDialog, setNameDialog] = useState<{
@@ -761,17 +760,6 @@ export default function App() {
             >
               Piéton
             </button>
-            <button
-              className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
-                rightTab === 'journey'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-500 hover:text-gray-300',
-              ].join(' ')}
-              onClick={() => setRightTab('journey')}
-            >
-              Parcours
-            </button>
           </div>
           <div className="flex-1 overflow-hidden">
             {/* SimulationPanel stays mounted on both tabs (hidden via CSS on the
@@ -789,7 +777,6 @@ export default function App() {
               />
             )}
             {rightTab === 'pedestrian' && <PedestrianDetailPanel />}
-            {rightTab === 'journey' && <CustomerJourneyPanel />}
           </div>
         </aside>
       </div>

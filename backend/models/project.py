@@ -78,6 +78,12 @@ class SimulationAgentFrame(CADBaseModel):
     headingZ: float = 0.0
     visionAngleDeg: float = 70.0
     visionRangeCm: float = 220.0
+    # Set while the agent is retained at a product pickup queue (imported
+    # pedestrian CSV journeys only); None otherwise.
+    pickingEan: str | None = None
+    pickingProductName: str | None = None
+    pickingStartedAtSeconds: float | None = None
+    pickingDurationSeconds: float | None = None
 
 
 class WaypointSample(CADBaseModel):
@@ -156,11 +162,26 @@ class SimulationSummary(CADBaseModel):
     averageConfiguredRetentionSeconds: float
 
 
+class PickupEvent(CADBaseModel):
+    """One completed product pickup, emitted the tick it happens (for the
+    frontend's gamified popup and the live 'produits pris' feed).
+    """
+
+    agentId: int
+    pedestrianId: int
+    ean: str
+    name: str | None = None
+    timeSeconds: float
+
+
 class SimulationResult(CADBaseModel):
     frames: list[SimulationFrame] = Field(default_factory=list)
     waypoints: list[WaypointMetrics] = Field(default_factory=list)
     summary: SimulationSummary
     analytics: SimulationAnalytics | None = None
+    # Product pickups completed since the previous tick (imported pedestrian
+    # CSV journeys only) — drives the frontend's gamified pickup popup.
+    pickupEvents: list["PickupEvent"] = Field(default_factory=list)
 
 
 class Wall(CADBaseModel):
@@ -355,3 +376,83 @@ class Material(CADBaseModel):
 class SceneData(CADBaseModel):
     store: Store
     furniture: list[FurnitureInstance] = Field(default_factory=list)
+
+
+# ─── Pedestrian CSV import & pickup planning ────────────────────────────────
+#
+# A pedestrian CSV describes simulated visitors together with the products
+# they intend to pick up (by EAN). One row per (pedestrian, product) pair;
+# a pedestrian who buys nothing is represented by a single row with an empty
+# ``ean``. See services/pedestrian_import.py for parsing/validation and
+# services/pickup_planning.py for EAN → shelf-position resolution.
+
+
+class PedestrianRecord(CADBaseModel):
+    """One pedestrian aggregated from the imported CSV rows."""
+
+    pedestrianId: int
+    startUnixTs: int
+    speedMps: float
+    profile: dict[str, Any] = Field(default_factory=dict)
+    wantedProducts: list[str] = Field(default_factory=list)
+
+
+class PickupPlanItem(CADBaseModel):
+    """One product of a pedestrian's basket, resolved to a shelf position."""
+
+    ean: str
+    name: str | None = None
+    found: bool
+    reasonNotFound: str | None = None
+    xCm: float | None = None
+    zCm: float | None = None
+    pickupDurationSeconds: float | None = None
+
+
+class PedestrianPickupPlan(CADBaseModel):
+    """Ordered visit plan for one pedestrian: pickups between entry and exit."""
+
+    pedestrianId: int
+    startUnixTs: int
+    speedMps: float
+    profile: dict[str, Any] = Field(default_factory=dict)
+    items: list[PickupPlanItem] = Field(default_factory=list)
+
+
+class PedestrianImportAnomaly(CADBaseModel):
+    """A row or product that could not be fully processed, for UI/log display."""
+
+    rowNumber: int | None = None
+    pedestrianId: int | None = None
+    ean: str | None = None
+    reason: str
+
+
+
+
+class PedestrianImportResult(CADBaseModel):
+    pedestrianCount: int
+    rowCount: int
+    plans: list[PedestrianPickupPlan] = Field(default_factory=list)
+    anomalies: list[PedestrianImportAnomaly] = Field(default_factory=list)
+
+
+class AgentBasketItem(CADBaseModel):
+    """One product of a pedestrian's basket, with its live pickup status."""
+
+    ean: str
+    name: str | None = None
+    found: bool
+    reasonNotFound: str | None = None
+    picked: bool = False
+    pickedAtSeconds: float | None = None
+
+
+class AgentBasket(CADBaseModel):
+    """Detail panel payload for one pedestrian clicked in the 3D view."""
+
+    pedestrianId: int
+    agentId: int | None = None
+    profile: dict[str, Any] = Field(default_factory=dict)
+    items: list[AgentBasketItem] = Field(default_factory=list)
+    active: bool = True

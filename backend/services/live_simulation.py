@@ -10,6 +10,10 @@ from uuid import uuid4
 
 import services.simulation as simsvc
 from models.project import (
+    AgentBasket,
+    AgentBasketItem,
+    PedestrianPickupPlan,
+    PickupEvent,
     SceneData,
     SimulationAgentFrame,
     SimulationAnalytics,
@@ -48,6 +52,9 @@ class _LiveAgentRoute:
     desired_speed: float
     route_tokens: list[str]
     token_index: int = 0
+    # Set when this agent's journey was built from an imported pedestrian CSV
+    # plan rather than the default Poisson arrival process.
+    pedestrian_id: int | None = None
 
 
 class LiveSimulationSession:
@@ -86,6 +93,20 @@ class LiveSimulationSession:
         self.average_load_samples = 0
         self.max_waypoint_load = 0
         self.analytics_recorder = FlowAnalyticsRecorder(scene)
+        # Imported pedestrian CSV support (see services/pickup_planning.py):
+        # when plans are loaded, spawning switches from the Poisson arrival
+        # process to a schedule driven by each pedestrian's start_unix_ts.
+        self.pedestrian_plans: list[PedestrianPickupPlan] = []
+        self.pedestrian_cursor: int = 0
+        self.pedestrian_sim_start_ts: int | None = None
+        # token -> (ean, product name, pickup duration) for pickup waypoints,
+        # so frame capture / basket lookup can resolve what an agent is doing.
+        self.pickup_item_by_token: dict[str, tuple[str, str | None, float]] = {}
+        # stable_id -> ordered basket, for the "click pedestrian" detail panel.
+        self.agent_baskets: dict[int, PedestrianPickupPlan] = {}
+        # stable_id -> {ean: (picked, pickedAtSeconds)}, updated on every pickup.
+        self.basket_status: dict[int, dict[str, tuple[bool, float | None]]] = {}
+        self.pending_pickup_events: list[PickupEvent] = []
         self._init_runtime(carry_agents=[])
         self._capture_frame()
 
@@ -265,9 +286,13 @@ class LiveSimulationSession:
                 desired_speed=desired_speed,
                 route_tokens=remaining_tokens,
                 token_index=0,
+                pedestrian_id=route_state.pedestrian_id,
             )
             self.agent_speeds[new_agent_id] = desired_speed
             self.next_stable_agent_id = max(self.next_stable_agent_id, route_state.stable_id + 1)
+
+        if self.pedestrian_plans:
+            self._register_pedestrian_pickup_stages()
 
     def _ensure_next_arrival(self) -> None:
         rate = max(0.0, float(self.config.arrivalRatePerSecond))
@@ -282,6 +307,9 @@ class LiveSimulationSession:
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
 
     def _spawn_if_due(self) -> None:
+        if self.pedestrian_plans:
+            self._spawn_pedestrians_if_due()
+            return
         rate = max(0.0, float(self.config.arrivalRatePerSecond))
         if rate <= 0:
             self.next_arrival_at = None
@@ -345,6 +373,187 @@ class LiveSimulationSession:
             self.spawned += 1
             self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
 
+    def load_pedestrian_plans(self, plans: list[PedestrianPickupPlan]) -> None:
+        """Load an imported pedestrian CSV so spawning follows its schedule.
+
+        Replaces the Poisson arrival process: pedestrians are spawned in
+        ``start_unix_ts`` order, offset so the earliest one arrives at
+        simulation time 0. Each pickup item resolved to a shelf position gets
+        its own queue stage with a variable 1s-4s retention, inserted between
+        the entry and exit of that pedestrian's journey.
+        """
+        with self.lock:
+            ordered = sorted(plans, key=lambda plan: plan.startUnixTs)
+            self.pedestrian_plans = ordered
+            self.pedestrian_cursor = 0
+            self.pedestrian_sim_start_ts = ordered[0].startUnixTs if ordered else None
+            for plan in ordered:
+                self.agent_baskets[plan.pedestrianId] = plan
+                self.basket_status[plan.pedestrianId] = {
+                    item.ean: (False, None) for item in plan.items
+                }
+            self._register_pedestrian_pickup_stages()
+
+    def _register_pedestrian_pickup_stages(self) -> None:
+        """Create (once) a queue stage for every resolved pickup item.
+
+        Stages are registered in the same maps used for config waypoints so
+        the existing queue-tick/freeze machinery drives them for free, but
+        they are intentionally kept out of ``self.metrics_waypoints`` — one
+        synthetic waypoint per (pedestrian, product) pair would otherwise
+        make the per-tick metrics payload grow linearly with the CSV size.
+        """
+        for plan in self.pedestrian_plans:
+            for index, item in enumerate(plan.items):
+                if not item.found or item.xCm is None or item.zCm is None:
+                    continue
+                token = f"pickup:{plan.pedestrianId}:{index}"
+                if token in self.token_to_stage:
+                    continue
+                waypoint = SimulationWaypoint(
+                    id=token,
+                    label=item.name or item.ean,
+                    type="transit",
+                    x=item.xCm,
+                    z=item.zCm,
+                    radiusCm=60.0,
+                    optional=False,
+                    visitProbability=1.0,
+                    retentionSeconds=float(item.pickupDurationSeconds or 1.0),
+                )
+                stage_id = self.sim.add_queue_stage(
+                    simsvc._queue_slot_positions(waypoint, self.walkable)
+                )
+                runtime = simsvc._WaypointRuntime(
+                    waypoint=waypoint,
+                    stage_id=stage_id,
+                    stage=self.sim.get_stage(stage_id),
+                    release_interval_s=float(waypoint.retentionSeconds),
+                )
+                self.waypoint_runtimes[token] = runtime
+                self.waypoint_stage_ids[token] = stage_id
+                self.waypoint_by_stage_id[stage_id] = waypoint
+                self.stage_to_token[stage_id] = token
+                self.token_to_stage[token] = stage_id
+                self.stage_to_waypoint_id[stage_id] = token
+                self.pickup_item_by_token[token] = (
+                    item.ean,
+                    item.name,
+                    float(item.pickupDurationSeconds or 1.0),
+                )
+
+    def _pedestrian_route_tokens(self, plan: PedestrianPickupPlan, spawn_index: int) -> list[str]:
+        entry = self.entries[spawn_index % len(self.entries)]
+        tokens: list[str] = [entry.id]
+        for index, item in enumerate(plan.items):
+            token = f"pickup:{plan.pedestrianId}:{index}"
+            if token in self.token_to_stage:
+                tokens.append(token)
+        exit_wp = self.exits[spawn_index % len(self.exits)]
+        tokens.append(exit_wp.id)
+        tokens.append(self._token_for_exit_stage(exit_wp.id))
+        return tokens
+
+    def _spawn_pedestrians_if_due(self) -> None:
+        max_customers = max(1, int(self.config.maxCustomers))
+        step_spawn_positions = simsvc.current_agent_positions(self.sim)
+        while (
+            self.pedestrian_cursor < len(self.pedestrian_plans)
+            and self.active_agents < max_customers
+        ):
+            plan = self.pedestrian_plans[self.pedestrian_cursor]
+            scheduled_at = float(plan.startUnixTs - (self.pedestrian_sim_start_ts or plan.startUnixTs))
+            if scheduled_at > self.time_seconds:
+                break
+            tokens = self._pedestrian_route_tokens(plan, self.pedestrian_cursor)
+            stage_ids = self._route_tokens_to_stage_ids(tokens)
+            if len(stage_ids) < 2:
+                self.pedestrian_cursor += 1
+                continue
+            journey = jps.JourneyDescription(stage_ids)
+            for from_stage, to_stage in zip(stage_ids[:-1], stage_ids[1:]):
+                journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
+            journey_id = self.sim.add_journey(journey)
+            entry_wp = self.entries[self.pedestrian_cursor % len(self.entries)]
+            desired_speed = max(0.3, float(plan.speedMps))
+            try:
+                agent_id, spawn_position = simsvc.add_agent_with_spawn_retry(
+                    sim=self.sim,
+                    waypoint=entry_wp,
+                    walkable=self.walkable,
+                    rng=self.rng,
+                    occupied_positions=step_spawn_positions,
+                    journey_id=journey_id,
+                    stage_id=simsvc.initial_target_stage_id(stage_ids),
+                    desired_speed=desired_speed,
+                )
+            except RuntimeError as exc:
+                if simsvc.TOO_CLOSE_TO_AGENT_ERROR_SNIPPET not in str(exc):
+                    raise
+                # Leave the pedestrian at the head of the queue and retry next tick
+                # instead of dropping them or spinning the whole loop on one blocker.
+                logging.getLogger(__name__).warning(
+                    "Skipping live spawn near entry '%s' this tick after placement retries: %s",
+                    entry_wp.label,
+                    exc,
+                )
+                break
+            step_spawn_positions.append(spawn_position)
+            stable_id = self.next_stable_agent_id
+            self.next_stable_agent_id += 1
+            self.agent_routes[agent_id] = _LiveAgentRoute(
+                stable_id=stable_id,
+                desired_speed=desired_speed,
+                route_tokens=tokens,
+                token_index=0,
+                pedestrian_id=plan.pedestrianId,
+            )
+            self.agent_speeds[agent_id] = desired_speed
+            self.agent_baskets[stable_id] = plan
+            self.basket_status[stable_id] = {item.ean: (False, None) for item in plan.items}
+            self.passages.record_passage(entry_wp.id)
+            self.spawned += 1
+            self.pedestrian_cursor += 1
+
+    def basket_for(self, stable_id: int) -> AgentBasket | None:
+        """Detail-panel payload for one pedestrian, by its stable agent id."""
+        plan = self.agent_baskets.get(stable_id)
+        if plan is None:
+            return None
+        status = self.basket_status.get(stable_id, {})
+        active = any(route.stable_id == stable_id for route in self.agent_routes.values())
+        items = []
+        for item in plan.items:
+            picked, picked_at = status.get(item.ean, (False, None))
+            items.append(
+                AgentBasketItem(
+                    ean=item.ean,
+                    name=item.name,
+                    found=item.found,
+                    reasonNotFound=item.reasonNotFound,
+                    picked=picked,
+                    pickedAtSeconds=picked_at,
+                )
+            )
+        return AgentBasket(
+            pedestrianId=plan.pedestrianId,
+            agentId=stable_id,
+            profile=plan.profile,
+            items=items,
+            active=active,
+        )
+
+    def list_baskets(self) -> list[AgentBasket]:
+        """« Parcours client » panel payload: every pedestrian seen so far.
+
+        Baskets are kept for the lifetime of the session even after a
+        pedestrian has exited (``self.agent_baskets`` is never pruned), so
+        this always reflects the full run, not just currently active agents.
+        """
+        with self.lock:
+            baskets = [self.basket_for(stable_id) for stable_id in self.agent_baskets]
+        return [basket for basket in baskets if basket is not None]
+
     def _update_agent_route_indices(self) -> None:
         for agent in self.sim.agents():
             agent_id = int(agent.id)
@@ -370,6 +579,16 @@ class LiveSimulationSession:
                 self.config,
                 self.waypoint_by_stage_id.get(int(agent.stage_id)),
             )
+            picking_ean = picking_name = None
+            picking_started_at = picking_duration = None
+            token = self.stage_to_token.get(int(agent.stage_id))
+            pickup_item = self.pickup_item_by_token.get(token) if token else None
+            if pickup_item is not None:
+                runtime = self.waypoint_runtimes.get(token)
+                enqueued_at = runtime.enqueue_times.get(int(agent.id)) if runtime else None
+                if enqueued_at is not None:
+                    picking_ean, picking_name, picking_duration = pickup_item
+                    picking_started_at = round(enqueued_at, 2)
             frame_agents.append(
                 SimulationAgentFrame(
                     id=route.stable_id,
@@ -379,6 +598,10 @@ class LiveSimulationSession:
                     headingZ=float(heading_z),
                     visionAngleDeg=vision_angle_deg,
                     visionRangeCm=vision_range_cm,
+                    pickingEan=picking_ean,
+                    pickingProductName=picking_name,
+                    pickingStartedAtSeconds=picking_started_at,
+                    pickingDurationSeconds=picking_duration,
                 )
             )
         self.frames.append(
@@ -420,10 +643,14 @@ class LiveSimulationSession:
             if self.paused:
                 return self.snapshot()
             n_steps = max(1, int(steps))
+            self.pending_pickup_events = []
             for _ in range(n_steps):
                 self._spawn_if_due()
-                for runtime in self.waypoint_runtimes.values():
-                    simsvc._tick_queue_runtime(runtime, self.time_seconds)
+                for token, runtime in self.waypoint_runtimes.items():
+                    released_agent_id = simsvc._tick_queue_runtime(runtime, self.time_seconds)
+                    if released_agent_id is None:
+                        continue
+                    self._record_pickup_if_applicable(token, released_agent_id)
                 simsvc._freeze_retained_agents(
                     self.sim,
                     self.waypoint_runtimes,
@@ -444,6 +671,29 @@ class LiveSimulationSession:
                 self.time_seconds += simsvc.SIMULATION_DT_S
             self._capture_frame()
             return self.snapshot()
+
+    def _record_pickup_if_applicable(self, token: str, released_agent_id: int) -> None:
+        """Turn a queue release into a PickupEvent when the queue was a
+        product pickup stage, and update the pedestrian's basket status.
+        """
+        pickup_item = self.pickup_item_by_token.get(token)
+        if pickup_item is None:
+            return
+        ean, name, _duration = pickup_item
+        route = self.agent_routes.get(released_agent_id)
+        if route is None or route.pedestrian_id is None:
+            return
+        status = self.basket_status.setdefault(route.stable_id, {})
+        status[ean] = (True, round(self.time_seconds, 2))
+        self.pending_pickup_events.append(
+            PickupEvent(
+                agentId=route.stable_id,
+                pedestrianId=route.pedestrian_id,
+                ean=ean,
+                name=name,
+                timeSeconds=round(self.time_seconds, 2),
+            )
+        )
 
     def set_paused(self, paused: bool) -> SimulationResult:
         with self.lock:
@@ -541,6 +791,7 @@ class LiveSimulationSession:
             frames=self.frames[-LIVE_RESPONSE_FRAME_WINDOW:],
             waypoints=waypoint_metrics,
             summary=summary,
+            pickupEvents=list(self.pending_pickup_events),
         )
 
 

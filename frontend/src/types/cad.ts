@@ -107,6 +107,13 @@ export interface SimulationAgentFrame {
   headingZ: number;
   visionAngleDeg: number;
   visionRangeCm: number;
+  /** EAN of the product currently being picked at a pickup stop, if any. */
+  pickingEan?: string | null;
+  pickingProductName?: string | null;
+  /** Simulation time (s) at which the current pickup started. */
+  pickingStartedAtSeconds?: number | null;
+  /** Configured retention (1-4s) for the current pickup. */
+  pickingDurationSeconds?: number | null;
 }
 
 export interface WaypointSample {
@@ -193,6 +200,17 @@ export interface SimulationResult {
   waypoints: WaypointMetrics[];
   summary: SimulationSummary;
   analytics?: SimulationAnalytics | null;
+  /** Product pickups completed since the previous tick (for the gamified pop-up). */
+  pickupEvents?: PickupEvent[];
+}
+
+/** One completed product pickup, emitted the tick it happens. */
+export interface PickupEvent {
+  agentId: number;
+  pedestrianId: number;
+  ean: string;
+  name: string | null;
+  timeSeconds: number;
 }
 
 export interface LiveSimulationResponse {
@@ -355,4 +373,57 @@ export interface Selection {
    * reflect the last-clicked cell; `cellIds` lists every selected cell id.
    */
   cells?: SelectedCellRef[];
+}
+
+// ─── Pedestrian CSV import / gamified pickup ─────────────────────────────────
+
+export interface PickupPlanItem {
+  ean: string;
+  name: string | null;
+  found: boolean;
+  reasonNotFound: string | null;
+  xCm: number | null;
+  zCm: number | null;
+  pickupDurationSeconds: number | null;
+}
+
+export interface PedestrianPickupPlan {
+  pedestrianId: number;
+  startUnixTs: number;
+  speedMps: number;
+  profile: Record<string, unknown>;
+  items: PickupPlanItem[];
+}
+
+export interface PedestrianImportAnomaly {
+  rowNumber?: number | null;
+  pedestrianId?: number | null;
+  ean?: string | null;
+  reason: string;
+}
+
+export interface PedestrianImportResult {
+  pedestrianCount: number;
+  rowCount: number;
+  plans: PedestrianPickupPlan[];
+  anomalies: PedestrianImportAnomaly[];
+}
+
+/** One product of a pedestrian's basket, with its live pickup status. */
+export interface AgentBasketItem {
+  ean: string;
+  name: string | null;
+  found: boolean;
+  reasonNotFound: string | null;
+  picked: boolean;
+  pickedAtSeconds: number | null;
+}
+
+/** Detail panel payload for one pedestrian clicked in the 3D view. */
+export interface AgentBasket {
+  pedestrianId: number;
+  agentId: number | null;
+  profile: Record<string, unknown>;
+  items: AgentBasketItem[];
+  active: boolean;
 }

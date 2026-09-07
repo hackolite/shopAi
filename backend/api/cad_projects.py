@@ -16,6 +16,8 @@ from models.project import (
     Catalog,
     FurnitureInstance,
     Material,
+    PedestrianImportAnomaly,
+    PedestrianImportResult,
     Planogram,
     Product,
     ProjectSettings,
@@ -28,6 +30,8 @@ from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_go
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
 from services.live_simulation import live_simulation_manager
+from services.pedestrian_import import parse_pedestrian_csv
+from services.pickup_planning import build_pickup_plans
 from services.project_manager import (
     create_project,
     delete_project,
@@ -744,3 +748,113 @@ def stop_live_simulation(project_id: str, session_id: str):
         return {"stopped": True, "sessionId": session_id}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+
+@router.post("/{project_id}/simulation/import-pedestrians")
+async def import_pedestrians(project_id: str, file: UploadFile = File(...)):
+    """Import a pedestrian/basket CSV and build a per-pedestrian pickup plan.
+
+    Expected columns: ``pedestrian_id, start_unix_ts, speed_mps, profile_json,
+    ean`` (one row per pedestrian/product pair; ``ean`` may be empty for a
+    pedestrian who buys nothing). Each EAN is resolved to a shelf position via
+    the project's planograms; EAN missing from the catalog or not placed on
+    any planogram are kept in the plan with ``found=false`` and a reason
+    instead of being silently dropped.
+    """
+    raw = await file.read()
+    try:
+        csv_text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded CSV text") from exc
+
+    records, import_anomalies = parse_pedestrian_csv(csv_text)
+
+    scene = _load_scene(project_id)
+    catalog = _load_catalog(project_id)
+    planograms = _load_planograms(project_id)
+    plans = build_pickup_plans(records, scene, planograms, catalog)
+
+    anomalies = list(import_anomalies)
+    for plan in plans:
+        for item in plan.items:
+            if not item.found:
+                anomalies.append(
+                    PedestrianImportAnomaly(
+                        pedestrianId=plan.pedestrianId,
+                        ean=item.ean,
+                        reason=item.reasonNotFound or "Produit introuvable",
+                    )
+                )
+
+    result = PedestrianImportResult(
+        pedestrianCount=len(plans),
+        rowCount=sum(len(record.wantedProducts) or 1 for record in records.values()),
+        plans=plans,
+        anomalies=anomalies,
+    )
+
+    save_project_file(project_id, "pedestrians.json", result.model_dump(mode="json"))
+    return result.model_dump(mode="json")
+
+
+@router.get("/{project_id}/simulation/pedestrians")
+def get_pedestrians(project_id: str):
+    """Return the last imported pedestrian pickup plans for this project."""
+    ensure_project_exists(project_id)
+    stored = load_project_file(project_id, "pedestrians.json")
+    if stored is None:
+        return PedestrianImportResult(pedestrianCount=0, rowCount=0).model_dump(mode="json")
+    return PedestrianImportResult.model_validate(stored).model_dump(mode="json")
+
+
+@router.post("/{project_id}/simulation/live/{session_id}/load-pedestrians")
+def load_pedestrians_into_live_simulation(project_id: str, session_id: str):
+    """Load the project's last imported pedestrian CSV into a running session.
+
+    Once loaded, spawning switches from the Poisson arrival process to the
+    CSV schedule (pedestrians spawn in ``start_unix_ts`` order), and each
+    pedestrian's journey is augmented with a pickup stop (variable 1s-4s
+    retention) for every product resolved to a shelf position.
+    """
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+    stored = load_project_file(project_id, "pedestrians.json")
+    if stored is None:
+        raise HTTPException(status_code=404, detail="No pedestrian CSV has been imported for this project yet")
+    result = PedestrianImportResult.model_validate(stored)
+    session.load_pedestrian_plans(result.plans)
+    return {"sessionId": session_id, "pedestrianCount": len(result.plans)}
+
+
+@router.get("/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket")
+def get_live_agent_basket(project_id: str, session_id: str, agent_id: int):
+    """Detail panel for one pedestrian: its basket with pick/not-picked status."""
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+    basket = session.basket_for(agent_id)
+    if basket is None:
+        raise HTTPException(status_code=404, detail=f"No pedestrian basket found for agent '{agent_id}'")
+    return basket.model_dump(mode="json")
+
+
+@router.get("/{project_id}/simulation/live/{session_id}/baskets")
+def list_live_agent_baskets(project_id: str, session_id: str):
+    """« Parcours client » panel: every pedestrian's basket seen in this session."""
+    try:
+        session = live_simulation_manager.get(session_id)
+        if session.project_id != project_id:
+            raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
+
+    return {"baskets": [basket.model_dump(mode="json") for basket in session.list_baskets()]}

@@ -1,7 +1,7 @@
 /**
  * Large HUD pinned to the top-right of the 3D viewport showing the customer
- * journey and exposed-margin (rendement) metrics selected (« squares ») in the
- * « Waypoints & rendement » panel.
+ * journey, exposed-margin (rendement) and CA/marge (revenue) metrics selected
+ * (« squares ») in the « Waypoints & rendement » panel.
  *
  * It is drawn as a THREE sprite *inside* the WebGL canvas — unlike an HTML
  * overlay — so it is captured by `canvas.captureStream` and therefore appears
@@ -23,6 +23,12 @@ import {
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { computeAbsoluteYield, type AbsoluteYieldStats } from '../engine/absoluteYield';
 import { yieldMetricDisplay, type YieldMetricId } from '../engine/yieldMetrics';
+import {
+  computeRevenueSummary,
+  revenueMetricDisplay,
+  type RevenueMetricId,
+  type RevenueSummary,
+} from '../engine/revenueMetrics';
 
 /** Distance (camera units) at which the HUD plane is placed in front of the camera. */
 const HUD_DISTANCE = 10;
@@ -42,6 +48,9 @@ const JOURNEY_BORDER = 'rgba(251, 191, 36, 0.9)';
 /** Blue used by every exposed-margin (rendement) row. */
 const YIELD_COLOR = '#60a5fa';
 const YIELD_BORDER = 'rgba(96, 165, 250, 0.9)';
+/** Green used by every CA/marge (revenue) row. */
+const REVENUE_COLOR = '#34d399';
+const REVENUE_BORDER = 'rgba(52, 211, 153, 0.9)';
 
 /** Formats elapsed simulation seconds as MM:SS (or H:MM:SS past one hour). */
 function formatChrono(totalSeconds: number): string {
@@ -66,6 +75,8 @@ function drawHudTexture(
   summary: JourneySummary,
   yieldMetrics: YieldMetricId[],
   yieldStats: AbsoluteYieldStats | null,
+  revenueMetrics: RevenueMetricId[],
+  revenueSummary: RevenueSummary,
   chrono: string | null,
 ): THREE.CanvasTexture {
   const rows: HudRow[] = [
@@ -76,6 +87,11 @@ function drawHudTexture(
       ...yieldMetricDisplay(metricId, yieldStats),
       color: YIELD_COLOR,
       border: YIELD_BORDER,
+    })),
+    ...revenueMetrics.map((metricId) => ({
+      ...revenueMetricDisplay(metricId, revenueSummary),
+      color: REVENUE_COLOR,
+      border: REVENUE_BORDER,
     })),
     ...journeyMetrics.map((metricId) => ({
       ...journeyMetricDisplay(metricId, summary),
@@ -114,6 +130,8 @@ function drawHudTexture(
 export function JourneyMetricsHud() {
   const pinnedJourneyMetrics = useSimulationStore((state) => state.pinnedJourneyMetrics);
   const pinnedYieldMetrics = useSimulationStore((state) => state.pinnedYieldMetrics);
+  const pinnedRevenueMetrics = useSimulationStore((state) => state.pinnedRevenueMetrics);
+  const journeyBaskets = useSimulationStore((state) => state.journeyBaskets);
   const customers = useSimulationStore((state) => state.analytics?.customers);
   const visitHeatmap = useSimulationStore((state) => state.analytics?.visitHeatmap);
   const timeSeconds = useSimulationStore((state) => state.analytics?.timeSeconds);
@@ -134,6 +152,11 @@ export function JourneyMetricsHud() {
 
   const summary = useMemo(() => computeJourneySummary(customers), [customers]);
 
+  const revenueSummary = useMemo(
+    () => computeRevenueSummary(journeyBaskets, catalogProducts, timeSeconds ?? 0),
+    [catalogProducts, journeyBaskets, timeSeconds],
+  );
+
   // Margin (€) exposed on the floor: derived from the assortment only, so it is
   // recomputed when the layout changes, not on every analytics tick.
   const marginHeatmap = useMemo(() => {
@@ -147,13 +170,33 @@ export function JourneyMetricsHud() {
   );
 
   const rowCount =
-    (chrono !== null ? 1 : 0) + pinnedYieldMetrics.length + pinnedJourneyMetrics.length;
+    (chrono !== null ? 1 : 0) +
+    pinnedYieldMetrics.length +
+    pinnedRevenueMetrics.length +
+    pinnedJourneyMetrics.length;
   const texture = useMemo(
     () =>
       rowCount > 0
-        ? drawHudTexture(pinnedJourneyMetrics, summary, pinnedYieldMetrics, yieldStats, chrono)
+        ? drawHudTexture(
+            pinnedJourneyMetrics,
+            summary,
+            pinnedYieldMetrics,
+            yieldStats,
+            pinnedRevenueMetrics,
+            revenueSummary,
+            chrono,
+          )
         : null,
-    [chrono, pinnedJourneyMetrics, pinnedYieldMetrics, rowCount, summary, yieldStats],
+    [
+      chrono,
+      pinnedJourneyMetrics,
+      pinnedRevenueMetrics,
+      pinnedYieldMetrics,
+      revenueSummary,
+      rowCount,
+      summary,
+      yieldStats,
+    ],
   );
   useEffect(() => () => { texture?.dispose(); }, [texture]);
 

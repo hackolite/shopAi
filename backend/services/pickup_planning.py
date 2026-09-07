@@ -160,12 +160,14 @@ def build_pedestrian_plan(
             )
             continue
 
+        display_name = f"{product.brand} {product.name}" if product.brand else product.name
+
         position = resolve_ean_position(ean, planograms, furniture_by_id)
         if position is None:
             items.append(
                 PickupPlanItem(
                     ean=ean,
-                    name=product.name,
+                    name=display_name,
                     found=False,
                     reasonNotFound="Produit non placé dans un planogramme",
                 )
@@ -176,7 +178,7 @@ def build_pedestrian_plan(
         items.append(
             PickupPlanItem(
                 ean=ean,
-                name=product.name,
+                name=display_name,
                 found=True,
                 xCm=x_cm,
                 zCm=z_cm,

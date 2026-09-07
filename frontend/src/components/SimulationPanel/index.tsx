@@ -1003,6 +1003,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 <option value="traffic">Fréquentation</option>
                 <option value="margin">Marge (€)</option>
                 <option value="yield">Rendement au m² (marge × densité client)</option>
+                <option value="picked-margin">Marge des produits pris (€)</option>
               </select>
             </label>
           )}
@@ -1016,6 +1017,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             <p className="text-xs text-gray-600">
               Marge cumulée colonne par colonne, diffusée sur l'allée devant chaque colonne de
               planogramme. Indépendante de la simulation.
+            </p>
+          )}
+          {showHeatmap && heatmapMode === 'picked-margin' && (
+            <p className="text-xs text-gray-600">
+              Marge (€) des produits réellement pris par les clients, accumulée à l'endroit de
+              chaque prélèvement. Nécessite une simulation en cours.
             </p>
           )}
           <label className="flex items-center justify-between text-xs text-gray-300">

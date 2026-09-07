@@ -7,12 +7,8 @@ import { buildMarginHeatmap } from '../../engine/marginHeatmap';
 import { computeAbsoluteYield } from '../../engine/absoluteYield';
 import { computeMultiSelectedProductMetrics, computeSelectedProductMetrics } from '../../engine/selectedProductMetrics';
 import { waypointThroughput } from '../../engine/waypointThroughput';
-import {
-  JOURNEY_METRIC_IDS,
-  computeJourneySummary,
-  journeyMetricDisplay,
-} from '../../engine/journeyMetrics';
 import { YIELD_METRIC_IDS, yieldMetricDisplay } from '../../engine/yieldMetrics';
+import { SALES_METRIC_IDS, computeSalesStats, salesMetricDisplay } from '../../engine/salesMetrics';
 
 /** Margin (px) kept between the panel and the edges of the 3D viewport. */
 const PANEL_MARGIN_PX = 16;
@@ -134,10 +130,9 @@ export default function CheckoutChartsOverlay() {
   const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
   const catalogProducts = useCatalogStore((state) => state.products);
   const selection = useSceneStore((state) => state.selection);
-  const pinnedJourneyMetrics = useSimulationStore((state) => state.pinnedJourneyMetrics);
-  const toggleJourneyMetric = useSimulationStore((state) => state.toggleJourneyMetric);
   const pinnedYieldMetrics = useSimulationStore((state) => state.pinnedYieldMetrics);
   const toggleYieldMetric = useSimulationStore((state) => state.toggleYieldMetric);
+  const pickedProductLog = useSimulationStore((state) => state.pickedProductLog);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragOffset = useRef<Point | null>(null);
@@ -203,10 +198,10 @@ export default function CheckoutChartsOverlay() {
     );
   }, [analytics, catalogProducts, planogramDetails, scene, selection]);
 
-  // Aggregated customer-journey metrics displayed as selectable tiles.
-  const journeySummary = useMemo(
-    () => computeJourneySummary(analytics?.customers),
-    [analytics?.customers],
+  // Real sales aggregated from every product actually picked up so far.
+  const salesStats = useMemo(
+    () => computeSalesStats(pickedProductLog, catalogProducts, analytics?.timeSeconds ?? 0),
+    [analytics?.timeSeconds, catalogProducts, pickedProductLog],
   );
 
   useEffect(() => {
@@ -518,55 +513,32 @@ export default function CheckoutChartsOverlay() {
             </Section>
 
             <Section
-              id="customers"
-              title="Parcours clients"
-              subtitle={`${analytics?.customers?.length ?? 0} clients`}
-              open={openSections.has('customers')}
+              id="sales"
+              title="Ventes réalisées"
+              subtitle={salesStats ? `${formatNumber(salesStats.totalCaEur, 0)} €` : '—'}
+              open={openSections.has('sales')}
               onToggle={toggleSection}
             >
-              <div className="mb-2 grid grid-cols-2 gap-1">
-                {JOURNEY_METRIC_IDS.map((metricId) => {
-                  const pinned = pinnedJourneyMetrics.includes(metricId);
-                  const { label, value } = journeyMetricDisplay(metricId, journeySummary);
+              <div className="grid grid-cols-2 gap-1">
+                {SALES_METRIC_IDS.map((metricId) => {
+                  const { label, value } = salesMetricDisplay(metricId, salesStats);
                   return (
-                    <button
+                    <div
                       key={metricId}
-                      type="button"
-                      aria-pressed={pinned}
-                      title="Afficher en grand en haut à droite de la scène 3D (visible dans l'enregistrement vidéo)"
-                      onClick={() => toggleJourneyMetric(metricId)}
-                      className={`rounded border px-1.5 py-1 text-left transition-colors ${
-                        pinned
-                          ? 'border-amber-400 bg-amber-500/20 text-amber-200'
-                          : 'border-gray-800 bg-black/30 text-gray-400 hover:border-gray-600 hover:bg-gray-800/60'
-                      }`}
+                      className="rounded border border-gray-800 bg-black/30 px-1.5 py-1 text-left text-gray-400"
                     >
                       <span className="block truncate text-[9px] uppercase tracking-wide opacity-80">
                         {label}
                       </span>
-                      <span className="block text-[12px] font-semibold">{value}</span>
-                    </button>
+                      <span className="block text-[12px] font-semibold text-gray-200">{value}</span>
+                    </div>
                   );
                 })}
               </div>
-              <p className="mb-1 text-[10px] leading-tight text-gray-600">
-                Cliquer sur une tuile pour l'afficher en grand en haut à droite de la scène
-                (incluse dans l'enregistrement vidéo). Totaux = addition sur tous les clients.
+              <p className="mt-1 text-[10px] leading-tight text-gray-600">
+                CA et marge cumulés sur les produits réellement pris par les clients depuis le
+                début de la session. Nécessite une simulation en cours.
               </p>
-              <div className="max-h-36 overflow-y-auto text-[10px] text-gray-500">
-                {(analytics?.customers ?? []).map((customer) => (
-                  <div key={customer.customerId} className="grid grid-cols-5 gap-1 border-b border-gray-800 py-1">
-                    <span>#{customer.customerId}</span>
-                    <span>{formatNumber(customer.distanceCm / 100, 1)} m</span>
-                    <span>{formatNumber(customer.totalTimeSeconds, 1)} s</span>
-                    <span>{formatNumber(customer.entryTimeSeconds, 1)} s</span>
-                    <span className="text-right">
-                      {customer.exitTimeSeconds == null ? 'en cours' : `${formatNumber(customer.exitTimeSeconds, 1)} s`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-[10px] text-gray-600">Distance · temps total · entrée · sortie</p>
             </Section>
 
             {result.waypoints.map((waypoint, index) => {

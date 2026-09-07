@@ -47,7 +47,16 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
 });
 
 /** Floor heatmap intensity source. */
-export type HeatmapMode = 'traffic' | 'margin' | 'yield';
+export type HeatmapMode = 'traffic' | 'margin' | 'yield' | 'picked-margin';
+
+/** One product actually picked up by an agent, kept for the whole running
+ * session so the "marge des produits pris" heatmap and the CA/marge tiles can
+ * be computed from real pickups instead of the static exposed assortment. */
+export interface PickedProductSample {
+  ean: string;
+  xCm: number;
+  zCm: number;
+}
 
 /** How long a gamified pickup pop-up stays on screen before fading out. */
 export const PICKUP_POPUP_DURATION_MS = 5000;
@@ -99,6 +108,10 @@ interface SimulationState {
   journeyBaskets: AgentBasket[];
   /** Transient gamified pop-ups shown above agents that just picked a product. */
   pickupPopups: PickupPopup[];
+  /** Every product picked up so far in the running session (position + ean),
+   * used to build the "marge des produits pris" heatmap and the CA/marge
+   * tiles. Persists across the session, cleared on `reset`. */
+  pickedProductLog: PickedProductSample[];
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
   addWaypoint: (type?: SimulationWaypoint['type'], position?: { x: number; z: number }) => void;
@@ -157,6 +170,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   agentBasket: null,
   journeyBaskets: [],
   pickupPopups: [],
+  pickedProductLog: [],
   setConfig: (config) =>
     set({
       config: normalizeConfig(config),
@@ -299,7 +313,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
           useSimulationStore.getState().removePickupPopup(popup.id);
         }, PICKUP_POPUP_DURATION_MS);
       });
-      return { pickupPopups: [...state.pickupPopups, ...created] };
+      const loggedPicks = created.map((popup) => ({ ean: popup.ean, xCm: popup.xCm, zCm: popup.zCm }));
+      return {
+        pickupPopups: [...state.pickupPopups, ...created],
+        pickedProductLog: [...state.pickedProductLog, ...loggedPicks],
+      };
     }),
   removePickupPopup: (id) =>
     set((state) => ({ pickupPopups: state.pickupPopups.filter((popup) => popup.id !== id) })),
@@ -323,5 +341,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       agentBasket: null,
       journeyBaskets: [],
       pickupPopups: [],
+      pickedProductLog: [],
     }),
 }));

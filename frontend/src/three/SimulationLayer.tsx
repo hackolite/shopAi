@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
+import { buildPickedMarginHeatmap } from '../engine/pickedMarginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
 import { useCatalogStore } from '../store/catalogStore';
@@ -603,6 +604,7 @@ export function SimulationLayer() {
   const catalogProducts = useCatalogStore((state) => state.products);
   const showTrajectories = useSimulationStore((state) => state.showTrajectories);
   const pickupPopups = useSimulationStore((state) => state.pickupPopups);
+  const pickedProductLog = useSimulationStore((state) => state.pickedProductLog);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
@@ -624,6 +626,13 @@ export function SimulationLayer() {
     if (!showHeatmap || heatmapMode !== 'yield') return null;
     return buildYieldHeatmap(marginHeatmap, analytics?.heatmap ?? null);
   }, [analytics, heatmapMode, marginHeatmap, showHeatmap]);
+
+  // Margin actually picked up so far, accumulated at the pickup spot:
+  // reflects real sales instead of the static exposed assortment.
+  const pickedMarginHeatmap = useMemo(() => {
+    if (!showHeatmap || heatmapMode !== 'picked-margin' || !scene) return null;
+    return buildPickedMarginHeatmap(scene, pickedProductLog, catalogProducts);
+  }, [catalogProducts, heatmapMode, pickedProductLog, scene, showHeatmap]);
 
   // --- Smooth agent playback (no React state per frame) ---
   const prevAgentIds = useRef<Set<number>>(new Set());
@@ -872,6 +881,9 @@ export function SimulationLayer() {
       )}
       {showHeatmap && heatmapMode === 'yield' && yieldHeatmap && (
         <HeatmapOverlay heatmap={yieldHeatmap} />
+      )}
+      {showHeatmap && heatmapMode === 'picked-margin' && pickedMarginHeatmap && (
+        <HeatmapOverlay heatmap={pickedMarginHeatmap} />
       )}
       {showTrajectories && analytics && analytics.trajectories.length > 0 && (
         <TrajectoryOverlay trajectories={analytics.trajectories} />

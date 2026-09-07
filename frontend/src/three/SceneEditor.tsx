@@ -1337,6 +1337,11 @@ function StoreBoundaryResizeHandles({ store, projectId }: { store: StoreConfig; 
       cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
+      // If this component unmounts mid-drag (e.g. selection/tool change, undo,
+      // or the underlying item being removed) the pointerup above never fires:
+      // finish the drag here so the shared resize/orbit-lock flag is always
+      // cleared and OrbitControls doesn't stay disabled forever.
+      onUp();
     };
   }, [gl, raycaster, camera, dragPlane, updateStore, projectId, setResizeDragging]);
 
@@ -1629,6 +1634,11 @@ function FurnitureResizeHandles({ furniture, projectId }: FurnitureResizeHandles
       cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
+      // If this component unmounts mid-drag (e.g. selection/tool change, undo,
+      // or the underlying item being removed) the pointerup above never fires:
+      // finish the drag here so the shared resize/orbit-lock flag is always
+      // cleared and OrbitControls doesn't stay disabled forever.
+      onUp();
     };
   }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId, setResizeDragging]);
 
@@ -1753,6 +1763,11 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
+      // If this component unmounts mid-drag (e.g. selection/tool change, undo,
+      // or the underlying item being removed) the pointerup above never fires:
+      // finish the drag here so the shared resize/orbit-lock flag is always
+      // cleared and OrbitControls doesn't stay disabled forever.
+      onUp();
     };
   }, [gl, raycaster, camera, dragPlane, updateZone, setResizeDragging]);
 
@@ -1979,6 +1994,11 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
+      // If this component unmounts mid-drag (e.g. selection/tool change, undo,
+      // or the underlying item being removed) the pointerup above never fires:
+      // finish the drag here so the shared resize/orbit-lock flag is always
+      // cleared and OrbitControls doesn't stay disabled forever.
+      onUp();
     };
   }, [gl, raycaster, camera, dragPlane, updateZone, setResizeDragging]);
 
@@ -2158,6 +2178,11 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
+      // If this component unmounts mid-drag (e.g. selection/tool change, undo,
+      // or the underlying item being removed) the pointerup above never fires:
+      // finish the drag here so the shared resize/orbit-lock flag is always
+      // cleared and OrbitControls doesn't stay disabled forever.
+      onUp();
     };
   }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId, setResizeDragging]);
 
@@ -2459,6 +2484,11 @@ function UnmountedFurnitureResizeHandles({ furniture, projectId }: { furniture: 
       cancelAnimationFrame(rafId);
       gl.domElement.removeEventListener('pointermove', onMove);
       gl.domElement.removeEventListener('pointerup',   onUp);
+      // If this component unmounts mid-drag (e.g. selection/tool change, undo,
+      // or the underlying item being removed) the pointerup above never fires:
+      // finish the drag here so the shared resize/orbit-lock flag is always
+      // cleared and OrbitControls doesn't stay disabled forever.
+      onUp();
     };
   }, [gl, raycaster, camera, dragPlane, updateFurniture, projectId, setResizeDragging]);
 

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
-import { advancePlaybackClock, clampNoReverseStep } from '../engine/simulationPlayback';
+import { advancePlaybackClock, clampNoReverseStep, isClockResnap } from '../engine/simulationPlayback';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
@@ -694,6 +694,16 @@ export function SimulationLayer() {
     }
 
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
+    // A resnap means the render clock is about to jump straight to a far-away
+    // point in time (stall, backgrounded tab, hot-update…). The per-agent pose
+    // smoothing below only knows how to *chase* a target exponentially, so
+    // without this reset it would keep dashing/teleporting the agents across
+    // the whole scene over the following frames from their old, now stale,
+    // on-screen position. Clearing the cache makes them reappear cleanly at
+    // their resynced position instead.
+    if (isClockResnap(renderTimeRef.current, totalDuration, PLAYBACK_CLOCK_OPTIONS)) {
+      agentPoses.current.clear();
+    }
     const t = advancePlaybackClock(renderTimeRef.current, delta, totalDuration, PLAYBACK_CLOCK_OPTIONS);
     renderTimeRef.current = t;
 

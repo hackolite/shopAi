@@ -8,6 +8,7 @@ import {
   hasDistinctConstraintSuggestion,
   pickClosestWaypointId,
 } from '../../engine/simulationConstraint';
+import { planLiveTick } from '../../engine/liveTickSchedule';
 import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
 import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore, type HeatmapMode } from '../../store/simulationStore';
@@ -29,6 +30,15 @@ const ANALYTICS_INTERVAL_MS = 1000;
  * this is 5 simulated seconds per call.
  */
 const MAX_CATCH_UP_STEPS = 50;
+/**
+ * Upper bound on the catch-up debt kept between ticks. A hidden tab is
+ * throttled to ~1 tick/minute while real time keeps running, so the missed
+ * time is unrecoverable: replaying it would fast-forward the simulation at
+ * ~50x for as long as the tab was hidden, resnapping the render clock on
+ * nearly every frame (agents teleporting non-stop). Anything older than
+ * 5 simulated seconds is therefore dropped.
+ */
+const MAX_BACKLOG_STEPS = 50;
 
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)} s`;
@@ -476,11 +486,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       // advancing by a single step: this keeps the pedestrian CSV dequeue
       // (and every other time-driven behaviour) on schedule even when the
       // browser throttles this interval in a background/hidden tab.
-      const now = performance.now();
-      const previousTickAt = lastTickAt.current ?? now;
-      const elapsedSteps = Math.max(1, Math.round((now - previousTickAt) / LIVE_TICK_INTERVAL_MS));
-      const steps = Math.min(MAX_CATCH_UP_STEPS, elapsedSteps);
-      lastTickAt.current = previousTickAt + steps * LIVE_TICK_INTERVAL_MS;
+      // The backlog is bounded: a tab hidden for hours cannot be replayed at
+      // 50 steps per 100 ms without fast-forwarding the simulation (and making
+      // the agents teleport at every render-clock resnap) for a very long time.
+      const { steps, nextTickAt } = planLiveTick(performance.now(), lastTickAt.current, {
+        intervalMs: LIVE_TICK_INTERVAL_MS,
+        maxCatchUpSteps: MAX_CATCH_UP_STEPS,
+        maxBacklogSteps: MAX_BACKLOG_STEPS,
+      });
+      lastTickAt.current = nextTickAt;
       pendingTick.current = true;
       void cadApi
         .tickLiveSimulation(projectId, liveSessionId, steps)

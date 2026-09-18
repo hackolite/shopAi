@@ -108,7 +108,10 @@ def oauth_callback(
         state=state,
         request_base_url=str(request.base_url).rstrip("/"),
     )
-    redirect = RedirectResponse(url=next_path, status_code=302)
+    redirect = RedirectResponse(
+        url=platform_service.build_safe_local_redirect_url(str(request.base_url).rstrip("/"), next_path),
+        status_code=302,
+    )
     platform_service.create_session_response(redirect, user)
     return redirect
 

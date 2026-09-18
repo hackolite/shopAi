@@ -131,11 +131,34 @@ def test_oauth_redirect_and_callback_create_a_real_session(monkeypatch: pytest.M
         follow_redirects=False,
     )
     assert callback.status_code == 302, callback.text
-    assert callback.headers["location"] == "/"
+    assert callback.headers["location"] == "http://testserver/"
 
     session = client.get("/api/platform/session")
     assert session.status_code == 200, session.text
     assert session.json()["user"]["email"] == "charlie@example.com"
+
+
+def test_oauth_callback_rejects_external_redirect_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_client()
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "google-secret")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://testserver/api/platform/auth/oauth/google/callback")
+    monkeypatch.setattr(
+        platform_service,
+        "_fetch_oauth_profile",
+        lambda provider, code, request_base_url: ("charlie@example.com", "Charlie Ops"),
+    )
+
+    callback = client.get(
+        "/api/platform/auth/oauth/google/callback",
+        params={
+            "code": "oauth-code",
+            "state": platform_service.build_oauth_state("google", "https://evil.example/steal"),
+        },
+        follow_redirects=False,
+    )
+    assert callback.status_code == 302, callback.text
+    assert callback.headers["location"] == "http://testserver/"
 
 
 def test_agent_guide_and_project_capability_audit() -> None:

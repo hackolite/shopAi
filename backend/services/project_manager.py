@@ -80,11 +80,14 @@ def _safe_project_path(project_id: str, filename: str) -> Path:
 
 
 def _read_json(project_id: str, filename: str) -> Any:
-    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
-    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
+    _validate_filename(filename)
+    project_dir = _find_existing_project(project_id)
+    if project_dir is None:
+        return None
+    path = project_dir / filename
     if not path.exists():
         return None
-    with path.open(encoding="utf-8") as handle:  # lgtm[py/path-injection]
+    with path.open(encoding="utf-8") as handle:
         content = handle.read()
     if not content.strip():
         return None

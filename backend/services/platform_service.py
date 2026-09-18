@@ -51,6 +51,14 @@ def _sanitize_next_path(next_path: str | None) -> str:
     return next_path
 
 
+def build_safe_local_redirect_url(request_base_url: str, next_path: str | None) -> str:
+    sanitized_path = _sanitize_next_path(next_path)
+    parsed_base = urllib.parse.urlsplit(request_base_url)
+    if not parsed_base.scheme or not parsed_base.netloc:
+        raise HTTPException(status_code=400, detail="Invalid request base URL")
+    return urllib.parse.urlunsplit((parsed_base.scheme, parsed_base.netloc, sanitized_path, "", ""))
+
+
 def _provider_env_prefix(provider: str) -> str:
     return provider.strip().upper()
 

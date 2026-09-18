@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Query, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -53,7 +53,7 @@ def bootstrap() -> dict[str, Any]:
             "tenant-owned catalogs",
             "tenant-owned checkout simulations",
             "agent request inbox",
-            "HTTP MCP bridge",
+            "REST/OpenAPI agent guide",
         ],
     }
 
@@ -99,7 +99,6 @@ def oauth_start(provider: str, request: Request, next: str = Query("/", alias="n
 def oauth_callback(
     provider: str,
     request: Request,
-    response: Response,
     code: str = Query(...),
     state: str = Query(...),
 ):
@@ -158,14 +157,9 @@ def create_agent_request(payload: AgentRequestPayload) -> dict[str, Any]:
     )
 
 
-@router.get("/mcp")
-def get_mcp_description(request: Request) -> dict[str, Any]:
-    return platform_service.get_mcp_server_description(str(request.base_url).rstrip("/"))
-
-
-@router.post("/mcp")
-def call_mcp(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    return platform_service.handle_mcp_request(payload)
+@router.get("/agent-guide")
+def get_agent_guide(request: Request) -> dict[str, Any]:
+    return platform_service.get_agent_api_description(str(request.base_url).rstrip("/"))
 
 
 @router.get("/agent-capabilities")

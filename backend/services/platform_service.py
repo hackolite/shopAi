@@ -788,7 +788,7 @@ def get_agent_capability_report(project_id: str | None = None) -> dict[str, Any]
     report: dict[str, Any] = {
         "tenantId": user["tenantId"],
         "oauthProviders": get_oauth_provider_status(),
-        "mcp": get_mcp_server_description(),
+        "apiAutomation": get_agent_api_description(),
         "agentPilot": {
             "script": "scripts/astra_build_store.py",
             "supportsAgentGeneratedLayout": True,
@@ -928,9 +928,9 @@ def create_agent_request(
     now = _utc_now()
     request_id = str(uuid4())
     notes = (
-        "Demande enregistrée. Connectez ensuite un agent MCP/outil-calling à l'endpoint "
-        "POST /api/platform/mcp pour lire le dashboard et rappeler l'outil submit_change_request "
-        "ou create_project selon le besoin."
+        "Demande enregistrée. Connectez ensuite un agent à l'API REST du dépôt "
+        "(openapi.json + endpoints /api/platform et /api/cad/projects) pour lire le dashboard, "
+        "vérifier le projet et appliquer les changements nécessaires."
     )
     with _connect() as conn:
         conn.execute(
@@ -966,214 +966,40 @@ def create_agent_request(
     }
 
 
-def get_mcp_server_description(base_url: str | None = None) -> dict[str, Any]:
-    dashboard = get_dashboard() if get_current_user() is not None else None
-    endpoint = base_url.rstrip("/") + "/api/platform/mcp" if base_url else "http://localhost:8000/api/platform/mcp"
+def get_agent_api_description(base_url: str | None = None) -> dict[str, Any]:
+    root = base_url.rstrip("/") if base_url else "http://localhost:8000"
     return {
-        "name": "shopai-platform-mcp",
-        "transport": "http",
-        "endpoint": endpoint,
-        "serverInfo": {
-            "name": "shopai-platform-mcp",
-            "version": "1.0.0",
-        },
-        "tools": [
-            {
-                "name": "get_dashboard",
-                "description": "Retourne le dashboard multi-tenant de l'utilisateur courant.",
-            },
-            {
-                "name": "list_projects",
-                "description": "Liste les projets du tenant courant.",
-            },
-            {
-                "name": "create_project",
-                "description": "Crée un projet appartenant au tenant courant.",
-            },
-            {
-                "name": "submit_change_request",
-                "description": "Enregistre une demande de modification à exécuter par un agent.",
-            },
-            {
-                "name": "verify_project_layout",
-                "description": "Vérifie qu'un projet respecte les contraintes de dimensionnement, de mobilier et d'implantation produit.",
-            },
-        ],
-        "connectionSteps": [
+        "name": "shopai-agent-rest-guide",
+        "openApiUrl": f"{root}/openapi.json",
+        "dashboardUrl": f"{root}/api/platform/dashboard",
+        "capabilityUrl": f"{root}/api/platform/agent-capabilities",
+        "changeRequestUrl": f"{root}/api/platform/agent-requests",
+        "workflowSteps": [
             "Démarrer le backend FastAPI sur le port 8000.",
             "S'authentifier dans l'interface web pour obtenir le cookie de session.",
-            "Configurer votre agent en transport HTTP vers POST /api/platform/mcp.",
-            "Appeler initialize, puis tools/list, puis tools/call.",
-            "Utiliser get_dashboard pour découvrir les ressources, puis verify_project_layout et submit_change_request pour contrôler et pousser les modifications.",
+            "Donner à l'agent le schéma OpenAPI /openapi.json ou des tool calls REST équivalents.",
+            "Lister les projets via /api/platform/dashboard.",
+            "Vérifier un projet via /api/platform/agent-capabilities?projectId=...",
+            "Pousser une demande via /api/platform/agent-requests si vous gardez une inbox utilisateur.",
         ],
-        "sampleInitialize": {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2026-06-18",
-                "capabilities": {},
-                "clientInfo": {"name": "custom-agent", "version": "1.0.0"},
+        "sampleRequests": {
+            "dashboard": {
+                "method": "GET",
+                "url": f"{root}/api/platform/dashboard",
             },
-        },
-        "sampleToolsCall": {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/call",
-            "params": {
-                "name": "submit_change_request",
-                "arguments": {
+            "verifyProject": {
+                "method": "GET",
+                "url": f"{root}/api/platform/agent-capabilities?projectId=<project-id>",
+            },
+            "submitChangeRequest": {
+                "method": "POST",
+                "url": f"{root}/api/platform/agent-requests",
+                "json": {
                     "provider": "github-copilot",
                     "targetResourceType": "project",
-                    "targetResourceId": dashboard["projects"][0]["id"] if dashboard and dashboard["projects"] else None,
-                    "prompt": "Ajoute une vue KPI et un onboarding plus orienté retail."
+                    "targetResourceId": "<project-id>",
+                    "prompt": "Ajoute une vue KPI et un onboarding plus orienté retail.",
                 },
             },
         },
     }
-
-
-def handle_mcp_request(payload: dict[str, Any]) -> dict[str, Any]:
-    ensure_platform_schema()
-    method = payload.get("method")
-    request_id = payload.get("id")
-    params = payload.get("params") or {}
-
-    def _success(result: dict[str, Any]) -> dict[str, Any]:
-        return {"jsonrpc": "2.0", "id": request_id, "result": result}
-
-    def _error(code: int, message: str) -> dict[str, Any]:
-        return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
-
-    try:
-        if method == "initialize":
-            return _success(
-                {
-                    "protocolVersion": params.get("protocolVersion", "2026-06-18"),
-                    "capabilities": {"tools": {}},
-                    "serverInfo": {
-                        "name": "shopai-platform-mcp",
-                        "version": "1.0.0",
-                    },
-                }
-            )
-        if method == "tools/list":
-            description = get_mcp_server_description()
-            return _success(
-                {
-                    "tools": [
-                        {
-                            "name": "get_dashboard",
-                            "description": "Return the authenticated user's tenant dashboard.",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                            },
-                        },
-                        {
-                            "name": "list_projects",
-                            "description": "List tenant-owned projects.",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {},
-                            },
-                        },
-                        {
-                            "name": "create_project",
-                            "description": "Create a new tenant-owned project.",
-                            "inputSchema": {
-                                "type": "object",
-                                "required": ["name"],
-                                "properties": {
-                                    "name": {"type": "string"},
-                                },
-                            },
-                        },
-                        {
-                            "name": "submit_change_request",
-                            "description": "Store an implementation request for a connected agent.",
-                            "inputSchema": {
-                                "type": "object",
-                                "required": ["provider", "targetResourceType", "prompt"],
-                                "properties": {
-                                    "provider": {"type": "string"},
-                                    "targetResourceType": {"type": "string"},
-                                    "targetResourceId": {"type": ["string", "null"]},
-                                    "prompt": {"type": "string"},
-                                },
-                            },
-                        },
-                        {
-                            "name": "verify_project_layout",
-                            "description": "Audit one project for store, furniture, planogram and slot-position constraints.",
-                            "inputSchema": {
-                                "type": "object",
-                                "required": ["projectId"],
-                                "properties": {
-                                    "projectId": {"type": "string"},
-                                },
-                            },
-                        },
-                    ],
-                    "instructions": description["connectionSteps"],
-                }
-            )
-        if method == "tools/call":
-            tool_name = params.get("name")
-            arguments = params.get("arguments") or {}
-            if tool_name == "get_dashboard":
-                dashboard = get_dashboard()
-                return _success(
-                    {
-                        "content": [{"type": "text", "text": json.dumps(dashboard, ensure_ascii=False, indent=2)}],
-                        "structuredContent": dashboard,
-                    }
-                )
-            if tool_name == "list_projects":
-                dashboard = get_dashboard()
-                return _success(
-                    {
-                        "content": [{"type": "text", "text": json.dumps(dashboard["projects"], ensure_ascii=False, indent=2)}],
-                        "structuredContent": {"projects": dashboard["projects"]},
-                    }
-                )
-            if tool_name == "create_project":
-                name = str(arguments.get("name", "")).strip()
-                if not name:
-                    raise HTTPException(status_code=400, detail="name is required")
-                metadata = project_manager.create_project(str(uuid4()), name)
-                assign_project_to_current_user(metadata["id"])
-                return _success(
-                    {
-                        "content": [{"type": "text", "text": f"Project created: {metadata['id']}"}],
-                        "structuredContent": metadata,
-                    }
-                )
-            if tool_name == "submit_change_request":
-                record = create_agent_request(
-                    provider=str(arguments.get("provider", "custom-agent")),
-                    prompt=str(arguments.get("prompt", "")),
-                    target_resource_type=str(arguments.get("targetResourceType", "workspace")),
-                    target_resource_id=arguments.get("targetResourceId"),
-                )
-                return _success(
-                    {
-                        "content": [{"type": "text", "text": record["implementationNotes"]}],
-                        "structuredContent": record,
-                    }
-                )
-            if tool_name == "verify_project_layout":
-                project_id = str(arguments.get("projectId", "")).strip()
-                if not project_id:
-                    raise HTTPException(status_code=400, detail="projectId is required")
-                report = get_agent_capability_report(project_id)
-                return _success(
-                    {
-                        "content": [{"type": "text", "text": json.dumps(report, ensure_ascii=False, indent=2)}],
-                        "structuredContent": report,
-                    }
-                )
-            return _error(-32601, f"Unknown tool: {tool_name}")
-        return _error(-32601, f"Unknown method: {method}")
-    except HTTPException as exc:
-        return _error(exc.status_code, str(exc.detail))

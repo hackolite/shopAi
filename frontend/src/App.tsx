@@ -3,7 +3,7 @@ import { cadApi } from './api/cad';
 import {
   type AgentCapabilityReport,
   platformApi,
-  type McpServerDescription,
+  type AgentApiGuide,
   type PlatformDashboard,
   type PlatformOAuthProvider,
   type PlatformProjectSummary,
@@ -59,7 +59,7 @@ export default function App() {
   const [hasUsers, setHasUsers] = useState(false);
   const [currentUser, setCurrentUser] = useState<PlatformUser | null>(null);
   const [dashboard, setDashboard] = useState<PlatformDashboard | null>(null);
-  const [mcpDescription, setMcpDescription] = useState<McpServerDescription | null>(null);
+  const [agentGuide, setAgentGuide] = useState<AgentApiGuide | null>(null);
   const [oauthProviders, setOauthProviders] = useState<PlatformOAuthProvider[]>([]);
   const [agentCapabilityReport, setAgentCapabilityReport] = useState<AgentCapabilityReport | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -86,13 +86,13 @@ export default function App() {
   const [agentPrompt, setAgentPrompt] = useState('');
 
   const loadAuthenticatedData = useCallback(async () => {
-    const [dashboardData, mcpData] = await Promise.all([
+    const [dashboardData, agentGuideData] = await Promise.all([
       platformApi.getDashboard(),
-      platformApi.getMcpDescription(),
+      platformApi.getAgentGuide(),
     ]);
     const capabilityData = await platformApi.getAgentCapabilities(dashboardData.projects[0]?.id);
     setDashboard(dashboardData);
-    setMcpDescription(mcpData);
+    setAgentGuide(agentGuideData);
     setOauthProviders(dashboardData.oauthProviders);
     setAgentCapabilityReport(capabilityData);
     setCatalogProjectId((current) => current || dashboardData.projects[0]?.id || '');
@@ -259,7 +259,7 @@ export default function App() {
       await platformApi.logout();
       setCurrentUser(null);
       setDashboard(null);
-      setMcpDescription(null);
+      setAgentGuide(null);
       setAgentCapabilityReport(null);
       setStudioProjectId(null);
       setViewMode('landing');
@@ -275,7 +275,7 @@ export default function App() {
     () => [
       'Accueil classique SaaS avec connexion, inscription et SSO Google/GitHub.',
       'Tenant unique par utilisateur, avec plusieurs projets, catalogues et simulations stockés en base SQLite.',
-      'Pont MCP HTTP et champ de prompt type Lovable pour piloter un agent sur vos ressources.',
+      'Guide REST/OpenAPI et champ de prompt type Lovable pour piloter un agent sur vos ressources.',
     ],
     [],
   );
@@ -343,7 +343,7 @@ export default function App() {
                       <StatCard label="Workspaces" value="1 tenant / user" hint="Isolation simple pour démarrer." />
                       <StatCard label="Projets" value="∞" hint="Plusieurs stores et variantes par utilisateur." />
                       <StatCard label="Catalogues" value="SQLite" hint="Ressources métier stockées côté backend." />
-                      <StatCard label="Agents" value="MCP HTTP" hint="Prêt à connecter Copilot ou tout autre client." />
+                      <StatCard label="Agents" value="REST + OpenAPI" hint="Prêt à connecter Copilot ou tout autre client." />
                     </div>
                   </div>
 
@@ -528,34 +528,26 @@ export default function App() {
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="Connexion agent / MCP" subtitle="Expose un point HTTP simple pour un agent externe et documente la séquence d'appel.">
+                  <SectionCard title="Connexion agent / REST" subtitle="Expose le schéma OpenAPI et la séquence d'appel minimale pour un agent externe.">
                     <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-                      <div className="text-xs uppercase tracking-[0.25em] text-slate-500">Endpoint</div>
+                      <div className="text-xs uppercase tracking-[0.25em] text-slate-500">OpenAPI</div>
                       <div className="mt-2 break-all rounded-xl bg-slate-950 px-3 py-2 font-mono text-xs text-cyan-200">
-                        {mcpDescription?.endpoint ?? 'http://localhost:8000/api/platform/mcp'}
+                        {agentGuide?.openApiUrl ?? 'http://localhost:8000/openapi.json'}
                       </div>
                     </div>
                     <ol className="mt-4 space-y-2 text-sm text-slate-300">
-                      {(mcpDescription?.connectionSteps ?? []).map((step) => (
+                      {(agentGuide?.workflowSteps ?? []).map((step) => (
                         <li key={step} className="flex gap-3">
                           <span className="text-cyan-300">→</span>
                           <span>{step}</span>
                         </li>
                       ))}
                     </ol>
-                    <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                      <div>
-                        <div className="mb-2 text-xs text-slate-500">initialize</div>
-                        <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-3 text-xs text-slate-300">
-                          {JSON.stringify(mcpDescription?.sampleInitialize ?? {}, null, 2)}
-                        </pre>
-                      </div>
-                      <div>
-                        <div className="mb-2 text-xs text-slate-500">tools/call</div>
-                        <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-3 text-xs text-slate-300">
-                          {JSON.stringify(mcpDescription?.sampleToolsCall ?? {}, null, 2)}
-                        </pre>
-                      </div>
+                    <div className="mt-4">
+                      <div className="mb-2 text-xs text-slate-500">Exemples de requêtes</div>
+                      <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-3 text-xs text-slate-300">
+                        {JSON.stringify(agentGuide?.sampleRequests ?? {}, null, 2)}
+                      </pre>
                     </div>
                   </SectionCard>
                 </div>
@@ -647,7 +639,7 @@ export default function App() {
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="Champ agent type Lovable" subtitle="Déposez une demande d'implémentation et laissez un agent s'y connecter via le pont MCP.">
+                  <SectionCard title="Champ agent type Lovable" subtitle="Déposez une demande d'implémentation et laissez un agent la consommer via l'API REST.">
                     <div className="space-y-3">
                       <select
                         value={agentProvider}
@@ -721,7 +713,7 @@ export default function App() {
                   'OAuth Google/GitHub réel via redirections server-side quand les variables d’environnement sont présentes.',
                   'Filtrage des projets par tenant directement dans les endpoints CAD existants.',
                   'Stockage SQLite pour les métadonnées multi-tenant et les demandes agent.',
-                  'Description MCP intégrée dans le backend et visible dans le hub.',
+                  'Guide REST/OpenAPI intégré dans le backend et visible dans le hub.',
                 ].map((item) => (
                   <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     {item}
@@ -772,19 +764,19 @@ export default function App() {
               </div>
             </SectionCard>
 
-            <SectionCard title="Parcours conseillé" subtitle="Pour brancher n'importe quel agent sans ajustements côté infra.">
+            <SectionCard title="Parcours conseillé" subtitle="Pour brancher n'importe quel agent en direct sur l'API.">
               <div className="space-y-3 text-sm text-slate-300">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                   1. Créez votre workspace puis au moins un projet.
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  2. Copiez l&apos;endpoint MCP affiché ci-contre dans votre client agent.
+                  2. Donnez à votre agent le schéma <span className="font-mono">/openapi.json</span> et les endpoints REST affichés ci-contre.
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  3. Utilisez le champ agent pour stocker une demande, puis faites-la consommer via <span className="font-mono">submit_change_request</span>.
+                  3. Utilisez le champ agent pour stocker une demande, puis faites-la consommer via <span className="font-mono">/api/platform/agent-requests</span>.
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  4. Ouvrez ensuite le studio pour modifier le projet tenant-aware.
+                  4. Vérifiez ensuite le projet via <span className="font-mono">/api/platform/agent-capabilities</span> avant ouverture du studio.
                 </div>
               </div>
             </SectionCard>

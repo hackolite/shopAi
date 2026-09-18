@@ -127,7 +127,7 @@ Configuration par défaut du pilote :
 
 ## Comment brancher un agent ?
 
-Il y a trois façons réalistes de se plugger.
+Il y a deux façons réalistes de se plugger.
 
 ### Option 1 — Utiliser directement le script de référence
 
@@ -160,22 +160,6 @@ appelle alors directement les endpoints REST dans l'ordre des 8 étapes.
 - vous voulez brancher plusieurs modèles ;
 - vous voulez journaliser précisément tous les appels.
 
-### Option 3 — Façade MCP devant l'API REST
-
-Vous pouvez exposer chaque endpoint REST comme outil MCP. L'agent parle MCP,
-puis votre serveur MCP appelle le backend HTTP.
-
-**Avantages :**
-- abstraction propre pour plusieurs agents ;
-- centralisation de l'authentification LLM, des logs et des quotas ;
-- plus simple à intégrer dans un orchestrateur existant.
-
-**Quand choisir cette option :**
-- vous avez déjà une stack MCP ;
-- vous voulez encapsuler l'API du dépôt derrière vos propres garde-fous.
-
----
-
 ## Authentification, clés API et sécurité
 
 ### Ce que fait le dépôt aujourd'hui
@@ -183,7 +167,7 @@ puis votre serveur MCP appelle le backend HTTP.
 Le pilote Astra continue de parler directement à l'API CAD du dépôt. En local,
 il peut toujours fonctionner sans session applicative si vous l'appelez sur un
 backend ouvert. En parallèle, la plateforme expose désormais un vrai parcours
-OAuth Google/GitHub côté interface et un pont MCP HTTP sur `/api/platform/mcp`.
+OAuth Google/GitHub côté interface et un guide REST/OpenAPI pour brancher un agent.
 
 ### Donc, quelles clés dois-je gérer ?
 
@@ -195,7 +179,6 @@ Si vous utilisez un agent externe, il faut distinguer **deux couches** :
 Exemples de clés qui peuvent exister **chez vous**, mais **pas dans ce dépôt** :
 - clé du provider LLM ;
 - clé d'un proxy d'observabilité ;
-- secret de votre serveur MCP ;
 - jeton d'un backend exposé publiquement derrière une gateway.
 
 ### Bonnes pratiques de gestion des clés
@@ -217,7 +200,7 @@ Exemples de clés qui peuvent exister **chez vous**, mais **pas dans ce dépôt*
   activez le vrai OAuth de la plateforme. Le pilote Astra n'en dépend pas
   directement.
 - **Pour votre agent LLM** : dans votre orchestrateur, vos variables
-  d'environnement, ou votre serveur MCP — pas dans le dépôt.
+  d'environnement — pas dans le dépôt.
 
 ---
 
@@ -504,7 +487,7 @@ positionnement.
 Si vous voulez industrialiser la création agentique d'un magasin :
 
 1. gardez ce pilote comme **oracle de référence** ;
-2. placez votre agent derrière un orchestrateur ou un serveur MCP ;
+2. placez votre agent derrière un orchestrateur outillé en REST/OpenAPI ;
 3. stockez les clés LLM hors dépôt ;
 4. protégez le backend exposé par une gateway ;
 5. conservez `export/retail-layout` comme validation finale obligatoire ;

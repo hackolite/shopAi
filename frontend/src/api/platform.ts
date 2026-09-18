@@ -70,18 +70,14 @@ export interface PlatformDashboard {
   agentRequests: PlatformAgentRequest[];
 }
 
-export interface McpServerDescription {
+export interface AgentApiGuide {
   name: string;
-  transport: string;
-  endpoint: string;
-  serverInfo: {
-    name: string;
-    version: string;
-  };
-  tools: Array<{ name: string; description: string }>;
-  connectionSteps: string[];
-  sampleInitialize: Record<string, unknown>;
-  sampleToolsCall: Record<string, unknown>;
+  openApiUrl: string;
+  dashboardUrl: string;
+  capabilityUrl: string;
+  changeRequestUrl: string;
+  workflowSteps: string[];
+  sampleRequests: Record<string, unknown>;
 }
 
 export interface PlatformOAuthProvider {
@@ -93,7 +89,7 @@ export interface PlatformOAuthProvider {
 export interface AgentCapabilityReport {
   tenantId: string;
   oauthProviders: PlatformOAuthProvider[];
-  mcp: McpServerDescription;
+  apiAutomation: AgentApiGuide;
   agentPilot: {
     script: string;
     supportsAgentGeneratedLayout: boolean;
@@ -200,7 +196,7 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  getMcpDescription: () => request<McpServerDescription>('/api/platform/mcp'),
+  getAgentGuide: () => request<AgentApiGuide>('/api/platform/agent-guide'),
   getAgentCapabilities: (projectId?: string) =>
     request<AgentCapabilityReport>(
       projectId

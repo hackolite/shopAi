@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import json
-import math
 import re
 import threading
 from typing import Any
@@ -27,7 +26,12 @@ from models.project import (
 )
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
-from services.layout_audit import furniture_rotated_bounds, validate_furniture_bounds, validate_planogram
+from services.layout_audit import (
+    furniture_rotated_bounds,
+    validate_furniture_bounds,
+    validate_planogram,
+    validate_store,
+)
 from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
@@ -338,6 +342,9 @@ def update_store(project_id: str, payload: dict[str, Any] = Body(...)):
     with _get_project_lock(project_id):
         scene = _load_scene(project_id)
         scene.store = _merge_model(Store, scene.store, payload)
+        store_issues = validate_store(scene.store)
+        if store_issues:
+            raise HTTPException(status_code=422, detail=store_issues[0])
         _save_scene(project_id, scene)
     return scene.store.model_dump(mode="json")
 

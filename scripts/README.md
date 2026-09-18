@@ -48,6 +48,7 @@ de sortie `0`.
 | `--name` | `Magasin Astra` | Nom du projet créé |
 | `--catalog` | `assortment.json` | Chemin du catalogue produit fourni (JSON) |
 | `--max-products` | `200` | Nombre de produits importés depuis le catalogue |
+| `--layout` | *(aucun)* | Chemin d'un **plan d'implantation fourni** (JSON). Si omis, l'agent construit son propre plan |
 | `--pause` | `0` | Secondes d'attente entre chaque étape (visualisation / capture vidéo) |
 
 ---
@@ -60,8 +61,8 @@ Chaque étape est loggée sur stdout au format `[n/8 étape] message`.
 |---|---|---|
 | 1 | Health check | `GET /` |
 | 2 | Création du projet | `POST /api/cad/projects/` |
-| 3 | Dimensions du magasin (3000×2000×400 cm) | `PUT /api/cad/projects/{id}/scene/store` |
-| 4 | Lecture de la bibliothèque mobilier | `GET /api/furniture-library/` |
+| 3 | Lecture de la bibliothèque mobilier | `GET /api/furniture-library/` |
+| 4 | Plan d'implantation + dimensions du magasin | `PUT /api/cad/projects/{id}/scene/store` |
 | 5 | Placement du mobilier (sans chevauchement) | `POST /api/cad/projects/{id}/scene/furniture` |
 | 6 | Import du catalogue produit | `POST /api/cad/projects/{id}/catalog/import` |
 | 7 | Création des planogrammes par face | `POST /api/cad/projects/{id}/planograms` |
@@ -69,10 +70,11 @@ Chaque étape est loggée sur stdout au format `[n/8 étape] message`.
 
 Toutes les coordonnées sont en **cm**, origine au **coin bas-gauche** du magasin.
 
-### Plan d'implantation (étape 5)
+### Plan d'implantation (étape 4) — deux modes
 
-Le layout est calculé sur une grille déterministe (`plan_layout`) pour ne jamais
-déclencher la garde anti-chevauchement du backend :
+**Mode 1 — plan généré par l'agent (défaut).** Le layout est calculé sur une grille
+déterministe (`plan_layout`) pour ne jamais déclencher la garde anti-chevauchement
+du backend :
 
 - **Mur du fond** : 6 frigos verticaux côte à côte ;
 - **Allées centrales** : 3 rangées de 5 gondoles doubles, allées de 180 cm ;
@@ -81,6 +83,27 @@ déclencher la garde anti-chevauchement du backend :
 
 Les dimensions proviennent toujours des `defaultDimensions` de la bibliothèque
 mobilier — jamais inventées.
+
+**Mode 2 — plan fourni par l'utilisateur (`--layout plan.json`).** Le script charge
+un plan d'implantation externe (`load_supplied_layout`) au lieu d'en générer un :
+
+```json
+{
+  "store": { "width": 1500, "depth": 1000, "height": 350 },
+  "furniture": [
+    { "libraryId": "gondola_double", "name": "Gondole centrale 1", "position": [300, 0, 400] },
+    { "libraryId": "fridge", "name": "Frigo fond", "position": [100, 0, 850] },
+    { "libraryId": "register", "name": "Caisse 1", "position": [1200, 0, 100] }
+  ]
+}
+```
+
+- `libraryId` et `position` `[x, y, z]` (cm) sont obligatoires ; `name`, `rotation`,
+  `dimensions` et `materialId` sont optionnels et complétés depuis la bibliothèque ;
+- un tableau nu de meubles est aussi accepté (dimensions magasin par défaut) ;
+- un `libraryId` inconnu est rejeté avec la liste des types disponibles ;
+- un plan fourni avec chevauchement est **rejeté par le backend (HTTP 409)** — la
+  conformité reste garantie côté serveur quel que soit l'auteur du plan.
 
 ### Mapping catalogue (étape 6)
 

@@ -180,9 +180,10 @@ puis votre serveur MCP appelle le backend HTTP.
 
 ### Ce que fait le dépôt aujourd'hui
 
-**Le backend de ce dépôt n'exige actuellement aucune clé API ni header
-`Authorization`** pour les endpoints utilisés par le pilote. En local, il suffit
-de pointer `--api` vers l'URL du backend.
+Le pilote Astra continue de parler directement à l'API CAD du dépôt. En local,
+il peut toujours fonctionner sans session applicative si vous l'appelez sur un
+backend ouvert. En parallèle, la plateforme expose désormais un vrai parcours
+OAuth Google/GitHub côté interface et un pont MCP HTTP sur `/api/platform/mcp`.
 
 ### Donc, quelles clés dois-je gérer ?
 
@@ -210,8 +211,11 @@ Exemples de clés qui peuvent exister **chez vous**, mais **pas dans ce dépôt*
 
 ### Réponse courte à la question “où renseigner ma clé ?”
 
-- **Pour le backend de ce dépôt** : nulle part, il n'y a pas de clé native à
-  fournir aujourd'hui.
+- **Pour le backend de ce dépôt** : renseignez éventuellement
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`,
+  `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI` si vous
+  activez le vrai OAuth de la plateforme. Le pilote Astra n'en dépend pas
+  directement.
 - **Pour votre agent LLM** : dans votre orchestrateur, vos variables
   d'environnement, ou votre serveur MCP — pas dans le dépôt.
 

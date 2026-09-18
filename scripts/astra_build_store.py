@@ -321,6 +321,55 @@ def build_planogram(
     return payload, cursor
 
 
+def face_dimensions(furniture: dict[str, Any], face: str) -> tuple[float, float]:
+    dims = furniture["dimensions"]
+    if face in {"front", "back"}:
+        return float(dims["width"]), float(dims["height"])
+    if face in {"left", "right"}:
+        return float(dims["depth"]), float(dims["height"])
+    return float(dims["width"]), float(dims["depth"])
+
+
+def verify_layout(layout: dict[str, Any], expected_furniture: int, expected_slots: int) -> list[str]:
+    issues: list[str] = []
+    furniture_items = layout.get("furniture", [])
+    if len(furniture_items) != expected_furniture:
+        issues.append(
+            f"expected {expected_furniture} furniture items in retail-layout export, got {len(furniture_items)}"
+        )
+    slot_count = 0
+    for furniture in furniture_items:
+        px = float(furniture.get("position", {}).get("x", 0.0))
+        py = float(furniture.get("position", {}).get("y", 0.0))
+        pz = float(furniture.get("position", {}).get("z", 0.0))
+        dims = furniture.get("dimensions", {})
+        fw = float(dims.get("width", 0.0))
+        fd = float(dims.get("depth", 0.0))
+        fh = float(dims.get("height", 0.0))
+        for placement in furniture.get("placements", []):
+            face = placement.get("face", "front")
+            width_cm, height_cm = face_dimensions(furniture, face)
+            if float(placement.get("widthCm", 0.0)) > width_cm + 0.5:
+                issues.append(f"{furniture['name']} {face}: planogram width exceeds face width")
+            if float(placement.get("heightCm", 0.0)) > height_cm + 0.5:
+                issues.append(f"{furniture['name']} {face}: planogram height exceeds face height")
+            for slot in placement.get("slots", []):
+                slot_count += 1
+                pos = slot.get("absolutePositionCm", {})
+                x = float(pos.get("x", 0.0))
+                y = float(pos.get("y", 0.0))
+                z = float(pos.get("z", 0.0))
+                if not (px - 0.5 <= x <= px + fw + 0.5):
+                    issues.append(f"{furniture['name']} {face}: slot x out of bounds")
+                if not (py - 0.5 <= y <= py + fh + 0.5):
+                    issues.append(f"{furniture['name']} {face}: slot y out of bounds")
+                if not (pz - 0.5 <= z <= pz + fd + 0.5):
+                    issues.append(f"{furniture['name']} {face}: slot z out of bounds")
+    if slot_count != expected_slots:
+        issues.append(f"expected {expected_slots} exported slots, got {slot_count}")
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -423,12 +472,14 @@ def main() -> int:
     # 7. Planograms ---------------------------------------------------------
     cursor = 0
     planogram_count = 0
+    expected_slot_count = 0
     for furniture in placed:
         faces = _FACEABLE_TYPES.get(furniture["type"], [])
         for face in faces:
             payload, cursor = build_planogram(furniture, face, products, cursor)
             client.post(f"/api/cad/projects/{project_id}/planograms", payload)
             planogram_count += 1
+            expected_slot_count += payload["rows"] * payload["cols"]
             log("7/8 planogram", f"created '{payload['name']}' ({payload['rows']}x{payload['cols']} cells)")
             pause()
     log("7/8 planogram", f"{planogram_count} planograms created")
@@ -436,14 +487,13 @@ def main() -> int:
     # 8. Verification -------------------------------------------------------
     layout = client.get(f"/api/cad/projects/{project_id}/export/retail-layout")
     furniture_out = layout.get("furniture", [])
-    slot_count = sum(
-        len(placement.get("slots", []))
-        for item in furniture_out
-        for placement in item.get("placements", [])
-    )
+    issues = verify_layout(layout, expected_furniture=len(placed), expected_slots=expected_slot_count)
+    slot_count = sum(len(placement.get("slots", [])) for item in furniture_out for placement in item.get("placements", []))
+    if issues:
+        raise ValueError("; ".join(issues))
     log(
         "8/8 verify",
-        f"retail layout export OK: {len(furniture_out)} furniture, {slot_count} product slots with absolute cm positions",
+        f"retail layout export OK: {len(furniture_out)} furniture, {slot_count} product slots with absolute cm positions and valid bounds",
     )
     log("done", f"store '{args.name}' built without any error — open project {project_id} in the frontend")
     return 0

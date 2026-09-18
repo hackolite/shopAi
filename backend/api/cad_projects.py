@@ -27,6 +27,7 @@ from models.project import (
 )
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
+from services.layout_audit import furniture_rotated_bounds, validate_furniture_bounds, validate_planogram
 from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
@@ -70,18 +71,8 @@ def _get_project_lock(project_id: str) -> threading.Lock:
 
 def _furniture_overlaps(first: FurnitureInstance, second: FurnitureInstance) -> bool:
     """Return whether two furniture footprints overlap (touching edges is allowed)."""
-    def bounds(item: FurnitureInstance) -> tuple[float, float, float, float]:
-        width = item.dimensions["width"]
-        depth = item.dimensions["depth"]
-        radians = math.radians(item.rotation[1])
-        half_x = (abs(math.cos(radians)) * width + abs(math.sin(radians)) * depth) / 2
-        half_z = (abs(math.sin(radians)) * width + abs(math.cos(radians)) * depth) / 2
-        centre_x = item.position[0] + width / 2
-        centre_z = item.position[2] + depth / 2
-        return centre_x - half_x, centre_x + half_x, centre_z - half_z, centre_z + half_z
-
-    first_min_x, first_max_x, first_min_z, first_max_z = bounds(first)
-    second_min_x, second_max_x, second_min_z, second_max_z = bounds(second)
+    first_min_x, first_max_x, first_min_z, first_max_z = furniture_rotated_bounds(first)
+    second_min_x, second_max_x, second_min_z, second_max_z = furniture_rotated_bounds(second)
     return (
         first_min_x < second_max_x
         and first_max_x > second_min_x
@@ -363,6 +354,9 @@ def add_furniture(project_id: str, payload: dict[str, Any] = Body(...)):
         if any(item.id == furniture.id for item in scene.furniture):
             raise HTTPException(status_code=409, detail=f"Furniture '{furniture.id}' already exists")
         _ensure_furniture_does_not_overlap(furniture, scene.furniture)
+        bound_issues = validate_furniture_bounds(furniture, scene.store)
+        if bound_issues:
+            raise HTTPException(status_code=422, detail=bound_issues[0])
         scene.furniture.append(furniture)
         _save_scene(project_id, scene)
     return furniture.model_dump(mode="json")
@@ -375,6 +369,9 @@ def update_furniture(project_id: str, furniture_id: str, payload: dict[str, Any]
         index = _find_index(scene.furniture, "id", furniture_id)
         updated = _merge_model(FurnitureInstance, scene.furniture[index], {**payload, "id": furniture_id})
         _ensure_furniture_does_not_overlap(updated, scene.furniture)
+        bound_issues = validate_furniture_bounds(updated, scene.store)
+        if bound_issues:
+            raise HTTPException(status_code=422, detail=bound_issues[0])
         scene.furniture[index] = updated
         _save_scene(project_id, scene)
     return updated.model_dump(mode="json")
@@ -540,6 +537,7 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
         for cell in data.get("cells", [])
     ]
     planogram = Planogram.model_validate(data)
+    catalog = _load_catalog(project_id)
 
     # Hold a per-project lock for the read-modify-write on planograms.json and
     # scene.json.  FastAPI executes synchronous route handlers in a thread pool,
@@ -553,6 +551,13 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
             raise HTTPException(status_code=409, detail=f"Planogram '{planogram.id}' already exists")
         planograms.append(planogram)
         furniture_index = _find_index(scene.furniture, "id", planogram.furnitureId)
+        planogram_issues = validate_planogram(
+            planogram,
+            scene.furniture[furniture_index],
+            {product.ean for product in catalog.products},
+        )
+        if planogram_issues:
+            raise HTTPException(status_code=422, detail=planogram_issues[0])
         scene.furniture[furniture_index].faces[planogram.face.value] = planogram.id
         _save_planograms(project_id, planograms)
         _save_scene(project_id, scene)
@@ -581,9 +586,18 @@ def update_planogram(project_id: str, planogram_id: str, payload: dict[str, Any]
         data["cells"] = [{**cell, "id": cell.get("id", str(uuid4()))} for cell in data["cells"]]
     with _get_project_lock(project_id):
         scene = _load_scene(project_id)
+        catalog = _load_catalog(project_id)
         planograms = _load_planograms(project_id)
         index = _find_index(planograms, "id", planogram_id)
         updated = _merge_model(Planogram, planograms[index], {**data, "id": planogram_id})
+        furniture_index = _find_index(scene.furniture, "id", updated.furnitureId)
+        planogram_issues = validate_planogram(
+            updated,
+            scene.furniture[furniture_index],
+            {product.ean for product in catalog.products},
+        )
+        if planogram_issues:
+            raise HTTPException(status_code=422, detail=planogram_issues[0])
 
         original = planograms[index]
         if original.furnitureId != updated.furnitureId or original.face != updated.face:
@@ -591,7 +605,6 @@ def update_planogram(project_id: str, planogram_id: str, payload: dict[str, Any]
                 for face, linked_planogram_id in furniture.faces.items():
                     if linked_planogram_id == planogram_id:
                         furniture.faces[face] = None
-            furniture_index = _find_index(scene.furniture, "id", updated.furnitureId)
             scene.furniture[furniture_index].faces[updated.face.value] = updated.id
             _save_scene(project_id, scene)
 

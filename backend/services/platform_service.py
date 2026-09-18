@@ -3,21 +3,27 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import sqlite3
+import time
+import urllib.parse
 from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import httpx
 from fastapi import HTTPException, Request, Response
 
 import services.project_manager as project_manager
-from models.project import Planogram, ProjectSettings, SceneData, SimulationConfig
+from models.project import Catalog, Planogram, ProjectSettings, SceneData, SimulationConfig
+from services.layout_audit import audit_project_layout
 
 SESSION_COOKIE_NAME = "shopai_session"
 SESSION_DURATION_DAYS = 14
+OAUTH_STATE_TTL_SECONDS = 600
 _SUPPORTED_OAUTH_PROVIDERS = {"google", "github"}
 _current_user: ContextVar[dict[str, Any] | None] = ContextVar(
     "shopai_current_user",
@@ -33,6 +39,76 @@ def _db_path() -> Path:
     storage_root = Path(project_manager.STORAGE_ROOT)
     storage_root.parent.mkdir(parents=True, exist_ok=True)
     return storage_root.parent / "platform.sqlite3"
+
+
+def _oauth_state_secret() -> str:
+    return os.getenv("SHOPAI_OAUTH_STATE_SECRET", "shopai-dev-oauth-state-secret-change-me")
+
+
+def _sanitize_next_path(next_path: str | None) -> str:
+    if not next_path or not next_path.startswith("/") or next_path.startswith("//"):
+        return "/"
+    return next_path
+
+
+def _provider_env_prefix(provider: str) -> str:
+    return provider.strip().upper()
+
+
+def oauth_provider_settings(provider: str, request_base_url: str | None = None) -> dict[str, Any]:
+    provider_name = provider.strip().lower()
+    if provider_name not in _SUPPORTED_OAUTH_PROVIDERS:
+        raise HTTPException(status_code=400, detail="Unsupported OAuth provider")
+
+    env_prefix = _provider_env_prefix(provider_name)
+    client_id = os.getenv(f"{env_prefix}_CLIENT_ID", "").strip()
+    client_secret = os.getenv(f"{env_prefix}_CLIENT_SECRET", "").strip()
+    redirect_uri = os.getenv(f"{env_prefix}_REDIRECT_URI", "").strip()
+    if not redirect_uri and request_base_url:
+        redirect_uri = f"{request_base_url.rstrip('/')}/api/platform/auth/oauth/{provider_name}/callback"
+
+    config: dict[str, Any] = {
+        "provider": provider_name,
+        "clientId": client_id,
+        "clientSecret": client_secret,
+        "redirectUri": redirect_uri,
+        "configured": bool(client_id and client_secret and redirect_uri),
+        "startPath": f"/api/platform/auth/oauth/{provider_name}/start",
+    }
+    if provider_name == "google":
+        config.update(
+            {
+                "authorizeUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+                "tokenUrl": "https://oauth2.googleapis.com/token",
+                "userinfoUrl": "https://openidconnect.googleapis.com/v1/userinfo",
+                "scope": "openid email profile",
+            }
+        )
+    else:
+        config.update(
+            {
+                "authorizeUrl": "https://github.com/login/oauth/authorize",
+                "tokenUrl": "https://github.com/login/oauth/access_token",
+                "userinfoUrl": "https://api.github.com/user",
+                "emailUrl": "https://api.github.com/user/emails",
+                "scope": "read:user user:email",
+            }
+        )
+    return config
+
+
+def get_oauth_provider_status(request_base_url: str | None = None) -> list[dict[str, Any]]:
+    providers: list[dict[str, Any]] = []
+    for provider in sorted(_SUPPORTED_OAUTH_PROVIDERS):
+        settings = oauth_provider_settings(provider, request_base_url)
+        providers.append(
+            {
+                "name": provider,
+                "configured": settings["configured"],
+                "startPath": settings["startPath"],
+            }
+        )
+    return providers
 
 
 def _connect() -> sqlite3.Connection:
@@ -263,6 +339,143 @@ def login_user(email: str, password: str) -> dict[str, Any]:
     if row is None or not _verify_password(password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return _row_to_user_payload(row)
+
+
+def _sign_oauth_state(payload_b64: str) -> str:
+    return hmac.new(
+        _oauth_state_secret().encode("utf-8"),
+        payload_b64.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def build_oauth_state(provider: str, next_path: str | None) -> str:
+    payload = {
+        "provider": provider.strip().lower(),
+        "next": _sanitize_next_path(next_path),
+        "nonce": secrets.token_urlsafe(12),
+        "issuedAt": int(time.time()),
+    }
+    payload_b64 = urllib.parse.quote(json.dumps(payload, separators=(",", ":")))
+    return f"{payload_b64}.{_sign_oauth_state(payload_b64)}"
+
+
+def parse_oauth_state(provider: str, state: str) -> dict[str, Any]:
+    payload_b64, _, signature = state.partition(".")
+    if not payload_b64 or not signature:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+    if not hmac.compare_digest(_sign_oauth_state(payload_b64), signature):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state signature")
+    try:
+        payload = json.loads(urllib.parse.unquote(payload_b64))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state payload") from exc
+    issued_at = int(payload.get("issuedAt", 0))
+    if time.time() - issued_at > OAUTH_STATE_TTL_SECONDS:
+        raise HTTPException(status_code=400, detail="OAuth state has expired")
+    if payload.get("provider") != provider.strip().lower():
+        raise HTTPException(status_code=400, detail="OAuth provider mismatch")
+    payload["next"] = _sanitize_next_path(str(payload.get("next", "/")))
+    return payload
+
+
+def get_oauth_authorization_url(provider: str, request_base_url: str, next_path: str | None = "/") -> str:
+    config = oauth_provider_settings(provider, request_base_url)
+    if not config["configured"]:
+        raise HTTPException(status_code=503, detail=f"OAuth provider '{provider}' is not configured")
+    state = build_oauth_state(provider, next_path)
+    query = {
+        "client_id": config["clientId"],
+        "redirect_uri": config["redirectUri"],
+        "response_type": "code",
+        "scope": config["scope"],
+        "state": state,
+    }
+    return f"{config['authorizeUrl']}?{urllib.parse.urlencode(query)}"
+
+
+def _fetch_oauth_profile(provider: str, code: str, request_base_url: str) -> tuple[str, str]:
+    config = oauth_provider_settings(provider, request_base_url)
+    if not config["configured"]:
+        raise HTTPException(status_code=503, detail=f"OAuth provider '{provider}' is not configured")
+    with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+        token_response = client.post(
+            config["tokenUrl"],
+            data={
+                "client_id": config["clientId"],
+                "client_secret": config["clientSecret"],
+                "code": code,
+                "redirect_uri": config["redirectUri"],
+                "grant_type": "authorization_code",
+            },
+            headers={"Accept": "application/json"},
+        )
+        token_response.raise_for_status()
+        token_payload = token_response.json()
+        access_token = token_payload.get("access_token")
+        if not access_token:
+            raise HTTPException(status_code=502, detail=f"OAuth token exchange failed for {provider}")
+
+        if provider == "google":
+            profile_response = client.get(
+                config["userinfoUrl"],
+                headers={"Authorization": " ".join(["Bearer", str(access_token)])},
+            )
+            profile_response.raise_for_status()
+            profile = profile_response.json()
+            email = str(profile.get("email") or "").strip().lower()
+            name = str(profile.get("name") or profile.get("given_name") or email.split("@", 1)[0]).strip()
+            if not email:
+                raise HTTPException(status_code=502, detail="Google OAuth response did not include an email")
+            return email, name
+
+        user_response = client.get(
+            config["userinfoUrl"],
+            headers={
+                "Authorization": f"token {access_token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        user_response.raise_for_status()
+        user_payload = user_response.json()
+        email = str(user_payload.get("email") or "").strip().lower()
+        if not email:
+            email_response = client.get(
+                config["emailUrl"],
+                headers={
+                    "Authorization": f"token {access_token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+            email_response.raise_for_status()
+            emails = email_response.json()
+            primary = next(
+                (
+                    item
+                    for item in emails
+                    if item.get("email") and item.get("verified") and item.get("primary")
+                ),
+                None,
+            ) or next((item for item in emails if item.get("email") and item.get("verified")), None)
+            email = str(primary.get("email") if primary else "").strip().lower()
+        if not email:
+            raise HTTPException(status_code=502, detail="GitHub OAuth response did not include a verified email")
+        name = str(user_payload.get("name") or user_payload.get("login") or email.split("@", 1)[0]).strip()
+        return email, name
+
+
+def complete_oauth_sign_in(
+    provider: str,
+    code: str,
+    state: str,
+    request_base_url: str,
+) -> tuple[dict[str, Any], str]:
+    parsed_state = parse_oauth_state(provider, state)
+    email, name = _fetch_oauth_profile(provider.strip().lower(), code, request_base_url)
+    user = oauth_sign_in(provider, email, name)
+    return user, parsed_state["next"]
 
 
 def oauth_sign_in(provider: str, email: str, name: str | None = None) -> dict[str, Any]:
@@ -556,6 +769,7 @@ def get_dashboard() -> dict[str, Any]:
             "id": user["tenantId"],
             "name": f"{user['name']} workspace",
         },
+        "oauthProviders": get_oauth_provider_status(),
         "stats": {
             "projectCount": len(projects),
             "catalogCount": len(catalogs),
@@ -567,6 +781,42 @@ def get_dashboard() -> dict[str, Any]:
         "simulations": simulations,
         "agentRequests": agent_requests,
     }
+
+
+def get_agent_capability_report(project_id: str | None = None) -> dict[str, Any]:
+    user = require_current_user()
+    report: dict[str, Any] = {
+        "tenantId": user["tenantId"],
+        "oauthProviders": get_oauth_provider_status(),
+        "mcp": get_mcp_server_description(),
+        "agentPilot": {
+            "script": "scripts/astra_build_store.py",
+            "supportsAgentGeneratedLayout": True,
+            "supportsSuppliedLayout": True,
+            "supportsStoreDimensioning": True,
+            "supportsFurniturePlacement": True,
+            "supportsCatalogImport": True,
+            "supportsProductPlacement": True,
+            "supportsAbsolutePositionVerification": True,
+        },
+    }
+    if project_id is None:
+        return report
+    require_current_user_project_access(project_id)
+    metadata = project_manager.get_project_metadata(project_id)
+    scene = SceneData.model_validate(
+        project_manager.load_project_file(project_id, "scene.json")
+        or {"store": {}, "furniture": []}
+    )
+    catalog = project_manager.load_project_file(project_id, "catalog.json") or {"products": []}
+    planograms_raw = project_manager.load_project_file(project_id, "planograms.json") or {"planograms": []}
+    report["projectAudit"] = audit_project_layout(
+        metadata=metadata,
+        scene=scene,
+        catalog=Catalog.model_validate(catalog),
+        planograms=[Planogram.model_validate(item) for item in planograms_raw.get("planograms", [])],
+    )
+    return report
 
 
 def create_catalog_workspace(
@@ -716,13 +966,13 @@ def create_agent_request(
     }
 
 
-def get_mcp_server_description() -> dict[str, Any]:
+def get_mcp_server_description(base_url: str | None = None) -> dict[str, Any]:
     dashboard = get_dashboard() if get_current_user() is not None else None
-    base_url = "http://localhost:8000/api/platform/mcp"
+    endpoint = base_url.rstrip("/") + "/api/platform/mcp" if base_url else "http://localhost:8000/api/platform/mcp"
     return {
         "name": "shopai-platform-mcp",
         "transport": "http",
-        "endpoint": base_url,
+        "endpoint": endpoint,
         "serverInfo": {
             "name": "shopai-platform-mcp",
             "version": "1.0.0",
@@ -744,13 +994,17 @@ def get_mcp_server_description() -> dict[str, Any]:
                 "name": "submit_change_request",
                 "description": "Enregistre une demande de modification à exécuter par un agent.",
             },
+            {
+                "name": "verify_project_layout",
+                "description": "Vérifie qu'un projet respecte les contraintes de dimensionnement, de mobilier et d'implantation produit.",
+            },
         ],
         "connectionSteps": [
             "Démarrer le backend FastAPI sur le port 8000.",
             "S'authentifier dans l'interface web pour obtenir le cookie de session.",
             "Configurer votre agent en transport HTTP vers POST /api/platform/mcp.",
             "Appeler initialize, puis tools/list, puis tools/call.",
-            "Utiliser get_dashboard pour découvrir les ressources, puis submit_change_request pour pousser une demande de modification.",
+            "Utiliser get_dashboard pour découvrir les ressources, puis verify_project_layout et submit_change_request pour contrôler et pousser les modifications.",
         ],
         "sampleInitialize": {
             "jsonrpc": "2.0",
@@ -849,6 +1103,17 @@ def handle_mcp_request(payload: dict[str, Any]) -> dict[str, Any]:
                                 },
                             },
                         },
+                        {
+                            "name": "verify_project_layout",
+                            "description": "Audit one project for store, furniture, planogram and slot-position constraints.",
+                            "inputSchema": {
+                                "type": "object",
+                                "required": ["projectId"],
+                                "properties": {
+                                    "projectId": {"type": "string"},
+                                },
+                            },
+                        },
                     ],
                     "instructions": description["connectionSteps"],
                 }
@@ -895,6 +1160,17 @@ def handle_mcp_request(payload: dict[str, Any]) -> dict[str, Any]:
                     {
                         "content": [{"type": "text", "text": record["implementationNotes"]}],
                         "structuredContent": record,
+                    }
+                )
+            if tool_name == "verify_project_layout":
+                project_id = str(arguments.get("projectId", "")).strip()
+                if not project_id:
+                    raise HTTPException(status_code=400, detail="projectId is required")
+                report = get_agent_capability_report(project_id)
+                return _success(
+                    {
+                        "content": [{"type": "text", "text": json.dumps(report, ensure_ascii=False, indent=2)}],
+                        "structuredContent": report,
                     }
                 )
             return _error(-32601, f"Unknown tool: {tool_name}")

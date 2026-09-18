@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Request, Response
+from fastapi import APIRouter, Body, Query, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from services import platform_service
@@ -45,6 +46,7 @@ def bootstrap() -> dict[str, Any]:
     return {
         "hasUsers": platform_service.count_users() > 0,
         "authProviders": ["password", "google", "github"],
+        "oauthProviders": platform_service.get_oauth_provider_status(),
         "features": [
             "multi-tenant dashboard",
             "tenant-owned CAD projects",
@@ -81,6 +83,35 @@ def oauth_sign_in(provider: str, payload: OAuthPayload, response: Response) -> d
     user = platform_service.oauth_sign_in(provider, payload.email, payload.name)
     platform_service.create_session_response(response, user)
     return {"user": user}
+
+
+@router.get("/auth/oauth/{provider}/start")
+def oauth_start(provider: str, request: Request, next: str = Query("/", alias="next")):
+    url = platform_service.get_oauth_authorization_url(
+        provider=provider,
+        request_base_url=str(request.base_url).rstrip("/"),
+        next_path=next,
+    )
+    return RedirectResponse(url=url, status_code=302)
+
+
+@router.get("/auth/oauth/{provider}/callback")
+def oauth_callback(
+    provider: str,
+    request: Request,
+    response: Response,
+    code: str = Query(...),
+    state: str = Query(...),
+):
+    user, next_path = platform_service.complete_oauth_sign_in(
+        provider=provider,
+        code=code,
+        state=state,
+        request_base_url=str(request.base_url).rstrip("/"),
+    )
+    redirect = RedirectResponse(url=next_path, status_code=302)
+    platform_service.create_session_response(redirect, user)
+    return redirect
 
 
 @router.post("/auth/logout")
@@ -128,10 +159,15 @@ def create_agent_request(payload: AgentRequestPayload) -> dict[str, Any]:
 
 
 @router.get("/mcp")
-def get_mcp_description() -> dict[str, Any]:
-    return platform_service.get_mcp_server_description()
+def get_mcp_description(request: Request) -> dict[str, Any]:
+    return platform_service.get_mcp_server_description(str(request.base_url).rstrip("/"))
 
 
 @router.post("/mcp")
 def call_mcp(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     return platform_service.handle_mcp_request(payload)
+
+
+@router.get("/agent-capabilities")
+def get_agent_capabilities(projectId: str | None = Query(None)) -> dict[str, Any]:
+    return platform_service.get_agent_capability_report(projectId)

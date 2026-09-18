@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { cadApi } from './api/cad';
 import {
+  type AgentCapabilityReport,
   platformApi,
   type McpServerDescription,
   type PlatformDashboard,
+  type PlatformOAuthProvider,
   type PlatformProjectSummary,
   type PlatformUser,
 } from './api/platform';
@@ -58,6 +60,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<PlatformUser | null>(null);
   const [dashboard, setDashboard] = useState<PlatformDashboard | null>(null);
   const [mcpDescription, setMcpDescription] = useState<McpServerDescription | null>(null);
+  const [oauthProviders, setOauthProviders] = useState<PlatformOAuthProvider[]>([]);
+  const [agentCapabilityReport, setAgentCapabilityReport] = useState<AgentCapabilityReport | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [studioProjectId, setStudioProjectId] = useState<string | null>(null);
@@ -86,8 +90,11 @@ export default function App() {
       platformApi.getDashboard(),
       platformApi.getMcpDescription(),
     ]);
+    const capabilityData = await platformApi.getAgentCapabilities(dashboardData.projects[0]?.id);
     setDashboard(dashboardData);
     setMcpDescription(mcpData);
+    setOauthProviders(dashboardData.oauthProviders);
+    setAgentCapabilityReport(capabilityData);
     setCatalogProjectId((current) => current || dashboardData.projects[0]?.id || '');
     setSimulationProjectId((current) => current || dashboardData.projects[0]?.id || '');
     setAgentTargetId((current) => current || dashboardData.projects[0]?.id || '');
@@ -103,6 +110,7 @@ export default function App() {
         ]);
         if (cancelled) return;
         setHasUsers(bootstrap.hasUsers);
+        setOauthProviders(bootstrap.oauthProviders);
         setCurrentUser(session.user);
         if (session.user) {
           await loadAuthenticatedData();
@@ -154,24 +162,15 @@ export default function App() {
     }
   }, [authForm, authMode, loadAuthenticatedData]);
 
-  const handleOAuth = useCallback(async (provider: 'google' | 'github') => {
-    if (!authForm.email.trim()) {
-      setStatusMessage('Renseigne un email avant de continuer avec Google ou GitHub.');
+  const handleOAuth = useCallback((providerName: 'google' | 'github') => {
+    const provider = oauthProviders.find((item) => item.name === providerName);
+    if (!provider?.configured) {
+      setStatusMessage(`OAuth ${providerName} non configuré côté serveur.`);
       return;
     }
-    setBusy(true);
-    setStatusMessage(null);
-    try {
-      const response = await platformApi.oauthSignIn(provider, authForm.email, authForm.name || undefined);
-      setCurrentUser(response.user);
-      await loadAuthenticatedData();
-      setStatusMessage(`Connexion ${provider} simulée avec succès.`);
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [authForm.email, authForm.name, loadAuthenticatedData]);
+    const next = `${window.location.pathname}${window.location.search}${window.location.hash}` || '/';
+    window.location.assign(`${provider.startPath}?next=${encodeURIComponent(next)}`);
+  }, [oauthProviders]);
 
   const handleCreateProject = useCallback(async () => {
     if (!projectName.trim()) return;
@@ -261,6 +260,7 @@ export default function App() {
       setCurrentUser(null);
       setDashboard(null);
       setMcpDescription(null);
+      setAgentCapabilityReport(null);
       setStudioProjectId(null);
       setViewMode('landing');
       setStatusMessage('Déconnecté.');
@@ -407,15 +407,17 @@ export default function App() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <button
                         type="button"
+                        disabled={!oauthProviders.find((provider) => provider.name === 'google')?.configured}
                         onClick={() => void handleOAuth('google')}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10"
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Continuer avec Google
                       </button>
                       <button
                         type="button"
+                        disabled={!oauthProviders.find((provider) => provider.name === 'github')?.configured}
                         onClick={() => void handleOAuth('github')}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10"
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Continuer avec GitHub
                       </button>
@@ -423,9 +425,24 @@ export default function App() {
 
                     <p className="mt-4 text-xs text-slate-500">
                       {hasUsers
-                        ? 'Les boutons Google/GitHub simulent ici un SSO local basé sur votre email.'
+                        ? 'Activez GOOGLE_CLIENT_ID / SECRET / REDIRECT_URI et GITHUB_CLIENT_ID / SECRET / REDIRECT_URI pour le vrai OAuth.'
                         : 'Aucun compte détecté : créez le premier workspace pour initialiser la plateforme.'}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                      {oauthProviders.map((provider) => (
+                        <span
+                          key={provider.name}
+                          className={[
+                            'rounded-full border px-2 py-1 uppercase tracking-[0.2em]',
+                            provider.configured
+                              ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+                              : 'border-amber-400/20 bg-amber-400/10 text-amber-200',
+                          ].join(' ')}
+                        >
+                          {provider.name} {provider.configured ? 'ready' : 'missing env'}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </>
@@ -701,6 +718,7 @@ export default function App() {
               <div className="space-y-3 text-sm text-slate-300">
                 {[
                   'Session utilisateur persistée via cookie HTTPOnly.',
+                  'OAuth Google/GitHub réel via redirections server-side quand les variables d’environnement sont présentes.',
                   'Filtrage des projets par tenant directement dans les endpoints CAD existants.',
                   'Stockage SQLite pour les métadonnées multi-tenant et les demandes agent.',
                   'Description MCP intégrée dans le backend et visible dans le hub.',
@@ -709,6 +727,48 @@ export default function App() {
                     {item}
                   </div>
                 ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Capacité agent vérifiée" subtitle="Audit du pipeline Astra et du premier projet du tenant quand disponible.">
+              <div className="space-y-3 text-sm text-slate-300">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  Script de référence : <span className="font-mono text-cyan-200">{agentCapabilityReport?.agentPilot.script ?? 'scripts/astra_build_store.py'}</span>
+                </div>
+                {[
+                  ['Dimensionnement magasin', agentCapabilityReport?.agentPilot.supportsStoreDimensioning],
+                  ['Placement mobilier', agentCapabilityReport?.agentPilot.supportsFurniturePlacement],
+                  ['Implantation produit', agentCapabilityReport?.agentPilot.supportsProductPlacement],
+                  ['Vérification positions absolues', agentCapabilityReport?.agentPilot.supportsAbsolutePositionVerification],
+                ].map(([label, ok]) => (
+                  <div key={String(label)} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <span>{label}</span>
+                    <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
+                      {ok ? 'OK' : 'À vérifier'}
+                    </span>
+                  </div>
+                ))}
+                {agentCapabilityReport?.projectAudit && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-white">{agentCapabilityReport.projectAudit.projectName}</span>
+                      <span className={agentCapabilityReport.projectAudit.ok ? 'text-emerald-300' : 'text-amber-300'}>
+                        {agentCapabilityReport.projectAudit.ok ? 'Audit OK' : `${agentCapabilityReport.projectAudit.issueCount} issue(s)`}
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-2 text-xs text-slate-400">
+                      {Object.entries(agentCapabilityReport.projectAudit.checks).map(([key, value]) => (
+                        <div key={key}>
+                          <span className={value.ok ? 'text-emerald-300' : 'text-amber-300'}>
+                            {value.ok ? '✓' : '⚠'}
+                          </span>{' '}
+                          {key}
+                          {!value.ok && value.issues[0] ? ` — ${value.issues[0]}` : ''}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </SectionCard>
 

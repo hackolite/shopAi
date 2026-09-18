@@ -57,6 +57,7 @@ export interface PlatformDashboard {
     id: string;
     name: string;
   };
+  oauthProviders: PlatformOAuthProvider[];
   stats: {
     projectCount: number;
     catalogCount: number;
@@ -81,6 +82,40 @@ export interface McpServerDescription {
   connectionSteps: string[];
   sampleInitialize: Record<string, unknown>;
   sampleToolsCall: Record<string, unknown>;
+}
+
+export interface PlatformOAuthProvider {
+  name: string;
+  configured: boolean;
+  startPath: string;
+}
+
+export interface AgentCapabilityReport {
+  tenantId: string;
+  oauthProviders: PlatformOAuthProvider[];
+  mcp: McpServerDescription;
+  agentPilot: {
+    script: string;
+    supportsAgentGeneratedLayout: boolean;
+    supportsSuppliedLayout: boolean;
+    supportsStoreDimensioning: boolean;
+    supportsFurniturePlacement: boolean;
+    supportsCatalogImport: boolean;
+    supportsProductPlacement: boolean;
+    supportsAbsolutePositionVerification: boolean;
+  };
+  projectAudit?: {
+    projectId: string;
+    projectName: string;
+    ok: boolean;
+    issueCount: number;
+    checks: {
+      storeDimensions: { ok: boolean; issues: string[] };
+      furnitureBounds: { ok: boolean; issues: string[] };
+      planograms: { ok: boolean; issues: string[] };
+      slotPositions: { ok: boolean; issues: string[] };
+    };
+  };
 }
 
 async function request<T>(url: string, opts?: RequestInit): Promise<T> {
@@ -112,6 +147,7 @@ export const platformApi = {
     request<{
       hasUsers: boolean;
       authProviders: string[];
+      oauthProviders: PlatformOAuthProvider[];
       features: string[];
     }>('/api/platform/bootstrap'),
   getSession: () => request<{ user: PlatformUser | null }>('/api/platform/session'),
@@ -165,4 +201,10 @@ export const platformApi = {
       body: JSON.stringify(payload),
     }),
   getMcpDescription: () => request<McpServerDescription>('/api/platform/mcp'),
+  getAgentCapabilities: (projectId?: string) =>
+    request<AgentCapabilityReport>(
+      projectId
+        ? `/api/platform/agent-capabilities?projectId=${encodeURIComponent(projectId)}`
+        : '/api/platform/agent-capabilities',
+    ),
 };

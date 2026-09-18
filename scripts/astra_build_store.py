@@ -1,0 +1,384 @@
+#!/usr/bin/env python3
+"""Astra pilot: build a complete store from zero through the REST API.
+
+This script performs exactly the sequence of API calls an AI agent (Astra or
+any LLM with tool calling) must execute to create a store without errors:
+
+    1. Health check                     GET  /
+    2. Create project                   POST /api/cad/projects/
+    3. Set store dimensions             PUT  /api/cad/projects/{id}/scene/store
+    4. Read furniture library           GET  /api/furniture-library/
+    5. Place furniture (no overlap)     POST /api/cad/projects/{id}/scene/furniture
+    6. Import product catalog           POST /api/cad/projects/{id}/catalog/import
+    7. Create planograms per face       POST /api/cad/projects/{id}/planograms
+    8. Verify the result                GET  /api/cad/projects/{id}/export/retail-layout
+
+Every step is logged.  Use ``--pause N`` to wait N seconds between steps so
+the build can be watched (and screen-recorded) live in the frontend: keep the
+project open in the browser and reload it after each step, or record the whole
+run with any screen recorder (OBS, browser tab capture).
+
+Usage:
+    python scripts/astra_build_store.py \
+        --api http://localhost:8000 \
+        --name "Magasin Astra" \
+        --catalog assortment.json \
+        --max-products 200 \
+        --pause 0
+
+Requires the backend to be running (``uvicorn main:app`` in ``backend/``).
+Only uses the Python standard library (urllib), no extra dependency.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+# ---------------------------------------------------------------------------
+# Minimal HTTP client (stdlib only)
+# ---------------------------------------------------------------------------
+
+
+class ApiError(RuntimeError):
+    def __init__(self, method: str, url: str, status: int, detail: str) -> None:
+        super().__init__(f"{method} {url} -> HTTP {status}: {detail}")
+        self.status = status
+        self.detail = detail
+
+
+class ApiClient:
+    def __init__(self, base_url: str) -> None:
+        self.base_url = base_url.rstrip("/")
+
+    def request(self, method: str, path: str, payload: Any | None = None) -> Any:
+        url = f"{self.base_url}{path}"
+        data = None
+        headers = {"Accept": "application/json"}
+        if payload is not None:
+            data = json.dumps(payload).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                body = response.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            try:
+                detail = json.loads(detail).get("detail", detail)
+            except (ValueError, AttributeError):
+                pass
+            raise ApiError(method, url, exc.code, str(detail)) from exc
+        return json.loads(body) if body else None
+
+    def get(self, path: str) -> Any:
+        return self.request("GET", path)
+
+    def post(self, path: str, payload: Any) -> Any:
+        return self.request("POST", path, payload)
+
+    def put(self, path: str, payload: Any) -> Any:
+        return self.request("PUT", path, payload)
+
+
+# ---------------------------------------------------------------------------
+# Catalog mapping: external assortment file -> Product schema
+# ---------------------------------------------------------------------------
+
+# Default physical dimensions (cm) and weight (g) per category when the
+# supplied catalog does not carry them.
+_CATEGORY_DIMENSIONS: dict[str, dict[str, float]] = {
+    "fruits_vegetables": {"widthCm": 12.0, "depthCm": 12.0, "heightCm": 10.0, "weightG": 400.0},
+    "dairy": {"widthCm": 8.0, "depthCm": 8.0, "heightCm": 18.0, "weightG": 500.0},
+    "beverages": {"widthCm": 8.0, "depthCm": 8.0, "heightCm": 28.0, "weightG": 1000.0},
+    "grocery": {"widthCm": 10.0, "depthCm": 6.0, "heightCm": 20.0, "weightG": 450.0},
+    "frozen": {"widthCm": 15.0, "depthCm": 10.0, "heightCm": 22.0, "weightG": 600.0},
+    "hygiene": {"widthCm": 7.0, "depthCm": 5.0, "heightCm": 18.0, "weightG": 300.0},
+}
+_DEFAULT_DIMENSIONS = {"widthCm": 10.0, "depthCm": 8.0, "heightCm": 20.0, "weightG": 500.0}
+
+
+def map_assortment_to_products(raw_items: list[dict[str, Any]], max_products: int) -> list[dict[str, Any]]:
+    """Convert assortment.json entries to the backend ``Product`` schema."""
+    products: list[dict[str, Any]] = []
+    seen_eans: set[str] = set()
+    for item in raw_items:
+        ean = str(item.get("barcode") or item.get("ean") or "").strip()
+        name = str(item.get("product_name") or item.get("name") or "").strip()
+        if not ean or not name or ean in seen_eans:
+            continue
+        seen_eans.add(ean)
+        category = str(item.get("category_id") or item.get("category") or "misc")
+        dims = _CATEGORY_DIMENSIONS.get(category, _DEFAULT_DIMENSIONS)
+        products.append(
+            {
+                "ean": ean,
+                "name": name,
+                "brand": str(item.get("brand") or "N/A"),
+                "category": category,
+                "subcategory": item.get("subcategory_id"),
+                "widthCm": dims["widthCm"],
+                "depthCm": dims["depthCm"],
+                "heightCm": dims["heightCm"],
+                "weightG": dims["weightG"],
+                "imageUrl": item.get("image_url"),
+                "priceBuyEur": item.get("cost_price_eur"),
+                "priceSellEur": item.get("suggested_price_eur"),
+                "marginPct": item.get("margin_rate_pct"),
+            }
+        )
+        if len(products) >= max_products:
+            break
+    return products
+
+
+# ---------------------------------------------------------------------------
+# Store layout plan (all coordinates in cm, origin = store bottom-left corner)
+# ---------------------------------------------------------------------------
+
+STORE_WIDTH = 3000.0
+STORE_DEPTH = 2000.0
+STORE_HEIGHT = 400.0
+WALL_MARGIN = 100.0  # clearance to walls
+AISLE_GAP = 180.0  # walkable aisle between furniture rows
+
+
+def plan_layout(library: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return a list of FurnitureInstance payloads that never overlap.
+
+    Layout: fridges along the back wall, three central double-gondola aisles,
+    single gondolas along the left wall, registers near the entrance (front
+    right).  Positions are computed on a deterministic grid so the backend
+    overlap guard (HTTP 409) is never triggered.
+    """
+    instances: list[dict[str, Any]] = []
+
+    def add(def_id: str, name: str, x: float, z: float, rotation_y: float = 0.0) -> None:
+        definition = library[def_id]
+        dims = definition["defaultDimensions"]
+        instances.append(
+            {
+                "id": str(uuid4()),
+                "name": name,
+                "type": definition["type"],
+                "libraryId": definition["id"],
+                "position": [x, 0.0, z],
+                "rotation": [0.0, rotation_y, 0.0],
+                "dimensions": {
+                    "width": float(dims["width"]),
+                    "depth": float(dims["depth"]),
+                    "height": float(dims["height"]),
+                },
+                "materialId": definition.get("defaultMaterial"),
+            }
+        )
+
+    # Back wall: vertical fridges, side by side.
+    fridge = library["fridge"]["defaultDimensions"]
+    fridge_z = STORE_DEPTH - WALL_MARGIN - float(fridge["depth"])
+    x = WALL_MARGIN
+    for index in range(6):
+        add("fridge", f"Frigo frais {index + 1}", x, fridge_z)
+        x += float(fridge["width"]) + 10.0
+
+    # Central aisles: 3 rows of 5 double gondolas.
+    gondola = library["gondola_double"]["defaultDimensions"]
+    row_z = WALL_MARGIN + 300.0
+    for row in range(3):
+        x = WALL_MARGIN + 200.0
+        for col in range(5):
+            add("gondola_double", f"Gondole A{row + 1}-{col + 1}", x, row_z)
+            x += float(gondola["width"]) + 20.0
+        row_z += float(gondola["depth"]) + AISLE_GAP
+
+    # Left wall: single gondolas facing the aisles.
+    single = library["gondola_single"]["defaultDimensions"]
+    z = WALL_MARGIN + 300.0
+    for index in range(4):
+        add("gondola_single", f"Rayon mural {index + 1}", 20.0, z)
+        z += float(single["width"]) + 30.0
+
+    # Entrance zone (front right): registers.
+    register = library["register"]["defaultDimensions"]
+    x = STORE_WIDTH - WALL_MARGIN - 3 * (float(register["width"]) + 60.0)
+    for index in range(3):
+        add("register", f"Caisse {index + 1}", x, WALL_MARGIN)
+        x += float(register["width"]) + 60.0
+
+    return instances
+
+
+# ---------------------------------------------------------------------------
+# Planogram generation
+# ---------------------------------------------------------------------------
+
+_FACEABLE_TYPES = {
+    "gondola_single": ["front"],
+    "gondola_double": ["front", "back"],
+    "fridge": ["front"],
+}
+
+
+def build_planogram(
+    furniture: dict[str, Any],
+    face: str,
+    products: list[dict[str, Any]],
+    cursor: int,
+) -> tuple[dict[str, Any], int]:
+    """Build a planogram payload for one furniture face, filling every cell.
+
+    ``cursor`` walks through the catalog so each planogram gets different
+    products; returns the payload and the advanced cursor.
+    """
+    dims = furniture["dimensions"]
+    rows, cols = 4, 6
+    cells = []
+    for row in range(rows):
+        for col in range(cols):
+            product = products[cursor % len(products)]
+            cursor += 1
+            cells.append({"ean": product["ean"], "row": row, "col": col})
+    payload = {
+        "name": f"{furniture['name']} — {face}",
+        "furnitureId": furniture["id"],
+        "face": face,
+        "rows": rows,
+        "cols": cols,
+        "widthCm": float(dims["width"]),
+        "heightCm": float(dims["height"]),
+        "cells": cells,
+    }
+    return payload, cursor
+
+
+# ---------------------------------------------------------------------------
+# Main pipeline
+# ---------------------------------------------------------------------------
+
+
+def log(step: str, message: str) -> None:
+    print(f"[{step}] {message}", flush=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Astra pilot: build a store from zero via the REST API")
+    parser.add_argument("--api", default="http://localhost:8000", help="Backend base URL")
+    parser.add_argument("--name", default="Magasin Astra", help="Project name")
+    parser.add_argument("--catalog", default="assortment.json", help="Path to the supplied product catalog JSON")
+    parser.add_argument("--max-products", type=int, default=200, help="Number of products to import")
+    parser.add_argument(
+        "--pause",
+        type=float,
+        default=0.0,
+        help="Seconds to wait between steps (for live viewing / video capture)",
+    )
+    args = parser.parse_args()
+
+    client = ApiClient(args.api)
+
+    def pause() -> None:
+        if args.pause > 0:
+            time.sleep(args.pause)
+
+    # 1. Health check -------------------------------------------------------
+    health = client.get("/")
+    log("1/8 health", f"backend OK: {health}")
+    pause()
+
+    # 2. Create project -----------------------------------------------------
+    project = client.post("/api/cad/projects/", {"name": args.name})
+    project_id = project["id"]
+    log("2/8 project", f"created project '{args.name}' (id={project_id})")
+    pause()
+
+    # 3. Store dimensions ---------------------------------------------------
+    store = client.put(
+        f"/api/cad/projects/{project_id}/scene/store",
+        {
+            "name": args.name,
+            "dimensions": {"width": STORE_WIDTH, "depth": STORE_DEPTH, "height": STORE_HEIGHT},
+        },
+    )
+    log("3/8 store", f"store set to {store['dimensions']['width']}x{store['dimensions']['depth']} cm")
+    pause()
+
+    # 4. Furniture library --------------------------------------------------
+    library_items = client.get("/api/furniture-library/")["furniture"]
+    library = {item["id"]: item for item in library_items}
+    log("4/8 library", f"{len(library)} furniture definitions available: {sorted(library)}")
+    pause()
+
+    # 5. Place furniture ----------------------------------------------------
+    placed: list[dict[str, Any]] = []
+    for payload in plan_layout(library):
+        try:
+            created = client.post(f"/api/cad/projects/{project_id}/scene/furniture", payload)
+        except ApiError as exc:
+            if exc.status == 409:
+                # Overlap guard: shift right by 20 cm and retry once.
+                payload["position"][0] += 20.0
+                created = client.post(f"/api/cad/projects/{project_id}/scene/furniture", payload)
+            else:
+                raise
+        placed.append(created)
+        log("5/8 furniture", f"placed {created['name']} at x={created['position'][0]} z={created['position'][2]}")
+        pause()
+    log("5/8 furniture", f"{len(placed)} furniture items placed, zero overlap")
+
+    # 6. Import catalog -----------------------------------------------------
+    catalog_path = Path(args.catalog)
+    raw_items = json.loads(catalog_path.read_text(encoding="utf-8"))
+    if isinstance(raw_items, dict):
+        raw_items = raw_items.get("products", [])
+    products = map_assortment_to_products(raw_items, args.max_products)
+    result = client.post(
+        f"/api/cad/projects/{project_id}/catalog/import",
+        {"products": products, "merge": False},
+    )
+    log("6/8 catalog", f"imported {result['imported']} products (total {result['total']}) from {catalog_path.name}")
+    pause()
+
+    # 7. Planograms ---------------------------------------------------------
+    cursor = 0
+    planogram_count = 0
+    for furniture in placed:
+        faces = _FACEABLE_TYPES.get(furniture["type"], [])
+        for face in faces:
+            payload, cursor = build_planogram(furniture, face, products, cursor)
+            client.post(f"/api/cad/projects/{project_id}/planograms", payload)
+            planogram_count += 1
+            log("7/8 planogram", f"created '{payload['name']}' ({payload['rows']}x{payload['cols']} cells)")
+            pause()
+    log("7/8 planogram", f"{planogram_count} planograms created")
+
+    # 8. Verification -------------------------------------------------------
+    layout = client.get(f"/api/cad/projects/{project_id}/export/retail-layout")
+    furniture_out = layout.get("furniture", [])
+    slot_count = sum(
+        len(placement.get("slots", []))
+        for item in furniture_out
+        for placement in item.get("placements", [])
+    )
+    log(
+        "8/8 verify",
+        f"retail layout export OK: {len(furniture_out)} furniture, {slot_count} product slots with absolute cm positions",
+    )
+    log("done", f"store '{args.name}' built without any error — open project {project_id} in the frontend")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except ApiError as exc:
+        log("error", str(exc))
+        sys.exit(1)
+    except urllib.error.URLError as exc:
+        log("error", f"backend unreachable: {exc}. Start it with: cd backend && uvicorn main:app")
+        sys.exit(1)

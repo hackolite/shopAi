@@ -32,6 +32,7 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
 
   const response = await fetch(url, {
     ...opts,
+    credentials: opts?.credentials ?? 'include',
     headers,
   });
 
@@ -81,7 +82,7 @@ export const cadApi = {
   },
 
   exportProjectZip: async (id: string, projectName: string): Promise<void> => {
-    const response = await fetch(`${BASE}/${id}/export`);
+    const response = await fetch(`${BASE}/${id}/export`, { credentials: 'include' });
     if (!response.ok) {
       const text = await response.text().catch(() => 'Unknown error');
       throw new Error(`[${response.status}] ${text}`);
@@ -256,7 +257,7 @@ export const cadApi = {
     request<FurnitureDefinition>(`${LIB_BASE}/${type}`),
 
   exportRetailLayout: async (id: string, projectName: string): Promise<void> => {
-    const response = await fetch(`${BASE}/${id}/export/retail-layout`);
+    const response = await fetch(`${BASE}/${id}/export/retail-layout`, { credentials: 'include' });
     if (!response.ok) {
       const text = await response.text().catch(() => 'Unknown error');
       throw new Error(`[${response.status}] ${text}`);

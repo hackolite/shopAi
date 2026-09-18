@@ -27,6 +27,7 @@ from models.project import (
 )
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
+from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
 from services.live_simulation import live_simulation_manager
@@ -124,6 +125,7 @@ class SimulationLiveTickPayload(BaseModel):
 
 
 def _load_scene(project_id: str) -> SceneData:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     return SceneData.model_validate(load_project_file(project_id, "scene.json") or {
         "store": {
@@ -139,19 +141,23 @@ def _load_scene(project_id: str) -> SceneData:
 
 
 def _save_scene(project_id: str, scene: SceneData) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "scene.json", scene.model_dump(mode="json"))
 
 
 def _load_catalog(project_id: str) -> Catalog:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     return Catalog.model_validate(load_project_file(project_id, "catalog.json") or {"products": []})
 
 
 def _save_catalog(project_id: str, catalog: Catalog) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "catalog.json", catalog.model_dump(mode="json"))
 
 
 def _load_planograms(project_id: str) -> list[Planogram]:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     payload = load_project_file(project_id, "planograms.json") or {"planograms": []}
     items = payload if isinstance(payload, list) else payload.get("planograms", [])
@@ -159,10 +165,12 @@ def _load_planograms(project_id: str) -> list[Planogram]:
 
 
 def _save_planograms(project_id: str, planograms: list[Planogram]) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "planograms.json", {"planograms": [item.model_dump(mode="json") for item in planograms]})
 
 
 def _load_materials(project_id: str) -> list[Material]:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     payload = load_project_file(project_id, "materials.json") or {"materials": []}
     items = payload if isinstance(payload, list) else payload.get("materials", [])
@@ -170,15 +178,18 @@ def _load_materials(project_id: str) -> list[Material]:
 
 
 def _save_materials(project_id: str, materials: list[Material]) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "materials.json", {"materials": [item.model_dump(mode="json") for item in materials]})
 
 
 def _load_settings(project_id: str) -> ProjectSettings:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     return ProjectSettings.model_validate(load_project_file(project_id, "settings.json") or ProjectSettings().model_dump(mode="json"))
 
 
 def _save_settings(project_id: str, settings: ProjectSettings) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "settings.json", settings.model_dump(mode="json"))
 
 
@@ -197,23 +208,32 @@ def _merge_model(model_cls, current: Any, payload: dict[str, Any]) -> Any:
 
 @router.get("/")
 def get_projects() -> dict[str, Any]:
-    return {"projects": [{"id": item["id"], "name": item["name"]} for item in list_cad_projects()]}
+    user = platform_service.get_current_user()
+    projects = list_cad_projects()
+    if user is not None:
+        owned_ids = platform_service.list_owned_project_ids(user)
+        projects = [item for item in projects if item["id"] in owned_ids]
+    return {"projects": [{"id": item["id"], "name": item["name"]} for item in projects]}
 
 
 @router.post("/")
 def post_project(payload: CreateProjectPayload):
     project_id = str(uuid4())
-    return create_project(project_id, payload.name)
+    metadata = create_project(project_id, payload.name)
+    platform_service.assign_project_to_current_user(project_id)
+    return metadata
 
 
 @router.get("/{project_id}")
 def get_project(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
     return get_project_metadata(project_id)
 
 
 @router.get("/{project_id}/export")
 def export_project_endpoint(project_id: str):
     """Export the project as a ZIP archive containing all JSON files."""
+    platform_service.require_current_user_project_access(project_id)
     zip_bytes = export_project_zip(project_id)
     metadata = get_project_metadata(project_id)
     safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id))
@@ -226,6 +246,7 @@ def export_project_endpoint(project_id: str):
 
 @router.delete("/{project_id}")
 def remove_project(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
     delete_project(project_id)
     # Release the per-project lock entry so it doesn't grow unbounded.
     with _project_locks_guard:
@@ -235,12 +256,17 @@ def remove_project(project_id: str):
 
 @router.post("/{project_id}/duplicate")
 def duplicate_project_endpoint(project_id: str, payload: DuplicateProjectPayload):
-    return duplicate_project(project_id, payload.name)
+    platform_service.require_current_user_project_access(project_id)
+    metadata = duplicate_project(project_id, payload.name)
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.post("/import")
 def import_project_endpoint(payload: ImportProjectPayload):
-    return import_project(payload.snapshot, payload.name)
+    metadata = import_project(payload.snapshot, payload.name)
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.post("/import/zip")
@@ -250,7 +276,9 @@ async def import_project_zip_endpoint(
 ):
     """Import a project from a ZIP archive (multipart: file + name field)."""
     zip_bytes = await file.read()
-    return import_project_from_zip(zip_bytes, name.strip())
+    metadata = import_project_from_zip(zip_bytes, name.strip())
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.get("/{project_id}/export/retail-layout")
@@ -262,6 +290,7 @@ def export_retail_layout_endpoint(project_id: str):
     provides the absolute position in cm of every product slot.  It is designed
     for exchange with WMS, ERP and space-planning tools.
     """
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     scene_raw = load_project_file(project_id, "scene.json") or {"store": {}, "furniture": []}
     plano_raw = load_project_file(project_id, "planograms.json") or {"planograms": []}
@@ -303,7 +332,9 @@ def import_retail_layout_endpoint(payload: ImportRetailLayoutPayload):
         "scene": scene_dict,
         "planograms": planograms_list,
     }
-    return import_project(snapshot, payload.name.strip())
+    metadata = import_project(snapshot, payload.name.strip())
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.get("/{project_id}/scene")

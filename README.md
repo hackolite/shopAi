@@ -462,6 +462,15 @@ npm run dev
 
 Open **http://localhost:5173**
 
+### Astra pilot (AI agent store builder)
+
+Build a complete store from zero through the REST API (project, store dimensions,
+furniture layout, catalog import, planograms) — see [`scripts/README.md`](scripts/README.md):
+
+```bash
+python scripts/astra_build_store.py --name "Magasin Astra" --catalog assortment.json
+```
+
 ### 3. Tests
 
 ```bash

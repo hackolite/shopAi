@@ -1,30 +1,74 @@
-# Pilote Astra — construction d'un magasin de zéro via l'API REST
+# Pilote Astra — construction complète d'un magasin via l'API REST
 
-`astra_build_store.py` est le **pilote agent IA** du projet : il exécute, dans l'ordre
-et sans erreur, la séquence exacte d'appels API qu'Astra (ou n'importe quel LLM avec
-tool calling) doit suivre pour créer un magasin complet — dimensions, mobilier,
-catalogue produit et planogrammes — à partir d'un catalogue fourni.
+`astra_build_store.py` est le **pilote agent IA** du projet : il exécute la
+séquence complète d'appels API nécessaire pour créer un magasin de zéro, sans
+modifier le code produit. Il parle uniquement au backend HTTP avec la
+bibliothèque standard Python.
 
-Il ne modifie **aucun code produit** : il dialogue uniquement avec le backend via
-HTTP, en utilisant exclusivement la bibliothèque standard Python (aucune dépendance
-supplémentaire).
+Il sert à la fois de :
+
+- **script exécutable** pour construire un magasin de démonstration ;
+- **procédure de référence** pour brancher Astra ou tout autre agent LLM ;
+- **base de calcul de coût et d'exploitation** pour une création pilotée par IA.
+
+---
+
+## Ce que fait exactement l'agent
+
+Le pipeline couvre la création complète d'un magasin :
+
+1. vérifie que le backend répond ;
+2. crée un projet ;
+3. lit la bibliothèque de mobilier disponible ;
+4. définit les dimensions du magasin ;
+5. place le mobilier sans chevauchement ;
+6. importe un catalogue produit ;
+7. crée les planogrammes face par face ;
+8. vérifie le résultat via l'export `retail-layout`.
+
+Le résultat attendu pour la configuration par défaut est un magasin complet avec
+mobilier, catalogue et planogrammes prêts à être ouverts dans le frontend.
+
+## Ce que ce pilote ne fait pas
+
+- il **n'appelle aucun provider LLM** lui-même ;
+- il **ne gère aucune clé OpenAI / Anthropic / Gemini** dans le dépôt ;
+- il **n'ajoute pas d'authentification** au backend ;
+- il **ne choisit pas dynamiquement la stratégie merchandising** : le layout et
+  les planogrammes par défaut sont déterministes.
+
+Autrement dit, le dépôt fournit le **backend métier** et un **pilote de
+référence** ; le choix du modèle, des clés et de l'orchestration agentique reste
+à votre charge si vous branchez un LLM externe.
 
 ---
 
 ## Prérequis
 
 - Python 3.11+
-- Le backend en cours d'exécution :
+- Backend lancé localement :
 
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app          # écoute sur http://localhost:8000
+uvicorn main:app
 ```
 
-- Un catalogue produit JSON (par défaut `assortment.json` à la racine du dépôt).
+- Un catalogue JSON, par défaut `assortment.json` à la racine du dépôt.
+- Facultatif : frontend lancé pour visualiser la construction en direct.
 
-## Utilisation
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- Documentation interactive de l'API : `http://localhost:8000/docs`
+- Schéma OpenAPI brut : `http://localhost:8000/openapi.json`
+
+---
+
+## Démarrage rapide
 
 ```bash
 # Depuis la racine du dépôt
@@ -36,56 +80,232 @@ python scripts/astra_build_store.py \
     --pause 0
 ```
 
-Sortie attendue (résultat validé) : **28 meubles placés sans collision, 200 produits
-importés, 40 planogrammes, 960 slots produits** avec positions absolues en cm, code
-de sortie `0`.
-
-### Options
-
-| Option | Défaut | Description |
-|---|---|---|
-| `--api` | `http://localhost:8000` | URL de base du backend |
-| `--name` | `Magasin Astra` | Nom du projet créé |
-| `--catalog` | `assortment.json` | Chemin du catalogue produit fourni (JSON) |
-| `--max-products` | `200` | Nombre de produits importés depuis le catalogue |
-| `--layout` | *(aucun)* | Chemin d'un **plan d'implantation fourni** (JSON). Si omis, l'agent construit son propre plan |
-| `--pause` | `0` | Secondes d'attente entre chaque étape (visualisation / capture vidéo) |
+Sortie validée attendue : **28 meubles placés sans collision, 200 produits
+importés, 40 planogrammes, 960 slots produits** avec positions absolues en cm,
+code de sortie `0`.
 
 ---
 
-## Le pipeline en 8 étapes
+## Quelle API est utilisée ?
 
-Chaque étape est loggée sur stdout au format `[n/8 étape] message`.
+Le pilote utilise **uniquement l'API REST du backend de ce dépôt**.
 
-| # | Étape | Appel API |
-|---|---|---|
-| 1 | Health check | `GET /` |
-| 2 | Création du projet | `POST /api/cad/projects/` |
-| 3 | Lecture de la bibliothèque mobilier | `GET /api/furniture-library/` |
-| 4 | Plan d'implantation + dimensions du magasin | `PUT /api/cad/projects/{id}/scene/store` |
-| 5 | Placement du mobilier (sans chevauchement) | `POST /api/cad/projects/{id}/scene/furniture` |
-| 6 | Import du catalogue produit | `POST /api/cad/projects/{id}/catalog/import` |
-| 7 | Création des planogrammes par face | `POST /api/cad/projects/{id}/planograms` |
-| 8 | Vérification finale | `GET /api/cad/projects/{id}/export/retail-layout` |
+### Endpoints appelés par le pipeline
 
-Toutes les coordonnées sont en **cm**, origine au **coin bas-gauche** du magasin.
+| # | Étape | Appel API | Rôle |
+|---|---|---|---|
+| 1 | Health check | `GET /` | Vérifier que le backend répond |
+| 2 | Création du projet | `POST /api/cad/projects/` | Obtenir l'`id` du projet |
+| 3 | Bibliothèque mobilier | `GET /api/furniture-library/` | Récupérer les types et dimensions par défaut |
+| 4 | Dimensions du magasin | `PUT /api/cad/projects/{id}/scene/store` | Définir largeur / profondeur / hauteur |
+| 5 | Placement mobilier | `POST /api/cad/projects/{id}/scene/furniture` | Ajouter chaque meuble |
+| 6 | Import catalogue | `POST /api/cad/projects/{id}/catalog/import` | Charger les produits dans le projet |
+| 7 | Création planogrammes | `POST /api/cad/projects/{id}/planograms` | Associer des produits aux faces du mobilier |
+| 8 | Vérification finale | `GET /api/cad/projects/{id}/export/retail-layout` | Contrôler le résultat consolidé |
 
-### Plan d'implantation (étape 4) — deux modes
+### Combien d'appels API faut-il prévoir ?
 
-**Mode 1 — plan généré par l'agent (défaut).** Le layout est calculé sur une grille
-déterministe (`plan_layout`) pour ne jamais déclencher la garde anti-chevauchement
-du backend :
+Le coût technique côté backend est simple à estimer :
 
-- **Mur du fond** : 6 frigos verticaux côte à côte ;
-- **Allées centrales** : 3 rangées de 5 gondoles doubles, allées de 180 cm ;
-- **Mur gauche** : 4 gondoles simples murales ;
-- **Entrée (avant droit)** : 3 caisses.
+- **4 appels fixes** au début (`/`, création projet, bibliothèque, store) ;
+- **1 appel par meuble** placé ;
+- **1 appel** pour l'import catalogue ;
+- **1 appel par planogramme** créé ;
+- **1 appel final** de vérification.
 
-Les dimensions proviennent toujours des `defaultDimensions` de la bibliothèque
-mobilier — jamais inventées.
+Formule générale :
 
-**Mode 2 — plan fourni par l'utilisateur (`--layout plan.json`).** Le script charge
-un plan d'implantation externe (`load_supplied_layout`) au lieu d'en générer un :
+`total = 4 + nb_meubles + 1 + nb_planogrammes + 1`
+
+Configuration par défaut du pilote :
+
+- `28` meubles ;
+- `40` planogrammes ;
+- donc **74 requêtes HTTP** au total.
+
+---
+
+## Comment brancher un agent ?
+
+Il y a trois façons réalistes de se plugger.
+
+### Option 1 — Utiliser directement le script de référence
+
+C'est l'option la plus simple si vous voulez un résultat fiable immédiatement.
+Votre agent n'a qu'à lancer le script avec les bons paramètres.
+
+**Avantages :**
+- très peu de logique côté agent ;
+- comportement stable et reproductible ;
+- coût LLM minimal.
+
+**Limites :**
+- stratégie fixe ;
+- pas de raisonnement dynamique sur le merchandising.
+
+### Option 2 — Tool calling direct sur l'API REST
+
+Exposez à votre agent le schéma `openapi.json` comme définition d'outils. L'agent
+appelle alors directement les endpoints REST dans l'ordre des 8 étapes.
+
+**À donner à l'agent :**
+- URL du backend ;
+- schéma OpenAPI ;
+- ordre strict des étapes ;
+- règle de vérification finale via `export/retail-layout` ;
+- politique de traitement des erreurs `409` et `422`.
+
+**Quand choisir cette option :**
+- vous voulez que l'agent décide du layout ;
+- vous voulez brancher plusieurs modèles ;
+- vous voulez journaliser précisément tous les appels.
+
+### Option 3 — Façade MCP devant l'API REST
+
+Vous pouvez exposer chaque endpoint REST comme outil MCP. L'agent parle MCP,
+puis votre serveur MCP appelle le backend HTTP.
+
+**Avantages :**
+- abstraction propre pour plusieurs agents ;
+- centralisation de l'authentification LLM, des logs et des quotas ;
+- plus simple à intégrer dans un orchestrateur existant.
+
+**Quand choisir cette option :**
+- vous avez déjà une stack MCP ;
+- vous voulez encapsuler l'API du dépôt derrière vos propres garde-fous.
+
+---
+
+## Authentification, clés API et sécurité
+
+### Ce que fait le dépôt aujourd'hui
+
+**Le backend de ce dépôt n'exige actuellement aucune clé API ni header
+`Authorization`** pour les endpoints utilisés par le pilote. En local, il suffit
+de pointer `--api` vers l'URL du backend.
+
+### Donc, quelles clés dois-je gérer ?
+
+Si vous utilisez un agent externe, il faut distinguer **deux couches** :
+
+1. **API métier du dépôt** : pas de clé native dans l'état actuel du code.
+2. **Provider LLM / orchestrateur** : vos propres clés, selon votre infra.
+
+Exemples de clés qui peuvent exister **chez vous**, mais **pas dans ce dépôt** :
+- clé du provider LLM ;
+- clé d'un proxy d'observabilité ;
+- secret de votre serveur MCP ;
+- jeton d'un backend exposé publiquement derrière une gateway.
+
+### Bonnes pratiques de gestion des clés
+
+- ne mettez jamais de clé dans `README.md`, dans le code, ni dans un JSON de test ;
+- injectez les secrets via variables d'environnement ou secret manager ;
+- séparez les clés par environnement (`dev`, `staging`, `prod`) ;
+- activez rotation et révocation ;
+- loggez les IDs de requêtes, jamais les secrets ;
+- si vous exposez le backend sur Internet, ajoutez une couche d'authentification
+  et de rate limiting **en dehors de ce dépôt** (reverse proxy, API gateway,
+  auth middleware maison, etc.).
+
+### Réponse courte à la question “où renseigner ma clé ?”
+
+- **Pour le backend de ce dépôt** : nulle part, il n'y a pas de clé native à
+  fournir aujourd'hui.
+- **Pour votre agent LLM** : dans votre orchestrateur, vos variables
+  d'environnement, ou votre serveur MCP — pas dans le dépôt.
+
+---
+
+## Coût API pendant la création d'un magasin
+
+### Coût du backend de ce dépôt
+
+Le backend lui-même **n'appelle aucun service IA payant** pendant la création.
+Les requêtes REST du pipeline ne génèrent donc **aucun coût API externe imposé
+par ce dépôt**.
+
+En local, le coût direct est essentiellement :
+- votre CPU / RAM ;
+- le temps de traitement ;
+- éventuellement votre hébergement si le backend tourne sur une machine distante.
+
+### Coût côté agent / LLM
+
+Si vous branchez Astra ou un autre LLM, le coût vient de votre provider :
+- prompt système et consignes ;
+- lecture éventuelle du schéma OpenAPI ;
+- traces des tool calls ;
+- éventuelles boucles de correction après erreur `409` ou `422`.
+
+### Comment limiter le coût LLM
+
+- utilisez le **script direct** si vous n'avez pas besoin de raisonnement libre ;
+- gardez le pipeline en **8 étapes strictes** au lieu d'une exploration ouverte ;
+- réduisez `--max-products` pendant les essais ;
+- fournissez un layout utilisateur avec `--layout` pour éviter les itérations ;
+- évitez de redonner tout `openapi.json` à chaque run si votre orchestrateur peut
+  le mettre en cache.
+
+### Estimation pratique
+
+Pour la configuration par défaut, le backend reçoit environ **74 requêtes HTTP**.
+Si vous passez par un LLM, vos coûts seront surtout corrélés :
+- au nombre de tours agentiques ;
+- à la taille du contexte ;
+- au nombre de corrections après erreur.
+
+Le dépôt ne peut pas annoncer un prix en euros universel, car cela dépend
+entièrement du modèle et de votre fournisseur.
+
+---
+
+## Options du script
+
+| Option | Défaut | Description | Impact pratique |
+|---|---|---|---|
+| `--api` | `http://localhost:8000` | URL de base du backend | pointer vers local, staging ou prod |
+| `--name` | `Magasin Astra` | Nom du projet créé | utile pour distinguer les runs |
+| `--catalog` | `assortment.json` | Chemin du catalogue JSON fourni | change la base produit importée |
+| `--max-products` | `200` | Nombre max de produits importés | réduit charge et coût de test |
+| `--layout` | *(aucun)* | Plan d'implantation JSON fourni par l'utilisateur | remplace le layout généré |
+| `--pause` | `0` | Attente entre étapes | utile pour debug, démonstration, vidéo |
+
+### Recommandations d'usage des options
+
+- **POC rapide** : `--max-products 50 --pause 0`
+- **Démo filmée** : `--pause 2`
+- **Intégration orchestrée** : `--api <backend distant>`
+- **Layout maîtrisé** : `--layout plan.json`
+
+---
+
+## Deux modes de création du layout
+
+### Mode 1 — Layout généré par l'agent (défaut)
+
+Le script utilise `plan_layout` pour produire un layout déterministe qui ne doit
+pas déclencher la garde anti-chevauchement du backend.
+
+Composition par défaut :
+- **mur du fond** : 6 frigos verticaux ;
+- **allées centrales** : 3 rangées de 5 gondoles doubles ;
+- **mur gauche** : 4 gondoles simples ;
+- **entrée avant-droite** : 3 caisses.
+
+Dimensions magasin par défaut :
+- largeur `3000 cm`
+- profondeur `2000 cm`
+- hauteur `400 cm`
+
+Toutes les coordonnées sont exprimées en **cm**, origine au **coin bas-gauche**
+du magasin.
+
+### Mode 2 — Layout fourni par l'utilisateur
+
+Le script accepte `--layout plan.json` pour injecter un plan externe.
+
+Format recommandé :
 
 ```json
 {
@@ -98,83 +318,194 @@ un plan d'implantation externe (`load_supplied_layout`) au lieu d'en générer u
 }
 ```
 
-- `libraryId` et `position` `[x, y, z]` (cm) sont obligatoires ; `name`, `rotation`,
-  `dimensions` et `materialId` sont optionnels et complétés depuis la bibliothèque ;
-- un tableau nu de meubles est aussi accepté (dimensions magasin par défaut) ;
-- un `libraryId` inconnu est rejeté avec la liste des types disponibles ;
-- un plan fourni avec chevauchement est **rejeté par le backend (HTTP 409)** — la
-  conformité reste garantie côté serveur quel que soit l'auteur du plan.
+Règles importantes :
+- `libraryId` et `position` `[x, y, z]` sont obligatoires ;
+- `name`, `rotation`, `dimensions`, `materialId` sont optionnels ;
+- les dimensions manquantes sont complétées depuis la bibliothèque mobilier ;
+- un tableau JSON nu de meubles est aussi accepté ;
+- un `libraryId` inconnu échoue explicitement ;
+- un plan en chevauchement reste **rejeté par le backend** en `HTTP 409`.
 
-### Mapping catalogue (étape 6)
+### Quels types de mobilier sont disponibles ?
 
-`map_assortment_to_products` convertit le format externe (`assortment.json`) vers le
-schéma `Product` du backend :
+La bibliothèque contient notamment :
+- `gondola_single`
+- `gondola_double`
+- `pallet`
+- `fridge`
+- `fridge_horizontal`
+- `display`
+- `register`
+- `wall`
+- `partition`
+- `floor_grid`
 
-| Champ externe | Champ `Product` |
+Le pilote par défaut ne planogramme automatiquement que :
+- `gondola_single` → face `front`
+- `gondola_double` → faces `front` et `back`
+- `fridge` → face `front`
+
+Si vous utilisez d'autres types via un layout fourni, ils peuvent être placés,
+mais ne recevront pas automatiquement de planogramme via ce pilote sauf si vous
+étendez sa logique.
+
+---
+
+## Catalogue produit : quel format fournir ?
+
+Le pilote accepte un JSON externe puis le convertit vers le schéma `Product` du
+backend.
+
+### Champs minimums vraiment nécessaires
+
+En pratique, pour qu'une entrée soit retenue par le mapping du pilote, il faut :
+- un identifiant produit (`barcode` ou `ean`) ;
+- un nom (`product_name` ou `name`).
+
+Sans cela, l'entrée est ignorée.
+
+### Mapping effectué par le pilote
+
+| Champ externe | Champ backend `Product` |
 |---|---|
 | `barcode` | `ean` |
 | `product_name` | `name` |
 | `brand` | `brand` |
-| `category_id` / `subcategory_id` | `category` / `subcategory` |
+| `category_id` / `category` | `category` |
+| `subcategory_id` | `subcategory` |
 | `cost_price_eur` | `priceBuyEur` |
 | `suggested_price_eur` | `priceSellEur` |
 | `margin_rate_pct` | `marginPct` |
 | `image_url` | `imageUrl` |
 
-Le catalogue externe ne portant pas de dimensions physiques, des dimensions par
-défaut sont appliquées **par catégorie** (`_CATEGORY_DIMENSIONS`). Les doublons
-d'EAN et les entrées sans EAN/nom sont ignorés.
+### Dimensions produit
 
-### Planogrammes (étape 7)
+Si votre catalogue externe ne fournit pas les dimensions physiques, le script
+applique des dimensions par défaut par catégorie (`fruits_vegetables`, `dairy`,
+`beverages`, `grocery`, `frozen`, `hygiene`) puis un fallback générique.
 
-`_FACEABLE_TYPES` définit les faces recevant un planogramme : `front` pour les
-gondoles simples et frigos, `front` + `back` pour les gondoles doubles. Chaque
-planogramme fait 4 lignes × 6 colonnes ; un curseur parcourt le catalogue pour que
-chaque planogramme reçoive des produits différents. Le backend lie automatiquement
-la face du meuble au planogramme créé.
+### Exemple minimal d'entrée source
 
-### Vérification (étape 8)
+```json
+[
+  {
+    "barcode": "3760000000001",
+    "product_name": "Pâtes penne bio 500g",
+    "brand": "Barilla",
+    "category_id": "grocery",
+    "cost_price_eur": 0.91,
+    "suggested_price_eur": 1.89,
+    "margin_rate_pct": 51.8,
+    "image_url": "https://example.com/penne.jpg"
+  }
+]
+```
 
-L'export retail-layout renvoie `furniture[].placements[].slots[]` : chaque slot
-porte l'EAN et sa **position absolue en cm** dans le magasin. Le script compte les
-slots et confirme la construction.
+### Nettoyage appliqué
+
+- doublons d'EAN ignorés ;
+- produits sans EAN ou sans nom ignorés ;
+- import limité à `--max-products` produits retenus.
 
 ---
 
-## Gestion des erreurs (conformité garantie par le serveur)
+## Comment sont créés les planogrammes ?
 
-Le backend valide tout ; l'agent ne peut pas contourner les règles :
+Le pilote crée automatiquement des planogrammes simples :
+- **4 lignes × 6 colonnes** par face planogrammée ;
+- remplissage systématique de toutes les cellules ;
+- parcours circulaire du catalogue pour varier les produits par planogramme.
 
-- **HTTP 409 — chevauchement mobilier** : le script réessaie une fois avec un
-  décalage de +20 cm en x. La stratégie principale reste de calculer un layout qui
-  ne déclenche jamais le 409.
-- **HTTP 422 — payload invalide** (produit, planogramme, meuble) : erreur explicite
-  du backend avec l'index et l'EAN fautif ; le script s'arrête avec le détail.
-- **Backend injoignable** : message indiquant comment démarrer le serveur, code de
-  sortie `1`.
+Ce mécanisme est utile pour :
+- valider le pipeline bout en bout ;
+- générer un magasin complet rapidement ;
+- fournir un jeu de données cohérent au frontend et à l'export.
+
+Ce n'est **pas** un moteur avancé d'optimisation merchandising.
+
+---
+
+## Vérification finale et contrôle qualité
+
+L'étape finale lit `GET /api/cad/projects/{id}/export/retail-layout`.
+
+Cette vérification confirme que :
+- le mobilier existe bien dans le projet ;
+- les planogrammes ont été rattachés aux bonnes faces ;
+- l'export consolidé contient `furniture[].placements[].slots[]` ;
+- chaque slot produit porte une position absolue en cm.
+
+Si vous branchez un agent externe, c'est **l'appel à conserver absolument** pour
+valider qu'une création de magasin est réellement terminée.
+
+---
+
+## Gestion des erreurs et questions fréquentes
+
+### “Comment savoir si mon backend est bien branché ?”
+
+Test minimal :
+
+```bash
+curl http://localhost:8000/
+```
+
+Vous devez obtenir un JSON de santé. Sinon, l'agent ne pourra rien créer.
+
+### “Pourquoi j'ai une erreur 409 ?”
+
+Cela signifie généralement un **chevauchement de mobilier** ou un doublon d'ID.
+Le pilote de référence décale une fois de `+20 cm` en `x` en cas de 409 sur le
+placement mobilier, mais la vraie stratégie reste de produire un layout propre.
+
+### “Pourquoi j'ai une erreur 422 ?”
+
+Le payload envoyé ne respecte pas le schéma backend :
+- produit invalide ;
+- planogramme invalide ;
+- meuble invalide ;
+- dimensions ou triplets mal formés.
+
+### “Dois-je mettre ma clé fournisseur dans ce dépôt ?”
+
+Non. Jamais. Gérez-la hors dépôt, via environnement ou secret manager.
+
+### “Le backend facture-t-il des appels pendant la création ?”
+
+Non, pas par lui-même. Le coût payant éventuel vient de votre fournisseur LLM ou
+de votre hébergement, pas du pipeline REST du dépôt.
+
+### “Puis-je créer un magasin sans LLM ?”
+
+Oui. Le script `astra_build_store.py` permet justement de construire un magasin
+complet sans appeler de modèle externe.
+
+### “Puis-je utiliser mon propre layout ?”
+
+Oui, avec `--layout`. C'est le meilleur moyen de maîtriser exactement le
+positionnement.
 
 ---
 
 ## Visualiser la construction en vidéo
 
-1. Lancez le frontend (`cd frontend && npm run dev`) et gardez le navigateur ouvert.
-2. Lancez le script avec `--pause 2` (ou plus) : chaque étape est espacée, la
-   construction devient filmable.
-3. Enregistrez l'écran (OBS, capture d'onglet Chrome). Rechargez le projet dans le
-   frontend pendant la capture pour voir la scène évoluer (le frontend ne rafraîchit
-   pas encore la scène automatiquement).
+1. Lancez le frontend et gardez le projet ouvert dans le navigateur.
+2. Lancez le script avec `--pause 2` ou plus.
+3. Rechargez le projet pendant la capture pour voir la scène évoluer.
 
 ---
 
-## Brancher Astra (ou tout autre agent)
+## Recommandation de mise en production
 
-Le script sert de **référence exécutable** de la procédure sans erreur. Pour un
-branchement agent :
+Si vous voulez industrialiser la création agentique d'un magasin :
 
-- **Tool calling direct** : donner à l'agent le schéma OpenAPI auto-généré par
-  FastAPI (`GET /openapi.json`, Swagger sur `/docs`) comme définition d'outils, et
-  la séquence des 8 étapes ci-dessus comme procédure.
-- **Serveur MCP façade** (hors produit) : exposer chaque endpoint REST comme outil
-  MCP ; l'agent dialogue avec le MCP, le MCP appelle l'API HTTP.
-- Dans les deux cas, la boucle d'auto-correction est la même : réagir aux 409/422 et
-  vérifier via `export/retail-layout` (et éventuellement `simulation/run`).
+1. gardez ce pilote comme **oracle de référence** ;
+2. placez votre agent derrière un orchestrateur ou un serveur MCP ;
+3. stockez les clés LLM hors dépôt ;
+4. protégez le backend exposé par une gateway ;
+5. conservez `export/retail-layout` comme validation finale obligatoire ;
+6. faites varier progressivement `layout`, `catalog` et `max-products` avant de
+   laisser plus d'autonomie à l'agent.
+
+Cette approche vous donne un chemin clair : **script fiable pour le runbook,
+agent externe pour l'intelligence, backend du dépôt pour l'exécution métier**.

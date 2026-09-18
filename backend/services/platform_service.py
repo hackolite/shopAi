@@ -37,8 +37,8 @@ def _utc_now() -> str:
 
 def _db_path() -> Path:
     storage_root = Path(project_manager.STORAGE_ROOT)
-    storage_root.parent.mkdir(parents=True, exist_ok=True)
-    return storage_root.parent / "platform.sqlite3"
+    storage_root.mkdir(parents=True, exist_ok=True)
+    return storage_root / "_platform.sqlite3"
 
 
 def _oauth_state_secret() -> str:

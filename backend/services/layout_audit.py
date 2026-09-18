@@ -54,7 +54,10 @@ def validate_furniture_bounds(item: FurnitureInstance, store: Store) -> list[str
     sz = float(store.position[2])
     sw = float(store.dimensions["width"])
     sd = float(store.dimensions["depth"])
-    min_x, max_x, min_z, max_z = furniture_rotated_bounds(item)
+    min_x = float(item.position[0])
+    min_z = float(item.position[2])
+    max_x = min_x + float(item.dimensions["width"])
+    max_z = min_z + float(item.dimensions["depth"])
     if min_x < sx - LAYOUT_TOLERANCE_CM or max_x > sx + sw + LAYOUT_TOLERANCE_CM:
         issues.append(f"{item.name}: furniture footprint exceeds store width bounds")
     if min_z < sz - LAYOUT_TOLERANCE_CM or max_z > sz + sd + LAYOUT_TOLERANCE_CM:
@@ -66,6 +69,8 @@ def validate_planogram(
     planogram: Planogram,
     furniture: FurnitureInstance,
     valid_eans: set[str],
+    *,
+    strict_catalog: bool = True,
 ) -> list[str]:
     issues: list[str] = []
     if planogram.rows < 1:
@@ -99,7 +104,7 @@ def validate_planogram(
 
     seen_positions: set[tuple[int, int]] = set()
     for cell in planogram.cells:
-        if cell.ean not in valid_eans:
+        if strict_catalog and valid_eans and cell.ean not in valid_eans:
             issues.append(f"{planogram.name}: unknown product EAN '{cell.ean}'")
         if cell.row < 0 or cell.row >= planogram.rows:
             issues.append(f"{planogram.name}: cell '{cell.id}' row {cell.row} is outside [0, {planogram.rows - 1}]")

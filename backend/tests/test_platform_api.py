@@ -8,7 +8,8 @@ from fastapi.testclient import TestClient
 
 import services.project_manager as pm
 
-pm.STORAGE_ROOT = Path(tempfile.mkdtemp(prefix="shopai_platform_test_"))
+_tmp_root = Path(tempfile.mkdtemp(prefix="shopai_platform_test_"))
+pm.STORAGE_ROOT = _tmp_root / "projects"
 
 from main import app  # noqa: E402
 from services import platform_service  # noqa: E402
@@ -139,7 +140,7 @@ def test_oauth_redirect_and_callback_create_a_real_session(monkeypatch: pytest.M
 
 def test_agent_guide_and_project_capability_audit() -> None:
     client = _make_client()
-    _register(client, name="Charlie Ops", email="charlie@example.com")
+    _register(client, name="Charlie Ops", email="charlie-capability@example.com")
 
     project_response = client.post("/api/cad/projects/", json={"name": "Capability Store"})
     assert project_response.status_code == 200, project_response.text

@@ -562,6 +562,7 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
             planogram,
             scene.furniture[furniture_index],
             {product.ean for product in catalog.products},
+            strict_catalog=False,
         )
         if planogram_issues:
             raise HTTPException(status_code=422, detail=planogram_issues[0])
@@ -602,6 +603,7 @@ def update_planogram(project_id: str, planogram_id: str, payload: dict[str, Any]
             updated,
             scene.furniture[furniture_index],
             {product.ean for product in catalog.products},
+            strict_catalog=False,
         )
         if planogram_issues:
             raise HTTPException(status_code=422, detail=planogram_issues[0])

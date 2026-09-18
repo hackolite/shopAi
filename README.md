@@ -465,11 +465,15 @@ Open **http://localhost:5173**
 ### Astra pilot (AI agent store builder)
 
 Build a complete store from zero through the REST API (project, store dimensions,
-furniture layout, catalog import, planograms) — see [`scripts/README.md`](scripts/README.md):
+furniture layout, catalog import, planograms):
 
 ```bash
 python scripts/astra_build_store.py --name "Magasin Astra" --catalog assortment.json
 ```
+
+For the complete integration guide — API endpoints used, how to plug an agent,
+auth/key expectations, cost framing, CLI options, payload formats, and troubleshooting —
+see [`scripts/README.md`](scripts/README.md).
 
 ### 3. Tests
 

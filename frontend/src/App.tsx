@@ -1,784 +1,795 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { cadApi } from './api/cad';
-import { useSceneStore } from './store/sceneStore';
-import { useCatalogStore } from './store/catalogStore';
-import { usePlanogramStore } from './store/planogramStore';
-import { useAssetStore } from './store/assetStore';
-import { useUIStore } from './store/uiStore';
-import { defaultSimulationConfig, useSimulationStore } from './store/simulationStore';
-import { SceneEditor } from './three/SceneEditor';
-import Toolbar from './components/Toolbar';
-import SceneHierarchy from './components/SceneHierarchy';
-import CatalogPanel from './components/CatalogPanel';
-import Inspector from './components/Inspector';
-import PedestrianDetailPanel from './components/PedestrianDetailPanel';
-import PlanogramEditor from './components/PlanogramEditor';
-import NameDialog from './components/NameDialog';
-import ExportDialog from './components/ExportDialog';
-import ImportDialog from './components/ImportDialog';
-import SimulationPanel from './components/SimulationPanel';
-import type { ImportFormat } from './components/ImportDialog';
-import type { ExportFormat } from './components/ExportDialog';
-import { useZoneStore } from './store/zoneStore';
-import { useProjectStore } from './store/projectStore';
-import { resetProjectStores } from './store/projectSwitch';
-import type { FurnitureInstance, Planogram } from './types/cad';
-import { findFreeFurniturePosition } from './engine/furnitureCollision';
-import { directionFromKey, navigatePlanogramCell } from './engine/planogramCellNavigation';
+import {
+  type AgentCapabilityReport,
+  platformApi,
+  type AgentApiGuide,
+  type PlatformDashboard,
+  type PlatformOAuthProvider,
+  type PlatformProjectSummary,
+  type PlatformUser,
+} from './api/platform';
+import StudioApp from './StudioApp';
 
-const DEFAULT_PROJECT = 'retail_cad';
-/** localStorage key remembering the last opened project so F5 restores it. */
-const LAST_PROJECT_STORAGE_KEY = 'shopai.lastProjectId';
-/** Offset in cm applied to X and Z when pasting a copied gondola. */
-const PASTE_OFFSET_CM = 150;
+type AuthMode = 'login' | 'signup';
+type ViewMode = 'landing' | 'studio';
 
-function readStoredProjectId(): string {
-  try {
-    return localStorage.getItem(LAST_PROJECT_STORAGE_KEY) ?? DEFAULT_PROJECT;
-  } catch {
-    return DEFAULT_PROJECT;
-  }
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function StatCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="text-sm text-slate-400">{label}</div>
+      <div className="mt-2 text-3xl font-semibold text-white">{value}</div>
+      <div className="mt-2 text-xs text-slate-500">{hint}</div>
+    </div>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-white">{title}</h2>
+        <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export default function App() {
-  // Restore the last opened project so a page refresh (F5) brings the user
-  // back into the project they were working on instead of the default one.
-  const [projectId, setProjectId]     = useState<string>(readStoredProjectId);
-  const [projectName, setProjectName] = useState<string>('Retail CAD');
-  const [projects, setProjects]       = useState<{ id: string; name: string }[]>([]);
-  const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
-  const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
-  const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [rightTab, setRightTab] = useState<'inspector' | 'simulation' | 'pedestrian'>('simulation');
+  const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
+  const [hasUsers, setHasUsers] = useState(false);
+  const [currentUser, setCurrentUser] = useState<PlatformUser | null>(null);
+  const [dashboard, setDashboard] = useState<PlatformDashboard | null>(null);
+  const [agentGuide, setAgentGuide] = useState<AgentApiGuide | null>(null);
+  const [oauthProviders, setOauthProviders] = useState<PlatformOAuthProvider[]>([]);
+  const [agentCapabilityReport, setAgentCapabilityReport] = useState<AgentCapabilityReport | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [viewMode, setViewMode] = useState<ViewMode>('landing');
+  const [studioProjectId, setStudioProjectId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // Dialog states
-  const [nameDialog, setNameDialog] = useState<{
-    title: string;
-    label: string;
-    defaultValue?: string;
-    confirmLabel?: string;
-    onConfirm: (name: string) => void;
-  } | null>(null);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+  const [projectName, setProjectName] = useState('');
+  const [catalogName, setCatalogName] = useState('');
+  const [catalogDescription, setCatalogDescription] = useState('');
+  const [catalogProjectId, setCatalogProjectId] = useState<string>('');
+  const [simulationName, setSimulationName] = useState('');
+  const [simulationDescription, setSimulationDescription] = useState('');
+  const [simulationProjectId, setSimulationProjectId] = useState<string>('');
+  const [agentProvider, setAgentProvider] = useState('github-copilot');
+  const [agentTargetType, setAgentTargetType] = useState('workspace');
+  const [agentTargetId, setAgentTargetId] = useState('');
+  const [agentPrompt, setAgentPrompt] = useState('');
 
-  const { setScene, selectFurniture, addFurniture, removeFurniture, scene, selectedFurnitureId, selectedFurnitureIds, clipboard, setClipboard, toggleFurnitureSelection, undo } = useSceneStore();
-  const { setProducts }               = useCatalogStore();
-  const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
-  const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
-  const { setZones, selectedZoneId } = useZoneStore();
-  const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
-  const setSimulationConfig = useSimulationStore((state) => state.setConfig);
-
-  // Tracks the project ID currently being loaded; used to discard stale
-  // responses when the user switches projects before a load completes.
-  const loadingProjectIdRef = useRef<string | null>(null);
-  // Mirrors `projectId` so `switchProject` can detect a real project change
-  // without depending on the state value (which would recreate the callback).
-  const projectIdRef = useRef<string>(projectId);
-  projectIdRef.current = projectId;
-
-  // Remember the current project so a reload (F5) reopens it.
-  useEffect(() => {
-    try {
-      localStorage.setItem(LAST_PROJECT_STORAGE_KEY, projectId);
-    } catch {
-      // Storage unavailable (private mode…): reload will fall back to default.
-    }
-  }, [projectId]);
-  const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
-  const simulationHistoryLength = useSimulationStore((state) => state.history.length);
-  const selectSimulationWaypoint = useSimulationStore((state) => state.selectWaypoint);
-  const undoSimulation = useSimulationStore((state) => state.undo);
-
-  // ── Load project list ─────────────────────────────────────────────────────
-  const refreshProjectList = useCallback(async () => {
-    try {
-      const data = await cadApi.listProjects();
-      setProjects(data.projects ?? []);
-    } catch (err) {
-      console.error('Failed to load project list:', err);
-    }
+  const loadAuthenticatedData = useCallback(async () => {
+    const [dashboardData, agentGuideData] = await Promise.all([
+      platformApi.getDashboard(),
+      platformApi.getAgentGuide(),
+    ]);
+    const capabilityData = await platformApi.getAgentCapabilities(dashboardData.projects[0]?.id);
+    setDashboard(dashboardData);
+    setAgentGuide(agentGuideData);
+    setOauthProviders(dashboardData.oauthProviders);
+    setAgentCapabilityReport(capabilityData);
+    setCatalogProjectId((current) => current || dashboardData.projects[0]?.id || '');
+    setSimulationProjectId((current) => current || dashboardData.projects[0]?.id || '');
+    setAgentTargetId((current) => current || dashboardData.projects[0]?.id || '');
   }, []);
 
-  useEffect(() => { void refreshProjectList(); }, [refreshProjectList]);
-
-  // ── Load all data for a project ───────────────────────────────────────────
-  const loadProjectData = useCallback(async (id: string) => {
-    // Register this load as the active one; any earlier in-flight load is now stale.
-    loadingProjectIdRef.current = id;
-
-    // Clear previous project's state immediately so stale data never bleeds into
-    // the next project's view.  `loadedProjectId` stays null until the whole
-    // project is in memory, which also disables the auto-save effects so the
-    // previous project's scene/zones/waypoints can never be written into the
-    // project being opened.
-    resetProjectStores();
-
-    try {
-      const [sceneData, catalog, planoData, meta, settings] = await Promise.all([
-        cadApi.getScene(id),
-        cadApi.getCatalog(id),
-        cadApi.listPlanograms(id),
-        cadApi.getProject(id),
-        cadApi.getSettings(id),
-      ]);
-      // Discard results if the user switched to yet another project while we awaited.
-      if (loadingProjectIdRef.current !== id) return;
-      setScene(sceneData);
-      setProducts(catalog.products);
-      setPlanograms(planoData.planograms);
-      setZones(sceneData.store.zones ?? []);
-      setProjectName(meta.name ?? id);
-      setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
-      setLoadedProjectId(id);
-
-      // Track the remaining work so the viewport can show a progress gauge:
-      // planogram details first, then every product image they reference.
-      const assets = useAssetStore.getState();
-      assets.startLoading(planoData.planograms.length);
-
-      const details: Planogram[] = [];
-      await Promise.all(
-        planoData.planograms.map(async (summary) => {
-          try {
-            const detail = await cadApi.getPlanogram(id, summary.id);
-            // Guard again — planogram fetches are the longest-running part.
-            if (loadingProjectIdRef.current !== id) return;
-            setPlanogramDetail(detail);
-            details.push(detail);
-          } catch (err) {
-            console.warn(`Failed to load planogram detail for ${summary.id}:`, err);
-          } finally {
-            if (loadingProjectIdRef.current === id) assets.markPlanogramLoaded();
-          }
-        }),
-      );
-      if (loadingProjectIdRef.current !== id) return;
-
-      // Preload every product image used by a planogram into the shared cache so
-      // the 3D face overlays are complete on first paint instead of only after
-      // the planogram editor has been opened once.  This runs in the background:
-      // opening a project — and starting its simulation — must never wait for
-      // the catalog images to be downloaded.
-      const productByEan = new Map(catalog.products.map((p) => [p.ean, p]));
-      const urlsByEan = new Map<string, string>();
-      for (const detail of details) {
-        for (const cell of detail.cells) {
-          const url = productByEan.get(cell.ean)?.imageUrl;
-          if (url && !urlsByEan.has(cell.ean)) urlsByEan.set(cell.ean, url);
-        }
-      }
-      // Images download at full speed on project open (no simulation is running
-      // right after a project switch). SimulationPanel downgrades the preload to
-      // low priority while agents are moving and restores full speed on stop.
-      void assets.preloadProductImages(urlsByEan).finally(() => {
-        if (loadingProjectIdRef.current === id) assets.finishLoading();
-      });
-    } catch (err) {
-      useAssetStore.getState().finishLoading();
-      if (loadingProjectIdRef.current === id) {
-        console.error('Failed to load project data:', err);
-        // The restored project may have been deleted since the last visit:
-        // fall back to the default project instead of showing an empty app.
-        if (id !== DEFAULT_PROJECT) {
-          try {
-            localStorage.removeItem(LAST_PROJECT_STORAGE_KEY);
-          } catch {
-            // ignore storage failures
-          }
-          setProjectId(DEFAULT_PROJECT);
-        }
-      } else {
-        // Stale load that was superseded — log at lower severity so the error
-        // isn't silently lost but doesn't spam the console.
-        console.warn(`Stale project load for '${id}' failed (superseded):`, err);
-      }
-    }
-  }, [
-    setScene,
-    setProducts,
-    setPlanograms,
-    setPlanogramDetail,
-    setZones,
-    setSimulationConfig,
-    setLoadedProjectId,
-  ]);
-
-  // ── Auto-open the Inspector when a planogram product is selected in 3D ────
-  // Clicking a product cell on a gondola face is an inspection gesture: switch
-  // the right panel to the Inspector so the product details are shown without
-  // an extra click on the tab.
-  const selectionType     = useSceneStore((state) => state.selection.type);
-  const selectionCellKey  = useSceneStore((state) => state.selection.cellIds?.join(',') ?? '');
   useEffect(() => {
-    if (selectionType === 'planogram_cell' && selectionCellKey) setRightTab('inspector');
-  }, [selectionType, selectionCellKey]);
-
-  // ── Auto-open the pedestrian tab when an agent is clicked in the 3D scene ──
-  const selectedAgentId = useSimulationStore((state) => state.selectedAgentId);
-  useEffect(() => {
-    if (selectedAgentId != null) setRightTab('pedestrian');
-  }, [selectedAgentId]);
-
-  // ── Boot: load default project ────────────────────────────────────────────
-  useEffect(() => {
-    void loadProjectData(projectId);
-  }, [projectId, loadProjectData]);
-
-
-  // ── Switch to a project ───────────────────────────────────────────────────
-  const switchProject = useCallback((id: string) => {
-    setActivePlanogramId(null);
-    // Wipe the previous project's state right away.  Waiting for the load
-    // effect means React first has to re-render the whole 3D scene, which can
-    // take a while on large projects: until then the old furniture, floor
-    // grids and simulation waypoints would stay visible (and editable) even
-    // though the toolbar already shows the newly selected project.
-    if (id !== projectIdRef.current) resetProjectStores();
-    setProjectId(id);
-  }, []);
-
-  // ── New project ───────────────────────────────────────────────────────────
-  const newProject = useCallback(() => {
-    setNameDialog({
-      title: 'Nouveau projet',
-      label: 'Nom du projet',
-      defaultValue: '',
-      confirmLabel: 'Créer',
-      onConfirm: async (name) => {
-        setNameDialog(null);
-        try {
-          const created = await cadApi.createProject(name);
-          await refreshProjectList();
-          switchProject(created.id);
-        } catch (err) {
-          console.error('Failed to create project:', err);
-          alert('Erreur lors de la création du projet.');
-        }
-      },
-    });
-  }, [refreshProjectList, switchProject]);
-
-  // ── Delete project ────────────────────────────────────────────────────────
-  const deleteProject = useCallback(async (id: string) => {
-    const target = projects.find((p) => p.id === id);
-    const label = target?.name ?? id;
-    if (!window.confirm(`Supprimer définitivement le projet « ${label} » ?`)) return;
-    try {
-      await cadApi.deleteProject(id);
-      const data = await cadApi.listProjects();
-      const remaining = data.projects ?? [];
-      setProjects(remaining);
-      if (id === projectId) {
-        const next = remaining.find((p) => p.id === DEFAULT_PROJECT) ?? remaining[0];
-        if (next) {
-          switchProject(next.id);
-        } else {
-          // No project left — prompt the user to create a new one.
-          newProject();
-        }
-      }
-    } catch (err) {
-      console.error('Failed to delete project:', err);
-      alert('Erreur lors de la suppression du projet.');
-    }
-  }, [projects, projectId, switchProject, newProject]);
-
-  // ── Save As (duplicate) ───────────────────────────────────────────────────
-  const saveAsProject = useCallback(() => {
-    setNameDialog({
-      title: 'Enregistrer sous…',
-      label: 'Nom du projet',
-      defaultValue: `${projectName} (copie)`,
-      confirmLabel: 'Enregistrer',
-      onConfirm: async (name) => {
-        setNameDialog(null);
-        try {
-          const created = await cadApi.duplicateProject(projectId, name);
-          await refreshProjectList();
-          switchProject(created.id);
-        } catch (err) {
-          console.error('Failed to duplicate project:', err);
-          alert('Erreur lors de la duplication du projet.');
-        }
-      },
-    });
-  }, [projectId, projectName, refreshProjectList, switchProject]);
-
-  // ── Manual save (show feedback) ───────────────────────────────────────────
-  const saveProject = useCallback(async () => {
-    setSaveStatus('saving');
-    try {
-      // Trigger a no-op settings round-trip to ensure backend is up-to-date
-      const settings = await cadApi.getSettings(projectId);
-      await cadApi.updateSettings(projectId, settings);
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (err) {
-      console.error('Save failed:', err);
-      setSaveStatus('idle');
-    }
-  }, [projectId]);
-
-  // ── Open planogram ────────────────────────────────────────────────────────
-  const openPlanogram = useCallback((planogramId: string) => {
-    setActivePlanogramId(planogramId);
-    setViewMode(viewMode === 'split' ? 'split' : 'planogram');
-  }, [viewMode, setViewMode]);
-
-  // ── React to Ctrl+click open-planogram requests from the 3D overlay ─────────
-  useEffect(() => {
-    if (!requestOpenPlanogramId) return;
-    setRequestOpenPlanogramId(null);
-    openPlanogram(requestOpenPlanogramId);
-  }, [requestOpenPlanogramId, openPlanogram, setRequestOpenPlanogramId]);
-
-  const closePlanogram = useCallback(() => {
-    setActivePlanogramId(null);
-    setViewMode('3d');
-  }, [setViewMode]);
-
-  // ── Copy-paste helpers ────────────────────────────────────────────────────
-  const copySelected = useCallback(() => {
-    if (!scene) return;
-    // Collect the set of IDs to copy: multi-selection if available, else single selection.
-    const ids = selectedFurnitureIds.size > 0
-      ? [...selectedFurnitureIds]
-      : selectedFurnitureId ? [selectedFurnitureId] : [];
-    if (ids.length === 0) return;
-    const items = ids.flatMap(id => {
-      const furniture = scene.furniture.find(f => f.id === id);
-      if (!furniture) return [];
-      const planogramIds: Record<string, string> = {};
-      for (const [face, pid] of Object.entries(furniture.faces)) {
-        if (pid) planogramIds[face] = pid;
-      }
-      return [{ furniture, planogramIds }];
-    });
-    if (items.length > 0) setClipboard({ items });
-  }, [selectedFurnitureId, selectedFurnitureIds, scene, setClipboard]);
-
-  const pasteClipboard = useCallback(async () => {
-    if (!clipboard || clipboard.items.length === 0 || !scene) return;
-
-    const lastCreatedId: string[] = [];
-    const occupiedFurniture = [...scene.furniture];
-    for (const { furniture: src, planogramIds } of clipboard.items) {
-      const newId = crypto.randomUUID();
-
-      const newFurniture: FurnitureInstance = {
-        ...src,
-        id: newId,
-        name: `${src.name} (copie)`,
-        position: [src.position[0] + PASTE_OFFSET_CM, src.position[1], src.position[2] + PASTE_OFFSET_CM] as [number, number, number],
-        faces: Object.fromEntries(Object.keys(src.faces).map(face => [face, null])),
-        childIds: [],
-        parentId: null,
-      };
-      const position = findFreeFurniturePosition(newFurniture, occupiedFurniture, scene.store);
-      if (!position) continue;
-      newFurniture.position = position;
-
+    let cancelled = false;
+    (async () => {
       try {
-        const created = await cadApi.addFurniture(projectId, newFurniture);
-
-        for (const [faceId, planogramId] of Object.entries(planogramIds)) {
-          try {
-            const srcPlanogram = await cadApi.getPlanogram(projectId, planogramId);
-            const newPlanogram = {
-              ...srcPlanogram,
-              id: crypto.randomUUID(),
-              name: `${srcPlanogram.name} (copie)`,
-              furnitureId: newId,
-              cells: srcPlanogram.cells.map(cell => ({ ...cell, id: crypto.randomUUID() })),
-            };
-            const createdPlanogram = await cadApi.createPlanogram(projectId, newPlanogram);
-            setPlanogramDetail(createdPlanogram);
-            (created.faces as Record<string, string | null>)[faceId] = createdPlanogram.id;
-          } catch (err) {
-            console.error('Failed to clone planogram:', err);
-          }
+        const [bootstrap, session] = await Promise.all([
+          platformApi.bootstrap(),
+          platformApi.getSession(),
+        ]);
+        if (cancelled) return;
+        setHasUsers(bootstrap.hasUsers);
+        setOauthProviders(bootstrap.oauthProviders);
+        setCurrentUser(session.user);
+        if (session.user) {
+          await loadAuthenticatedData();
+        } else if (!bootstrap.hasUsers) {
+          setAuthMode('signup');
         }
-
-        await cadApi.updateFurniture(projectId, created.id, created);
-        addFurniture(created);
-        occupiedFurniture.push(created);
-        lastCreatedId.push(created.id);
-      } catch (err) {
-        console.error('Paste failed:', err);
+      } catch (error) {
+        if (!cancelled) {
+          setStatusMessage(error instanceof Error ? error.message : String(error));
+        }
+      } finally {
+        if (!cancelled) setBootstrapLoaded(true);
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAuthenticatedData]);
 
-    // Select all pasted items: single item → single selection, multiple → multi-selection.
-    if (lastCreatedId.length === 1) {
-      selectFurniture(lastCreatedId[0]);
-    } else if (lastCreatedId.length > 1) {
-      // Seed multi-selection with all pasted items so the user can immediately
-      // move or copy the whole group again.
-      selectFurniture(null);
-      for (const id of lastCreatedId) toggleFurnitureSelection(id);
-    }
+  const projectOptions = dashboard?.projects ?? [];
 
-    const planoData = await cadApi.listPlanograms(projectId);
-    setPlanograms(planoData.planograms);
-  }, [clipboard, projectId, scene, addFurniture, selectFurniture, toggleFurnitureSelection, setPlanograms, setPlanogramDetail]);
-
-  // ── Delete selected furniture ─────────────────────────────────────────────
-  const deleteSelected = useCallback(() => {
-    if (!selectedFurnitureId) return;
-    removeFurniture(selectedFurnitureId);
-    cadApi.deleteFurniture(projectId, selectedFurnitureId).catch(console.error);
-  }, [selectedFurnitureId, removeFurniture, projectId]);
-
-  // ── Export ───────────────────────────────────────────────────────────────
-  const exportProject = useCallback(() => {
-    setShowExportDialog(true);
+  const openStudio = useCallback((project: PlatformProjectSummary) => {
+    setStudioProjectId(project.id);
+    setViewMode('studio');
   }, []);
 
-  const handleExportConfirm = useCallback(async (format: ExportFormat) => {
-    setShowExportDialog(false);
+  const refreshDashboard = useCallback(async () => {
+    await loadAuthenticatedData();
+  }, [loadAuthenticatedData]);
+
+  const handleAuthSubmit = useCallback(async () => {
+    setBusy(true);
+    setStatusMessage(null);
     try {
-      if (format === 'retail-layout') {
-        await cadApi.exportRetailLayout(projectId, projectName);
-      } else {
-        await cadApi.exportProjectZip(projectId, projectName);
-      }
-    } catch (err) {
-      console.error('Export failed:', err);
-      alert('Erreur lors de l\'exportation du projet.');
+      const email = authForm.email.trim();
+      const password = authForm.password;
+      const name = authForm.name.trim();
+      const response = authMode === 'signup'
+        ? await platformApi.register(name, email, password)
+        : await platformApi.login(email, password);
+      setCurrentUser(response.user);
+      setViewMode('landing');
+      await loadAuthenticatedData();
+      setStatusMessage(authMode === 'signup' ? 'Compte créé.' : 'Connexion réussie.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
     }
-  }, [projectId, projectName]);
+  }, [authForm, authMode, loadAuthenticatedData]);
 
-  // ── Import ────────────────────────────────────────────────────────────────
-  const handleImportFile = useCallback(async (file: File, name: string, format: ImportFormat) => {
-    setShowImportDialog(false);
+  const handleOAuth = useCallback((providerName: 'google' | 'github') => {
+    const provider = oauthProviders.find((item) => item.name === providerName);
+    if (!provider?.configured) {
+      setStatusMessage(`OAuth ${providerName} non configuré côté serveur.`);
+      return;
+    }
+    const next = `${window.location.pathname}${window.location.search}${window.location.hash}` || '/';
+    window.location.assign(`${provider.startPath}?next=${encodeURIComponent(next)}`);
+  }, [oauthProviders]);
+
+  const handleCreateProject = useCallback(async () => {
+    if (!projectName.trim()) return;
+    setBusy(true);
+    setStatusMessage(null);
     try {
-      let created: { id: string };
-      if (format === 'retail-layout') {
-        const text = await file.text();
-        const layout = JSON.parse(text) as object;
-        created = await cadApi.importRetailLayout(name, layout);
-      } else {
-        created = await cadApi.importProjectZip(name, file);
-      }
-      await refreshProjectList();
-      switchProject(created.id);
-    } catch (err) {
-      console.error('Import failed:', err);
-      const detail = err instanceof Error ? err.message : String(err);
-      alert(`Erreur lors de l'importation : ${detail}`);
+      const created = await cadApi.createProject(projectName.trim());
+      setProjectName('');
+      await refreshDashboard();
+      const createdProject = (await platformApi.getDashboard()).projects.find((project) => project.id === created.id);
+      if (createdProject) openStudio(createdProject);
+      setStatusMessage('Projet créé et rattaché à votre tenant.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
     }
-  }, [refreshProjectList, switchProject]);
+  }, [openStudio, projectName, refreshDashboard]);
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      const isEditable = (e.target as HTMLElement)?.isContentEditable;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return;
+  const handleCreateCatalog = useCallback(async () => {
+    if (!catalogName.trim()) return;
+    setBusy(true);
+    setStatusMessage(null);
+    try {
+      await platformApi.createCatalog({
+        name: catalogName.trim(),
+        description: catalogDescription.trim(),
+        sourceProjectId: catalogProjectId || null,
+      });
+      setCatalogName('');
+      setCatalogDescription('');
+      await refreshDashboard();
+      setStatusMessage('Catalogue enregistré en base.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, [catalogDescription, catalogName, catalogProjectId, refreshDashboard]);
 
-      // Ctrl/Cmd+Z → undo
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
-        e.preventDefault();
-        if (
-          simulationHistoryLength > 0 &&
-          (selectedWaypointId || (rightTab === 'simulation' && !selectedFurnitureId && !selectedZoneId))
-        ) {
-          undoSimulation();
-        } else {
-          undo();
-        }
-        return;
-      }
+  const handleCreateSimulation = useCallback(async () => {
+    if (!simulationName.trim()) return;
+    setBusy(true);
+    setStatusMessage(null);
+    try {
+      await platformApi.createSimulation({
+        name: simulationName.trim(),
+        description: simulationDescription.trim(),
+        sourceProjectId: simulationProjectId || null,
+      });
+      setSimulationName('');
+      setSimulationDescription('');
+      await refreshDashboard();
+      setStatusMessage('Liste de simulations enregistrée en base.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, [refreshDashboard, simulationDescription, simulationName, simulationProjectId]);
 
-      // Ctrl/Cmd+S → save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        void saveProject();
-        return;
-      }
+  const handleSubmitAgentRequest = useCallback(async () => {
+    if (!agentPrompt.trim()) return;
+    setBusy(true);
+    setStatusMessage(null);
+    try {
+      await platformApi.createAgentRequest({
+        provider: agentProvider,
+        targetResourceType: agentTargetType,
+        targetResourceId: agentTargetId || null,
+        prompt: agentPrompt.trim(),
+      });
+      setAgentPrompt('');
+      await refreshDashboard();
+      setStatusMessage('Demande agent enregistrée.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, [agentPrompt, agentProvider, agentTargetId, agentTargetType, refreshDashboard]);
 
-      if (e.key === 'Escape') {
-        selectFurniture(null);
-        selectSimulationWaypoint(null);
-        return;
-      }
+  const handleLogout = useCallback(async () => {
+    setBusy(true);
+    try {
+      await platformApi.logout();
+      setCurrentUser(null);
+      setDashboard(null);
+      setAgentGuide(null);
+      setAgentCapabilityReport(null);
+      setStudioProjectId(null);
+      setViewMode('landing');
+      setStatusMessage('Déconnecté.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
-      // Arrow keys → navigate between products of the planogram selected in 3D
-      const arrowDirection = directionFromKey(e.key);
-      if (arrowDirection && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const selection = useSceneStore.getState().selection;
-        if (selection.type === 'planogram_cell' && selection.planogramId && selection.cellIds?.length) {
-          // Arrows are captured while a product is selected: never scroll the page.
-          e.preventDefault();
-          const planogram = usePlanogramStore.getState().planogramDetails.get(selection.planogramId);
-          if (!planogram) return;
-          const currentCellId = selection.cellIds[selection.cellIds.length - 1];
-          const next = navigatePlanogramCell(planogram, currentCellId, arrowDirection);
-          if (!next) return;
-          useSceneStore.getState().setSelection({
-            type: 'planogram_cell',
-            ean: next.ean,
-            furnitureId: planogram.furnitureId,
-            planogramId: planogram.id,
-            cellIds: [next.id],
-            cells: [{
-              planogramId: planogram.id,
-              furnitureId: planogram.furnitureId,
-              cellId: next.id,
-              ean: next.ean,
-            }],
-          });
-          return;
-        }
-      }
+  const heroBullets = useMemo(
+    () => [
+      'Accueil classique SaaS avec connexion, inscription et SSO Google/GitHub.',
+      'Tenant unique par utilisateur, avec plusieurs projets, catalogues et simulations stockés en base SQLite.',
+      'Guide REST/OpenAPI et champ de prompt type Lovable pour piloter un agent sur vos ressources.',
+    ],
+    [],
+  );
 
-      // Tool shortcuts (no modifier)
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.key === 's' || e.key === 'S') { setActiveTool('select');    return; }
-        if (e.key === 'g' || e.key === 'G') { setActiveTool('translate'); return; }
-        if (e.key === 'r' || e.key === 'R') { setActiveTool('rotate');    return; }
-        if (e.key === 'e' || e.key === 'E') { setActiveTool('scale');     return; }
-        if (e.key === 'm' || e.key === 'M') { setActiveTool('measure');   return; }
-      }
+  if (!bootstrapLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">
+        Chargement de la plateforme…
+      </div>
+    );
+  }
 
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        deleteSelected();
-        return;
-      }
+  if (viewMode === 'studio' && studioProjectId) {
+    return (
+      <div className="relative min-h-screen">
+        <button
+          type="button"
+          onClick={() => setViewMode('landing')}
+          className="absolute right-4 top-4 z-50 rounded-full border border-white/15 bg-slate-950/85 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-slate-900"
+        >
+          ← Retour au hub
+        </button>
+        <StudioApp initialProjectId={studioProjectId} />
+      </div>
+    );
+  }
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault();
-        copySelected();
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        e.preventDefault();
-        void pasteClipboard();
-        return;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, selectedFurnitureId, selectedZoneId, simulationHistoryLength, rightTab, saveProject]);
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
-      {/* Dialogs */}
-      {nameDialog && (
-        <NameDialog
-          title={nameDialog.title}
-          label={nameDialog.label}
-          defaultValue={nameDialog.defaultValue}
-          confirmLabel={nameDialog.confirmLabel}
-          onConfirm={nameDialog.onConfirm}
-          onCancel={() => setNameDialog(null)}
-        />
-      )}
-      {showExportDialog && (
-        <ExportDialog
-          projectName={projectName}
-          onConfirm={(fmt) => void handleExportConfirm(fmt)}
-          onCancel={() => setShowExportDialog(false)}
-        />
-      )}
-      {showImportDialog && (
-        <ImportDialog
-          onImport={(file, name, fmt) => void handleImportFile(file, name, fmt)}
-          onCancel={() => setShowImportDialog(false)}
-        />
-      )}
-
-      {/* Top toolbar */}
-      <Toolbar
-        projectName={projectName}
-        projects={projects}
-        saveStatus={saveStatus}
-        onNew={newProject}
-        onLoad={switchProject}
-        onDelete={(id) => { void deleteProject(id); }}
-        onSave={saveProject}
-        onSaveAs={saveAsProject}
-        onExport={exportProject}
-        onImport={() => setShowImportDialog(true)}
-      />
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* ── Left panel (260px) ───────────────────────────────────────── */}
-        <div className="w-64 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
-          {/* Tab switcher */}
-          <div className="flex shrink-0 border-b border-gray-800">
-            <button
-              className={[
-                'flex-1 py-1.5 text-xs font-medium transition-colors',
-                leftTab === 'hierarchy'
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-500 hover:text-gray-300',
-              ].join(' ')}
-              onClick={() => setLeftTab('hierarchy')}
-            >
-              Scene
-            </button>
-            <button
-              className={[
-                'flex-1 py-1.5 text-xs font-medium transition-colors',
-                leftTab === 'catalog'
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-gray-500 hover:text-gray-300',
-              ].join(' ')}
-              onClick={() => setLeftTab('catalog')}
-            >
-              Catalog
-            </button>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b_0%,#020617_55%)] text-white">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
+        <header className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">
+              ShopAI · Retail digital twin platform
+            </div>
+            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
+              Concevez, simulez et faites évoluer vos espaces retail depuis un hub multi-tenant.
+            </h1>
+            <p className="mt-4 max-w-2xl text-base text-slate-300 md:text-lg">
+              Une page d&apos;accueil orientée produit avec authentification, workspaces, studio 3D et connecteur agent prêt à brancher.
+            </p>
           </div>
-
-          <div className="flex-1 overflow-hidden">
-            {leftTab === 'hierarchy' ? (
-              <SceneHierarchy
-                projectId={projectId}
-                onOpenPlanogram={openPlanogram}
-              />
-            ) : (
-              <CatalogPanel projectId={projectId} />
-            )}
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-300 lg:max-w-md">
+            <div className="mb-3 text-sm font-semibold text-white">Ce qui est désormais couvert</div>
+            <ul className="space-y-2">
+              {heroBullets.map((bullet) => (
+                <li key={bullet} className="flex gap-2">
+                  <span className="text-cyan-300">•</span>
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+        </header>
 
-        {/* ── Main viewport ──────────────────────────────────────────────── */}
-        <main className="flex-1 relative overflow-hidden">
-          {/*
-            SceneEditor is ALWAYS mounted so the WebGL canvas (and any active
-            MediaRecorder stream) persists across view-mode changes.
-            In planogram-only mode it is placed behind the PLN panel and hidden
-            with opacity:0 + pointer-events:none so the GL context stays alive.
-            In split mode it occupies the left half; in 3D mode the full area.
-          */}
-          <div
-            className={
-              viewMode === 'split'
-                ? 'absolute top-0 left-0 h-full border-r border-gray-800'
-                : 'absolute inset-0'
-            }
-            style={{
-              width: viewMode === 'split' ? '50%' : undefined,
-              opacity: viewMode === 'planogram' ? 0 : 1,
-              pointerEvents: viewMode === 'planogram' ? 'none' : 'auto',
-              zIndex: viewMode === 'planogram' ? 0 : 1,
-            }}
-          >
-            <SceneEditor projectId={projectId} />
-          </div>
+        <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 shadow-2xl shadow-slate-950/40">
+            {!currentUser ? (
+              <>
+                <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
+                  <div>
+                    <div className="text-sm uppercase tracking-[0.3em] text-slate-500">Produit</div>
+                    <h2 className="mt-3 text-3xl font-semibold text-white">Accueil cohérent pour une plateforme retail agentique.</h2>
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                      <StatCard label="Workspaces" value="1 tenant / user" hint="Isolation simple pour démarrer." />
+                      <StatCard label="Projets" value="∞" hint="Plusieurs stores et variantes par utilisateur." />
+                      <StatCard label="Catalogues" value="SQLite" hint="Ressources métier stockées côté backend." />
+                      <StatCard label="Agents" value="REST + OpenAPI" hint="Prêt à connecter Copilot ou tout autre client." />
+                    </div>
+                  </div>
 
-          {/* Planogram panel — shown on top in PLN mode, right half in split mode */}
-          {(viewMode === 'planogram' || viewMode === 'split') && (
-            <div
-              className="absolute top-0 h-full"
-              style={{
-                left: viewMode === 'split' ? '50%' : 0,
-                right: 0,
-                zIndex: 2,
-              }}
-            >
-              {activePlanogramId ? (
-                <PlanogramEditor
-                  projectId={projectId}
-                  planogramId={activePlanogramId}
-                  onClose={closePlanogram}
-                />
-              ) : (
-                viewMode === 'planogram' ? (
-                  <div className="flex flex-col items-center justify-center w-full h-full gap-3 bg-gray-950">
-                    <span className="text-4xl">🗂️</span>
-                    <p className="text-gray-500 text-sm">
-                      Click a planogram face in the Scene panel to open it
-                    </p>
+                  <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6">
+                    <div className="mb-5 flex gap-2 rounded-full bg-slate-800 p-1 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode('login')}
+                        className={['flex-1 rounded-full px-4 py-2', authMode === 'login' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300'].join(' ')}
+                      >
+                        Connexion
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode('signup')}
+                        className={['flex-1 rounded-full px-4 py-2', authMode === 'signup' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300'].join(' ')}
+                      >
+                        Inscription
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {authMode === 'signup' && (
+                        <input
+                          value={authForm.name}
+                          onChange={(event) => setAuthForm((state) => ({ ...state, name: event.target.value }))}
+                          placeholder="Nom complet"
+                          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
+                        />
+                      )}
+                      <input
+                        value={authForm.email}
+                        onChange={(event) => setAuthForm((state) => ({ ...state, email: event.target.value }))}
+                        placeholder="user@retail.io"
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
+                      />
+                      <input
+                        type="password"
+                        value={authForm.password}
+                        onChange={(event) => setAuthForm((state) => ({ ...state, password: event.target.value }))}
+                        placeholder="Mot de passe"
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
+                      />
+                    </div>
+
                     <button
-                      className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"
-                      onClick={() => setViewMode('3d')}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handleAuthSubmit()}
+                      className="mt-4 w-full rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      ← Back to 3D view
+                      {authMode === 'signup' ? 'Créer mon workspace' : 'Se connecter'}
+                    </button>
+
+                    <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
+                      <div className="h-px flex-1 bg-white/10" />
+                      ou
+                      <div className="h-px flex-1 bg-white/10" />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        disabled={!oauthProviders.find((provider) => provider.name === 'google')?.configured}
+                        onClick={() => void handleOAuth('google')}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Continuer avec Google
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!oauthProviders.find((provider) => provider.name === 'github')?.configured}
+                        onClick={() => void handleOAuth('github')}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Continuer avec GitHub
+                      </button>
+                    </div>
+
+                    <p className="mt-4 text-xs text-slate-500">
+                      {hasUsers
+                        ? 'Activez GOOGLE_CLIENT_ID / SECRET / REDIRECT_URI et GITHUB_CLIENT_ID / SECRET / REDIRECT_URI pour le vrai OAuth.'
+                        : 'Aucun compte détecté : créez le premier workspace pour initialiser la plateforme.'}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                      {oauthProviders.map((provider) => (
+                        <span
+                          key={provider.name}
+                          className={[
+                            'rounded-full border px-2 py-1 uppercase tracking-[0.2em]',
+                            provider.configured
+                              ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+                              : 'border-amber-400/20 bg-amber-400/10 text-amber-200',
+                          ].join(' ')}
+                        >
+                          {provider.name} {provider.configured ? 'ready' : 'missing env'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-8">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="text-sm text-cyan-300">Connecté en tant que {currentUser.email}</div>
+                    <h2 className="mt-2 text-3xl font-semibold text-white">
+                      {dashboard?.tenant.name ?? `${currentUser.name} workspace`}
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Gérez vos projets, catalogues, simulations de passage caisse et demandes agent.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void refreshDashboard()}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10"
+                    >
+                      Actualiser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleLogout()}
+                      className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-100 hover:bg-red-400/20"
+                    >
+                      Déconnexion
                     </button>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full bg-gray-950">
-                    <p className="text-gray-600 text-sm">
-                      Select a planogram face to edit
-                    </p>
-                  </div>
-                )
-              )}
-            </div>
-          )}
+                </div>
 
-          {/* Global "On Air" recording indicator — visible in all view modes */}
-          {recording && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/90 border border-red-700 text-red-300 text-xs font-semibold select-none">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" />
-                On Air
-              </span>
-            </div>
-          )}
-        </main>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <StatCard label="Projets" value={dashboard?.stats.projectCount ?? 0} hint="Stores, plans et variantes." />
+                  <StatCard label="Catalogues" value={dashboard?.stats.catalogCount ?? 0} hint="Ressources produit métier." />
+                  <StatCard label="Simulations" value={dashboard?.stats.simulationCount ?? 0} hint="Listes de scénarios caisse." />
+                  <StatCard label="Demandes agent" value={dashboard?.stats.agentRequestCount ?? 0} hint="Historique Lovable-like." />
+                </div>
 
-        {/* ── Right panel (280px) ──────────────────────────────────────── */}
-        <aside className="w-72 shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
-          <div className="flex shrink-0 border-b border-gray-800">
-            <button
-              className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
-                rightTab === 'simulation'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-500 hover:text-gray-300',
-              ].join(' ')}
-              onClick={() => setRightTab('simulation')}
-            >
-              Simulation
-            </button>
-            <button
-              className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
-                rightTab === 'inspector'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-500 hover:text-gray-300',
-              ].join(' ')}
-              onClick={() => setRightTab('inspector')}
-            >
-              Inspector
-            </button>
-            <button
-              className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
-                rightTab === 'pedestrian'
-                  ? 'border-b-2 border-blue-400 text-blue-400'
-                  : 'text-gray-500 hover:text-gray-300',
-              ].join(' ')}
-              onClick={() => setRightTab('pedestrian')}
-            >
-              Piéton
-            </button>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            {/* SimulationPanel stays mounted on both tabs (hidden via CSS on the
-                Inspector tab): it drives the live-simulation tick loop and its
-                unmount cleanup stops the backend session, so unmounting it here
-                (e.g. to inspect a selected product) froze the simulation and the
-                agents could never restart. */}
-            <div className={rightTab === 'simulation' ? 'h-full' : 'hidden'}>
-              <SimulationPanel projectId={projectId} />
-            </div>
-            {rightTab === 'inspector' && (
-              <Inspector
-                projectId={projectId}
-                onOpenPlanogram={openPlanogram}
-              />
+                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                  <SectionCard title="Projets du tenant" subtitle="Chaque projet appartient à votre workspace et reste éditable dans le studio 3D existant.">
+                    <div className="mb-4 flex flex-col gap-3 md:flex-row">
+                      <input
+                        value={projectName}
+                        onChange={(event) => setProjectName(event.target.value)}
+                        placeholder="Nouveau projet retail"
+                        className="flex-1 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleCreateProject()}
+                        className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Créer un projet
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {projectOptions.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
+                          Aucun projet pour ce tenant.
+                        </div>
+                      ) : (
+                        projectOptions.map((project) => (
+                          <div key={project.id} className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <div className="text-base font-medium text-white">{project.name}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                Mis à jour {formatDate(project.updatedAt)} · {project.catalogProducts} produits · {project.planograms} planogrammes · {project.checkoutSimulations} scénarios
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openStudio(project)}
+                              className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20"
+                            >
+                              Ouvrir le studio
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard title="Connexion agent / REST" subtitle="Expose le schéma OpenAPI et la séquence d'appel minimale pour un agent externe.">
+                    <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+                      <div className="text-xs uppercase tracking-[0.25em] text-slate-500">OpenAPI</div>
+                      <div className="mt-2 break-all rounded-xl bg-slate-950 px-3 py-2 font-mono text-xs text-cyan-200">
+                        {agentGuide?.openApiUrl ?? 'http://localhost:8000/openapi.json'}
+                      </div>
+                    </div>
+                    <ol className="mt-4 space-y-2 text-sm text-slate-300">
+                      {(agentGuide?.workflowSteps ?? []).map((step) => (
+                        <li key={step} className="flex gap-3">
+                          <span className="text-cyan-300">→</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <div className="mt-4">
+                      <div className="mb-2 text-xs text-slate-500">Exemples de requêtes</div>
+                      <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-3 text-xs text-slate-300">
+                        {JSON.stringify(agentGuide?.sampleRequests ?? {}, null, 2)}
+                      </pre>
+                    </div>
+                  </SectionCard>
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-3">
+                  <SectionCard title="Catalogues" subtitle="Créez plusieurs référentiels produits rattachés à un projet ou indépendants.">
+                    <div className="space-y-3">
+                      <input
+                        value={catalogName}
+                        onChange={(event) => setCatalogName(event.target.value)}
+                        placeholder="Catalogue saisonnier"
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                      />
+                      <textarea
+                        value={catalogDescription}
+                        onChange={(event) => setCatalogDescription(event.target.value)}
+                        placeholder="Description du catalogue"
+                        className="min-h-24 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                      />
+                      <select
+                        value={catalogProjectId}
+                        onChange={(event) => setCatalogProjectId(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
+                      >
+                        <option value="">Sans projet source</option>
+                        {projectOptions.map((project) => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleCreateCatalog()}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Enregistrer le catalogue
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-2 text-sm text-slate-300">
+                      {(dashboard?.catalogs ?? []).slice(0, 4).map((catalog) => (
+                        <div key={catalog.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                          <div className="font-medium text-white">{catalog.name}</div>
+                          <div className="mt-1 text-xs text-slate-500">{catalog.description || 'Sans description'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard title="Simulations caisse" subtitle="Conservez plusieurs listes de scénarios et campagnes de passage en caisse.">
+                    <div className="space-y-3">
+                      <input
+                        value={simulationName}
+                        onChange={(event) => setSimulationName(event.target.value)}
+                        placeholder="Simulation Black Friday"
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                      />
+                      <textarea
+                        value={simulationDescription}
+                        onChange={(event) => setSimulationDescription(event.target.value)}
+                        placeholder="Description de la liste"
+                        className="min-h-24 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                      />
+                      <select
+                        value={simulationProjectId}
+                        onChange={(event) => setSimulationProjectId(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
+                      >
+                        <option value="">Sans projet source</option>
+                        {projectOptions.map((project) => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleCreateSimulation()}
+                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Enregistrer la simulation
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-2 text-sm text-slate-300">
+                      {(dashboard?.simulations ?? []).slice(0, 4).map((simulation) => (
+                        <div key={simulation.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                          <div className="font-medium text-white">{simulation.name}</div>
+                          <div className="mt-1 text-xs text-slate-500">{simulation.description || 'Sans description'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard title="Champ agent type Lovable" subtitle="Déposez une demande d'implémentation et laissez un agent la consommer via l'API REST.">
+                    <div className="space-y-3">
+                      <select
+                        value={agentProvider}
+                        onChange={(event) => setAgentProvider(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
+                      >
+                        <option value="github-copilot">GitHub Copilot</option>
+                        <option value="claude">Claude</option>
+                        <option value="custom-agent">Custom agent</option>
+                      </select>
+                      <select
+                        value={agentTargetType}
+                        onChange={(event) => setAgentTargetType(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
+                      >
+                        <option value="workspace">Workspace</option>
+                        <option value="project">Projet</option>
+                        <option value="catalog">Catalogue</option>
+                        <option value="simulation">Simulation</option>
+                      </select>
+                      <select
+                        value={agentTargetId}
+                        onChange={(event) => setAgentTargetId(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
+                      >
+                        <option value="">Aucune ressource ciblée</option>
+                        {projectOptions.map((project) => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </select>
+                      <textarea
+                        value={agentPrompt}
+                        onChange={(event) => setAgentPrompt(event.target.value)}
+                        placeholder="Ex: ajoute un onboarding retail, un mode KPI et un import catalogue ERP."
+                        className="min-h-32 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleSubmitAgentRequest()}
+                        className="w-full rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Envoyer la demande à l&apos;agent
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {(dashboard?.agentRequests ?? []).map((request) => (
+                        <div key={request.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-medium text-white">{request.provider}</span>
+                            <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200">
+                              {request.status}
+                            </span>
+                          </div>
+                          <div className="mt-2 text-sm text-slate-300">{request.prompt}</div>
+                          <div className="mt-2 text-xs text-slate-500">{request.implementationNotes}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </SectionCard>
+                </div>
+              </div>
             )}
-            {rightTab === 'pedestrian' && <PedestrianDetailPanel />}
-          </div>
-        </aside>
+          </section>
+
+          <aside className="space-y-6">
+            <SectionCard title="Fonctionnalités plateforme" subtitle="Ce qui manque d'habitude dans le MVP a été matérialisé ici.">
+              <div className="space-y-3 text-sm text-slate-300">
+                {[
+                  'Session utilisateur persistée via cookie HTTPOnly.',
+                  'OAuth Google/GitHub réel via redirections server-side quand les variables d’environnement sont présentes.',
+                  'Filtrage des projets par tenant directement dans les endpoints CAD existants.',
+                  'Stockage SQLite pour les métadonnées multi-tenant et les demandes agent.',
+                  'Guide REST/OpenAPI intégré dans le backend et visible dans le hub.',
+                ].map((item) => (
+                  <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Capacité agent vérifiée" subtitle="Audit du pipeline Astra et du premier projet du tenant quand disponible.">
+              <div className="space-y-3 text-sm text-slate-300">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  Script de référence : <span className="font-mono text-cyan-200">{agentCapabilityReport?.agentPilot.script ?? 'scripts/astra_build_store.py'}</span>
+                </div>
+                {[
+                  ['Dimensionnement magasin', agentCapabilityReport?.agentPilot.supportsStoreDimensioning],
+                  ['Placement mobilier', agentCapabilityReport?.agentPilot.supportsFurniturePlacement],
+                  ['Implantation produit', agentCapabilityReport?.agentPilot.supportsProductPlacement],
+                  ['Vérification positions absolues', agentCapabilityReport?.agentPilot.supportsAbsolutePositionVerification],
+                ].map(([label, ok]) => (
+                  <div key={String(label)} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <span>{label}</span>
+                    <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
+                      {ok ? 'OK' : 'À vérifier'}
+                    </span>
+                  </div>
+                ))}
+                {agentCapabilityReport?.projectAudit && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-white">{agentCapabilityReport.projectAudit.projectName}</span>
+                      <span className={agentCapabilityReport.projectAudit.ok ? 'text-emerald-300' : 'text-amber-300'}>
+                        {agentCapabilityReport.projectAudit.ok ? 'Audit OK' : `${agentCapabilityReport.projectAudit.issueCount} issue(s)`}
+                      </span>
+                    </div>
+                    <div className="mt-3 space-y-2 text-xs text-slate-400">
+                      {Object.entries(agentCapabilityReport.projectAudit.checks).map(([key, value]) => (
+                        <div key={key}>
+                          <span className={value.ok ? 'text-emerald-300' : 'text-amber-300'}>
+                            {value.ok ? '✓' : '⚠'}
+                          </span>{' '}
+                          {key}
+                          {!value.ok && value.issues[0] ? ` — ${value.issues[0]}` : ''}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Parcours conseillé" subtitle="Pour brancher n'importe quel agent en direct sur l'API.">
+              <div className="space-y-3 text-sm text-slate-300">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  1. Créez votre workspace puis au moins un projet.
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  2. Donnez à votre agent le schéma <span className="font-mono">/openapi.json</span> et les endpoints REST affichés ci-contre.
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  3. Utilisez le champ agent pour stocker une demande, puis faites-la consommer via <span className="font-mono">/api/platform/agent-requests</span>.
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  4. Vérifiez ensuite le projet via <span className="font-mono">/api/platform/agent-capabilities</span> avant ouverture du studio.
+                </div>
+              </div>
+            </SectionCard>
+
+            {statusMessage && (
+              <SectionCard title="Statut" subtitle="Retour du backend ou de l'action courante.">
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+                  {statusMessage}
+                </div>
+              </SectionCard>
+            )}
+          </aside>
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import json
-import math
 import re
 import threading
 from typing import Any
@@ -27,6 +26,13 @@ from models.project import (
 )
 from models.gondola import GondolaData
 from services.gondola_adapter import gondola_to_legacy_cells, legacy_cells_to_gondola
+from services.layout_audit import (
+    furniture_rotated_bounds,
+    validate_furniture_bounds,
+    validate_planogram,
+    validate_store,
+)
+from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
 from services.live_simulation import live_simulation_manager
@@ -69,18 +75,8 @@ def _get_project_lock(project_id: str) -> threading.Lock:
 
 def _furniture_overlaps(first: FurnitureInstance, second: FurnitureInstance) -> bool:
     """Return whether two furniture footprints overlap (touching edges is allowed)."""
-    def bounds(item: FurnitureInstance) -> tuple[float, float, float, float]:
-        width = item.dimensions["width"]
-        depth = item.dimensions["depth"]
-        radians = math.radians(item.rotation[1])
-        half_x = (abs(math.cos(radians)) * width + abs(math.sin(radians)) * depth) / 2
-        half_z = (abs(math.sin(radians)) * width + abs(math.cos(radians)) * depth) / 2
-        centre_x = item.position[0] + width / 2
-        centre_z = item.position[2] + depth / 2
-        return centre_x - half_x, centre_x + half_x, centre_z - half_z, centre_z + half_z
-
-    first_min_x, first_max_x, first_min_z, first_max_z = bounds(first)
-    second_min_x, second_max_x, second_min_z, second_max_z = bounds(second)
+    first_min_x, first_max_x, first_min_z, first_max_z = furniture_rotated_bounds(first)
+    second_min_x, second_max_x, second_min_z, second_max_z = furniture_rotated_bounds(second)
     return (
         first_min_x < second_max_x
         and first_max_x > second_min_x
@@ -124,6 +120,7 @@ class SimulationLiveTickPayload(BaseModel):
 
 
 def _load_scene(project_id: str) -> SceneData:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     return SceneData.model_validate(load_project_file(project_id, "scene.json") or {
         "store": {
@@ -139,19 +136,23 @@ def _load_scene(project_id: str) -> SceneData:
 
 
 def _save_scene(project_id: str, scene: SceneData) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "scene.json", scene.model_dump(mode="json"))
 
 
 def _load_catalog(project_id: str) -> Catalog:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     return Catalog.model_validate(load_project_file(project_id, "catalog.json") or {"products": []})
 
 
 def _save_catalog(project_id: str, catalog: Catalog) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "catalog.json", catalog.model_dump(mode="json"))
 
 
 def _load_planograms(project_id: str) -> list[Planogram]:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     payload = load_project_file(project_id, "planograms.json") or {"planograms": []}
     items = payload if isinstance(payload, list) else payload.get("planograms", [])
@@ -159,10 +160,12 @@ def _load_planograms(project_id: str) -> list[Planogram]:
 
 
 def _save_planograms(project_id: str, planograms: list[Planogram]) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "planograms.json", {"planograms": [item.model_dump(mode="json") for item in planograms]})
 
 
 def _load_materials(project_id: str) -> list[Material]:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     payload = load_project_file(project_id, "materials.json") or {"materials": []}
     items = payload if isinstance(payload, list) else payload.get("materials", [])
@@ -170,15 +173,18 @@ def _load_materials(project_id: str) -> list[Material]:
 
 
 def _save_materials(project_id: str, materials: list[Material]) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "materials.json", {"materials": [item.model_dump(mode="json") for item in materials]})
 
 
 def _load_settings(project_id: str) -> ProjectSettings:
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     return ProjectSettings.model_validate(load_project_file(project_id, "settings.json") or ProjectSettings().model_dump(mode="json"))
 
 
 def _save_settings(project_id: str, settings: ProjectSettings) -> None:
+    platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "settings.json", settings.model_dump(mode="json"))
 
 
@@ -197,23 +203,32 @@ def _merge_model(model_cls, current: Any, payload: dict[str, Any]) -> Any:
 
 @router.get("/")
 def get_projects() -> dict[str, Any]:
-    return {"projects": [{"id": item["id"], "name": item["name"]} for item in list_cad_projects()]}
+    user = platform_service.get_current_user()
+    projects = list_cad_projects()
+    if user is not None:
+        owned_ids = platform_service.list_owned_project_ids(user)
+        projects = [item for item in projects if item["id"] in owned_ids]
+    return {"projects": [{"id": item["id"], "name": item["name"]} for item in projects]}
 
 
 @router.post("/")
 def post_project(payload: CreateProjectPayload):
     project_id = str(uuid4())
-    return create_project(project_id, payload.name)
+    metadata = create_project(project_id, payload.name)
+    platform_service.assign_project_to_current_user(project_id)
+    return metadata
 
 
 @router.get("/{project_id}")
 def get_project(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
     return get_project_metadata(project_id)
 
 
 @router.get("/{project_id}/export")
 def export_project_endpoint(project_id: str):
     """Export the project as a ZIP archive containing all JSON files."""
+    platform_service.require_current_user_project_access(project_id)
     zip_bytes = export_project_zip(project_id)
     metadata = get_project_metadata(project_id)
     safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id))
@@ -226,6 +241,7 @@ def export_project_endpoint(project_id: str):
 
 @router.delete("/{project_id}")
 def remove_project(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
     delete_project(project_id)
     # Release the per-project lock entry so it doesn't grow unbounded.
     with _project_locks_guard:
@@ -235,12 +251,17 @@ def remove_project(project_id: str):
 
 @router.post("/{project_id}/duplicate")
 def duplicate_project_endpoint(project_id: str, payload: DuplicateProjectPayload):
-    return duplicate_project(project_id, payload.name)
+    platform_service.require_current_user_project_access(project_id)
+    metadata = duplicate_project(project_id, payload.name)
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.post("/import")
 def import_project_endpoint(payload: ImportProjectPayload):
-    return import_project(payload.snapshot, payload.name)
+    metadata = import_project(payload.snapshot, payload.name)
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.post("/import/zip")
@@ -250,7 +271,9 @@ async def import_project_zip_endpoint(
 ):
     """Import a project from a ZIP archive (multipart: file + name field)."""
     zip_bytes = await file.read()
-    return import_project_from_zip(zip_bytes, name.strip())
+    metadata = import_project_from_zip(zip_bytes, name.strip())
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.get("/{project_id}/export/retail-layout")
@@ -262,6 +285,7 @@ def export_retail_layout_endpoint(project_id: str):
     provides the absolute position in cm of every product slot.  It is designed
     for exchange with WMS, ERP and space-planning tools.
     """
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     scene_raw = load_project_file(project_id, "scene.json") or {"store": {}, "furniture": []}
     plano_raw = load_project_file(project_id, "planograms.json") or {"planograms": []}
@@ -303,7 +327,9 @@ def import_retail_layout_endpoint(payload: ImportRetailLayoutPayload):
         "scene": scene_dict,
         "planograms": planograms_list,
     }
-    return import_project(snapshot, payload.name.strip())
+    metadata = import_project(snapshot, payload.name.strip())
+    platform_service.assign_project_to_current_user(metadata["id"])
+    return metadata
 
 
 @router.get("/{project_id}/scene")
@@ -316,6 +342,9 @@ def update_store(project_id: str, payload: dict[str, Any] = Body(...)):
     with _get_project_lock(project_id):
         scene = _load_scene(project_id)
         scene.store = _merge_model(Store, scene.store, payload)
+        store_issues = validate_store(scene.store)
+        if store_issues:
+            raise HTTPException(status_code=422, detail=store_issues[0])
         _save_scene(project_id, scene)
     return scene.store.model_dump(mode="json")
 
@@ -332,6 +361,9 @@ def add_furniture(project_id: str, payload: dict[str, Any] = Body(...)):
         if any(item.id == furniture.id for item in scene.furniture):
             raise HTTPException(status_code=409, detail=f"Furniture '{furniture.id}' already exists")
         _ensure_furniture_does_not_overlap(furniture, scene.furniture)
+        bound_issues = validate_furniture_bounds(furniture, scene.store)
+        if bound_issues:
+            raise HTTPException(status_code=422, detail=bound_issues[0])
         scene.furniture.append(furniture)
         _save_scene(project_id, scene)
     return furniture.model_dump(mode="json")
@@ -344,6 +376,9 @@ def update_furniture(project_id: str, furniture_id: str, payload: dict[str, Any]
         index = _find_index(scene.furniture, "id", furniture_id)
         updated = _merge_model(FurnitureInstance, scene.furniture[index], {**payload, "id": furniture_id})
         _ensure_furniture_does_not_overlap(updated, scene.furniture)
+        bound_issues = validate_furniture_bounds(updated, scene.store)
+        if bound_issues:
+            raise HTTPException(status_code=422, detail=bound_issues[0])
         scene.furniture[index] = updated
         _save_scene(project_id, scene)
     return updated.model_dump(mode="json")
@@ -509,6 +544,7 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
         for cell in data.get("cells", [])
     ]
     planogram = Planogram.model_validate(data)
+    catalog = _load_catalog(project_id)
 
     # Hold a per-project lock for the read-modify-write on planograms.json and
     # scene.json.  FastAPI executes synchronous route handlers in a thread pool,
@@ -522,6 +558,14 @@ def add_planogram(project_id: str, payload: dict[str, Any] = Body(...)):
             raise HTTPException(status_code=409, detail=f"Planogram '{planogram.id}' already exists")
         planograms.append(planogram)
         furniture_index = _find_index(scene.furniture, "id", planogram.furnitureId)
+        planogram_issues = validate_planogram(
+            planogram,
+            scene.furniture[furniture_index],
+            {product.ean for product in catalog.products},
+            strict_catalog=False,
+        )
+        if planogram_issues:
+            raise HTTPException(status_code=422, detail=planogram_issues[0])
         scene.furniture[furniture_index].faces[planogram.face.value] = planogram.id
         _save_planograms(project_id, planograms)
         _save_scene(project_id, scene)
@@ -550,9 +594,19 @@ def update_planogram(project_id: str, planogram_id: str, payload: dict[str, Any]
         data["cells"] = [{**cell, "id": cell.get("id", str(uuid4()))} for cell in data["cells"]]
     with _get_project_lock(project_id):
         scene = _load_scene(project_id)
+        catalog = _load_catalog(project_id)
         planograms = _load_planograms(project_id)
         index = _find_index(planograms, "id", planogram_id)
         updated = _merge_model(Planogram, planograms[index], {**data, "id": planogram_id})
+        furniture_index = _find_index(scene.furniture, "id", updated.furnitureId)
+        planogram_issues = validate_planogram(
+            updated,
+            scene.furniture[furniture_index],
+            {product.ean for product in catalog.products},
+            strict_catalog=False,
+        )
+        if planogram_issues:
+            raise HTTPException(status_code=422, detail=planogram_issues[0])
 
         original = planograms[index]
         if original.furnitureId != updated.furnitureId or original.face != updated.face:
@@ -560,7 +614,6 @@ def update_planogram(project_id: str, planogram_id: str, payload: dict[str, Any]
                 for face, linked_planogram_id in furniture.faces.items():
                     if linked_planogram_id == planogram_id:
                         furniture.faces[face] = None
-            furniture_index = _find_index(scene.furniture, "id", updated.furnitureId)
             scene.furniture[furniture_index].faces[updated.face.value] = updated.id
             _save_scene(project_id, scene)
 

@@ -96,12 +96,19 @@ def _read_json(project_id: str, filename: str) -> Any:
     if not content.strip():
         return None
     try:
-        return json.loads(content)
+        parsed = json.loads(content)
+        if filename == "project.json" and not isinstance(parsed, dict):
+            _log.warning("Invalid metadata type in %s/%s: expected object", project_id, filename)
+            return None
+        return parsed
     except json.JSONDecodeError as exc:
         # Recover from files that contain concatenated JSON objects ("Extra data").
         if "Extra data" in str(exc):
             try:
                 obj, _ = json.JSONDecoder().raw_decode(content)
+                if filename == "project.json" and not isinstance(obj, dict):
+                    _log.warning("Invalid metadata type in %s/%s: expected object", project_id, filename)
+                    return None
                 return obj
             except json.JSONDecodeError as fallback_exc:
                 _log.warning("Invalid concatenated JSON in %s/%s: %s", project_id, filename, fallback_exc)

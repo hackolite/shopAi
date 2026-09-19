@@ -53,3 +53,28 @@ def test_list_cad_projects_skips_non_utf8_project_json(tmp_path) -> None:
         pm.STORAGE_ROOT = previous_root
 
     assert [project["id"] for project in projects] == ["valid-project"]
+
+
+def test_list_cad_projects_skips_non_object_metadata(tmp_path) -> None:
+    storage_root = tmp_path / "projects"
+    storage_root.mkdir(parents=True)
+
+    valid_dir = storage_root / "valid-project"
+    valid_dir.mkdir()
+    (valid_dir / "project.json").write_text(
+        json.dumps({"id": "valid-project", "name": "Valid Project"}),
+        encoding="utf-8",
+    )
+
+    invalid_type_dir = storage_root / "invalid-type-project"
+    invalid_type_dir.mkdir()
+    (invalid_type_dir / "project.json").write_text('["not-an-object"]', encoding="utf-8")
+
+    previous_root = pm.STORAGE_ROOT
+    pm.STORAGE_ROOT = storage_root
+    try:
+        projects = pm.list_cad_projects()
+    finally:
+        pm.STORAGE_ROOT = previous_root
+
+    assert [project["id"] for project in projects] == ["valid-project"]

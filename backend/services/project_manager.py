@@ -79,11 +79,8 @@ def _safe_project_path(project_id: str, filename: str) -> Path:
     return STORAGE_ROOT / project_id / filename
 
 
-def _preview_for_log(value: str, *, limit: int = 180) -> str:
-    compact = " ".join(value.split())
-    if len(compact) <= limit:
-        return compact
-    return compact[:limit] + "…"
+def _json_error_location(exc: json.JSONDecodeError) -> str:
+    return f"line={exc.lineno} column={exc.colno} pos={exc.pos}"
 
 
 def _read_json(project_id: str, filename: str) -> Any:
@@ -125,12 +122,11 @@ def _read_json(project_id: str, filename: str) -> Any:
                     json.loads(suffix)
                 except json.JSONDecodeError:
                     _log.warning(
-                        "Invalid concatenated JSON suffix in %s/%s (%s): len=%d preview=%r",
+                        "Invalid concatenated JSON suffix in %s/%s (%s): suffix_len=%d",
                         project_id,
                         filename,
                         path,
                         len(suffix),
-                        _preview_for_log(suffix),
                     )
                     return None
                 if filename == "project.json" and not isinstance(obj, dict):
@@ -139,22 +135,23 @@ def _read_json(project_id: str, filename: str) -> Any:
                 return obj
             except json.JSONDecodeError as fallback_exc:
                 _log.warning(
-                    "Invalid concatenated JSON in %s/%s (%s): %s (preview=%r)",
+                    "Invalid concatenated JSON in %s/%s (%s): %s (%s, content_len=%d)",
                     project_id,
                     filename,
                     path,
                     fallback_exc,
-                    _preview_for_log(content),
+                    _json_error_location(fallback_exc),
+                    len(content),
                 )
                 return None
         _log.warning(
-            "Invalid JSON in %s/%s (%s): %s (len=%d preview=%r)",
+            "Invalid JSON in %s/%s (%s): %s (%s, content_len=%d)",
             project_id,
             filename,
             path,
             exc,
+            _json_error_location(exc),
             len(content),
-            _preview_for_log(content),
         )
         return None
 

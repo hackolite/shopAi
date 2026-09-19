@@ -42,13 +42,6 @@ _MAX_TIMEOUT_SECONDS = 120.0
 _SESSION_HEADER = "X-ShopAI-Session"
 
 
-def _preview_for_log(value: str, *, limit: int = 180) -> str:
-    compact = " ".join(value.split())
-    if len(compact) <= limit:
-        return compact
-    return compact[:limit] + "…"
-
-
 class _WebhookResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -117,10 +110,11 @@ def run_llm_assistant(
 
     if response.status_code >= 400:
         _log.warning(
-            "External LLM returned error for project_id=%s: status=%d body=%r",
+            "External LLM returned error for project_id=%s: status=%d content_type=%r body_bytes=%d",
             project_id,
             response.status_code,
-            _preview_for_log(response.text),
+            response.headers.get("content-type"),
+            len(response.content),
         )
         raise HTTPException(
             status_code=502,
@@ -131,10 +125,11 @@ def run_llm_assistant(
         validated = _WebhookResponse.model_validate(response.json())
     except (ValueError, ValidationError) as exc:
         _log.warning(
-            "External LLM returned invalid payload for project_id=%s: %s body=%r",
+            "External LLM returned invalid payload for project_id=%s: %s content_type=%r body_bytes=%d",
             project_id,
             exc,
-            _preview_for_log(response.text),
+            response.headers.get("content-type"),
+            len(response.content),
         )
         raise HTTPException(
             status_code=502,

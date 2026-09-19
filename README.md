@@ -57,6 +57,9 @@ Exemples :
 
 ### Comment connecter un provider API à un agent
 
+Pour une version synthétique du parcours IA complet (assistant local, webhook
+LLM et pilote Astra), voir [`AI_WORKFLOW_README.md`](AI_WORKFLOW_README.md).
+
 1. Activez votre provider d'authentification dans le workspace si vous voulez un
    vrai parcours utilisateur : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
    `GOOGLE_REDIRECT_URI`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`,

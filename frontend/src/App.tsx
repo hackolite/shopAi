@@ -750,7 +750,7 @@ export default function App() {
                     <ol className="hub-workflow">{(agentGuide?.workflowSteps ?? []).map((step) => <li key={step}>{step}</li>)}</ol>
                     <div className="hub-form-card hub-resource-panel">
                       <h3>Préfixes de demandes agent</h3>
-                      {agentGuide?.promptPrefixes.length ? (
+                      {agentGuide?.promptPrefixes?.length ? (
                         <ul className="hub-workflow">
                           {agentGuide.promptPrefixes.map((item) => (
                             <li key={item.prefix}>

@@ -46,7 +46,7 @@ def _pedestrian_dataset_to_csv(payload: dict[str, Any]) -> str:
     writer.writerow(("pedestrian_id", "start_unix_ts", "speed_mps", "profile_json", "ean"))
     for plan_data in payload.get("plans", []):
         plan = PedestrianPickupPlan.model_validate(plan_data)
-        profile_json = json.dumps(plan.profile, ensure_ascii=False, separators=(",", ":"))
+        profile_json = json.dumps(plan.profile, separators=(",", ":"))
         if plan.items:
             for item in plan.items:
                 writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, item.ean))

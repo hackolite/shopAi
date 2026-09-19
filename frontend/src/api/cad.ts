@@ -24,6 +24,14 @@ const LIB_BASE = '/api/furniture-library';
 type ProjectListItem = Pick<ProjectMeta, 'id' | 'name'>;
 type CreateProjectResponse = Pick<ProjectMeta, 'id'>;
 
+export interface StudioAssistantResponse {
+  message: string;
+  requiresConfirmation: boolean;
+  changed: boolean;
+  projectId?: string;
+  steps?: string[];
+}
+
 async function request<T>(url: string, opts?: RequestInit): Promise<T> {
   const headers = new Headers(opts?.headers);
   if (!headers.has('Content-Type') && !(opts?.body instanceof FormData)) {
@@ -49,6 +57,11 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
 }
 
 export const cadApi = {
+  askAssistant: (id: string, prompt: string, confirm = false) =>
+    request<StudioAssistantResponse>(`${BASE}/${id}/assistant`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt, confirm }),
+    }),
   listProjects: () => request<{ projects: ProjectListItem[] }>(BASE),
   getProject: (id: string) => request<ProjectMeta>(`${BASE}/${id}`),
   createProject: (name: string) =>
@@ -97,6 +110,11 @@ export const cadApi = {
   },
 
   getScene: (id: string) => request<Scene>(`${BASE}/${id}/scene`),
+  saveSnapshot: (id: string, scene: Scene, simulation: SimulationConfig) =>
+    request<void>(`${BASE}/${id}/snapshot`, {
+      method: 'PUT',
+      body: JSON.stringify({ scene, simulation }),
+    }),
   updateStore: (id: string, store: StoreConfig) =>
     request<void>(`${BASE}/${id}/scene/store`, {
       method: 'PUT',

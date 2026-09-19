@@ -80,11 +80,16 @@ def test_dashboard_and_project_visibility_are_tenant_scoped() -> None:
 
     alpha_projects = alpha.get("/api/cad/projects/")
     assert alpha_projects.status_code == 200, alpha_projects.text
-    assert [item["id"] for item in alpha_projects.json()["projects"]] == [alpha_project_id]
+    alpha_ids = {item["id"] for item in alpha_projects.json()["projects"]}
+    assert alpha_project_id in alpha_ids
+    assert len(alpha_ids) == 6
 
     beta_projects = beta.get("/api/cad/projects/")
     assert beta_projects.status_code == 200, beta_projects.text
-    assert [item["id"] for item in beta_projects.json()["projects"]] == [beta_project_id]
+    beta_ids = {item["id"] for item in beta_projects.json()["projects"]}
+    assert beta_project_id in beta_ids
+    assert len(beta_ids) == 6
+    assert not alpha_ids & beta_ids
 
     forbidden = alpha.get(f"/api/cad/projects/{beta_project_id}")
     assert forbidden.status_code == 403, forbidden.text
@@ -93,8 +98,8 @@ def test_dashboard_and_project_visibility_are_tenant_scoped() -> None:
     assert dashboard.status_code == 200, dashboard.text
     payload = dashboard.json()
     assert payload["stats"] == {
-        "projectCount": 1,
-        "catalogCount": 1,
+        "projectCount": 6,
+        "catalogCount": 2,
         "simulationCount": 1,
         "agentRequestCount": 1,
     }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { cadApi } from './api/cad';
 import {
   type AgentCapabilityReport,
@@ -10,48 +10,39 @@ import {
   type PlatformUser,
 } from './api/platform';
 import StudioApp from './StudioApp';
+import './App.css';
 
 type AuthMode = 'login' | 'signup';
-type ViewMode = 'landing' | 'studio';
+type HubTab = 'projects' | 'catalogs' | 'simulations' | 'settings';
+
+const tabs: { id: HubTab; label: string }[] = [
+  { id: 'projects', label: 'Projets' },
+  { id: 'catalogs', label: 'Catalogues' },
+  { id: 'simulations', label: 'Simulations' },
+  { id: 'settings', label: 'Configuration' },
+];
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
-function StatCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
+function Section({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-3xl font-semibold text-white">{value}</div>
-      <div className="mt-2 text-xs text-slate-500">{hint}</div>
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/30">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
-        <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
+    <section className="hub-section">
+      <div className="hub-section-heading">
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
       </div>
       {children}
     </section>
   );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="hub-field"><span>{label}</span>{children}</label>;
 }
 
 export default function App() {
@@ -63,733 +54,416 @@ export default function App() {
   const [oauthProviders, setOauthProviders] = useState<PlatformOAuthProvider[]>([]);
   const [agentCapabilityReport, setAgentCapabilityReport] = useState<AgentCapabilityReport | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [viewMode, setViewMode] = useState<ViewMode>('landing');
+  const [activeTab, setActiveTab] = useState<HubTab>('projects');
   const [studioProjectId, setStudioProjectId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const [authForm, setAuthForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-  });
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [projectName, setProjectName] = useState('');
   const [catalogName, setCatalogName] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
-  const [catalogProjectId, setCatalogProjectId] = useState<string>('');
+  const [catalogProjectId, setCatalogProjectId] = useState('');
   const [simulationName, setSimulationName] = useState('');
   const [simulationDescription, setSimulationDescription] = useState('');
-  const [simulationProjectId, setSimulationProjectId] = useState<string>('');
+  const [simulationProjectId, setSimulationProjectId] = useState('');
   const [agentProvider, setAgentProvider] = useState('github-copilot');
   const [agentTargetType, setAgentTargetType] = useState('workspace');
   const [agentTargetId, setAgentTargetId] = useState('');
   const [agentPrompt, setAgentPrompt] = useState('');
 
   const loadAuthenticatedData = useCallback(async () => {
-    const [dashboardData, agentGuideData] = await Promise.all([
-      platformApi.getDashboard(),
-      platformApi.getAgentGuide(),
-    ]);
-    const capabilityData = await platformApi.getAgentCapabilities(dashboardData.projects[0]?.id);
+    const dashboardData = await platformApi.getDashboard();
     setDashboard(dashboardData);
-    setAgentGuide(agentGuideData);
     setOauthProviders(dashboardData.oauthProviders);
-    setAgentCapabilityReport(capabilityData);
-    setCatalogProjectId((current) => current || dashboardData.projects[0]?.id || '');
-    setSimulationProjectId((current) => current || dashboardData.projects[0]?.id || '');
-    setAgentTargetId((current) => current || dashboardData.projects[0]?.id || '');
+    const [guide, capabilities] = await Promise.all([
+      platformApi.getAgentGuide(),
+      platformApi.getAgentCapabilities(dashboardData.projects[0]?.id),
+    ]);
+    setAgentGuide(guide);
+    setAgentCapabilityReport(capabilities);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [bootstrap, session] = await Promise.all([
-          platformApi.bootstrap(),
-          platformApi.getSession(),
-        ]);
+        const [bootstrap, session] = await Promise.all([platformApi.bootstrap(), platformApi.getSession()]);
         if (cancelled) return;
         setHasUsers(bootstrap.hasUsers);
         setOauthProviders(bootstrap.oauthProviders);
         setCurrentUser(session.user);
-        if (session.user) {
-          await loadAuthenticatedData();
-        } else if (!bootstrap.hasUsers) {
-          setAuthMode('signup');
-        }
+        if (session.user) await loadAuthenticatedData();
+        else if (!bootstrap.hasUsers) setAuthMode('signup');
       } catch (error) {
-        if (!cancelled) {
-          setStatusMessage(error instanceof Error ? error.message : String(error));
-        }
+        if (!cancelled) setStatusMessage(error instanceof Error ? error.message : String(error));
       } finally {
         if (!cancelled) setBootstrapLoaded(true);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [loadAuthenticatedData]);
 
-  const projectOptions = dashboard?.projects ?? [];
-
-  const openStudio = useCallback((project: PlatformProjectSummary) => {
-    setStudioProjectId(project.id);
-    setViewMode('studio');
-  }, []);
-
-  const refreshDashboard = useCallback(async () => {
-    await loadAuthenticatedData();
-  }, [loadAuthenticatedData]);
-
-  const handleAuthSubmit = useCallback(async () => {
+  const runAction = async (action: () => Promise<void>) => {
     setBusy(true);
     setStatusMessage(null);
     try {
-      const email = authForm.email.trim();
-      const password = authForm.password;
-      const name = authForm.name.trim();
-      const response = authMode === 'signup'
-        ? await platformApi.register(name, email, password)
-        : await platformApi.login(email, password);
-      setCurrentUser(response.user);
-      setViewMode('landing');
-      await loadAuthenticatedData();
-      setStatusMessage(authMode === 'signup' ? 'Compte créé.' : 'Connexion réussie.');
+      await action();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
     }
-  }, [authForm, authMode, loadAuthenticatedData]);
+  };
 
-  const handleOAuth = useCallback((providerName: 'google' | 'github') => {
+  const handleAuthSubmit = () => runAction(async () => {
+    const response = authMode === 'signup'
+      ? await platformApi.register(authForm.name.trim(), authForm.email.trim(), authForm.password)
+      : await platformApi.login(authForm.email.trim(), authForm.password);
+    setCurrentUser(response.user);
+    setHasUsers(true);
+    setAuthForm({ name: '', email: '', password: '' });
+    setActiveTab('projects');
+    await loadAuthenticatedData();
+    setStatusMessage(authMode === 'signup' ? 'Votre compte est créé. Bienvenue !' : 'Connexion réussie.');
+  });
+
+  const handleOAuth = (providerName: 'google' | 'github') => {
     const provider = oauthProviders.find((item) => item.name === providerName);
-    if (!provider?.configured) {
-      setStatusMessage(`OAuth ${providerName} non configuré côté serveur.`);
-      return;
-    }
+    if (!provider?.configured) return;
     const next = `${window.location.pathname}${window.location.search}${window.location.hash}` || '/';
     window.location.assign(`${provider.startPath}?next=${encodeURIComponent(next)}`);
-  }, [oauthProviders]);
+  };
 
-  const handleCreateProject = useCallback(async () => {
+  const openStudio = (project: PlatformProjectSummary) => setStudioProjectId(project.id);
+
+  const handleCreateProject = () => runAction(async () => {
     if (!projectName.trim()) return;
-    setBusy(true);
-    setStatusMessage(null);
-    try {
-      const created = await cadApi.createProject(projectName.trim());
-      setProjectName('');
-      await refreshDashboard();
-      const createdProject = (await platformApi.getDashboard()).projects.find((project) => project.id === created.id);
-      if (createdProject) openStudio(createdProject);
-      setStatusMessage('Projet créé et rattaché à votre tenant.');
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [openStudio, projectName, refreshDashboard]);
+    const created = await cadApi.createProject(projectName.trim());
+    setProjectName('');
+    await loadAuthenticatedData();
+    setStudioProjectId(created.id);
+    setStatusMessage('Projet créé.');
+  });
 
-  const handleCreateCatalog = useCallback(async () => {
+  const handleCreateCatalog = () => runAction(async () => {
     if (!catalogName.trim()) return;
-    setBusy(true);
-    setStatusMessage(null);
-    try {
-      await platformApi.createCatalog({
-        name: catalogName.trim(),
-        description: catalogDescription.trim(),
-        sourceProjectId: catalogProjectId || null,
-      });
-      setCatalogName('');
-      setCatalogDescription('');
-      await refreshDashboard();
-      setStatusMessage('Catalogue enregistré en base.');
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [catalogDescription, catalogName, catalogProjectId, refreshDashboard]);
+    await platformApi.createCatalog({
+      name: catalogName.trim(),
+      description: catalogDescription.trim(),
+      sourceProjectId: catalogProjectId || null,
+    });
+    setCatalogName('');
+    setCatalogDescription('');
+    await loadAuthenticatedData();
+    setStatusMessage('Catalogue enregistré.');
+  });
 
-  const handleCreateSimulation = useCallback(async () => {
+  const handleCreateSimulation = () => runAction(async () => {
     if (!simulationName.trim()) return;
-    setBusy(true);
-    setStatusMessage(null);
-    try {
-      await platformApi.createSimulation({
-        name: simulationName.trim(),
-        description: simulationDescription.trim(),
-        sourceProjectId: simulationProjectId || null,
-      });
-      setSimulationName('');
-      setSimulationDescription('');
-      await refreshDashboard();
-      setStatusMessage('Liste de simulations enregistrée en base.');
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [refreshDashboard, simulationDescription, simulationName, simulationProjectId]);
+    await platformApi.createSimulation({
+      name: simulationName.trim(),
+      description: simulationDescription.trim(),
+      sourceProjectId: simulationProjectId || null,
+    });
+    setSimulationName('');
+    setSimulationDescription('');
+    await loadAuthenticatedData();
+    setStatusMessage('Simulation enregistrée.');
+  });
 
-  const handleSubmitAgentRequest = useCallback(async () => {
+  const handleSubmitAgentRequest = () => runAction(async () => {
     if (!agentPrompt.trim()) return;
-    setBusy(true);
-    setStatusMessage(null);
-    try {
-      await platformApi.createAgentRequest({
-        provider: agentProvider,
-        targetResourceType: agentTargetType,
-        targetResourceId: agentTargetId || null,
-        prompt: agentPrompt.trim(),
-      });
-      setAgentPrompt('');
-      await refreshDashboard();
-      setStatusMessage('Demande agent enregistrée.');
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [agentPrompt, agentProvider, agentTargetId, agentTargetType, refreshDashboard]);
+    await platformApi.createAgentRequest({
+      provider: agentProvider,
+      targetResourceType: agentTargetType,
+      targetResourceId: agentTargetType === 'workspace' ? null : agentTargetId || null,
+      prompt: agentPrompt.trim(),
+    });
+    setAgentPrompt('');
+    await loadAuthenticatedData();
+    setStatusMessage('Demande mise en attente. Un agent externe doit la récupérer ; aucune exécution automatique.');
+  });
 
-  const handleLogout = useCallback(async () => {
-    setBusy(true);
-    try {
-      await platformApi.logout();
-      setCurrentUser(null);
-      setDashboard(null);
-      setAgentGuide(null);
-      setAgentCapabilityReport(null);
-      setStudioProjectId(null);
-      setViewMode('landing');
-      setStatusMessage('Déconnecté.');
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const handleLogout = () => runAction(async () => {
+    await platformApi.logout();
+    setCurrentUser(null);
+    setDashboard(null);
+    setAgentGuide(null);
+    setAgentCapabilityReport(null);
+    setStudioProjectId(null);
+    setActiveTab('projects');
+    setProjectName('');
+    setCatalogName('');
+    setCatalogDescription('');
+    setCatalogProjectId('');
+    setSimulationName('');
+    setSimulationDescription('');
+    setSimulationProjectId('');
+    setAgentPrompt('');
+    setAgentTargetId('');
+    setAgentTargetType('workspace');
+    setAuthMode('login');
+    setStatusMessage('Vous êtes déconnecté.');
+  });
 
-  const heroBullets = useMemo(
-    () => [
-      'Accueil classique SaaS avec connexion, inscription et SSO Google/GitHub.',
-      'Tenant unique par utilisateur, avec plusieurs projets, catalogues et simulations stockés en base SQLite.',
-      'Guide REST/OpenAPI et champ de prompt type Lovable pour piloter un agent sur vos ressources.',
-    ],
-    [],
+  const returnToHub = () => {
+    setStudioProjectId(null);
+    setActiveTab('projects');
+    void runAction(async () => {
+      await loadAuthenticatedData();
+      setStatusMessage('Vos projets sont à jour.');
+    });
+  };
+
+  const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next: number;
+    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    setActiveTab(tabs[next].id);
+    tabRefs.current[next]?.focus();
+  };
+
+  const projects = dashboard?.projects ?? [];
+  const targetResources = agentTargetType === 'project' ? projects
+    : agentTargetType === 'catalog' ? dashboard?.catalogs ?? []
+      : agentTargetType === 'simulation' ? dashboard?.simulations ?? [] : [];
+  const status = (
+    <div className="hub-status" role="status" aria-live="polite" aria-atomic="true">
+      {busy ? 'Opération en cours…' : statusMessage}
+    </div>
+  );
+  const projectChoices = (
+    <>
+      <option value="">Sans projet source</option>
+      {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+    </>
   );
 
   if (!bootstrapLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">
-        Chargement de la plateforme…
-      </div>
-    );
+    return <div className="hub hub-loading" role="status">Chargement de votre espace…</div>;
   }
 
-  if (viewMode === 'studio' && studioProjectId) {
-    return (
-      <div className="relative min-h-screen">
-        <button
-          type="button"
-          onClick={() => setViewMode('landing')}
-          className="absolute right-4 top-4 z-50 rounded-full border border-white/15 bg-slate-950/85 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-slate-900"
-        >
-          ← Retour au hub
-        </button>
-        <StudioApp initialProjectId={studioProjectId} />
-      </div>
-    );
+  if (studioProjectId) {
+    return <StudioApp initialProjectId={studioProjectId} onBack={returnToHub} />;
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b_0%,#020617_55%)] text-white">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
-        <header className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">
-              ShopAI · Retail digital twin platform
+    <div className="hub">
+      <a className="hub-skip-link" href="#hub-content">Aller au contenu</a>
+      <div className="hub-container">
+        <header className="hub-header">
+          <div className="hub-brand"><span className="hub-brand-mark" aria-hidden="true">S</span>ShopAI</div>
+          {currentUser ? (
+            <div className="hub-account">
+              <span>{currentUser.email}</span>
+              <button type="button" disabled={busy} onClick={() => void handleLogout()}>Déconnexion</button>
             </div>
-            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
-              Concevez, simulez et faites évoluer vos espaces retail depuis un hub multi-tenant.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base text-slate-300 md:text-lg">
-              Une page d&apos;accueil orientée produit avec authentification, workspaces, studio 3D et connecteur agent prêt à brancher.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-300 lg:max-w-md">
-            <div className="mb-3 text-sm font-semibold text-white">Ce qui est désormais couvert</div>
-            <ul className="space-y-2">
-              {heroBullets.map((bullet) => (
-                <li key={bullet} className="flex gap-2">
-                  <span className="text-cyan-300">•</span>
-                  <span>{bullet}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          ) : <span className="hub-muted">Votre espace de conception magasin</span>}
         </header>
+        {status}
 
-        <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 shadow-2xl shadow-slate-950/40">
-            {!currentUser ? (
-              <>
-                <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
-                  <div>
-                    <div className="text-sm uppercase tracking-[0.3em] text-slate-500">Produit</div>
-                    <h2 className="mt-3 text-3xl font-semibold text-white">Accueil cohérent pour une plateforme retail agentique.</h2>
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                      <StatCard label="Workspaces" value="1 tenant / user" hint="Isolation simple pour démarrer." />
-                      <StatCard label="Projets" value="∞" hint="Plusieurs stores et variantes par utilisateur." />
-                      <StatCard label="Catalogues" value="SQLite" hint="Ressources métier stockées côté backend." />
-                      <StatCard label="Agents" value="REST + OpenAPI" hint="Prêt à connecter Copilot ou tout autre client." />
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6">
-                    <div className="mb-5 flex gap-2 rounded-full bg-slate-800 p-1 text-sm">
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode('login')}
-                        className={['flex-1 rounded-full px-4 py-2', authMode === 'login' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300'].join(' ')}
-                      >
-                        Connexion
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode('signup')}
-                        className={['flex-1 rounded-full px-4 py-2', authMode === 'signup' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300'].join(' ')}
-                      >
-                        Inscription
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {authMode === 'signup' && (
-                        <input
-                          value={authForm.name}
-                          onChange={(event) => setAuthForm((state) => ({ ...state, name: event.target.value }))}
-                          placeholder="Nom complet"
-                          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
-                        />
-                      )}
-                      <input
-                        value={authForm.email}
-                        onChange={(event) => setAuthForm((state) => ({ ...state, email: event.target.value }))}
-                        placeholder="user@retail.io"
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
-                      />
-                      <input
-                        type="password"
-                        value={authForm.password}
-                        onChange={(event) => setAuthForm((state) => ({ ...state, password: event.target.value }))}
-                        placeholder="Mot de passe"
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm outline-none ring-0 placeholder:text-slate-500 focus:border-cyan-400"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void handleAuthSubmit()}
-                      className="mt-4 w-full rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {authMode === 'signup' ? 'Créer mon workspace' : 'Se connecter'}
-                    </button>
-
-                    <div className="my-4 flex items-center gap-3 text-xs text-slate-500">
-                      <div className="h-px flex-1 bg-white/10" />
-                      ou
-                      <div className="h-px flex-1 bg-white/10" />
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        disabled={!oauthProviders.find((provider) => provider.name === 'google')?.configured}
-                        onClick={() => void handleOAuth('google')}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Continuer avec Google
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!oauthProviders.find((provider) => provider.name === 'github')?.configured}
-                        onClick={() => void handleOAuth('github')}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        Continuer avec GitHub
-                      </button>
-                    </div>
-
-                    <p className="mt-4 text-xs text-slate-500">
-                      {hasUsers
-                        ? 'Activez GOOGLE_CLIENT_ID / SECRET / REDIRECT_URI et GITHUB_CLIENT_ID / SECRET / REDIRECT_URI pour le vrai OAuth.'
-                        : 'Aucun compte détecté : créez le premier workspace pour initialiser la plateforme.'}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-400">
-                      {oauthProviders.map((provider) => (
-                        <span
-                          key={provider.name}
-                          className={[
-                            'rounded-full border px-2 py-1 uppercase tracking-[0.2em]',
-                            provider.configured
-                              ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
-                              : 'border-amber-400/20 bg-amber-400/10 text-amber-200',
-                          ].join(' ')}
-                        >
-                          {provider.name} {provider.configured ? 'ready' : 'missing env'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-8">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <div className="text-sm text-cyan-300">Connecté en tant que {currentUser.email}</div>
-                    <h2 className="mt-2 text-3xl font-semibold text-white">
-                      {dashboard?.tenant.name ?? `${currentUser.name} workspace`}
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-400">
-                      Gérez vos projets, catalogues, simulations de passage caisse et demandes agent.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => void refreshDashboard()}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10"
-                    >
-                      Actualiser
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleLogout()}
-                      className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-100 hover:bg-red-400/20"
-                    >
-                      Déconnexion
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-4">
-                  <StatCard label="Projets" value={dashboard?.stats.projectCount ?? 0} hint="Stores, plans et variantes." />
-                  <StatCard label="Catalogues" value={dashboard?.stats.catalogCount ?? 0} hint="Ressources produit métier." />
-                  <StatCard label="Simulations" value={dashboard?.stats.simulationCount ?? 0} hint="Listes de scénarios caisse." />
-                  <StatCard label="Demandes agent" value={dashboard?.stats.agentRequestCount ?? 0} hint="Historique Lovable-like." />
-                </div>
-
-                <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                  <SectionCard title="Projets du tenant" subtitle="Chaque projet appartient à votre workspace et reste éditable dans le studio 3D existant.">
-                    <div className="mb-4 flex flex-col gap-3 md:flex-row">
-                      <input
-                        value={projectName}
-                        onChange={(event) => setProjectName(event.target.value)}
-                        placeholder="Nouveau projet retail"
-                        className="flex-1 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleCreateProject()}
-                        className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Créer un projet
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {projectOptions.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
-                          Aucun projet pour ce tenant.
+        {!currentUser ? (
+          <main id="hub-content" tabIndex={-1} className="hub-welcome">
+            <div className="hub-welcome-copy">
+              <p className="hub-eyebrow">Concevoir, simplement</p>
+              <h1>Donnez vie à votre prochain magasin.</h1>
+              <p>Retrouvez vos plans, vos produits et vos simulations dans un espace de travail clair.</p>
+              <ul>
+                <li>Aménagez vos espaces dans le studio 3D.</li>
+                <li>Organisez vos catalogues de produits.</li>
+                <li>Préparez vos scénarios de passage en caisse.</li>
+              </ul>
+            </div>
+            <section className="hub-auth" aria-labelledby="auth-title">
+              <div className="hub-auth-modes" aria-label="Accès au compte">
+                <button type="button" aria-pressed={authMode === 'login'} disabled={busy} onClick={() => setAuthMode('login')}>Connexion</button>
+                <button type="button" aria-pressed={authMode === 'signup'} disabled={busy} onClick={() => setAuthMode('signup')}>Inscription</button>
+              </div>
+              <h2 id="auth-title">{authMode === 'signup' ? 'Créez votre espace' : 'Heureux de vous retrouver'}</h2>
+              <p className="hub-muted">{authMode === 'signup' ? 'Un compte pour tous vos projets.' : 'Connectez-vous pour reprendre vos projets.'}</p>
+              <form className="hub-form" onSubmit={(event) => { event.preventDefault(); void handleAuthSubmit(); }}>
+                {authMode === 'signup' && <Field label="Nom complet">
+                  <input autoComplete="name" required value={authForm.name} onChange={(event) => setAuthForm((state) => ({ ...state, name: event.target.value }))} />
+                </Field>}
+                <Field label="Adresse e-mail">
+                  <input type="email" autoComplete="email" required value={authForm.email} onChange={(event) => setAuthForm((state) => ({ ...state, email: event.target.value }))} />
+                </Field>
+                <Field label="Mot de passe">
+                  <input type="password" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} required value={authForm.password} onChange={(event) => setAuthForm((state) => ({ ...state, password: event.target.value }))} />
+                </Field>
+                <button className="hub-primary" disabled={busy} type="submit">{authMode === 'signup' ? 'Créer mon compte' : 'Se connecter'}</button>
+              </form>
+              <div className="hub-divider">ou continuer avec</div>
+              <div className="hub-actions">
+                {(['google', 'github'] as const).map((name) => (
+                  <button type="button" key={name} disabled={busy || !oauthProviders.find((provider) => provider.name === name)?.configured} onClick={() => handleOAuth(name)}>
+                    {name === 'google' ? 'Google' : 'GitHub'}
+                  </button>
+                ))}
+              </div>
+              <p className="hub-small hub-muted">Les connexions grisées ne sont pas configurées.</p>
+              {!hasUsers && <p className="hub-small hub-muted">Bienvenue ! Créez le premier compte pour commencer.</p>}
+            </section>
+          </main>
+        ) : (
+          <>
+            <div className="hub-intro">
+              <div>
+                <p className="hub-eyebrow">Votre espace de travail</p>
+                <h1>{dashboard?.tenant.name ?? `Bonjour ${currentUser.name}`}</h1>
+                <p className="hub-muted">De la première idée au magasin prêt à simuler.</p>
+              </div>
+              <button type="button" disabled={busy} onClick={() => void runAction(async () => {
+                await loadAuthenticatedData();
+                setStatusMessage('Votre espace est à jour.');
+              })}>Actualiser</button>
+            </div>
+            <nav className="hub-navigation" aria-label="Sections de votre espace">
+              <div className="hub-tabs" role="tablist" aria-label="Espace de travail">
+                {tabs.map((tab, index) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`tab-${tab.id}`}
+                    aria-controls={`panel-${tab.id}`}
+                    aria-selected={activeTab === tab.id}
+                    tabIndex={activeTab === tab.id ? 0 : -1}
+                    ref={(node) => { tabRefs.current[index] = node; }}
+                    onClick={() => setActiveTab(tab.id)}
+                    onKeyDown={(event) => handleTabKey(event, index)}
+                  >{tab.label}</button>
+                ))}
+              </div>
+            </nav>
+            <main id="hub-content" tabIndex={-1}>
+              <div className="hub-panel" role="tabpanel" id="panel-projects" aria-labelledby="tab-projects" hidden={activeTab !== 'projects'} tabIndex={0}>
+                {activeTab === 'projects' && <Section title="Vos projets" subtitle="Ouvrez un magasin dans le studio ou partez d’un nouveau plan.">
+                  <form className="hub-create-project" onSubmit={(event) => { event.preventDefault(); void handleCreateProject(); }}>
+                    <Field label="Nom du nouveau projet">
+                      <input required placeholder="Ex. Magasin centre-ville" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+                    </Field>
+                    <button className="hub-primary" type="submit" disabled={busy || !projectName.trim()}>Créer un projet</button>
+                  </form>
+                  {projects.length === 0 ? <div className="hub-empty"><h3>Votre premier projet commence ici</h3><p>Donnez-lui un nom ci-dessus, puis aménagez votre magasin dans le studio.</p></div> : (
+                    <ul className="hub-project-grid">
+                      {projects.map((project) => <li className="hub-project-card" key={project.id}>
+                        <span className="hub-project-icon" aria-hidden="true">▦</span>
+                        <h3>{project.name}</h3>
+                        <p className="hub-small hub-muted">Mis à jour le {formatDate(project.updatedAt)}</p>
+                        <div className="hub-project-details">
+                          <span>{project.catalogProducts} produits</span>
+                          <span>{project.planograms} planogrammes</span>
+                          <span>{project.checkoutSimulations} scénarios</span>
                         </div>
-                      ) : (
-                        projectOptions.map((project) => (
-                          <div key={project.id} className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <div className="text-base font-medium text-white">{project.name}</div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                Mis à jour {formatDate(project.updatedAt)} · {project.catalogProducts} produits · {project.planograms} planogrammes · {project.checkoutSimulations} scénarios
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => openStudio(project)}
-                              className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20"
-                            >
-                              Ouvrir le studio
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </SectionCard>
+                        <button type="button" disabled={busy} onClick={() => openStudio(project)} aria-label={`Ouvrir ${project.name} dans le studio`}>Ouvrir le studio <span aria-hidden="true">↗</span></button>
+                      </li>)}
+                    </ul>
+                  )}
+                </Section>}
+              </div>
 
-                  <SectionCard title="Connexion agent / REST" subtitle="Expose le schéma OpenAPI et la séquence d'appel minimale pour un agent externe.">
-                    <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
-                      <div className="text-xs uppercase tracking-[0.25em] text-slate-500">OpenAPI</div>
-                      <div className="mt-2 break-all rounded-xl bg-slate-950 px-3 py-2 font-mono text-xs text-cyan-200">
-                        {agentGuide?.openApiUrl ?? 'http://localhost:8000/openapi.json'}
+              <div className="hub-panel" role="tabpanel" id="panel-catalogs" aria-labelledby="tab-catalogs" hidden={activeTab !== 'catalogs'} tabIndex={0}>
+                {activeTab === 'catalogs' && <Section title="Catalogues" subtitle="Organisez vos référentiels produits, avec ou sans projet associé.">
+                  <div className="hub-two-column">
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateCatalog(); }}>
+                      <h3>Nouveau catalogue</h3>
+                      <Field label="Nom du catalogue"><input required value={catalogName} onChange={(event) => setCatalogName(event.target.value)} placeholder="Ex. Collection printemps" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={4} value={catalogDescription} onChange={(event) => setCatalogDescription(event.target.value)} /></Field>
+                      <Field label="Projet source (facultatif)"><select value={catalogProjectId} onChange={(event) => setCatalogProjectId(event.target.value)}>{projectChoices}</select></Field>
+                      <button className="hub-primary" type="submit" disabled={busy || !catalogName.trim()}>Enregistrer le catalogue</button>
+                    </form>
+                    <div>
+                      <h3>Vos catalogues <span className="hub-count">{dashboard?.catalogs.length ?? 0}</span></h3>
+                      {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
+                        <li key={catalog.id}><h4>{catalog.name}</h4><p>{catalog.description || 'Sans description'}</p><span className="hub-small hub-muted">{catalog.productCount} produits · Mis à jour le {formatDate(catalog.updatedAt)}</span></li>
+                      ))}</ul> : <p className="hub-empty">Aucun catalogue pour le moment. Créez votre premier référentiel.</p>}
+                    </div>
+                  </div>
+                </Section>}
+              </div>
+
+              <div className="hub-panel" role="tabpanel" id="panel-simulations" aria-labelledby="tab-simulations" hidden={activeTab !== 'simulations'} tabIndex={0}>
+                {activeTab === 'simulations' && <Section title="Simulations" subtitle="Préparez vos listes de scénarios de passage en caisse.">
+                  <div className="hub-two-column">
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateSimulation(); }}>
+                      <h3>Nouvelle simulation</h3>
+                      <Field label="Nom de la simulation"><input required value={simulationName} onChange={(event) => setSimulationName(event.target.value)} placeholder="Ex. Affluence du samedi" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={4} value={simulationDescription} onChange={(event) => setSimulationDescription(event.target.value)} /></Field>
+                      <Field label="Projet source (facultatif)"><select value={simulationProjectId} onChange={(event) => setSimulationProjectId(event.target.value)}>{projectChoices}</select></Field>
+                      <button className="hub-primary" type="submit" disabled={busy || !simulationName.trim()}>Enregistrer la simulation</button>
+                    </form>
+                    <div>
+                      <h3>Vos simulations <span className="hub-count">{dashboard?.simulations.length ?? 0}</span></h3>
+                      {dashboard?.simulations.length ? <ul className="hub-resource-list">{dashboard.simulations.map((simulation) => (
+                        <li key={simulation.id}><h4>{simulation.name}</h4><p>{simulation.description || 'Sans description'}</p><span className="hub-small hub-muted">{simulation.scenarioCount} scénarios · Mis à jour le {formatDate(simulation.updatedAt)}</span></li>
+                      ))}</ul> : <p className="hub-empty">Aucune simulation enregistrée. Préparez votre première liste de scénarios.</p>}
+                    </div>
+                  </div>
+                </Section>}
+              </div>
+
+              <div className="hub-panel" role="tabpanel" id="panel-settings" aria-labelledby="tab-settings" hidden={activeTab !== 'settings'} tabIndex={0}>
+                {activeTab === 'settings' && <>
+                  <Section title="Configuration" subtitle="Connexions et outils pour les utilisateurs avancés.">
+                    <div className="hub-notice">Les demandes ci-dessous sont stockées pour un agent externe. Elles ne lancent pas l’assistant intégré du studio et ne sont pas exécutées automatiquement.</div>
+                    <div className="hub-two-column">
+                      <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleSubmitAgentRequest(); }}>
+                        <h3>Préparer une demande externe</h3>
+                        <Field label="Agent destinataire"><select value={agentProvider} onChange={(event) => setAgentProvider(event.target.value)}>
+                          <option value="github-copilot">GitHub Copilot</option><option value="claude">Claude</option><option value="custom-agent">Autre agent</option>
+                        </select></Field>
+                        <Field label="Type de ressource"><select value={agentTargetType} onChange={(event) => { setAgentTargetType(event.target.value); setAgentTargetId(''); }}>
+                          <option value="workspace">Espace de travail</option><option value="project">Projet</option><option value="catalog">Catalogue</option><option value="simulation">Simulation</option>
+                        </select></Field>
+                        {agentTargetType !== 'workspace' && <Field label="Ressource ciblée"><select required value={agentTargetId} onChange={(event) => setAgentTargetId(event.target.value)}>
+                          <option value="">Choisir une ressource</option>{targetResources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
+                        </select></Field>}
+                        <Field label="Votre demande"><textarea required rows={5} value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder="Décrivez les changements souhaités…" /></Field>
+                        <button className="hub-primary" type="submit" disabled={busy || !agentPrompt.trim()}>Enregistrer la demande</button>
+                      </form>
+                      <div>
+                        <h3>Demandes enregistrées</h3>
+                        {dashboard?.agentRequests.length ? <ul className="hub-resource-list">{dashboard.agentRequests.map((request) => <li key={request.id}>
+                          <div className="hub-list-heading"><h4>{request.provider}</h4><span className="hub-badge">{request.status === 'queued' ? 'En attente' : request.status}</span></div>
+                          <p>{request.prompt}</p>
+                          {request.implementationNotes && <p className="hub-small hub-muted">{request.implementationNotes}</p>}
+                          <span className="hub-small hub-muted">{formatDate(request.createdAt)}</span>
+                        </li>)}</ul> : <p className="hub-empty">Aucune demande externe enregistrée.</p>}
                       </div>
                     </div>
-                    <ol className="mt-4 space-y-2 text-sm text-slate-300">
-                      {(agentGuide?.workflowSteps ?? []).map((step) => (
-                        <li key={step} className="flex gap-3">
-                          <span className="text-cyan-300">→</span>
-                          <span>{step}</span>
-                        </li>
-                      ))}
-                    </ol>
-                    <div className="mt-4">
-                      <div className="mb-2 text-xs text-slate-500">Exemples de requêtes</div>
-                      <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-3 text-xs text-slate-300">
-                        {JSON.stringify(agentGuide?.sampleRequests ?? {}, null, 2)}
-                      </pre>
-                    </div>
-                  </SectionCard>
-                </div>
-
-                <div className="grid gap-6 xl:grid-cols-3">
-                  <SectionCard title="Catalogues" subtitle="Créez plusieurs référentiels produits rattachés à un projet ou indépendants.">
-                    <div className="space-y-3">
-                      <input
-                        value={catalogName}
-                        onChange={(event) => setCatalogName(event.target.value)}
-                        placeholder="Catalogue saisonnier"
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                      />
-                      <textarea
-                        value={catalogDescription}
-                        onChange={(event) => setCatalogDescription(event.target.value)}
-                        placeholder="Description du catalogue"
-                        className="min-h-24 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                      />
-                      <select
-                        value={catalogProjectId}
-                        onChange={(event) => setCatalogProjectId(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
-                      >
-                        <option value="">Sans projet source</option>
-                        {projectOptions.map((project) => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleCreateCatalog()}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Enregistrer le catalogue
-                      </button>
-                    </div>
-                    <div className="mt-4 space-y-2 text-sm text-slate-300">
-                      {(dashboard?.catalogs ?? []).slice(0, 4).map((catalog) => (
-                        <div key={catalog.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                          <div className="font-medium text-white">{catalog.name}</div>
-                          <div className="mt-1 text-xs text-slate-500">{catalog.description || 'Sans description'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard title="Simulations caisse" subtitle="Conservez plusieurs listes de scénarios et campagnes de passage en caisse.">
-                    <div className="space-y-3">
-                      <input
-                        value={simulationName}
-                        onChange={(event) => setSimulationName(event.target.value)}
-                        placeholder="Simulation Black Friday"
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                      />
-                      <textarea
-                        value={simulationDescription}
-                        onChange={(event) => setSimulationDescription(event.target.value)}
-                        placeholder="Description de la liste"
-                        className="min-h-24 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                      />
-                      <select
-                        value={simulationProjectId}
-                        onChange={(event) => setSimulationProjectId(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
-                      >
-                        <option value="">Sans projet source</option>
-                        {projectOptions.map((project) => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleCreateSimulation()}
-                        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Enregistrer la simulation
-                      </button>
-                    </div>
-                    <div className="mt-4 space-y-2 text-sm text-slate-300">
-                      {(dashboard?.simulations ?? []).slice(0, 4).map((simulation) => (
-                        <div key={simulation.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                          <div className="font-medium text-white">{simulation.name}</div>
-                          <div className="mt-1 text-xs text-slate-500">{simulation.description || 'Sans description'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard title="Champ agent type Lovable" subtitle="Déposez une demande d'implémentation et laissez un agent la consommer via l'API REST.">
-                    <div className="space-y-3">
-                      <select
-                        value={agentProvider}
-                        onChange={(event) => setAgentProvider(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
-                      >
-                        <option value="github-copilot">GitHub Copilot</option>
-                        <option value="claude">Claude</option>
-                        <option value="custom-agent">Custom agent</option>
-                      </select>
-                      <select
-                        value={agentTargetType}
-                        onChange={(event) => setAgentTargetType(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
-                      >
-                        <option value="workspace">Workspace</option>
-                        <option value="project">Projet</option>
-                        <option value="catalog">Catalogue</option>
-                        <option value="simulation">Simulation</option>
-                      </select>
-                      <select
-                        value={agentTargetId}
-                        onChange={(event) => setAgentTargetId(event.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm focus:border-cyan-400 focus:outline-none"
-                      >
-                        <option value="">Aucune ressource ciblée</option>
-                        {projectOptions.map((project) => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </select>
-                      <textarea
-                        value={agentPrompt}
-                        onChange={(event) => setAgentPrompt(event.target.value)}
-                        placeholder="Ex: ajoute un onboarding retail, un mode KPI et un import catalogue ERP."
-                        className="min-h-32 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void handleSubmitAgentRequest()}
-                        className="w-full rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Envoyer la demande à l&apos;agent
-                      </button>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {(dashboard?.agentRequests ?? []).map((request) => (
-                        <div key={request.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-medium text-white">{request.provider}</span>
-                            <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-200">
-                              {request.status}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-sm text-slate-300">{request.prompt}</div>
-                          <div className="mt-2 text-xs text-slate-500">{request.implementationNotes}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </SectionCard>
-                </div>
+                  </Section>
+                  <Section title="Connexion REST / OpenAPI" subtitle="Transmettez ce guide à votre agent externe pour lui donner accès à l’API.">
+                    <Field label="Adresse du schéma OpenAPI"><input readOnly value={agentGuide?.openApiUrl ?? `${window.location.origin}/openapi.json`} /></Field>
+                    <ol className="hub-workflow">{(agentGuide?.workflowSteps ?? []).map((step) => <li key={step}>{step}</li>)}</ol>
+                    <details className="hub-disclosure"><summary>Exemples de requêtes</summary><pre>{JSON.stringify(agentGuide?.sampleRequests ?? {}, null, 2)}</pre></details>
+                  </Section>
+                  <Section title="Capacités de l’agent externe" subtitle="Vérifications du script de pilotage et du premier projet de votre espace.">
+                    <p className="hub-small hub-muted">Script de référence : <code>{agentCapabilityReport?.agentPilot.script ?? 'Non disponible'}</code></p>
+                    <ul className="hub-capabilities">
+                      {([
+                        ['Dimensionnement du magasin', agentCapabilityReport?.agentPilot.supportsStoreDimensioning],
+                        ['Placement du mobilier', agentCapabilityReport?.agentPilot.supportsFurniturePlacement],
+                        ['Implantation des produits', agentCapabilityReport?.agentPilot.supportsProductPlacement],
+                        ['Vérification des positions', agentCapabilityReport?.agentPilot.supportsAbsolutePositionVerification],
+                      ] as const).map(([label, ok]) => <li key={label}><span>{label}</span><span className="hub-badge">{ok ? 'Disponible' : 'À vérifier'}</span></li>)}
+                    </ul>
+                    {agentCapabilityReport?.projectAudit && <details className="hub-disclosure">
+                      <summary>{agentCapabilityReport.projectAudit.projectName} — {agentCapabilityReport.projectAudit.ok ? 'Vérifications réussies' : `${agentCapabilityReport.projectAudit.issueCount} anomalie(s)`}</summary>
+                      <ul className="hub-workflow">{Object.entries(agentCapabilityReport.projectAudit.checks).map(([key, value]) => <li key={key}>{key} : {value.ok ? 'OK' : value.issues.join(' · ')}</li>)}</ul>
+                    </details>}
+                  </Section>
+                </>}
               </div>
-            )}
-          </section>
-
-          <aside className="space-y-6">
-            <SectionCard title="Fonctionnalités plateforme" subtitle="Ce qui manque d'habitude dans le MVP a été matérialisé ici.">
-              <div className="space-y-3 text-sm text-slate-300">
-                {[
-                  'Session utilisateur persistée via cookie HTTPOnly.',
-                  'OAuth Google/GitHub réel via redirections server-side quand les variables d’environnement sont présentes.',
-                  'Filtrage des projets par tenant directement dans les endpoints CAD existants.',
-                  'Stockage SQLite pour les métadonnées multi-tenant et les demandes agent.',
-                  'Guide REST/OpenAPI intégré dans le backend et visible dans le hub.',
-                ].map((item) => (
-                  <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Capacité agent vérifiée" subtitle="Audit du pipeline Astra et du premier projet du tenant quand disponible.">
-              <div className="space-y-3 text-sm text-slate-300">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  Script de référence : <span className="font-mono text-cyan-200">{agentCapabilityReport?.agentPilot.script ?? 'scripts/astra_build_store.py'}</span>
-                </div>
-                {[
-                  ['Dimensionnement magasin', agentCapabilityReport?.agentPilot.supportsStoreDimensioning],
-                  ['Placement mobilier', agentCapabilityReport?.agentPilot.supportsFurniturePlacement],
-                  ['Implantation produit', agentCapabilityReport?.agentPilot.supportsProductPlacement],
-                  ['Vérification positions absolues', agentCapabilityReport?.agentPilot.supportsAbsolutePositionVerification],
-                ].map(([label, ok]) => (
-                  <div key={String(label)} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    <span>{label}</span>
-                    <span className={ok ? 'text-emerald-300' : 'text-amber-300'}>
-                      {ok ? 'OK' : 'À vérifier'}
-                    </span>
-                  </div>
-                ))}
-                {agentCapabilityReport?.projectAudit && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-white">{agentCapabilityReport.projectAudit.projectName}</span>
-                      <span className={agentCapabilityReport.projectAudit.ok ? 'text-emerald-300' : 'text-amber-300'}>
-                        {agentCapabilityReport.projectAudit.ok ? 'Audit OK' : `${agentCapabilityReport.projectAudit.issueCount} issue(s)`}
-                      </span>
-                    </div>
-                    <div className="mt-3 space-y-2 text-xs text-slate-400">
-                      {Object.entries(agentCapabilityReport.projectAudit.checks).map(([key, value]) => (
-                        <div key={key}>
-                          <span className={value.ok ? 'text-emerald-300' : 'text-amber-300'}>
-                            {value.ok ? '✓' : '⚠'}
-                          </span>{' '}
-                          {key}
-                          {!value.ok && value.issues[0] ? ` — ${value.issues[0]}` : ''}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Parcours conseillé" subtitle="Pour brancher n'importe quel agent en direct sur l'API.">
-              <div className="space-y-3 text-sm text-slate-300">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  1. Créez votre workspace puis au moins un projet.
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  2. Donnez à votre agent le schéma <span className="font-mono">/openapi.json</span> et les endpoints REST affichés ci-contre.
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  3. Utilisez le champ agent pour stocker une demande, puis faites-la consommer via <span className="font-mono">/api/platform/agent-requests</span>.
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                  4. Vérifiez ensuite le projet via <span className="font-mono">/api/platform/agent-capabilities</span> avant ouverture du studio.
-                </div>
-              </div>
-            </SectionCard>
-
-            {statusMessage && (
-              <SectionCard title="Statut" subtitle="Retour du backend ou de l'action courante.">
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-                  {statusMessage}
-                </div>
-              </SectionCard>
-            )}
-          </aside>
-        </div>
+            </main>
+          </>
+        )}
+        <footer className="hub-footer">ShopAI · Concevez votre magasin, à votre rythme.</footer>
       </div>
     </div>
   );

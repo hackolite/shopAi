@@ -74,6 +74,27 @@ python scripts/astra_build_store.py \
 - Conserver un ordre d'exécution stable pour limiter les erreurs (`409`/`422`).
 - Valider systématiquement l'état final via l'export `retail-layout`.
 
+## Mode UI-only (création/modification côté client)
+
+Si vous voulez un usage 100% interface utilisateur :
+
+1. L'utilisateur ouvre le studio 3D puis le panneau **Assistant**.
+2. Il choisit une catégorie et envoie son prompt.
+3. Le backend traite en local (`/assistant`) ou via agent externe (`/assistant/llm`).
+4. Le résultat est appliqué/rechargé dans l'UI si un projet est créé ou modifié.
+
+Pré-requis dev :
+
+- Configurer `STUDIO_LLM_WEBHOOK_URL` côté serveur pour activer l'agent externe.
+- Implémenter le webhook orchestrateur avec le contrat d'entrée/sortie attendu.
+- Garder les clés provider en variables d'environnement/secret manager uniquement.
+
+Providers avec offre gratuite pour tests (quotas variables) :
+
+- Groq
+- Google AI Studio (Gemini API)
+- OpenRouter
+
 ## Références
 
 - Guide détaillé Astra : [`scripts/README.md`](scripts/README.md)

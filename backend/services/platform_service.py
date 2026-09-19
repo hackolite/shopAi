@@ -29,9 +29,16 @@ from services.reference_templates import (
 )
 
 SESSION_COOKIE_NAME = "shopai_session"
+SESSION_HEADER_NAME = "X-ShopAI-Session"
+_WEBHOOK_TOKEN_ENV = "STUDIO_LLM_WEBHOOK_TOKEN"
 SESSION_DURATION_DAYS = 14
 OAUTH_STATE_TTL_SECONDS = 600
 _SUPPORTED_OAUTH_PROVIDERS = {"google", "github"}
+_FORWARDED_SESSION_PATHS = frozenset({
+    "/api/cad/projects/import",
+    "/api/cad/projects/import/zip",
+    "/api/cad/projects/import/retail-layout",
+})
 _current_user: ContextVar[dict[str, Any] | None] = ContextVar(
     "shopai_current_user",
     default=None,
@@ -748,9 +755,36 @@ def logout_session(token: str | None) -> None:
         conn.commit()
 
 
+def _resolve_forwarded_session_token(request: Request) -> str | None:
+    token = request.headers.get(SESSION_HEADER_NAME)
+    if not token:
+        return None
+    expected_webhook_token = os.getenv(_WEBHOOK_TOKEN_ENV, "").strip()
+    if not expected_webhook_token:
+        return None
+    authorization = request.headers.get("Authorization", "")
+    prefix = "Bearer "
+    if not authorization.startswith(prefix):
+        return None
+    provided_webhook_token = authorization[len(prefix):].strip()
+    if not provided_webhook_token:
+        return None
+    if not hmac.compare_digest(provided_webhook_token, expected_webhook_token):
+        return None
+    return token
+
+
+def _request_uses_forwarded_session(request: Request) -> bool:
+    return bool(request.headers.get(SESSION_HEADER_NAME)) and request.url.path in _FORWARDED_SESSION_PATHS
+
+
 def resolve_session_user(request: Request) -> dict[str, Any] | None:
     ensure_platform_schema()
-    token = request.cookies.get(SESSION_COOKIE_NAME)
+    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if _request_uses_forwarded_session(request):
+        token = _resolve_forwarded_session_token(request)
+    else:
+        token = cookie_token
     if not token:
         return None
     now = datetime.now(timezone.utc)

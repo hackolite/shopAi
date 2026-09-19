@@ -366,6 +366,7 @@ def duplicate_project_endpoint(project_id: str, payload: DuplicateProjectPayload
 
 @router.post("/import")
 def import_project_endpoint(payload: ImportProjectPayload):
+    platform_service.require_current_user()
     metadata = import_project(payload.snapshot, payload.name)
     platform_service.assign_project_to_current_user(metadata["id"])
     return metadata
@@ -377,6 +378,7 @@ async def import_project_zip_endpoint(
     name: str = Form(...),
 ):
     """Import a project from a ZIP archive (multipart: file + name field)."""
+    platform_service.require_current_user()
     zip_bytes = await file.read()
     metadata = import_project_from_zip(zip_bytes, name.strip())
     platform_service.assign_project_to_current_user(metadata["id"])
@@ -426,6 +428,7 @@ def import_retail_layout_endpoint(payload: ImportRetailLayoutPayload):
     The layout is split back into scene.json + planograms.json while preserving
     all IDs so that furniture-face → planogramId links remain intact.
     """
+    platform_service.require_current_user()
     scene_dict, planograms_list = split_retail_layout(
         layout=payload.layout,
         project_name=payload.name.strip() or None,

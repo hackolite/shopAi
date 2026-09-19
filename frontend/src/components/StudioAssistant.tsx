@@ -7,12 +7,58 @@ interface Props {
   onSave: () => Promise<void>;
 }
 
-const suggestions = [
-  'Crée une implantation complète Carrefour City',
-  'Crée une implantation complète Carrefour Express aéroport',
-  'Crée une implantation seule Carrefour Express',
-  "Recommandation d'implantation",
-  'Vérifie',
+type AssistantCategory =
+  | 'layout-modify'
+  | 'layout-create'
+  | 'assortment-modify'
+  | 'assortment-full'
+  | 'freestyle';
+
+interface CategoryOption {
+  id: AssistantCategory;
+  label: string;
+  hint: string;
+  suggestions: string[];
+}
+
+const categories: CategoryOption[] = [
+  {
+    id: 'layout-modify',
+    label: "Modifier l'implantation",
+    hint: 'Le magasin existe déjà : ajuster le mobilier, la grille ou les dimensions.',
+    suggestions: ['Vérifie'],
+  },
+  {
+    id: 'layout-create',
+    label: "Créer l'implantation",
+    hint: "Aucune implantation encore : générer un nouveau magasin (mobilier seul).",
+    suggestions: [
+      'Crée une implantation seule Carrefour City',
+      'Crée une implantation seule Carrefour Express',
+      'Crée une implantation seule Carrefour Express aéroport',
+    ],
+  },
+  {
+    id: 'assortment-modify',
+    label: "Modifier l'assortiment (catalogue déjà chargé)",
+    hint: 'Le catalogue est déjà importé dans ce projet : compléter ou corriger les planogrammes existants.',
+    suggestions: ["Recommandation d'implantation"],
+  },
+  {
+    id: 'assortment-full',
+    label: 'Assortiment complet (aucun produit placé)',
+    hint: "Aucun produit n'est encore placé : implanter tout le catalogue depuis zéro.",
+    suggestions: ['Implante le catalogue'],
+  },
+  {
+    id: 'freestyle',
+    label: 'Libre — from scratch / freestyle',
+    hint: 'Projet complet, sans contrainte : implantation, catalogue et planogrammes en une fois.',
+    suggestions: [
+      'Crée une implantation complète Carrefour City',
+      'Crée une implantation complète Carrefour Express aéroport',
+    ],
+  },
 ];
 
 function isPlacementRecommendation(prompt: string): boolean {
@@ -21,6 +67,7 @@ function isPlacementRecommendation(prompt: string): boolean {
 
 export default function StudioAssistant({ projectId, onProjectCreated, onSave }: Props) {
   const [prompt, setPrompt] = useState('');
+  const [category, setCategory] = useState<AssistantCategory | null>(null);
   const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,6 +81,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     if (generatedProject.current !== projectId) setMessages([]);
     generatedProject.current = null;
     setPrompt('');
+    setCategory(null);
     setConfirmation(null);
     setError(null);
   }, [projectId]);
@@ -43,7 +91,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   }, [messages, busy]);
 
   async function send(text: string, confirm = false) {
-    if (!text.trim() || busy) return;
+    if (!text.trim() || !category || busy) return;
     const sourceId = projectId;
     setBusy(true);
     setError(null);
@@ -88,15 +136,41 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
         </p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        <div className="mb-5 flex flex-col gap-2">
-          {suggestions.map((text) => (
-            <button key={text} type="button" disabled={busy}
-              onClick={() => setPrompt(text)}
-              className="rounded-xl border border-gray-600 px-3 py-3 text-left text-sm text-cyan-200 hover:bg-gray-800 disabled:opacity-50">
-              {text}
-            </button>
-          ))}
-        </div>
+        <fieldset className="mb-5 rounded-xl border border-gray-600 p-4">
+          <legend className="px-1 text-sm font-semibold text-cyan-200">
+            Type de demande <span aria-hidden="true">*</span>
+          </legend>
+          <p className="mb-3 text-xs text-gray-400">
+            Obligatoire : choisissez d’abord une catégorie pour orienter la demande et éviter un envoi sans instruction.
+          </p>
+          <div role="radiogroup" aria-label="Type de demande" className="flex flex-col gap-2">
+            {categories.map((option) => (
+              <label key={option.id}
+                className={`flex cursor-pointer flex-col gap-1 rounded-lg border px-3 py-2 text-sm ${
+                  category === option.id ? 'border-cyan-400 bg-gray-800' : 'border-gray-700 hover:bg-gray-800'
+                }`}>
+                <span className="flex items-center gap-2">
+                  <input type="radio" name="assistant-category" value={option.id} disabled={busy}
+                    checked={category === option.id}
+                    onChange={() => setCategory(option.id)} />
+                  <span className="font-medium text-cyan-100">{option.label}</span>
+                </span>
+                <span className="pl-6 text-xs text-gray-400">{option.hint}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {category && (
+          <div className="mb-5 flex flex-col gap-2">
+            {categories.find((option) => option.id === category)?.suggestions.map((text) => (
+              <button key={text} type="button" disabled={busy}
+                onClick={() => setPrompt(text)}
+                className="rounded-xl border border-gray-600 px-3 py-3 text-left text-sm text-cyan-200 hover:bg-gray-800 disabled:opacity-50">
+                {text}
+              </button>
+            ))}
+          </div>
+        )}
         <div role="log" aria-live="polite" aria-relevant="additions" className="space-y-4">
           {messages.map((message, index) => (
             <div key={index} className="rounded-xl bg-gray-800 p-4">
@@ -134,8 +208,13 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
           onChange={(event) => setPrompt(event.target.value)} disabled={busy}
           placeholder="Décrivez l’implantation souhaitée…"
           className="w-full resize-y rounded-xl border border-gray-600 bg-gray-950 p-3 focus:border-cyan-400 focus:outline-none" />
+        {!category && (
+          <p className="text-xs text-amber-300">
+            Choisissez d’abord un type de demande ci-dessus pour pouvoir envoyer.
+          </p>
+        )}
         <div className="flex flex-wrap gap-3">
-          <button type="submit" disabled={busy || !prompt.trim()}
+          <button type="submit" disabled={busy || !prompt.trim() || !category}
             className="rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-gray-950 disabled:opacity-50">Envoyer</button>
           <button type="button" disabled={busy} onClick={() => void onSave().catch((cause: unknown) => {
             setError(cause instanceof Error ? cause.message : String(cause));

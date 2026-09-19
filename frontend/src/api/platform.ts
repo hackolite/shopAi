@@ -340,6 +340,11 @@ export const platformApi = {
     request<PlatformPedestrianDataset>(`/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}`),
   listPedestrianDatasets: () =>
     request<{ pedestrianDatasets: PlatformPedestrianDataset[] }>('/api/platform/pedestrian-datasets'),
+  downloadPedestrianDataset: (datasetId: string, datasetName: string) =>
+    download(
+      `/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}/download`,
+      `${datasetName.replace(/\s+/g, '_')}_pedestrian_dataset.csv`,
+    ),
   deletePedestrianDataset: (datasetId: string) =>
     request<{ deleted: boolean; id: string }>(
       `/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}`,

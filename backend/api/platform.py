@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import re
 from typing import Any
@@ -28,6 +30,29 @@ def _download_json_response(payload: dict[str, Any], filename: str) -> Response:
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _download_text_response(content: str, filename: str, media_type: str) -> Response:
+    return Response(
+        content=content.encode("utf-8"),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _pedestrian_dataset_to_csv(payload: dict[str, Any]) -> str:
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(("pedestrian_id", "start_unix_ts", "speed_mps", "profile_json", "ean"))
+    for plan_data in payload.get("plans", []):
+        plan = PedestrianPickupPlan.model_validate(plan_data)
+        profile_json = json.dumps(plan.profile, ensure_ascii=False, separators=(",", ":"))
+        if plan.items:
+            for item in plan.items:
+                writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, item.ean))
+            continue
+        writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, ""))
+    return output.getvalue()
 
 
 class AuthPayload(BaseModel):
@@ -435,6 +460,15 @@ async def create_pedestrian_dataset_from_csv(
 @router.get("/pedestrian-datasets/{dataset_id}")
 def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
     return platform_service.get_pedestrian_dataset(dataset_id)
+
+
+@router.get("/pedestrian-datasets/{dataset_id}/download")
+def download_pedestrian_dataset(dataset_id: str) -> Response:
+    dataset = platform_service.get_pedestrian_dataset(dataset_id)
+    payload = dataset.get("payload")
+    safe_name = _safe_download_name(dataset["name"], "pedestrian_dataset")
+    csv_text = _pedestrian_dataset_to_csv(payload if isinstance(payload, dict) else {})
+    return _download_text_response(csv_text, f"{safe_name}_pedestrian_dataset.csv", "text/csv; charset=utf-8")
 
 
 @router.delete("/pedestrian-datasets/{dataset_id}")

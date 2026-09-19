@@ -316,6 +316,11 @@ export default function App() {
     setStatusMessage('Dataset panier/piéton supprimé.');
   });
 
+  const handleDownloadPedestrianDataset = (datasetId: string, datasetName: string) => runAction(async () => {
+    await platformApi.downloadPedestrianDataset(datasetId, datasetName);
+    setStatusMessage('Dataset panier/piéton téléchargé.');
+  });
+
   const handleSubmitAgentRequest = () => runAction(async () => {
     if (!agentPrompt.trim()) return;
     await platformApi.createAgentRequest({
@@ -574,7 +579,6 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
-                      <h3>Implantations disponibles</h3>
                       {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
                         <li key={layout.id}>
                           <div className="hub-resource-item-header">
@@ -611,7 +615,6 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
-                      <h3>Catalogues disponibles</h3>
                       {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
                         <li key={catalog.id}>
                           <div className="hub-resource-item-header">
@@ -649,7 +652,6 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !simulationJsonFile || !simulationJsonName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
-                      <h3>Simulations disponibles</h3>
                       {dashboard?.simulations.length ? <ul className="hub-resource-list">{dashboard.simulations.map((simulation) => (
                         <li key={simulation.id}>
                           <div className="hub-resource-item-header">
@@ -680,7 +682,10 @@ export default function App() {
                       <li key={dataset.id}>
                         <div className="hub-resource-item-header">
                           <h4>{dataset.name}</h4>
-                          <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeletePedestrianDataset(dataset.id, dataset.name)}>Supprimer</button>
+                          <div className="hub-resource-actions">
+                            <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadPedestrianDataset(dataset.id, dataset.name)}>Télécharger</button>
+                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeletePedestrianDataset(dataset.id, dataset.name)}>Supprimer</button>
+                          </div>
                         </div>
                         <p>{dataset.description || 'Sans description'}</p>
                         <span className="hub-small hub-muted">{dataset.pedestrianCount} piétons · Mis à jour le {formatDate(dataset.updatedAt)}</span>

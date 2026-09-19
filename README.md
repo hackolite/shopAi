@@ -71,6 +71,43 @@ LLM et pilote Astra), voir [`AI_WORKFLOW_README.md`](AI_WORKFLOW_README.md).
 4. Gardez vos clés LLM/provider **hors du dépôt**, via variables d'environnement
    ou secret manager.
 
+### Créer ou modifier un projet via UI (client) uniquement
+
+Objectif : permettre à l'utilisateur final de **créer** ou **modifier** son
+projet depuis l'interface, sans exécuter de script local.
+
+Parcours UI :
+
+1. Ouvrir un projet dans le studio 3D.
+2. Aller dans le panneau **Assistant**.
+3. Choisir une catégorie obligatoire (implantation / assortiment / freestyle).
+4. (Optionnel) Activer la case **Utiliser l’agent LLM externe configuré côté serveur**.
+5. Envoyer la demande puis confirmer l'action si demandé.
+
+Résultat :
+
+- En mode assistant local : traitement déterministe interne (`/assistant`).
+- En mode agent LLM externe : prompt relayé au webhook serveur (`/assistant/llm`).
+- Si l'agent crée/modifie un projet, le projet est rechargé côté client.
+
+Ce que doit faire le développeur pour que ce flux UI soit possible :
+
+1. Configurer le backend avec `STUDIO_LLM_WEBHOOK_URL` (obligatoire pour le mode LLM).
+2. Optionnel : ajouter `STUDIO_LLM_WEBHOOK_TOKEN` et `STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS`.
+3. Implémenter un webhook orchestrateur qui reçoit :
+   `{"projectId","prompt","confirm"}`.
+4. Faire appeler à l'orchestrateur l'API ShopAI (`/openapi.json`, `/api/cad/projects/...`)
+   avec la session utilisateur transmise.
+5. Retourner au frontend le contrat JSON attendu :
+   `message`, `requiresConfirmation`, `changed`, `projectId`, `steps`.
+6. Ne jamais exposer de clé provider dans le client ni dans le dépôt.
+
+Exemple de providers avec offre gratuite de test (selon quotas en vigueur) :
+
+- **Groq** (API avec free tier)
+- **Google AI Studio / Gemini API** (quota gratuit)
+- **OpenRouter** (certains modèles gratuits ou à faible coût)
+
 ### Exemple pédagogique — assortiment avec layout déjà fourni
 
 Cas d'usage : le layout existe déjà, vous voulez seulement remplir les rayons.

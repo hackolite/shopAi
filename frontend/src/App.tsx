@@ -84,6 +84,9 @@ export default function App() {
   const [simulationJsonName, setSimulationJsonName] = useState('');
   const [simulationJsonDescription, setSimulationJsonDescription] = useState('');
   const [simulationJsonFile, setSimulationJsonFile] = useState<File | null>(null);
+  const [pedestrianCsvName, setPedestrianCsvName] = useState('');
+  const [pedestrianCsvDescription, setPedestrianCsvDescription] = useState('');
+  const [pedestrianCsvFile, setPedestrianCsvFile] = useState<File | null>(null);
   const [agentProvider, setAgentProvider] = useState('github-copilot');
   const [agentTargetType, setAgentTargetType] = useState('workspace');
   const [agentTargetId, setAgentTargetId] = useState('');
@@ -180,6 +183,13 @@ export default function App() {
     setStudioProjectId(created.id);
   });
 
+  const handleDeleteProject = (projectId: string, projectName: string) => runAction(async () => {
+    if (!window.confirm(`Supprimer définitivement le projet « ${projectName} » ?`)) return;
+    await cadApi.deleteProject(projectId);
+    await loadAuthenticatedData();
+    setStatusMessage('Projet supprimé.');
+  });
+
   const handleCreateStoreLayout = () => runAction(async () => {
     if (!layoutName.trim()) return;
     await platformApi.createStoreLayout({
@@ -204,6 +214,13 @@ export default function App() {
     setStatusMessage('Implantation importée depuis le JSON ShopAI.');
   });
 
+  const handleDeleteStoreLayout = (layoutId: string, layoutName: string) => runAction(async () => {
+    if (!window.confirm(`Supprimer définitivement l’implantation « ${layoutName} » ?`)) return;
+    await platformApi.deleteStoreLayout(layoutId);
+    await loadAuthenticatedData();
+    setStatusMessage('Implantation supprimée.');
+  });
+
   const handleCreateCatalog = () => runAction(async () => {
     if (!catalogName.trim()) return;
     await platformApi.createCatalog({
@@ -224,6 +241,13 @@ export default function App() {
     setCatalogCsvFile(null);
     await loadAuthenticatedData();
     setStatusMessage('Catalogue importé depuis le CSV.');
+  });
+
+  const handleDeleteCatalog = (catalogId: string, catalogName: string) => runAction(async () => {
+    if (!window.confirm(`Supprimer définitivement le catalogue « ${catalogName} » ?`)) return;
+    await platformApi.deleteCatalog(catalogId);
+    await loadAuthenticatedData();
+    setStatusMessage('Catalogue supprimé.');
   });
 
   const handleCreateSimulation = () => runAction(async () => {
@@ -247,6 +271,27 @@ export default function App() {
     setSimulationJsonFile(null);
     await loadAuthenticatedData();
     setStatusMessage('Simulation importée depuis le JSON.');
+  });
+
+  const handleDeleteSimulation = (simulationId: string, simulationNameValue: string) => runAction(async () => {
+    if (!window.confirm(`Supprimer définitivement la simulation « ${simulationNameValue} » ?`)) return;
+    await platformApi.deleteSimulation(simulationId);
+    await loadAuthenticatedData();
+    setStatusMessage('Simulation supprimée.');
+  });
+
+  const handleImportPedestrianDatasetCsv = () => runAction(async () => {
+    if (!pedestrianCsvFile || !pedestrianCsvName.trim()) return;
+    await platformApi.importPedestrianDatasetCsv(
+      pedestrianCsvFile,
+      pedestrianCsvName.trim(),
+      pedestrianCsvDescription.trim(),
+    );
+    setPedestrianCsvName('');
+    setPedestrianCsvDescription('');
+    setPedestrianCsvFile(null);
+    await loadAuthenticatedData();
+    setStatusMessage('Dataset panier/piéton importé depuis le CSV.');
   });
 
   const handleSubmitAgentRequest = () => runAction(async () => {
@@ -285,6 +330,9 @@ export default function App() {
     setSimulationName('');
     setSimulationDescription('');
     setSimulationProjectId('');
+    setPedestrianCsvName('');
+    setPedestrianCsvDescription('');
+    setPedestrianCsvFile(null);
     setAgentPrompt('');
     setAgentTargetId('');
     setAgentTargetType('workspace');
@@ -468,6 +516,14 @@ export default function App() {
                           <span>{project.checkoutSimulations} scénarios</span>
                         </div>
                         <button type="button" disabled={busy} onClick={() => openStudio(project)} aria-label={`Ouvrir ${project.name} dans le studio`}>Ouvrir le studio <span aria-hidden="true">↗</span></button>
+                        <button
+                          type="button"
+                          className="hub-danger"
+                          disabled={busy}
+                          onClick={() => void handleDeleteProject(project.id, project.name)}
+                        >
+                          Supprimer
+                        </button>
                       </li>)}
                     </ul>
                   )}
@@ -476,8 +532,8 @@ export default function App() {
 
               <div className="hub-panel" role="tabpanel" id="panel-layouts" aria-labelledby="tab-layouts" hidden={activeTab !== 'layouts'} tabIndex={0}>
                 {activeTab === 'layouts' && <Section title="Implantations (Store Layout)" subtitle="Réutilisez un plan de magasin (mobilier + implantation) indépendamment de son projet d’origine.">
-                  <div className="hub-two-column">
-                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateStoreLayout(); }}>
+                  <div className="hub-two-column hub-workspace-grid">
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateStoreLayout(); }}>
                       <h3>Nouvelle implantation</h3>
                       <Field label="Nom de l’implantation"><input required value={layoutName} onChange={(event) => setLayoutName(event.target.value)} placeholder="Ex. Implantation type hypermarché" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={layoutDescription} onChange={(event) => setLayoutDescription(event.target.value)} /></Field>
@@ -487,7 +543,7 @@ export default function App() {
                       </select></Field>
                       <button className="hub-primary" type="submit" disabled={busy || !layoutName.trim() || !layoutProjectId}>Enregistrer l’implantation</button>
                     </form>
-                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutJson(); }}>
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutJson(); }}>
                       <h3>Importer une implantation (JSON ShopAI)</h3>
                       <Field label="Nom de l’implantation"><input required value={layoutJsonName} onChange={(event) => setLayoutJsonName(event.target.value)} placeholder="Ex. Implantation fournisseur" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={layoutJsonDescription} onChange={(event) => setLayoutJsonDescription(event.target.value)} /></Field>
@@ -498,7 +554,14 @@ export default function App() {
                     <div>
                       <h3>Vos implantations <span className="hub-count">{dashboard?.storeLayouts.length ?? 0}</span></h3>
                       {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
-                        <li key={layout.id}><h4>{layout.name}</h4><p>{layout.description || 'Sans description'}</p><span className="hub-small hub-muted">{layout.furnitureCount} meubles · Mis à jour le {formatDate(layout.updatedAt)}</span></li>
+                        <li key={layout.id}>
+                          <div className="hub-resource-item-header">
+                            <h4>{layout.name}</h4>
+                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteStoreLayout(layout.id, layout.name)}>Supprimer</button>
+                          </div>
+                          <p>{layout.description || 'Sans description'}</p>
+                          <span className="hub-small hub-muted">{layout.furnitureCount} meubles · Mis à jour le {formatDate(layout.updatedAt)}</span>
+                        </li>
                       ))}</ul> : <p className="hub-empty">Aucune implantation enregistrée. Créez-en une depuis un projet existant.</p>}
                     </div>
                   </div>
@@ -507,15 +570,15 @@ export default function App() {
 
               <div className="hub-panel" role="tabpanel" id="panel-catalogs" aria-labelledby="tab-catalogs" hidden={activeTab !== 'catalogs'} tabIndex={0}>
                 {activeTab === 'catalogs' && <Section title="Catalogues" subtitle="Organisez vos référentiels produits, avec ou sans projet associé.">
-                  <div className="hub-two-column">
-                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateCatalog(); }}>
+                  <div className="hub-two-column hub-workspace-grid">
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateCatalog(); }}>
                       <h3>Nouveau catalogue</h3>
                       <Field label="Nom du catalogue"><input required value={catalogName} onChange={(event) => setCatalogName(event.target.value)} placeholder="Ex. Collection printemps" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={catalogDescription} onChange={(event) => setCatalogDescription(event.target.value)} /></Field>
                       <Field label="Projet source (facultatif)"><select value={catalogProjectId} onChange={(event) => setCatalogProjectId(event.target.value)}>{projectChoices}</select></Field>
                       <button className="hub-primary" type="submit" disabled={busy || !catalogName.trim()}>Enregistrer le catalogue</button>
                     </form>
-                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportCatalogCsv(); }}>
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportCatalogCsv(); }}>
                       <h3>Importer un catalogue CSV</h3>
                       <Field label="Nom du catalogue"><input required value={catalogCsvName} onChange={(event) => setCatalogCsvName(event.target.value)} placeholder="Ex. Assortiment fournisseur" /></Field>
                       <Field label="Fichier CSV"><input required type="file" accept=".csv,text/csv" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
@@ -525,7 +588,14 @@ export default function App() {
                     <div>
                       <h3>Vos catalogues <span className="hub-count">{dashboard?.catalogs.length ?? 0}</span></h3>
                       {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
-                        <li key={catalog.id}><h4>{catalog.name}</h4><p>{catalog.description || 'Sans description'}</p><span className="hub-small hub-muted">{catalog.productCount} produits · Mis à jour le {formatDate(catalog.updatedAt)}</span></li>
+                        <li key={catalog.id}>
+                          <div className="hub-resource-item-header">
+                            <h4>{catalog.name}</h4>
+                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteCatalog(catalog.id, catalog.name)}>Supprimer</button>
+                          </div>
+                          <p>{catalog.description || 'Sans description'}</p>
+                          <span className="hub-small hub-muted">{catalog.productCount} produits · Mis à jour le {formatDate(catalog.updatedAt)}</span>
+                        </li>
                       ))}</ul> : <p className="hub-empty">Aucun catalogue pour le moment. Créez votre premier référentiel.</p>}
                     </div>
                   </div>
@@ -534,15 +604,15 @@ export default function App() {
 
               <div className="hub-panel" role="tabpanel" id="panel-simulations" aria-labelledby="tab-simulations" hidden={activeTab !== 'simulations'} tabIndex={0}>
                 {activeTab === 'simulations' && <Section title="Simulations" subtitle="Préparez vos listes de scénarios de passage en caisse et vos datasets panier/piéton.">
-                  <div className="hub-two-column">
-                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateSimulation(); }}>
+                  <div className="hub-two-column hub-workspace-grid">
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateSimulation(); }}>
                       <h3>Nouvelle simulation</h3>
                       <Field label="Nom de la simulation"><input required value={simulationName} onChange={(event) => setSimulationName(event.target.value)} placeholder="Ex. Affluence du samedi" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={simulationDescription} onChange={(event) => setSimulationDescription(event.target.value)} /></Field>
                       <Field label="Projet source (facultatif)"><select value={simulationProjectId} onChange={(event) => setSimulationProjectId(event.target.value)}>{projectChoices}</select></Field>
                       <button className="hub-primary" type="submit" disabled={busy || !simulationName.trim()}>Enregistrer la simulation</button>
                     </form>
-                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportSimulationJson(); }}>
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportSimulationJson(); }}>
                       <h3>Importer une simulation (JSON)</h3>
                       <Field label="Nom de la simulation"><input required value={simulationJsonName} onChange={(event) => setSimulationJsonName(event.target.value)} placeholder="Ex. Scénarios caisses été" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={simulationJsonDescription} onChange={(event) => setSimulationJsonDescription(event.target.value)} /></Field>
@@ -553,14 +623,28 @@ export default function App() {
                     <div>
                       <h3>Vos simulations <span className="hub-count">{dashboard?.simulations.length ?? 0}</span></h3>
                       {dashboard?.simulations.length ? <ul className="hub-resource-list">{dashboard.simulations.map((simulation) => (
-                        <li key={simulation.id}><h4>{simulation.name}</h4><p>{simulation.description || 'Sans description'}</p><span className="hub-small hub-muted">{simulation.scenarioCount} scénarios · Mis à jour le {formatDate(simulation.updatedAt)}</span></li>
+                        <li key={simulation.id}>
+                          <div className="hub-resource-item-header">
+                            <h4>{simulation.name}</h4>
+                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteSimulation(simulation.id, simulation.name)}>Supprimer</button>
+                          </div>
+                          <p>{simulation.description || 'Sans description'}</p>
+                          <span className="hub-small hub-muted">{simulation.scenarioCount} scénarios · Mis à jour le {formatDate(simulation.updatedAt)}</span>
+                        </li>
                       ))}</ul> : <p className="hub-empty">Aucune simulation enregistrée. Préparez votre première liste de scénarios.</p>}
                     </div>
                   </div>
                   <div className="hub-section-divider" />
                   <div>
                     <h3>Datasets panier/piéton <span className="hub-count">{dashboard?.pedestrianDatasets.length ?? 0}</span></h3>
-                    <p className="hub-small hub-muted">Importez un CSV panier/piéton depuis le studio (panneau Simulation) : chaque import nommé est stocké ici, indépendamment du projet, et réutilisable dans n’importe quel projet 3D.</p>
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportPedestrianDatasetCsv(); }}>
+                      <h4>Importer un dataset panier/piéton (CSV)</h4>
+                      <Field label="Nom du dataset"><input required value={pedestrianCsvName} onChange={(event) => setPedestrianCsvName(event.target.value)} placeholder="Ex. Passage du samedi matin" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={3} value={pedestrianCsvDescription} onChange={(event) => setPedestrianCsvDescription(event.target.value)} /></Field>
+                      <Field label="CSV panier/piéton"><input required type="file" accept=".csv,text/csv" onChange={(event) => setPedestrianCsvFile(event.target.files?.[0] ?? null)} /></Field>
+                      <p className="hub-small hub-muted">Colonnes requises : pedestrian_id, start_unix_ts, speed_mps. Colonnes facultatives : profile_json, ean.</p>
+                      <button className="hub-primary" type="submit" disabled={busy || !pedestrianCsvName.trim() || !pedestrianCsvFile}>Importer le CSV panier/piéton</button>
+                    </form>
                     {dashboard?.pedestrianDatasets.length ? <ul className="hub-resource-list">{dashboard.pedestrianDatasets.map((dataset) => (
                       <li key={dataset.id}><h4>{dataset.name}</h4><p>{dataset.description || 'Sans description'}</p><span className="hub-small hub-muted">{dataset.pedestrianCount} piétons · Mis à jour le {formatDate(dataset.updatedAt)}</span></li>
                     ))}</ul> : <p className="hub-empty">Aucun dataset panier/piéton importé pour le moment.</p>}

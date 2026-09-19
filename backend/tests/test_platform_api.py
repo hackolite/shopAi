@@ -550,3 +550,74 @@ def test_simulation_import_json_persists_scenarios() -> None:
     simulation = response.json()
     assert simulation["scenarioCount"] == 2
     assert simulation["payload"]["scenarios"][0]["name"] == "Samedi 14h"
+
+
+def test_workspace_resources_can_be_deleted() -> None:
+    client = _make_client()
+    _register(client, name="Cleaner", email="cleaner@example.com")
+
+    project_response = client.post("/api/cad/projects/", json={"name": "Projet à supprimer"})
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    catalog_response = client.post(
+        "/api/platform/catalogs",
+        json={"name": "Catalogue à supprimer", "productCount": 0, "payload": {"products": []}},
+    )
+    assert catalog_response.status_code == 200, catalog_response.text
+    catalog_id = catalog_response.json()["id"]
+
+    simulation_response = client.post(
+        "/api/platform/simulations",
+        json={"name": "Simulation à supprimer", "scenarioCount": 1, "payload": {"scenarios": [{"name": "test"}]}},
+    )
+    assert simulation_response.status_code == 200, simulation_response.text
+    simulation_id = simulation_response.json()["id"]
+
+    layout_response = client.post(
+        "/api/platform/store-layouts",
+        json={"name": "Implantation à supprimer", "sourceProjectId": project_id},
+    )
+    assert layout_response.status_code == 200, layout_response.text
+    layout_id = layout_response.json()["id"]
+
+    delete_project = client.delete(f"/api/cad/projects/{project_id}")
+    assert delete_project.status_code == 200, delete_project.text
+
+    delete_catalog = client.delete(f"/api/platform/catalogs/{catalog_id}")
+    assert delete_catalog.status_code == 200, delete_catalog.text
+
+    delete_simulation = client.delete(f"/api/platform/simulations/{simulation_id}")
+    assert delete_simulation.status_code == 200, delete_simulation.text
+
+    delete_layout = client.delete(f"/api/platform/store-layouts/{layout_id}")
+    assert delete_layout.status_code == 200, delete_layout.text
+
+    dashboard = client.get("/api/platform/dashboard")
+    assert dashboard.status_code == 200, dashboard.text
+    stats = dashboard.json()["stats"]
+    assert stats["catalogCount"] == 1
+    assert stats["simulationCount"] == 0
+    assert stats["storeLayoutCount"] == 1
+
+
+def test_pedestrian_dataset_csv_upload_from_workspace() -> None:
+    client = _make_client()
+    _register(client, name="CSV Importer", email="pedestrian-csv@example.com")
+
+    csv_body = (
+        "pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n"
+        "1,1700000000,1.2,{\"type\":\"rush\"},1234567890123\n"
+        "1,1700000000,1.2,{\"type\":\"rush\"},2234567890123\n"
+    )
+    response = client.post(
+        "/api/platform/pedestrian-datasets/import-csv",
+        data={"name": "Dataset CSV", "description": "Import workspace"},
+        files={"file": ("dataset.csv", csv_body, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    dataset = response.json()
+    assert dataset["pedestrianCount"] == 1
+    assert dataset["payload"]["pedestrianCount"] == 1
+    assert dataset["payload"]["rowCount"] == 2
+    assert len(dataset["payload"]["plans"][0]["items"]) == 2

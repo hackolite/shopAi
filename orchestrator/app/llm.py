@@ -72,11 +72,55 @@ class LLMPlanner:
             return await self._openai_plan(user_prompt)
         if self.settings.llm_provider == "anthropic" and self.settings.anthropic_api_key:
             return await self._anthropic_plan(user_prompt)
+        if self.settings.llm_provider == "xai" and self.settings.xai_api_key:
+            return await self._xai_plan(user_prompt)
+        if self.settings.llm_provider == "openrouter" and self.settings.openrouter_api_key:
+            return await self._openrouter_plan(user_prompt)
         return None
 
     async def _openai_plan(self, user_prompt: str) -> dict[str, Any] | None:
+        return await self._openai_compatible_plan(
+            user_prompt,
+            api_base_url="https://api.openai.com/v1",
+            model=self.settings.openai_model,
+            api_key=self.settings.openai_api_key,
+        )
+
+    async def _xai_plan(self, user_prompt: str) -> dict[str, Any] | None:
+        return await self._openai_compatible_plan(
+            user_prompt,
+            api_base_url="https://api.x.ai/v1",
+            model=self.settings.xai_model,
+            api_key=self.settings.xai_api_key,
+        )
+
+    async def _openrouter_plan(self, user_prompt: str) -> dict[str, Any] | None:
+        headers: dict[str, str] = {}
+        if self.settings.openrouter_http_referer:
+            headers["HTTP-Referer"] = self.settings.openrouter_http_referer
+        if self.settings.openrouter_app_title:
+            headers["X-Title"] = self.settings.openrouter_app_title
+        return await self._openai_compatible_plan(
+            user_prompt,
+            api_base_url="https://openrouter.ai/api/v1",
+            model=self.settings.openrouter_model,
+            api_key=self.settings.openrouter_api_key,
+            extra_headers=headers,
+        )
+
+    async def _openai_compatible_plan(
+        self,
+        user_prompt: str,
+        *,
+        api_base_url: str,
+        model: str,
+        api_key: str | None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        if not api_key:
+            return None
         payload = {
-            "model": self.settings.openai_model,
+            "model": model,
             "temperature": 0,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -86,11 +130,13 @@ class LLMPlanner:
             "tool_choice": "auto",
         }
         headers = {
-            "Authorization": f"{''.join(['B','e','a','r','e','r'])} {self.settings.openai_api_key}",
+            "Authorization": f"{''.join(['B','e','a','r','e','r'])} {api_key}",
             "Content-Type": "application/json",
         }
+        if extra_headers:
+            headers.update(extra_headers)
         async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds) as client:
-            response = await client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+            response = await client.post(f"{api_base_url}/chat/completions", json=payload, headers=headers)
             response.raise_for_status()
             data = response.json()
 

@@ -11,7 +11,7 @@ orchestrator/
     main.py      # API FastAPI + webhook /webhook/llm
     agent.py     # orchestration pipeline + gestion confirm
     tools.py     # wrappers HTTP backend + retries 409/422
-    llm.py       # planification provider (OpenAI/Anthropic) + fallback heuristique
+    llm.py       # planification provider (OpenAI/Anthropic/xAI/OpenRouter) + fallback heuristique
     prompts.py   # system prompt + spec outil build_store_plan
     schemas.py   # modèles Pydantic webhook/plan
     config.py    # variables d'environnement
@@ -125,9 +125,12 @@ curl -X POST http://localhost:8010/webhook/llm \
 ## Variables d'environnement
 
 - `BACKEND_BASE_URL`
-- `LLM_PROVIDER` (`none`, `openai`, `anthropic`)
+- `LLM_PROVIDER` (`none`, `openai`, `anthropic`, `xai`, `openrouter`)
 - `OPENAI_API_KEY`, `OPENAI_MODEL`
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`
+- `XAI_API_KEY`, `XAI_MODEL`
+- `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`
+- `OPENROUTER_HTTP_REFERER`, `OPENROUTER_APP_TITLE` (optionnels)
 - `WEBHOOK_AUTH_TOKEN`
 - `REQUEST_TIMEOUT_SECONDS`
 - `MAX_RETRIES`

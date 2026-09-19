@@ -267,6 +267,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const [isLoadingPedestrians, setIsLoadingPedestrians] = useState(false);
   const [availablePedestrianDatasets, setAvailablePedestrianDatasets] = useState<PlatformPedestrianDataset[]>([]);
   const [selectedPedestrianDatasetId, setSelectedPedestrianDatasetId] = useState('');
+  const [appliedPedestrianDataset, setAppliedPedestrianDataset] = useState<PlatformPedestrianDataset | null>(null);
   const [isApplyingPedestrianDataset, setIsApplyingPedestrianDataset] = useState(false);
   /**
    * The live session id the active dataset was successfully loaded into.
@@ -320,9 +321,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
-  const selectedPedestrianDataset = availablePedestrianDatasets.find(
-    (dataset) => dataset.id === selectedPedestrianDatasetId,
-  ) ?? null;
   // New waypoints are dropped at the bottom-left corner of the grid so they are
   // always visible right where the store starts.
   const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);
@@ -653,12 +651,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   const applyPedestrianDataset = useCallback(async (datasetId: string) => {
     if (!projectId) return;
+    const dataset = availablePedestrianDatasets.find((item) => item.id === datasetId) ?? null;
     setIsApplyingPedestrianDataset(true);
     setPedestrianDatasetError(null);
     try {
       const result = await cadApi.loadPedestrianDataset(projectId, datasetId);
       if (isStale(projectId)) return;
       setPedestrianImport(result);
+      setAppliedPedestrianDataset(dataset);
       setPedestrianLoadedSessionId(null);
       if (liveSessionId) {
         await loadPedestriansIntoSession(liveSessionId);
@@ -671,7 +671,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     } finally {
       if (!isStale(projectId)) setIsApplyingPedestrianDataset(false);
     }
-  }, [isStale, liveSessionId, loadPedestriansIntoSession, projectId, setPedestrianImport]);
+  }, [availablePedestrianDatasets, isStale, liveSessionId, loadPedestriansIntoSession, projectId, setPedestrianImport]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -687,14 +687,24 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   useEffect(() => {
     setSelectedPedestrianDatasetId('');
+    setAppliedPedestrianDataset(null);
     setPedestrianDatasetError(null);
     setPedestrianLoadedSessionId(null);
   }, [projectId]);
 
   useEffect(() => {
-    if (!projectId || !selectedPedestrianDatasetId) return;
+    if (!projectId) return;
+    if (!selectedPedestrianDatasetId) {
+      if (appliedPedestrianDataset) {
+        setAppliedPedestrianDataset(null);
+        setPedestrianImport(null);
+        setPedestrianLoadedSessionId(null);
+        setPedestrianDatasetError(null);
+      }
+      return;
+    }
     void applyPedestrianDataset(selectedPedestrianDatasetId);
-  }, [applyPedestrianDataset, projectId, selectedPedestrianDatasetId]);
+  }, [appliedPedestrianDataset, applyPedestrianDataset, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
@@ -919,8 +929,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           )}
           {pedestrianImport && pedestrianImport.pedestrianCount > 0 && (
             <p className="text-[11px] text-gray-500">
-              {selectedPedestrianDataset
-                ? `Dataset actif : ${selectedPedestrianDataset.name} · `
+              {appliedPedestrianDataset
+                ? `Dataset actif : ${appliedPedestrianDataset.name} · `
                 : 'Dataset actif : '}
               {pedestrianImport.pedestrianCount} piéton(s), {pedestrianImport.rowCount} ligne(s)
               {pedestrianImport.anomalies.length > 0 ? `, ${pedestrianImport.anomalies.length} anomalie(s)` : ''}

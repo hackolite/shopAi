@@ -165,8 +165,20 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
 }
 
 function extractDownloadName(contentDisposition: string | null, fallbackName: string): string {
-  const match = contentDisposition?.match(/filename="([^"]+)"/i);
-  return match?.[1] || fallbackName;
+  if (!contentDisposition) return fallbackName;
+  const encodedMatch = contentDisposition.match(/filename\*\s*=\s*([^;]+)/i);
+  if (encodedMatch) {
+    const encodedValue = encodedMatch[1].trim().replace(/^UTF-8''/i, '').replace(/^"(.*)"$/, '$1');
+    try {
+      return decodeURIComponent(encodedValue);
+    } catch {
+      return encodedValue || fallbackName;
+    }
+  }
+  const quotedMatch = contentDisposition.match(/filename\s*=\s*"([^"]+)"/i);
+  if (quotedMatch) return quotedMatch[1];
+  const bareMatch = contentDisposition.match(/filename\s*=\s*([^;]+)/i);
+  return bareMatch?.[1]?.trim().replace(/^"(.*)"$/, '$1') || fallbackName;
 }
 
 async function download(url: string, fallbackName: string): Promise<void> {

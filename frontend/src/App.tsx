@@ -223,7 +223,7 @@ export default function App() {
 
   const handleDownloadStoreLayout = (layoutId: string, layoutName: string) => runAction(async () => {
     await platformApi.downloadStoreLayout(layoutId, layoutName);
-    setStatusMessage('Implantation téléchargée.');
+    setStatusMessage('Téléchargement de l’implantation lancé.');
   });
 
   const handleCreateCatalog = () => runAction(async () => {
@@ -257,7 +257,7 @@ export default function App() {
 
   const handleDownloadCatalog = (catalogId: string, catalogName: string) => runAction(async () => {
     await platformApi.downloadCatalog(catalogId, catalogName);
-    setStatusMessage('Catalogue téléchargé.');
+    setStatusMessage('Téléchargement du catalogue lancé.');
   });
 
   const handleCreateSimulation = () => runAction(async () => {
@@ -292,7 +292,7 @@ export default function App() {
 
   const handleDownloadSimulation = (simulationId: string, simulationNameValue: string) => runAction(async () => {
     await platformApi.downloadSimulation(simulationId, simulationNameValue);
-    setStatusMessage('Simulation téléchargée.');
+    setStatusMessage('Téléchargement de la simulation lancé.');
   });
 
   const handleImportPedestrianDatasetCsv = () => runAction(async () => {
@@ -318,7 +318,7 @@ export default function App() {
 
   const handleDownloadPedestrianDataset = (datasetId: string, datasetName: string) => runAction(async () => {
     await platformApi.downloadPedestrianDataset(datasetId, datasetName);
-    setStatusMessage('Dataset panier/piéton téléchargé.');
+    setStatusMessage('Téléchargement du dataset panier/piéton lancé.');
   });
 
   const handleSubmitAgentRequest = () => runAction(async () => {

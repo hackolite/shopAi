@@ -210,6 +210,16 @@ def test_forwarded_session_header_requires_matching_webhook_token(
     assert session_token
 
     with TestClient(app) as callback_client:
+        rejected = callback_client.get(
+            "/api/platform/dashboard",
+            headers={
+                "X-ShopAI-Session": session_token,
+                "Authorization": "Bearer " + "wrong-secret",
+            },
+        )
+    assert rejected.status_code == 401
+
+    with TestClient(app) as callback_client:
         unauthorized = callback_client.post(
             "/api/cad/projects/import",
             json={"name": "Unauthorized", "snapshot": {}},

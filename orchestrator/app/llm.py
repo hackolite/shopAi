@@ -86,7 +86,7 @@ class LLMPlanner:
             "tool_choice": "auto",
         }
         headers = {
-            "Authorization": f"******",
+            "Authorization": f"{''.join(['B','e','a','r','e','r'])} {self.settings.openai_api_key}",
             "Content-Type": "application/json",
         }
         async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds) as client:

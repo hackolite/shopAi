@@ -22,6 +22,7 @@ self-reported success is never taken at face value.
 from __future__ import annotations
 
 import os
+import logging
 from typing import Any
 
 import httpx
@@ -31,6 +32,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from services import platform_service, project_manager
 from services.studio_assistant import audit_persisted_project
 
+_log = logging.getLogger(__name__)
 _WEBHOOK_URL_ENV = "STUDIO_LLM_WEBHOOK_URL"
 _WEBHOOK_TOKEN_ENV = "STUDIO_LLM_WEBHOOK_TOKEN"
 _WEBHOOK_TIMEOUT_ENV = "STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS"
@@ -74,6 +76,12 @@ def run_llm_assistant(
     platform_service.require_current_user()
     platform_service.require_current_user_project_access(project_id)
     project_manager.ensure_project_exists(project_id)
+    _log.info(
+        "External LLM request: project_id=%s confirm=%s prompt_chars=%d",
+        project_id,
+        confirm,
+        len(prompt),
+    )
 
     webhook_url = os.environ.get(_WEBHOOK_URL_ENV, "").strip()
     if not webhook_url:
@@ -97,9 +105,17 @@ def run_llm_assistant(
     try:
         response = httpx.post(webhook_url, json=payload, headers=headers, timeout=_timeout_seconds())
     except httpx.HTTPError as exc:
+        _log.warning("External LLM request failed for project_id=%s: %s", project_id, exc)
         raise HTTPException(status_code=502, detail=f"Agent LLM externe injoignable : {exc}") from exc
 
     if response.status_code >= 400:
+        _log.warning(
+            "External LLM returned error for project_id=%s: status=%d content_type=%r body_bytes=%d",
+            project_id,
+            response.status_code,
+            response.headers.get("content-type"),
+            len(response.content),
+        )
         raise HTTPException(
             status_code=502,
             detail=f"Agent LLM externe a répondu HTTP {response.status_code}",
@@ -108,6 +124,13 @@ def run_llm_assistant(
     try:
         validated = _WebhookResponse.model_validate(response.json())
     except (ValueError, ValidationError) as exc:
+        _log.warning(
+            "External LLM returned invalid payload for project_id=%s: %s content_type=%r body_bytes=%d",
+            project_id,
+            exc,
+            response.headers.get("content-type"),
+            len(response.content),
+        )
         raise HTTPException(
             status_code=502,
             detail=f"Réponse de l'agent LLM externe invalide : {exc}",
@@ -120,8 +143,10 @@ def run_llm_assistant(
         # self-reported success without re-reading and auditing the actual
         # persisted state it claims to have written.
         try:
+            _log.info("Running post-write audit for project_id=%s", validated.projectId)
             audit = audit_persisted_project(validated.projectId)
-        except (ValueError, KeyError, TypeError, OSError, ValidationError):
+        except (ValueError, KeyError, TypeError, OSError, ValidationError) as exc:
+            _log.warning("Post-write audit failed for project_id=%s: %s", validated.projectId, exc)
             result["steps"] = [
                 *result.get("steps", []),
                 "Audit post-écriture impossible : état du projet introuvable ou invalide "
@@ -129,6 +154,11 @@ def run_llm_assistant(
             ]
         else:
             if not audit["ok"]:
+                _log.warning(
+                    "Post-write audit detected issues for project_id=%s: issue_count=%s",
+                    validated.projectId,
+                    audit.get("issueCount"),
+                )
                 issues = [issue for check in audit["checks"].values() for issue in check["issues"]]
                 result["steps"] = [
                     *result.get("steps", []),

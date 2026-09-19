@@ -1385,6 +1385,19 @@ def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
     return _pedestrian_dataset_row_to_dict(row)
 
 
+def delete_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        deleted = conn.execute(
+            "DELETE FROM pedestrian_datasets WHERE id = ? AND tenant_id = ?",
+            (dataset_id, user["tenantId"]),
+        ).rowcount
+        conn.commit()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail=f"Pedestrian dataset '{dataset_id}' not found")
+    return {"deleted": True, "id": dataset_id}
+
+
 def delete_checkout_simulation_list(simulation_id: str) -> dict[str, Any]:
     user = require_current_user()
     with _connect() as conn:

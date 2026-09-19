@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -422,24 +424,33 @@ def test_create_project_seeds_from_selected_layout_catalog_and_pedestrians() -> 
     assert pedestrians.json()["pedestrianCount"] == 1
 
 
-def test_catalog_csv_upload_persists_tenant_catalog() -> None:
+def test_catalog_json_upload_persists_tenant_catalog() -> None:
     client = _make_client()
     _register(client, name="Cataloguer", email="cataloguer@example.com")
 
-    csv_body = (
-        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,priceSellEur\n"
-        "1234567890123,Jus d'orange 1L,MarqueA,Boissons,8,8,25,1050,2.15\n"
-        "2234567890123,,MarqueB,Boissons,8,8,25,1050,2.15\n"
-    )
+    assortment_body = json.dumps([
+        {
+            "barcode": "1234567890123",
+            "product_name": "Jus d'orange 1L",
+            "brand": "MarqueA",
+            "category_name": "Boissons",
+            "image_url": "https://example.com/a.jpg",
+            "cost_price_eur": 1.25,
+            "suggested_price_eur": 2.15,
+            "margin_rate_pct": 42.0,
+            "quantity": "1 L",
+        }
+    ])
     response = client.post(
-        "/api/platform/catalogs/import-csv",
-        data={"name": "Catalogue importé", "description": "Depuis CSV"},
-        files={"file": ("catalog.csv", csv_body, "text/csv")},
+        "/api/platform/catalogs/import-json",
+        data={"name": "Catalogue importé", "description": "Depuis JSON"},
+        files={"file": ("assortment.json", assortment_body, "application/json")},
     )
     assert response.status_code == 200, response.text
     catalog = response.json()
     assert catalog["productCount"] == 1
     assert catalog["payload"]["products"][0]["ean"] == "1234567890123"
+    assert catalog["payload"]["products"][0]["name"] == "Jus d'orange 1L"
 
     dashboard = client.get("/api/platform/dashboard")
     assert dashboard.status_code == 200, dashboard.text
@@ -454,14 +465,20 @@ def test_catalog_list_and_load_into_project() -> None:
     assert project.status_code == 200, project.text
     project_id = project.json()["id"]
 
-    csv_body = (
-        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,priceSellEur\n"
-        "3234567890123,Café moulu 250g,MarqueC,Épicerie,10,6,15,260,3.50\n"
-    )
+    assortment_body = json.dumps([
+        {
+            "barcode": "3234567890123",
+            "product_name": "Café moulu 250g",
+            "brand": "MarqueC",
+            "category_name": "Épicerie",
+            "suggested_price_eur": 3.50,
+            "quantity": "250 g",
+        }
+    ])
     created = client.post(
-        "/api/platform/catalogs/import-csv",
+        "/api/platform/catalogs/import-json",
         data={"name": "Catalogue à charger", "description": ""},
-        files={"file": ("catalog.csv", csv_body, "text/csv")},
+        files={"file": ("assortment.json", assortment_body, "application/json")},
     )
     assert created.status_code == 200, created.text
     catalog_id = created.json()["id"]
@@ -481,18 +498,29 @@ def test_catalog_list_and_load_into_project() -> None:
     assert "3234567890123" in eans
 
 
-def test_catalog_csv_upload_parses_optional_description_column() -> None:
+def test_catalog_json_upload_accepts_normalized_products_object() -> None:
     client = _make_client()
     _register(client, name="Describer", email="describer@example.com")
 
-    csv_body = (
-        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,description\n"
-        "4234567890123,Chips nature 150g,MarqueD,Épicerie,20,10,30,150,Chips artisanales salées\n"
-    )
+    payload = {
+        "products": [
+            {
+                "ean": "4234567890123",
+                "name": "Chips nature 150g",
+                "brand": "MarqueD",
+                "category": "Épicerie",
+                "widthCm": 20,
+                "depthCm": 10,
+                "heightCm": 30,
+                "weightG": 150,
+                "description": "Chips artisanales salées",
+            }
+        ]
+    }
     response = client.post(
-        "/api/platform/catalogs/import-csv",
+        "/api/platform/catalogs/import-json",
         data={"name": "Catalogue avec descriptions", "description": ""},
-        files={"file": ("catalog.csv", csv_body, "text/csv")},
+        files={"file": ("catalog.json", json.dumps(payload), "application/json")},
     )
     assert response.status_code == 200, response.text
     product = response.json()["payload"]["products"][0]
@@ -581,6 +609,13 @@ def test_workspace_resources_can_be_deleted() -> None:
     assert layout_response.status_code == 200, layout_response.text
     layout_id = layout_response.json()["id"]
 
+    dataset_response = client.post(
+        "/api/platform/pedestrian-datasets",
+        json={"name": "Dataset à supprimer", "pedestrianCount": 1, "payload": {"pedestrianCount": 1, "rowCount": 1, "plans": [], "anomalies": []}},
+    )
+    assert dataset_response.status_code == 200, dataset_response.text
+    dataset_id = dataset_response.json()["id"]
+
     delete_project = client.delete(f"/api/cad/projects/{project_id}")
     assert delete_project.status_code == 200, delete_project.text
 
@@ -593,12 +628,54 @@ def test_workspace_resources_can_be_deleted() -> None:
     delete_layout = client.delete(f"/api/platform/store-layouts/{layout_id}")
     assert delete_layout.status_code == 200, delete_layout.text
 
+    delete_dataset = client.delete(f"/api/platform/pedestrian-datasets/{dataset_id}")
+    assert delete_dataset.status_code == 200, delete_dataset.text
+
     dashboard = client.get("/api/platform/dashboard")
     assert dashboard.status_code == 200, dashboard.text
     stats = dashboard.json()["stats"]
     assert stats["catalogCount"] == 1
     assert stats["simulationCount"] == 0
     assert stats["storeLayoutCount"] == 1
+    assert stats["pedestrianDatasetCount"] == 1
+
+
+def test_project_zip_export_embeds_reimportable_store_layout_json() -> None:
+    client = _make_client()
+    _register(client, name="Exporter", email="exporter@example.com")
+
+    project_response = client.post("/api/cad/projects/", json={"name": "Projet exporté"})
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    furniture_response = client.post(
+        f"/api/cad/projects/{project_id}/scene/furniture",
+        json={
+            "id": "fixture-gondola-export",
+            "name": "Gondole export",
+            "type": "gondola",
+            "libraryId": "gondola",
+            "position": [200.0, 0.0, 200.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 120.0, "depth": 60.0, "height": 180.0},
+        },
+    )
+    assert furniture_response.status_code == 200, furniture_response.text
+
+    exported_zip = client.get(f"/api/cad/projects/{project_id}/export")
+    assert exported_zip.status_code == 200, exported_zip.text
+
+    with zipfile.ZipFile(io.BytesIO(exported_zip.content)) as archive:
+        assert "retail-layout.json" in archive.namelist()
+        retail_layout = archive.read("retail-layout.json").decode("utf-8")
+
+    import_response = client.post(
+        "/api/platform/store-layouts/import-json",
+        data={"name": "Implantation depuis ZIP", "description": "Retail layout embarqué"},
+        files={"file": ("retail-layout.json", retail_layout, "application/json")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    assert import_response.json()["payload"]["scene"]["furniture"][0]["id"] == "fixture-gondola-export"
 
 
 def test_pedestrian_dataset_csv_upload_from_workspace() -> None:

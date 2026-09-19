@@ -1,4 +1,4 @@
-"""Parse a product catalog CSV file into a :class:`~models.project.Catalog`.
+"""Parse product catalog imports into a :class:`~models.project.Catalog`.
 
 Expected columns: ``ean, name, brand, category, widthCm, depthCm, heightCm,
 weightG`` (required) plus optional ``subcategory, productRange, format,
@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import csv
 import io
+import json
+import re
 from typing import Any
 
 from fastapi import HTTPException
@@ -19,6 +21,32 @@ from models.project import Catalog, Product
 _REQUIRED_COLUMNS = {"ean", "name", "brand", "category", "widthCm", "depthCm", "heightCm", "weightG"}
 _NUMERIC_COLUMNS = {"widthCm", "depthCm", "heightCm", "weightG"}
 _OPTIONAL_NUMERIC_COLUMNS = {"priceBuyEur", "marginPct", "priceSellEur"}
+
+
+def _catalog_from_assortment_rows(rows: list[dict[str, Any]]) -> Catalog:
+    products = []
+    for row in rows:
+        quantity = str(row.get("quantity") or "")
+        match = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*(kg|g)\s*", quantity, re.IGNORECASE)
+        weight = float(match[1].replace(",", ".")) * (1000 if match[2].lower() == "kg" else 1) if match else 0
+        products.append({
+            "ean": str(row["barcode"]),
+            "name": row["product_name"],
+            "brand": row.get("brand") or "",
+            "category": row.get("category_name") or "",
+            "subcategory": row.get("subcategory_name"),
+            "format": quantity or None,
+            "productRange": "MDD" if row.get("is_mdd") else None,
+            "widthCm": 10,
+            "depthCm": 10,
+            "heightCm": 20,
+            "weightG": weight,
+            "imageUrl": row.get("image_url") or None,
+            "priceBuyEur": row.get("cost_price_eur"),
+            "priceSellEur": row.get("suggested_price_eur"),
+            "marginPct": row.get("margin_rate_pct"),
+        })
+    return Catalog.model_validate({"products": products})
 
 
 def parse_catalog_csv(csv_text: str) -> Catalog:
@@ -74,3 +102,36 @@ def parse_catalog_csv(csv_text: str) -> Catalog:
             raise HTTPException(status_code=422, detail=f"Row {row_index}: {exc}") from exc
 
     return Catalog(products=products)
+
+
+def parse_catalog_json(json_text: str) -> Catalog:
+    try:
+        data = json.loads(json_text)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid JSON file: {exc}") from exc
+
+    if isinstance(data, dict):
+        products = data.get("products")
+        if not isinstance(products, list):
+            raise HTTPException(status_code=422, detail='JSON object must contain a "products" array')
+        try:
+            return Catalog.model_validate({"products": products})
+        except Exception as exc:  # noqa: BLE001 - surface pydantic error as HTTP 422
+            raise HTTPException(status_code=422, detail=f"Invalid catalog JSON: {exc}") from exc
+
+    if not isinstance(data, list):
+        raise HTTPException(status_code=422, detail="JSON root must be an array or an object with 'products'")
+
+    if not data:
+        return Catalog(products=[])
+
+    if all(isinstance(item, dict) and ("barcode" in item or "product_name" in item) for item in data):
+        try:
+            return _catalog_from_assortment_rows(data)
+        except KeyError as exc:
+            raise HTTPException(status_code=422, detail=f"Missing assortment field: {exc.args[0]}") from exc
+
+    try:
+        return Catalog.model_validate({"products": data})
+    except Exception as exc:  # noqa: BLE001 - surface pydantic error as HTTP 422
+        raise HTTPException(status_code=422, detail=f"Invalid catalog JSON: {exc}") from exc

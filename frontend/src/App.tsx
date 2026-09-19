@@ -236,11 +236,11 @@ export default function App() {
 
   const handleImportCatalogCsv = () => runAction(async () => {
     if (!catalogCsvFile || !catalogCsvName.trim()) return;
-    await platformApi.importCatalogCsv(catalogCsvFile, catalogCsvName.trim());
+    await platformApi.importCatalogJson(catalogCsvFile, catalogCsvName.trim());
     setCatalogCsvName('');
     setCatalogCsvFile(null);
     await loadAuthenticatedData();
-    setStatusMessage('Catalogue importé depuis le CSV.');
+    setStatusMessage('Catalogue importé depuis le JSON assortment.');
   });
 
   const handleDeleteCatalog = (catalogId: string, catalogName: string) => runAction(async () => {
@@ -292,6 +292,13 @@ export default function App() {
     setPedestrianCsvFile(null);
     await loadAuthenticatedData();
     setStatusMessage('Dataset panier/piéton importé depuis le CSV.');
+  });
+
+  const handleDeletePedestrianDataset = (datasetId: string, datasetName: string) => runAction(async () => {
+    if (!window.confirm(`Supprimer définitivement le dataset « ${datasetName} » ?`)) return;
+    await platformApi.deletePedestrianDataset(datasetId);
+    await loadAuthenticatedData();
+    setStatusMessage('Dataset panier/piéton supprimé.');
   });
 
   const handleSubmitAgentRequest = () => runAction(async () => {
@@ -579,11 +586,11 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !catalogName.trim()}>Enregistrer le catalogue</button>
                     </form>
                     <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportCatalogCsv(); }}>
-                      <h3>Importer un catalogue CSV</h3>
+                      <h3>Importer un catalogue assortment.json</h3>
                       <Field label="Nom du catalogue"><input required value={catalogCsvName} onChange={(event) => setCatalogCsvName(event.target.value)} placeholder="Ex. Assortiment fournisseur" /></Field>
-                      <Field label="Fichier CSV"><input required type="file" accept=".csv,text/csv" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Colonnes requises : ean, name, brand, category, widthCm, depthCm, heightCm, weightG. Colonnes facultatives : description, subcategory, productRange, format, imageUrl, priceBuyEur, marginPct, priceSellEur.</p>
-                      <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le CSV</button>
+                      <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
+                      <p className="hub-small hub-muted">Accepte le format brut `assortment.json` (barcode, product_name, image_url, etc.) et aussi un objet JSON déjà normalisé avec une clé `products`.</p>
+                      <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
                       <h3>Vos catalogues <span className="hub-count">{dashboard?.catalogs.length ?? 0}</span></h3>
@@ -646,7 +653,14 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !pedestrianCsvName.trim() || !pedestrianCsvFile}>Importer le CSV panier/piéton</button>
                     </form>
                     {dashboard?.pedestrianDatasets.length ? <ul className="hub-resource-list">{dashboard.pedestrianDatasets.map((dataset) => (
-                      <li key={dataset.id}><h4>{dataset.name}</h4><p>{dataset.description || 'Sans description'}</p><span className="hub-small hub-muted">{dataset.pedestrianCount} piétons · Mis à jour le {formatDate(dataset.updatedAt)}</span></li>
+                      <li key={dataset.id}>
+                        <div className="hub-resource-item-header">
+                          <h4>{dataset.name}</h4>
+                          <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeletePedestrianDataset(dataset.id, dataset.name)}>Supprimer</button>
+                        </div>
+                        <p>{dataset.description || 'Sans description'}</p>
+                        <span className="hub-small hub-muted">{dataset.pedestrianCount} piétons · Mis à jour le {formatDate(dataset.updatedAt)}</span>
+                      </li>
                     ))}</ul> : <p className="hub-empty">Aucun dataset panier/piéton importé pour le moment.</p>}
                   </div>
                 </Section>}

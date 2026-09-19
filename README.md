@@ -55,6 +55,18 @@ Exemples :
 - `Créer assortiment: utilise le catalogue du projet, priorise la marge et garde les frais sur les meubles froids.`
 - `Projet complet: à partir du catalogue du projet, crée une supérette urbaine orientée dépannage du soir.`
 
+Ces 5 préchargements (création complète, modification d'implantation, mise en
+rayons from scratch d'un assortiment dans un projet, modification d'un
+assortiment déjà en rayons, création de projet from scratch) sont couverts
+bout en bout par les endpoints REST `POST /api/cad/projects/`,
+`PUT /.../scene/store`, `POST /.../scene/furniture`,
+`PUT /.../scene/furniture/{id}`, `POST /.../catalog/import` et
+`PUT /.../planograms/{id}` : c'est exactement la séquence exercée par
+`scripts/astra_build_store.py` (création + implantation + mise en rayons) et
+vérifiable manuellement en rejouant `PUT scene/furniture/{id}` (modifier
+implantation) puis `PUT planograms/{id}` (modifier assortiment) sur un projet
+existant.
+
 ### Comment connecter un provider API à un agent
 
 1. Activez votre provider d'authentification dans le workspace si vous voulez un
@@ -86,6 +98,15 @@ de simulation. **Enregistrer sous…** sauvegarde avant duplication.
 implantations, catalogues, simulations et datasets du workspace sont
 téléchargeables depuis leurs cartes respectives. Dans la simulation 3D, les
 flux piétons proviennent uniquement des datasets du workspace.
+
+### Piétons : mécanique backend conservée, avatar 3D retiré
+
+Le moteur de simulation (positions, vitesses, ramassage produit, heatmap,
+trajectoires, panier par piéton) tourne exactement comme avant côté backend et
+côté client (calcul des poses par frame). Seul l'avatar 3D du piéton
+(corps, halo anti-collision, cône de vision) n'est plus dessiné dans la scène :
+`InstancedAgents` a été retiré de `frontend/src/three/SimulationLayer.tsx`. Les
+heatmaps, trajectoires et popups de ramassage restent affichés normalement.
 
 ## Architecture
 

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-Provider = Literal["none", "openai", "anthropic"]
+Provider = Literal["none", "openai", "anthropic", "xai", "openrouter"]
 
 
 @dataclass(frozen=True)
@@ -14,8 +14,14 @@ class Settings:
     llm_provider: Provider
     openai_api_key: str | None
     anthropic_api_key: str | None
+    xai_api_key: str | None
+    openrouter_api_key: str | None
     openai_model: str
     anthropic_model: str
+    xai_model: str
+    openrouter_model: str
+    openrouter_http_referer: str | None
+    openrouter_app_title: str | None
     request_timeout_seconds: float
     max_retries: int
     collision_max_retries: int
@@ -49,7 +55,7 @@ def _read_int(name: str, default: int) -> int:
 
 def load_settings() -> Settings:
     provider = os.getenv("LLM_PROVIDER", "none").strip().lower() or "none"
-    if provider not in {"none", "openai", "anthropic"}:
+    if provider not in {"none", "openai", "anthropic", "xai", "openrouter"}:
         provider = "none"
 
     webhook_auth_token = (
@@ -63,8 +69,14 @@ def load_settings() -> Settings:
         llm_provider=provider,
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip() or None,
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip() or None,
+        xai_api_key=os.getenv("XAI_API_KEY", "").strip() or None,
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "").strip() or None,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip(),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest").strip(),
+        xai_model=os.getenv("XAI_MODEL", "grok-4").strip(),
+        openrouter_model=os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini").strip(),
+        openrouter_http_referer=os.getenv("OPENROUTER_HTTP_REFERER", "").strip() or None,
+        openrouter_app_title=os.getenv("OPENROUTER_APP_TITLE", "").strip() or None,
         request_timeout_seconds=max(1.0, min(_read_float("REQUEST_TIMEOUT_SECONDS", 30.0), 120.0)),
         max_retries=max(1, min(_read_int("MAX_RETRIES", 3), 8)),
         collision_max_retries=max(1, min(_read_int("COLLISION_MAX_RETRIES", 6), 16)),

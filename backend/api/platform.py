@@ -466,7 +466,7 @@ def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
 def download_pedestrian_dataset(dataset_id: str) -> Response:
     dataset = platform_service.get_pedestrian_dataset(dataset_id)
     payload = dataset.get("payload")
-    safe_name = _safe_download_name(dataset["name"], "pedestrian_dataset")
+    safe_name = _safe_download_name(dataset["name"], "dataset")
     csv_text = _pedestrian_dataset_to_csv(payload if isinstance(payload, dict) else {})
     return _download_text_response(csv_text, f"{safe_name}_pedestrian_dataset.csv", "text/csv; charset=utf-8")
 

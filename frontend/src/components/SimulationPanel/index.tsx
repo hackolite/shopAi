@@ -322,6 +322,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
+  const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
+  const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
   // New waypoints are dropped at the bottom-left corner of the grid so they are
   // always visible right where the store starts.
   const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);
@@ -653,17 +655,25 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const applyPedestrianDataset = useCallback(async (datasetId: string) => {
     if (!projectId) return;
     const dataset = availablePedestrianDatasets.find((item) => item.id === datasetId) ?? null;
+    const previousAppliedDataset = appliedPedestrianDatasetRef.current;
     setIsApplyingPedestrianDataset(true);
     setPedestrianDatasetError(null);
     try {
       const result = await cadApi.loadPedestrianDataset(projectId, datasetId);
       if (isStale(projectId)) return;
-      setPedestrianImport(result);
-      setAppliedPedestrianDataset(dataset);
       setPedestrianLoadedSessionId(null);
       if (liveSessionId) {
-        await loadPedestriansIntoSession(liveSessionId);
+        const loaded = await loadPedestriansIntoSession(liveSessionId);
+        if (!loaded) {
+          const previousDatasetId = previousAppliedDataset?.id ?? '';
+          if (selectedPedestrianDatasetId !== previousDatasetId) {
+            setSelectedPedestrianDatasetId(previousDatasetId);
+          }
+          return;
+        }
       }
+      setPedestrianImport(result);
+      setAppliedPedestrianDataset(dataset);
     } catch (error) {
       console.error('Failed to load pedestrian dataset:', error);
       if (!isStale(projectId)) {
@@ -672,7 +682,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     } finally {
       if (!isStale(projectId)) setIsApplyingPedestrianDataset(false);
     }
-  }, [availablePedestrianDatasets, isStale, liveSessionId, loadPedestriansIntoSession, projectId, setPedestrianImport]);
+  }, [availablePedestrianDatasets, isStale, liveSessionId, loadPedestriansIntoSession, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -700,6 +710,11 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => {
     if (!projectId) return;
     if (!selectedPedestrianDatasetId) {
+      if (pedestrianLoadedIntoSession && appliedPedestrianDatasetRef.current) {
+        setSelectedPedestrianDatasetId(appliedPedestrianDatasetRef.current.id);
+        setPedestrianDatasetError('Arrêtez la simulation en cours avant de retirer le dataset actif.');
+        return;
+      }
       if (appliedPedestrianDatasetRef.current) {
         setAppliedPedestrianDataset(null);
         setPedestrianImport(null);
@@ -709,7 +724,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       return;
     }
     void applyPedestrianDataset(selectedPedestrianDatasetId);
-  }, [applyPedestrianDataset, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
+  }, [applyPedestrianDataset, pedestrianLoadedIntoSession, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
@@ -774,8 +789,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   // The dataset is only actually driving the live simulation once it has been
   // loaded into the *current* session and that session is running.
-  const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
-  const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
   const jupedsimFieldOverriddenTitle =
     'Ce paramètre JuPedSim est ignoré : les piétons proviennent du dataset sélectionné et sont déjà pilotés par ce scénario.';
 
@@ -917,7 +930,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               disabled={isApplyingPedestrianDataset}
               className="w-full rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">Choisir un dataset…</option>
+              <option value="" disabled={pedestrianLoadedIntoSession}>Choisir un dataset…</option>
               {availablePedestrianDatasets.map((dataset) => (
                 <option key={dataset.id} value={dataset.id}>
                   {dataset.name} ({dataset.pedestrianCount} piétons)

@@ -248,6 +248,20 @@ def _apply_placements(snapshot: dict[str, Any], actions: list[dict[str, Any]]) -
         )
 
 
+def audit_persisted_project(project_id: str) -> dict[str, Any]:
+    """Re-read a project's saved files and audit them.
+
+    Public wrapper around the internal snapshot loader/auditor, used by the
+    external LLM assistant proxy to enforce a mandatory post-write check on
+    any project an external agent claims to have modified. Raises the same
+    exceptions as the internal audit path (``ValueError``, ``KeyError``,
+    ``TypeError``, ``OSError``, ``ValidationError``) when the persisted state
+    is missing or invalid.
+    """
+    metadata, snapshot = _load_persisted(project_id)
+    return _audit(metadata, snapshot)
+
+
 def run_studio_assistant(
     project_id: str,
     prompt: str,

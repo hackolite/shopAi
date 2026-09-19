@@ -165,6 +165,40 @@ appelle alors directement les endpoints REST dans l'ordre des 8 étapes.
 - vous voulez brancher plusieurs modèles ;
 - vous voulez journaliser précisément tous les appels.
 
+### Option 3 — Brancher l'agent dans le chat de l'interface (`/assistant/llm`)
+
+Le chat Studio (`StudioAssistant.tsx`) peut relayer le prompt libre vers votre
+propre orchestrateur LLM, sans que ce dépôt n'appelle jamais un provider LLM
+lui-même :
+
+- endpoint : `POST /api/cad/projects/{project_id}/assistant/llm` (même charge
+  utile que `/assistant` : `{"prompt": "...", "confirm": false}`) ;
+- statut : `GET /api/cad/projects/{project_id}/assistant/llm/status` renvoie
+  `{"enabled": bool}` selon qu'un webhook est configuré côté serveur ;
+- configuration **exclusivement côté serveur**, jamais via un paramètre
+  client (pour éviter tout SSRF) :
+  - `STUDIO_LLM_WEBHOOK_URL` : URL de votre orchestrateur (obligatoire pour
+    activer ce mode) ;
+  - `STUDIO_LLM_WEBHOOK_TOKEN` : jeton optionnel envoyé en
+    en-tête HTTP `Authorization` (schéma Bearer) à votre orchestrateur ;
+  - `STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS` : délai d'attente (défaut 30 s,
+    borné à 120 s).
+- le backend transmet `{"projectId", "prompt", "confirm"}` à votre webhook,
+  ainsi que le cookie de session ShopAI de l'utilisateur courant (en-tête
+  `X-ShopAI-Session`), pour que votre orchestrateur puisse rappeler l'API
+  REST du dépôt authentifié en tant que cet utilisateur ;
+- la réponse de votre orchestrateur doit respecter exactement le même
+  contrat que l'assistant intégré : `message`, `requiresConfirmation`,
+  `changed`, `projectId` (optionnel), `steps` (optionnel) — tout champ
+  inconnu est rejeté (`502`) ;
+- si votre agent déclare `changed: true` avec un `projectId`, le backend
+  **relit et audite** systématiquement l'état persisté de ce projet avant de
+  faire confiance au résultat ; les anomalies détectées sont ajoutées aux
+  `steps` renvoyés au frontend, sans jamais bloquer silencieusement.
+
+Ce mode ne remplace pas l'assistant local par défaut : les deux endpoints
+coexistent, `/assistant` restant déterministe et sans IA externe.
+
 ## Préfixes de demandes conseillés pour un agent externe
 
 Quand vous stockez une demande agent dans l'interface ShopAI, utilisez des

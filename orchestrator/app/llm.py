@@ -43,7 +43,7 @@ class LLMPlanner:
         depth = 2000.0
         height = 400.0
 
-        sqm_match = re.search(r"(\d+)\s*m\s*[²2]", lower)
+        sqm_match = re.search(r"\b(\d{1,5})\s*m\s*[²2]\b", lower)
         if sqm_match:
             sqm = max(50, min(int(sqm_match.group(1)), 10000))
             side_m = max(8.0, min((sqm ** 0.5), 200.0))

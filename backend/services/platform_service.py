@@ -34,6 +34,9 @@ _WEBHOOK_TOKEN_ENV = "STUDIO_LLM_WEBHOOK_TOKEN"
 SESSION_DURATION_DAYS = 14
 OAUTH_STATE_TTL_SECONDS = 600
 _SUPPORTED_OAUTH_PROVIDERS = {"google", "github"}
+_FORWARDED_SESSION_PATH_PREFIXES = (
+    "/api/cad/projects/import",
+)
 _current_user: ContextVar[dict[str, Any] | None] = ContextVar(
     "shopai_current_user",
     default=None,
@@ -769,14 +772,18 @@ def _resolve_forwarded_session_token(request: Request) -> str | None:
     return token
 
 
+def _request_uses_forwarded_session(request: Request) -> bool:
+    return (
+        bool(request.headers.get(SESSION_HEADER_NAME))
+        and any(request.url.path.startswith(prefix) for prefix in _FORWARDED_SESSION_PATH_PREFIXES)
+    )
+
+
 def resolve_session_user(request: Request) -> dict[str, Any] | None:
     ensure_platform_schema()
     cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
-    if request.headers.get(SESSION_HEADER_NAME):
-        if request.headers.get("Authorization"):
-            token = _resolve_forwarded_session_token(request)
-        else:
-            token = cookie_token
+    if _request_uses_forwarded_session(request):
+        token = _resolve_forwarded_session_token(request)
     else:
         token = cookie_token
     if not token:

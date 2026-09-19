@@ -145,6 +145,50 @@ def test_llm_endpoint_requires_authentication_and_tenant_access(studio):
         assert response.status_code == 403
 
 
+def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_header(
+    studio,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from main import app
+
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        with TestClient(app) as callback_client:
+            response = callback_client.post(
+                "/api/cad/projects/import",
+                json={
+                    "name": "Projet généré par agent",
+                    "snapshot": {
+                        "scene": {"store": {}, "furniture": []},
+                        "catalog": {"products": []},
+                        "planograms": [],
+                    },
+                },
+                headers={"X-ShopAI-Session": headers["X-ShopAI-Session"]},
+            )
+        assert response.status_code == 200, response.text
+        return httpx.Response(200, json={
+            "message": "Projet créé.",
+            "requiresConfirmation": False,
+            "changed": True,
+            "projectId": response.json()["id"],
+        })
+
+    monkeypatch.setattr(llm_assistant.httpx, "post", fake_post)
+    response = client.post(
+        f"/api/cad/projects/{project_id}/assistant/llm",
+        json={"prompt": "Créer implantation: X", "confirm": True},
+    )
+    assert response.status_code == 200, response.text
+    created_project_id = response.json()["projectId"]
+
+    created_project = client.get(f"/api/cad/projects/{created_project_id}")
+    assert created_project.status_code == 200, created_project.text
+    assert created_project.json()["name"] == "Projet généré par agent"
+
+
 @pytest.mark.parametrize("payload", [
     {"prompt": ""}, {"prompt": "   "}, {"prompt": "a" * 2001},
     {"prompt": 123}, {"prompt": "X", "confirm": "yes"},

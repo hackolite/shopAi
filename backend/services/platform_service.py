@@ -29,6 +29,7 @@ from services.reference_templates import (
 )
 
 SESSION_COOKIE_NAME = "shopai_session"
+SESSION_HEADER_NAME = "X-ShopAI-Session"
 SESSION_DURATION_DAYS = 14
 OAUTH_STATE_TTL_SECONDS = 600
 _SUPPORTED_OAUTH_PROVIDERS = {"google", "github"}
@@ -750,7 +751,7 @@ def logout_session(token: str | None) -> None:
 
 def resolve_session_user(request: Request) -> dict[str, Any] | None:
     ensure_platform_schema()
-    token = request.cookies.get(SESSION_COOKIE_NAME)
+    token = request.cookies.get(SESSION_COOKIE_NAME) or request.headers.get(SESSION_HEADER_NAME)
     if not token:
         return None
     now = datetime.now(timezone.utc)

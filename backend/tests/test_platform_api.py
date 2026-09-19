@@ -102,8 +102,8 @@ def test_dashboard_and_project_visibility_are_tenant_scoped() -> None:
         "catalogCount": 2,
         "simulationCount": 1,
         "agentRequestCount": 1,
-        "storeLayoutCount": 0,
-        "pedestrianDatasetCount": 0,
+        "storeLayoutCount": 1,
+        "pedestrianDatasetCount": 1,
     }
     assert payload["projects"][0]["id"] == alpha_project_id
     assert payload["catalogs"][0]["sourceProjectId"] == alpha_project_id
@@ -353,8 +353,8 @@ def test_store_layout_and_pedestrian_dataset_survive_source_project_deletion() -
     dashboard = client.get("/api/platform/dashboard")
     assert dashboard.status_code == 200, dashboard.text
     stats = dashboard.json()["stats"]
-    assert stats["storeLayoutCount"] == 1
-    assert stats["pedestrianDatasetCount"] == 1
+    assert stats["storeLayoutCount"] == 2
+    assert stats["pedestrianDatasetCount"] == 2
 
 
 def test_create_project_seeds_from_selected_layout_catalog_and_pedestrians() -> None:

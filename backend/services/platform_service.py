@@ -23,6 +23,7 @@ from services.layout_audit import audit_project_layout
 from services.reference_templates import (
     REFERENCE_PROJECT_IDS,
     REFERENCE_PROJECT_NAMES,
+    build_demo_pedestrian_dataset,
     load_default_assortment,
     load_reference_template,
 )
@@ -366,6 +367,43 @@ def ensure_tenant_defaults(user: dict[str, Any]) -> None:
             conn.execute(
                 "INSERT INTO tenant_default_assets VALUES (?, ?, ?)",
                 (user["tenantId"], "assortment", workspace_id),
+            )
+        if "store_layout_demo" not in existing:
+            snapshot = load_reference_template("carrefour_express_aeroport", layout_only=True)
+            layout_payload = {
+                "scene": snapshot.get("scene", {"store": {}, "furniture": []}),
+                "planograms": snapshot.get("planograms", []),
+            }
+            furniture_count = len(layout_payload["scene"].get("furniture", []))
+            layout_id = str(uuid4())
+            now = _utc_now()
+            conn.execute(
+                "INSERT INTO store_layouts "
+                "(id, tenant_id, owner_user_id, name, description, furniture_count, payload_json, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (layout_id, user["tenantId"], user["id"], "Implantation démo – Carrefour Express aéroport",
+                 "Plan de magasin fourni avec ShopAI, réutilisable pour un nouveau projet", furniture_count,
+                 json.dumps(layout_payload, ensure_ascii=False), now, now),
+            )
+            conn.execute(
+                "INSERT INTO tenant_default_assets VALUES (?, ?, ?)",
+                (user["tenantId"], "store_layout_demo", layout_id),
+            )
+        if "pedestrian_dataset_demo" not in existing:
+            dataset_payload = build_demo_pedestrian_dataset()
+            dataset_id = str(uuid4())
+            now = _utc_now()
+            conn.execute(
+                "INSERT INTO pedestrian_datasets "
+                "(id, tenant_id, owner_user_id, name, description, pedestrian_count, payload_json, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (dataset_id, user["tenantId"], user["id"], "Piétons & paniers démo",
+                 "Jeu de données piéton/panier fourni avec ShopAI pour tester la simulation",
+                 dataset_payload["pedestrianCount"], json.dumps(dataset_payload, ensure_ascii=False), now, now),
+            )
+            conn.execute(
+                "INSERT INTO tenant_default_assets VALUES (?, ?, ?)",
+                (user["tenantId"], "pedestrian_dataset_demo", dataset_id),
             )
 
 

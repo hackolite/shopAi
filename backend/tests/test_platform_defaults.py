@@ -44,7 +44,8 @@ def test_new_tenants_receive_independent_persisted_projects_and_real_catalog():
     alice, bob = _register(), _register("Bob")
     alice_assets, bob_assets = _assets(alice), _assets(bob)
     assert set(alice_assets) == {
-        *REFERENCE_PROJECT_IDS, "carrefour_city_layout", "carrefour_express_layout", "assortment"
+        *REFERENCE_PROJECT_IDS, "carrefour_city_layout", "carrefour_express_layout", "assortment",
+        "store_layout_demo", "pedestrian_dataset_demo",
     }
     assert not set(alice_assets.values()) & set(bob_assets.values())
     assert not set(REFERENCE_PROJECT_IDS) & platform.list_owned_project_ids(alice)
@@ -138,7 +139,7 @@ def test_existing_users_are_backfilled_and_claimed_originals_are_migrated(monkey
     with ThreadPoolExecutor(max_workers=3) as pool:
         list(pool.map(platform.ensure_tenant_defaults, [user] * 3))
     assets = _assets(user)
-    assert len(assets) == 6
+    assert len(assets) == 8
     assert len(platform.list_owned_project_ids(user)) == 5
     assert assets["carrefour_city"] != "carrefour_city"
     assert pm.load_project_file(assets["carrefour_city"], "scene.json") == scene
@@ -172,7 +173,7 @@ def test_deleted_legacy_reference_does_not_block_login_or_dashboard(monkeypatch,
 
     assert platform.login_user(user["email"], "long-password") == user
     assets = _assets(user)
-    assert len(assets) == 6
+    assert len(assets) == 8
     assert assets[source_id] == source_id
     with platform._connect() as conn:
         assert conn.execute(
@@ -213,7 +214,7 @@ def test_deleted_default_is_not_resurrected_and_loader_returns_fresh_data():
 def test_oauth_defaults_are_idempotent():
     user = platform.oauth_sign_in("google", "oauth@example.com", "OAuth User")
     assets = _assets(user)
-    assert len(assets) == 6
+    assert len(assets) == 8
     assert platform.oauth_sign_in("google", "oauth@example.com", "OAuth User") == user
     assert _assets(user) == assets
 

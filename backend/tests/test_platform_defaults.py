@@ -157,6 +157,40 @@ def test_existing_users_are_backfilled_and_claimed_originals_are_migrated(monkey
         platform.reset_current_user(token)
 
 
+@pytest.mark.parametrize("source_id", REFERENCE_PROJECT_IDS)
+def test_deleted_legacy_reference_does_not_block_login_or_dashboard(monkeypatch, source_id):
+    real_ensure = platform.ensure_tenant_defaults
+    monkeypatch.setattr(platform, "ensure_tenant_defaults", lambda user: None)
+    user = _register()
+    monkeypatch.setattr(platform, "ensure_tenant_defaults", real_ensure)
+    with platform._connect() as conn:
+        conn.execute(
+            "INSERT INTO project_memberships VALUES (?, ?, ?, ?)",
+            (source_id, user["tenantId"], user["id"], platform._utc_now()),
+        )
+    assert not (pm.STORAGE_ROOT / source_id).exists()
+
+    assert platform.login_user(user["email"], "long-password") == user
+    assets = _assets(user)
+    assert len(assets) == 6
+    assert assets[source_id] == source_id
+    with platform._connect() as conn:
+        assert conn.execute(
+            "SELECT 1 FROM project_memberships WHERE project_id = ?", (source_id,)
+        ).fetchone() is None
+    token = platform.set_current_user(user)
+    try:
+        for _ in range(2):
+            dashboard = platform.get_dashboard()
+            assert dashboard["stats"]["projectCount"] == 4
+            assert dashboard["stats"]["catalogCount"] == 1
+    finally:
+        platform.reset_current_user(token)
+    assert platform.login_user(user["email"], "long-password") == user
+    assert _assets(user) == assets
+    assert not (pm.STORAGE_ROOT / source_id).exists()
+
+
 def test_deleted_default_is_not_resurrected_and_loader_returns_fresh_data():
     user = _register()
     assets = _assets(user)

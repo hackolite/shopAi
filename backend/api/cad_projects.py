@@ -100,7 +100,10 @@ class CreateProjectPayload(BaseModel):
 
 class StudioAssistantPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    prompt: Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=2000)]
+    prompt: Annotated[
+        str,
+        StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=2000),
+    ]
     confirm: StrictBool = False
 
 

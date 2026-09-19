@@ -16,16 +16,9 @@ from services import studio_assistant as assistant
 
 
 @pytest.fixture
-def workspace(monkeypatch: pytest.MonkeyPatch):
-    root = Path(__file__).resolve().parent.parent / ".test-studio-work" / uuid4().hex
-    root.mkdir(parents=True)
-    monkeypatch.setattr(pm, "STORAGE_ROOT", root / "projects")
-    try:
-        yield root
-    finally:
-        shutil.rmtree(root)
-        if not any(root.parent.iterdir()):
-            root.parent.rmdir()
+def workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path / "projects")
+    return tmp_path
 
 
 def _register(client: TestClient, name: str = "Studio") -> None:
@@ -311,3 +304,18 @@ def test_canonical_template_ids_reject_public_mutations(studio):
                 assert response.status_code == 403
                 response = actor.put(f"/api/cad/projects/{template_id}/settings", json={"gridSize": 1})
                 assert response.status_code == 403
+
+
+@pytest.mark.parametrize("prompt", [
+    "Vérifie cette implantation",
+    "Vérifie ce projet.",
+    "Vérifie l’implantation",
+    "Vérifie cette scène",
+])
+def test_natural_audit_aliases_are_read_only(studio, prompt):
+    client, project_id = studio
+    before = client.get(f"/api/cad/projects/{project_id}/export").content
+    result = _ask(client, project_id, prompt)
+    assert "Audit de l'état enregistré" in result["message"]
+    assert not result["changed"] and not result["requiresConfirmation"]
+    assert client.get(f"/api/cad/projects/{project_id}/export").content == before

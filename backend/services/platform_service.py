@@ -262,9 +262,21 @@ def ensure_tenant_defaults(user: dict[str, Any]) -> None:
             ).fetchone()
             if membership is None:
                 continue
+            metadata = project_manager.load_project_file(source_id, "project.json")
+            if metadata is None:
+                # A deleted legacy reference can leave its old membership behind.
+                conn.execute(
+                    "DELETE FROM project_memberships WHERE project_id = ? AND tenant_id = ?",
+                    (source_id, user["tenantId"]),
+                )
+                conn.execute(
+                    "INSERT OR IGNORE INTO tenant_default_assets VALUES (?, ?, ?)",
+                    (user["tenantId"], source_id, source_id),
+                )
+                existing.add(source_id)
+                continue
             # Older installations could claim shipped IDs. Preserve their edits in
             # a private copy, rather than making a canonical source tenant-writable.
-            metadata = project_manager.get_project_metadata(source_id)
             clone = project_manager.duplicate_project(source_id, metadata["name"])
             conn.execute(
                 "UPDATE project_memberships SET project_id = ? WHERE project_id = ?",

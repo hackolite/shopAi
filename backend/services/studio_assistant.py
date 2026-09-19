@@ -33,6 +33,21 @@ _GENERATE = re.compile(
     r"(?: (?:pour |de )?(?:carrefour )?(?P<template>city|express(?: aeroport)?))?"
     r"(?P<empty> sans produits)?"
 )
+_AUDIT_COMMANDS = {
+    "audit",
+    "verifie",
+    "verifie le projet",
+    "verifie ce projet",
+    "verifie l'implantation",
+    "verifie cette implantation",
+    "verifie cette scene",
+}
+_SAVE_COMMANDS = {
+    "enregistre",
+    "enregistre le projet",
+    "sauvegarde",
+    "sauvegarde le projet",
+}
 
 
 def load_reference_snapshot(template_id: str) -> dict[str, Any]:
@@ -47,8 +62,14 @@ def load_reference_snapshot(template_id: str) -> dict[str, Any]:
     return snapshot
 
 
-def _reply(message: str, *, changed: bool = False, confirmation: bool = False,
-           project_id: str | None = None, steps: list[str] | None = None) -> dict[str, Any]:
+def _reply(
+    message: str,
+    *,
+    changed: bool = False,
+    confirmation: bool = False,
+    project_id: str | None = None,
+    steps: list[str] | None = None,
+) -> dict[str, Any]:
     result: dict[str, Any] = {
         "message": _LABEL + message,
         "requiresConfirmation": confirmation,
@@ -61,15 +82,20 @@ def _reply(message: str, *, changed: bool = False, confirmation: bool = False,
 
 
 def _normalize(prompt: str) -> str:
-    text = "".join(char for char in unicodedata.normalize("NFKD", prompt.casefold())
-                   if not unicodedata.combining(char))
-    return " ".join(text.split()).rstrip(".!? ")
+    text = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", prompt.casefold())
+        if not unicodedata.combining(char)
+    )
+    return " ".join(text.split()).replace("’", "'").rstrip(".!? ")
 
 
 def _load_persisted(project_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     metadata = project_manager.get_project_metadata(project_id)
-    snapshot = {name: project_manager.load_project_file(project_id, f"{name}.json")
-                for name in _FILES}
+    snapshot = {
+        name: project_manager.load_project_file(project_id, f"{name}.json")
+        for name in _FILES
+    }
     if any(snapshot[name] is None for name in _FILES):
         raise ValueError("Incomplete persisted project")
     snapshot["planograms"] = snapshot["planograms"]["planograms"]
@@ -138,19 +164,26 @@ def _prepare_snapshot(snapshot: dict[str, Any], *, layout_only: bool) -> list[st
     return steps
 
 
-def run_studio_assistant(project_id: str, prompt: str, *, confirm: bool = False) -> dict[str, Any]:
+def run_studio_assistant(
+    project_id: str,
+    prompt: str,
+    *,
+    confirm: bool = False,
+) -> dict[str, Any]:
     platform_service.require_current_user()
     platform_service.require_current_user_project_access(project_id)
     project_manager.ensure_project_exists(project_id)
     command = _normalize(prompt)
 
-    if command in {"verifie", "verifie le projet", "verifie l'implantation", "audit",
-                   "enregistre", "enregistre le projet", "sauvegarde", "sauvegarde le projet"}:
+    if command in _AUDIT_COMMANDS | _SAVE_COMMANDS:
         try:
             metadata, snapshot = _load_persisted(project_id)
         except (ValueError, KeyError, TypeError, OSError, ValidationError):
-            return _reply("État persistant incomplet ou illisible : aucune sauvegarde ni vérification confirmée.")
-        if command.startswith(("enregistre", "sauvegarde")):
+            return _reply(
+                "État persistant incomplet ou illisible : "
+                "aucune sauvegarde ni vérification confirmée."
+            )
+        if command in _SAVE_COMMANDS:
             return _reply(
                 f"État déjà enregistré relu sur disque : « {metadata['name']} », "
                 f"{len(snapshot['scene']['furniture'])} meubles, "
@@ -161,12 +194,17 @@ def run_studio_assistant(project_id: str, prompt: str, *, confirm: bool = False)
                 project_id=project_id,
             )
         audit = _audit(metadata, snapshot)
-        issues = [issue for check in audit["checks"].values() for issue in check["issues"]]
+        issues = [
+            issue
+            for check in audit["checks"].values()
+            for issue in check["issues"]
+        ]
         return _reply(
             f"Audit de l'état enregistré : {audit['issueCount']} anomalie(s). "
             "Contrôles : dimensions, emprises tournées, références produit et positions des cases ; "
             "pas une certification réglementaire.",
-            project_id=project_id, steps=issues[:30],
+            project_id=project_id,
+            steps=issues[:30],
         )
 
     match = _GENERATE.fullmatch(command)
@@ -188,22 +226,30 @@ def run_studio_assistant(project_id: str, prompt: str, *, confirm: bool = False)
     except (ValueError, KeyError, TypeError, OSError, ValidationError):
         return _reply("Modèle de référence indisponible, modifié ou invalide. Aucun projet créé.")
     if not audit["ok"]:
-        return _reply(f"Modèle refusé par l'audit : {audit['issueCount']} anomalie(s). Aucun projet créé.")
+        return _reply(
+            f"Modèle refusé par l'audit : {audit['issueCount']} anomalie(s). Aucun projet créé."
+        )
 
-    steps.extend([
-        f"Magasin {name} : {len(snapshot['scene']['furniture'])} meubles.",
-        f"{len(snapshot['catalog']['products'])} produits et {len(snapshot['planograms'])} planogrammes.",
-        "Matériaux, textures et paramètres du modèle conservés.",
-        "Audit des dimensions, emprises, références produit et positions des cases : aucune anomalie.",
-    ])
+    steps.extend(
+        [
+            f"Magasin {name} : {len(snapshot['scene']['furniture'])} meubles.",
+            f"{len(snapshot['catalog']['products'])} produits et "
+            f"{len(snapshot['planograms'])} planogrammes.",
+            "Matériaux, textures et paramètres du modèle conservés.",
+            "Audit des dimensions, emprises, références produit et positions des cases : "
+            "aucune anomalie.",
+        ]
+    )
     if not confirm:
         return _reply(
             f"Aperçu : création d'un nouveau projet {name}"
             f"{' — implantation seule' if layout_only else ' — implantation complète'}. "
             "Votre projet actuel restera intact. Confirmez pour créer et enregistrer ce modèle prédéfini.",
-            confirmation=True, steps=steps,
+            confirmation=True,
+            steps=steps,
         )
-    metadata = project_manager.import_project(snapshot, f"{name} — {'implantation seule' if layout_only else 'implantation complète'}")
+    mode = "implantation seule" if layout_only else "implantation complète"
+    metadata = project_manager.import_project(snapshot, f"{name} — {mode}")
     new_id = metadata["id"]
     try:
         project_manager.save_project_file(new_id, "textures.json", snapshot["textures"])
@@ -215,5 +261,7 @@ def run_studio_assistant(project_id: str, prompt: str, *, confirm: bool = False)
         raise
     return _reply(
         f"Nouveau projet {name} créé et relu sur disque. Le projet d'origine n'a pas été modifié.",
-        changed=True, project_id=new_id, steps=steps,
+        changed=True,
+        project_id=new_id,
+        steps=steps,
     )

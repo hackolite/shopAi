@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
+import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
 import {
   extractConstraintCorrection,
@@ -267,6 +268,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const [pedestrianLoadStatus, setPedestrianLoadStatus] = useState<string | null>(null);
   const [isImportingPedestrians, setIsImportingPedestrians] = useState(false);
   const [isLoadingPedestrians, setIsLoadingPedestrians] = useState(false);
+  const [pedestrianDatasetName, setPedestrianDatasetName] = useState('');
+  const [availablePedestrianDatasets, setAvailablePedestrianDatasets] = useState<PlatformPedestrianDataset[]>([]);
+  const [selectedPedestrianDatasetId, setSelectedPedestrianDatasetId] = useState('');
+  const [isApplyingPedestrianDataset, setIsApplyingPedestrianDataset] = useState(false);
   /**
    * The live session id the imported CSV was successfully loaded into (via
    * `loadPedestriansIntoSession`). Cleared whenever a new CSV is imported, so
@@ -628,10 +633,11 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setIsImportingPedestrians(true);
       setPedestrianImportStatus('Import en cours…');
       try {
-        const result = await cadApi.importPedestrians(projectId, file);
+        const result = await cadApi.importPedestrians(projectId, file, pedestrianDatasetName);
         setPedestrianImport(result);
         setPedestrianImportStatus(
-          `✓ ${result.pedestrianCount} piéton(s), ${result.anomalies.length} anomalie(s)`,
+          `✓ ${result.pedestrianCount} piéton(s), ${result.anomalies.length} anomalie(s)`
+          + (result.datasetId ? ' · enregistré dans l’espace de travail' : ''),
         );
         // A freshly imported CSV always needs an explicit "Charger" click
         // before it drives the live simulation, so drop any previous
@@ -639,6 +645,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         // JuPedSim fields and disable the load button for the new CSV).
         setPedestrianLoadedSessionId(null);
         setPedestrianLoadStatus(null);
+        setPedestrianDatasetName('');
+        if (result.datasetId) {
+          platformApi
+            .listPedestrianDatasets()
+            .then((response) => setAvailablePedestrianDatasets(response.pedestrianDatasets))
+            .catch(() => undefined);
+        }
       } catch (error) {
         console.error('Failed to import pedestrian CSV:', error);
         setPedestrianImportStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur import');
@@ -646,8 +659,26 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         setIsImportingPedestrians(false);
       }
     },
-    [projectId, setPedestrianImport],
+    [pedestrianDatasetName, projectId, setPedestrianImport],
   );
+
+  const applyPedestrianDataset = useCallback(async () => {
+    if (!projectId || !selectedPedestrianDatasetId) return;
+    setIsApplyingPedestrianDataset(true);
+    setPedestrianImportStatus('Chargement du dataset…');
+    try {
+      const result = await cadApi.loadPedestrianDataset(projectId, selectedPedestrianDatasetId);
+      setPedestrianImport(result);
+      setPedestrianImportStatus(`✓ Dataset appliqué : ${result.pedestrianCount} piéton(s)`);
+      setPedestrianLoadedSessionId(null);
+      setPedestrianLoadStatus(null);
+    } catch (error) {
+      console.error('Failed to load pedestrian dataset:', error);
+      setPedestrianImportStatus(error instanceof Error ? `Erreur: ${error.message}` : 'Erreur chargement');
+    } finally {
+      setIsApplyingPedestrianDataset(false);
+    }
+  }, [projectId, selectedPedestrianDatasetId, setPedestrianImport]);
 
   const loadPedestriansIntoSession = useCallback(async () => {
     if (!projectId || !liveSessionId) return;
@@ -669,6 +700,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (!projectId) return;
     cadApi.getPedestrians(projectId).then(setPedestrianImport).catch(() => undefined);
   }, [projectId, setPedestrianImport]);
+
+  useEffect(() => {
+    platformApi
+      .listPedestrianDatasets()
+      .then((response) => setAvailablePedestrianDatasets(response.pedestrianDatasets))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;
@@ -867,6 +905,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           <p className="text-[11px] leading-snug text-gray-500">
             Colonnes attendues : pedestrian_id, start_unix_ts, speed_mps, profile_json, ean
           </p>
+          <input
+            type="text"
+            value={pedestrianDatasetName}
+            onChange={(event) => setPedestrianDatasetName(event.target.value)}
+            placeholder="Nom du dataset (facultatif, pour le réutiliser)"
+            className="w-full rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 placeholder:text-gray-600"
+          />
           <button
             onClick={() => pedestrianFileInput.current?.click()}
             disabled={isImportingPedestrians}
@@ -891,6 +936,35 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             }}
           />
           {pedestrianImportStatus && <p className="text-[11px] text-gray-400">{pedestrianImportStatus}</p>}
+          {availablePedestrianDatasets.length > 0 && (
+            <div className="space-y-1.5 border-t border-gray-800 pt-2">
+              <p className="text-[11px] text-gray-500">Ou sélectionner un dataset déjà stocké :</p>
+              <select
+                value={selectedPedestrianDatasetId}
+                onChange={(event) => setSelectedPedestrianDatasetId(event.target.value)}
+                className="w-full rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
+              >
+                <option value="">Choisir un dataset…</option>
+                {availablePedestrianDatasets.map((dataset) => (
+                  <option key={dataset.id} value={dataset.id}>
+                    {dataset.name} ({dataset.pedestrianCount} piétons)
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => void applyPedestrianDataset()}
+                disabled={!selectedPedestrianDatasetId || isApplyingPedestrianDataset}
+                className={[
+                  'w-full rounded px-3 py-2 text-xs font-medium transition-colors',
+                  !selectedPedestrianDatasetId || isApplyingPedestrianDataset
+                    ? 'bg-gray-800 text-gray-500 opacity-50 cursor-not-allowed'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 cursor-pointer',
+                ].join(' ')}
+              >
+                {isApplyingPedestrianDataset ? '⏳ Chargement…' : 'Utiliser ce dataset'}
+              </button>
+            </div>
+          )}
           {pedestrianImport && pedestrianImport.pedestrianCount > 0 && (
             <p className="text-[11px] text-gray-500">
               Dernier import : {pedestrianImport.pedestrianCount} piéton(s), {pedestrianImport.rowCount} ligne(s)

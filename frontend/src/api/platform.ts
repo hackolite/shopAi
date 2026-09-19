@@ -40,6 +40,28 @@ export interface PlatformSimulationList {
   updatedAt: string;
 }
 
+export interface PlatformStoreLayout {
+  id: string;
+  name: string;
+  description: string;
+  sourceProjectId: string | null;
+  furnitureCount: number;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformPedestrianDataset {
+  id: string;
+  name: string;
+  description: string;
+  sourceProjectId: string | null;
+  pedestrianCount: number;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PlatformAgentRequest {
   id: string;
   provider: string;
@@ -63,11 +85,15 @@ export interface PlatformDashboard {
     catalogCount: number;
     simulationCount: number;
     agentRequestCount: number;
+    storeLayoutCount: number;
+    pedestrianDatasetCount: number;
   };
   projects: PlatformProjectSummary[];
   catalogs: PlatformCatalogWorkspace[];
   simulations: PlatformSimulationList[];
   agentRequests: PlatformAgentRequest[];
+  storeLayouts: PlatformStoreLayout[];
+  pedestrianDatasets: PlatformPedestrianDataset[];
 }
 
 export interface AgentApiGuide {
@@ -164,6 +190,7 @@ export const platformApi = {
     }),
   logout: () => request<{ ok: boolean }>('/api/platform/auth/logout', { method: 'POST' }),
   getDashboard: () => request<PlatformDashboard>('/api/platform/dashboard'),
+  listCatalogs: () => request<{ catalogs: PlatformCatalogWorkspace[] }>('/api/platform/catalogs'),
   createCatalog: (payload: {
     name: string;
     description?: string;
@@ -186,6 +213,43 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  importCatalogCsv: (file: File, name: string, description?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', name);
+    form.append('description', description ?? '');
+    return request<PlatformCatalogWorkspace>('/api/platform/catalogs/import-csv', {
+      method: 'POST',
+      body: form,
+    });
+  },
+  createStoreLayout: (payload: {
+    name: string;
+    description?: string;
+    sourceProjectId?: string | null;
+    payload?: Record<string, unknown>;
+  }) =>
+    request<PlatformStoreLayout>('/api/platform/store-layouts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getStoreLayout: (layoutId: string) =>
+    request<PlatformStoreLayout>(`/api/platform/store-layouts/${encodeURIComponent(layoutId)}`),
+  createPedestrianDataset: (payload: {
+    name: string;
+    description?: string;
+    sourceProjectId?: string | null;
+    pedestrianCount?: number;
+    payload?: Record<string, unknown>;
+  }) =>
+    request<PlatformPedestrianDataset>('/api/platform/pedestrian-datasets', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getPedestrianDataset: (datasetId: string) =>
+    request<PlatformPedestrianDataset>(`/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}`),
+  listPedestrianDatasets: () =>
+    request<{ pedestrianDatasets: PlatformPedestrianDataset[] }>('/api/platform/pedestrian-datasets'),
   createAgentRequest: (payload: {
     provider: string;
     targetResourceType: string;

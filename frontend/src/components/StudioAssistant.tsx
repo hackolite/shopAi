@@ -11,8 +11,13 @@ const suggestions = [
   'Crée une implantation complète Carrefour City',
   'Crée une implantation complète Carrefour Express aéroport',
   'Crée une implantation seule Carrefour Express',
+  "Recommandation d'implantation",
   'Vérifie',
 ];
+
+function isPlacementRecommendation(prompt: string): boolean {
+  return /recommand|implante le catalogue|implemente le catalogue/i.test(prompt);
+}
 
 export default function StudioAssistant({ projectId, onProjectCreated, onSave }: Props) {
   const [prompt, setPrompt] = useState('');
@@ -104,11 +109,15 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
         {error && <p role="alert" className="mt-4 break-words text-red-300">{error}</p>}
         {confirmation && (
           <div className="mt-4 space-y-3 rounded-xl border border-cyan-800 p-4">
-            <p className="text-sm text-gray-200">Un nouveau projet sera enregistré. Le projet actuel ne sera pas remplacé.</p>
+            <p className="text-sm text-gray-200">
+              {isPlacementRecommendation(confirmation)
+                ? 'Les articles seront implantés un par un dans les planogrammes de ce projet.'
+                : 'Un nouveau projet sera enregistré. Le projet actuel ne sera pas remplacé.'}
+            </p>
             <div className="flex flex-wrap gap-3">
               <button type="button" disabled={busy} onClick={() => void send(confirmation, true)}
                 className="rounded-lg bg-cyan-400 px-4 py-3 font-medium text-gray-950">
-                Créer et ouvrir en 3D
+                {isPlacementRecommendation(confirmation) ? 'Exécuter la recommandation' : 'Créer et ouvrir en 3D'}
               </button>
               <button type="button" onClick={() => setConfirmation(null)} className="px-3 py-3 text-gray-300">Annuler</button>
             </div>

@@ -102,6 +102,8 @@ def test_dashboard_and_project_visibility_are_tenant_scoped() -> None:
         "catalogCount": 2,
         "simulationCount": 1,
         "agentRequestCount": 1,
+        "storeLayoutCount": 1,
+        "pedestrianDatasetCount": 1,
     }
     assert payload["projects"][0]["id"] == alpha_project_id
     assert payload["catalogs"][0]["sourceProjectId"] == alpha_project_id
@@ -287,3 +289,192 @@ def test_layout_constraints_reject_invalid_furniture_and_planograms() -> None:
     )
     assert invalid_planogram.status_code == 422, invalid_planogram.text
     assert "exceeds face width" in invalid_planogram.text
+
+
+def test_store_layout_and_pedestrian_dataset_survive_source_project_deletion() -> None:
+    client = _make_client()
+    _register(client, name="Layout Owner", email="layout-owner@example.com")
+
+    project_response = client.post("/api/cad/projects/", json={"name": "Boutique modèle"})
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    furniture_response = client.post(
+        f"/api/cad/projects/{project_id}/scene/furniture",
+        json={
+            "id": "fixture-gondola",
+            "name": "Gondole",
+            "type": "gondola",
+            "libraryId": "gondola",
+            "position": [200.0, 0.0, 200.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 120.0, "depth": 60.0, "height": 180.0},
+        },
+    )
+    assert furniture_response.status_code == 200, furniture_response.text
+
+    layout_response = client.post(
+        "/api/platform/store-layouts",
+        json={
+            "name": "Layout modèle",
+            "description": "Implantation de référence",
+            "sourceProjectId": project_id,
+        },
+    )
+    assert layout_response.status_code == 200, layout_response.text
+    layout = layout_response.json()
+    assert layout["furnitureCount"] == 1
+    layout_id = layout["id"]
+
+    csv_body = (
+        "pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n"
+        "1,1700000000,1.2,{},\n"
+    )
+    import_response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/import-pedestrians",
+        data={"datasetName": "Affluence témoin"},
+        files={"file": ("pedestrians.csv", csv_body, "text/csv")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    dataset_id = import_response.json()["datasetId"]
+
+    delete_response = client.delete(f"/api/cad/projects/{project_id}")
+    assert delete_response.status_code == 200, delete_response.text
+
+    # Both tenant resources remain accessible after the source project is gone.
+    layout_after = client.get(f"/api/platform/store-layouts/{layout_id}")
+    assert layout_after.status_code == 200, layout_after.text
+    assert layout_after.json()["sourceProjectId"] == project_id
+
+    dataset_after = client.get(f"/api/platform/pedestrian-datasets/{dataset_id}")
+    assert dataset_after.status_code == 200, dataset_after.text
+    assert dataset_after.json()["pedestrianCount"] == 1
+
+    dashboard = client.get("/api/platform/dashboard")
+    assert dashboard.status_code == 200, dashboard.text
+    stats = dashboard.json()["stats"]
+    assert stats["storeLayoutCount"] == 2
+    assert stats["pedestrianDatasetCount"] == 2
+
+
+def test_create_project_seeds_from_selected_layout_catalog_and_pedestrians() -> None:
+    client = _make_client()
+    _register(client, name="Seeder", email="seeder@example.com")
+
+    source_project = client.post("/api/cad/projects/", json={"name": "Source"})
+    assert source_project.status_code == 200, source_project.text
+    source_project_id = source_project.json()["id"]
+
+    client.post(
+        f"/api/cad/projects/{source_project_id}/scene/furniture",
+        json={
+            "id": "fixture-shelf",
+            "name": "Étagère",
+            "type": "shelf",
+            "libraryId": "shelf",
+            "position": [150.0, 0.0, 150.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 100.0, "depth": 50.0, "height": 180.0},
+        },
+    )
+
+    layout = client.post(
+        "/api/platform/store-layouts",
+        json={"name": "Layout de base", "sourceProjectId": source_project_id},
+    ).json()
+
+    catalog = client.post(
+        "/api/platform/catalogs",
+        json={
+            "name": "Catalogue de base",
+            "payload": {"products": []},
+            "productCount": 0,
+        },
+    ).json()
+
+    csv_body = "pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n1,1700000000,1.2,{},\n"
+    import_response = client.post(
+        f"/api/cad/projects/{source_project_id}/simulation/import-pedestrians",
+        data={"datasetName": "Jeu témoin"},
+        files={"file": ("pedestrians.csv", csv_body, "text/csv")},
+    )
+    dataset_id = import_response.json()["datasetId"]
+
+    new_project = client.post(
+        "/api/cad/projects/",
+        json={
+            "name": "Nouveau projet",
+            "storeLayoutId": layout["id"],
+            "catalogId": catalog["id"],
+            "pedestrianDatasetId": dataset_id,
+        },
+    )
+    assert new_project.status_code == 200, new_project.text
+    new_project_id = new_project.json()["id"]
+
+    scene = client.get(f"/api/cad/projects/{new_project_id}/scene")
+    assert scene.status_code == 200, scene.text
+    assert len(scene.json()["furniture"]) == 1
+
+    pedestrians = client.get(f"/api/cad/projects/{new_project_id}/simulation/pedestrians")
+    assert pedestrians.status_code == 200, pedestrians.text
+    assert pedestrians.json()["pedestrianCount"] == 1
+
+
+def test_catalog_csv_upload_persists_tenant_catalog() -> None:
+    client = _make_client()
+    _register(client, name="Cataloguer", email="cataloguer@example.com")
+
+    csv_body = (
+        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,priceSellEur\n"
+        "1234567890123,Jus d'orange 1L,MarqueA,Boissons,8,8,25,1050,2.15\n"
+        "2234567890123,,MarqueB,Boissons,8,8,25,1050,2.15\n"
+    )
+    response = client.post(
+        "/api/platform/catalogs/import-csv",
+        data={"name": "Catalogue importé", "description": "Depuis CSV"},
+        files={"file": ("catalog.csv", csv_body, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    catalog = response.json()
+    assert catalog["productCount"] == 1
+    assert catalog["payload"]["products"][0]["ean"] == "1234567890123"
+
+    dashboard = client.get("/api/platform/dashboard")
+    assert dashboard.status_code == 200, dashboard.text
+    assert dashboard.json()["stats"]["catalogCount"] == 2
+
+
+def test_catalog_list_and_load_into_project() -> None:
+    client = _make_client()
+    _register(client, name="Loader", email="loader@example.com")
+
+    project = client.post("/api/cad/projects/", json={"name": "Cible"})
+    assert project.status_code == 200, project.text
+    project_id = project.json()["id"]
+
+    csv_body = (
+        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,priceSellEur\n"
+        "3234567890123,Café moulu 250g,MarqueC,Épicerie,10,6,15,260,3.50\n"
+    )
+    created = client.post(
+        "/api/platform/catalogs/import-csv",
+        data={"name": "Catalogue à charger", "description": ""},
+        files={"file": ("catalog.csv", csv_body, "text/csv")},
+    )
+    assert created.status_code == 200, created.text
+    catalog_id = created.json()["id"]
+
+    listing = client.get("/api/platform/catalogs")
+    assert listing.status_code == 200, listing.text
+    catalog_ids = [item["id"] for item in listing.json()["catalogs"]]
+    assert catalog_id in catalog_ids
+
+    loaded = client.post(f"/api/cad/projects/{project_id}/catalog/load-tenant-catalog/{catalog_id}")
+    assert loaded.status_code == 200, loaded.text
+    assert loaded.json()["imported"] == 1
+
+    catalog = client.get(f"/api/cad/projects/{project_id}/catalog")
+    assert catalog.status_code == 200, catalog.text
+    eans = [product["ean"] for product in catalog.json()["products"]]
+    assert "3234567890123" in eans

@@ -13,10 +13,11 @@ import StudioApp from './StudioApp';
 import './App.css';
 
 type AuthMode = 'login' | 'signup';
-type HubTab = 'projects' | 'catalogs' | 'simulations' | 'settings';
+type HubTab = 'projects' | 'layouts' | 'catalogs' | 'simulations' | 'settings';
 
 const tabs: { id: HubTab; label: string }[] = [
   { id: 'projects', label: 'Projets' },
+  { id: 'layouts', label: 'Implantations' },
   { id: 'catalogs', label: 'Catalogues' },
   { id: 'simulations', label: 'Simulations' },
   { id: 'settings', label: 'Configuration' },
@@ -61,9 +62,17 @@ export default function App() {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   const [projectName, setProjectName] = useState('');
+  const [newProjectLayoutId, setNewProjectLayoutId] = useState('');
+  const [newProjectCatalogId, setNewProjectCatalogId] = useState('');
+  const [newProjectPedestrianDatasetId, setNewProjectPedestrianDatasetId] = useState('');
+  const [layoutName, setLayoutName] = useState('');
+  const [layoutDescription, setLayoutDescription] = useState('');
+  const [layoutProjectId, setLayoutProjectId] = useState('');
   const [catalogName, setCatalogName] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
   const [catalogProjectId, setCatalogProjectId] = useState('');
+  const [catalogCsvName, setCatalogCsvName] = useState('');
+  const [catalogCsvFile, setCatalogCsvFile] = useState<File | null>(null);
   const [simulationName, setSimulationName] = useState('');
   const [simulationDescription, setSimulationDescription] = useState('');
   const [simulationProjectId, setSimulationProjectId] = useState('');
@@ -139,11 +148,32 @@ export default function App() {
 
   const handleCreateProject = () => runAction(async () => {
     if (!projectName.trim()) return;
-    const created = await cadApi.createProject(projectName.trim());
+    const created = await cadApi.createProject(projectName.trim(), {
+      storeLayoutId: newProjectLayoutId || undefined,
+      catalogId: newProjectCatalogId || undefined,
+      pedestrianDatasetId: newProjectPedestrianDatasetId || undefined,
+    });
     setProjectName('');
+    setNewProjectLayoutId('');
+    setNewProjectCatalogId('');
+    setNewProjectPedestrianDatasetId('');
     await loadAuthenticatedData();
     setStudioProjectId(created.id);
     setStatusMessage('Projet créé.');
+  });
+
+  const handleCreateStoreLayout = () => runAction(async () => {
+    if (!layoutName.trim()) return;
+    await platformApi.createStoreLayout({
+      name: layoutName.trim(),
+      description: layoutDescription.trim(),
+      sourceProjectId: layoutProjectId || null,
+    });
+    setLayoutName('');
+    setLayoutDescription('');
+    setLayoutProjectId('');
+    await loadAuthenticatedData();
+    setStatusMessage('Implantation enregistrée.');
   });
 
   const handleCreateCatalog = () => runAction(async () => {
@@ -157,6 +187,15 @@ export default function App() {
     setCatalogDescription('');
     await loadAuthenticatedData();
     setStatusMessage('Catalogue enregistré.');
+  });
+
+  const handleImportCatalogCsv = () => runAction(async () => {
+    if (!catalogCsvFile || !catalogCsvName.trim()) return;
+    await platformApi.importCatalogCsv(catalogCsvFile, catalogCsvName.trim());
+    setCatalogCsvName('');
+    setCatalogCsvFile(null);
+    await loadAuthenticatedData();
+    setStatusMessage('Catalogue importé depuis le CSV.');
   });
 
   const handleCreateSimulation = () => runAction(async () => {
@@ -194,9 +233,17 @@ export default function App() {
     setStudioProjectId(null);
     setActiveTab('projects');
     setProjectName('');
+    setNewProjectLayoutId('');
+    setNewProjectCatalogId('');
+    setNewProjectPedestrianDatasetId('');
+    setLayoutName('');
+    setLayoutDescription('');
+    setLayoutProjectId('');
     setCatalogName('');
     setCatalogDescription('');
     setCatalogProjectId('');
+    setCatalogCsvName('');
+    setCatalogCsvFile(null);
     setSimulationName('');
     setSimulationDescription('');
     setSimulationProjectId('');
@@ -348,6 +395,18 @@ export default function App() {
                     <Field label="Nom du nouveau projet">
                       <input required placeholder="Ex. Magasin centre-ville" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
                     </Field>
+                    <Field label="Implantation (facultatif)"><select value={newProjectLayoutId} onChange={(event) => setNewProjectLayoutId(event.target.value)}>
+                      <option value="">Aucune – partir d’un plan vide</option>
+                      {(dashboard?.storeLayouts ?? []).map((layout) => <option key={layout.id} value={layout.id}>{layout.name}</option>)}
+                    </select></Field>
+                    <Field label="Catalogue (facultatif)"><select value={newProjectCatalogId} onChange={(event) => setNewProjectCatalogId(event.target.value)}>
+                      <option value="">Aucun – catalogue par défaut</option>
+                      {(dashboard?.catalogs ?? []).map((catalog) => <option key={catalog.id} value={catalog.id}>{catalog.name}</option>)}
+                    </select></Field>
+                    <Field label="Dataset panier/piéton (facultatif)"><select value={newProjectPedestrianDatasetId} onChange={(event) => setNewProjectPedestrianDatasetId(event.target.value)}>
+                      <option value="">Aucun</option>
+                      {(dashboard?.pedestrianDatasets ?? []).map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
+                    </select></Field>
                     <button className="hub-primary" type="submit" disabled={busy || !projectName.trim()}>Créer un projet</button>
                   </form>
                   {projects.length === 0 ? <div className="hub-empty"><h3>Votre premier projet commence ici</h3><p>Donnez-lui un nom ci-dessus, puis aménagez votre magasin dans le studio.</p></div> : (
@@ -368,6 +427,29 @@ export default function App() {
                 </Section>}
               </div>
 
+              <div className="hub-panel" role="tabpanel" id="panel-layouts" aria-labelledby="tab-layouts" hidden={activeTab !== 'layouts'} tabIndex={0}>
+                {activeTab === 'layouts' && <Section title="Implantations (Store Layout)" subtitle="Réutilisez un plan de magasin (mobilier + implantation) indépendamment de son projet d’origine.">
+                  <div className="hub-two-column">
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateStoreLayout(); }}>
+                      <h3>Nouvelle implantation</h3>
+                      <Field label="Nom de l’implantation"><input required value={layoutName} onChange={(event) => setLayoutName(event.target.value)} placeholder="Ex. Implantation type hypermarché" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={4} value={layoutDescription} onChange={(event) => setLayoutDescription(event.target.value)} /></Field>
+                      <Field label="Depuis le projet"><select required value={layoutProjectId} onChange={(event) => setLayoutProjectId(event.target.value)}>
+                        <option value="">Choisir un projet</option>
+                        {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                      </select></Field>
+                      <button className="hub-primary" type="submit" disabled={busy || !layoutName.trim() || !layoutProjectId}>Enregistrer l’implantation</button>
+                    </form>
+                    <div>
+                      <h3>Vos implantations <span className="hub-count">{dashboard?.storeLayouts.length ?? 0}</span></h3>
+                      {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
+                        <li key={layout.id}><h4>{layout.name}</h4><p>{layout.description || 'Sans description'}</p><span className="hub-small hub-muted">{layout.furnitureCount} meubles · Mis à jour le {formatDate(layout.updatedAt)}</span></li>
+                      ))}</ul> : <p className="hub-empty">Aucune implantation enregistrée. Créez-en une depuis un projet existant.</p>}
+                    </div>
+                  </div>
+                </Section>}
+              </div>
+
               <div className="hub-panel" role="tabpanel" id="panel-catalogs" aria-labelledby="tab-catalogs" hidden={activeTab !== 'catalogs'} tabIndex={0}>
                 {activeTab === 'catalogs' && <Section title="Catalogues" subtitle="Organisez vos référentiels produits, avec ou sans projet associé.">
                   <div className="hub-two-column">
@@ -377,6 +459,13 @@ export default function App() {
                       <Field label="Description (facultatif)"><textarea rows={4} value={catalogDescription} onChange={(event) => setCatalogDescription(event.target.value)} /></Field>
                       <Field label="Projet source (facultatif)"><select value={catalogProjectId} onChange={(event) => setCatalogProjectId(event.target.value)}>{projectChoices}</select></Field>
                       <button className="hub-primary" type="submit" disabled={busy || !catalogName.trim()}>Enregistrer le catalogue</button>
+                    </form>
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportCatalogCsv(); }}>
+                      <h3>Importer un catalogue CSV</h3>
+                      <Field label="Nom du catalogue"><input required value={catalogCsvName} onChange={(event) => setCatalogCsvName(event.target.value)} placeholder="Ex. Assortiment fournisseur" /></Field>
+                      <Field label="Fichier CSV"><input required type="file" accept=".csv,text/csv" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
+                      <p className="hub-small hub-muted">Colonnes requises : ean, name, brand, category, widthCm, depthCm, heightCm, weightG.</p>
+                      <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le CSV</button>
                     </form>
                     <div>
                       <h3>Vos catalogues <span className="hub-count">{dashboard?.catalogs.length ?? 0}</span></h3>
@@ -389,7 +478,7 @@ export default function App() {
               </div>
 
               <div className="hub-panel" role="tabpanel" id="panel-simulations" aria-labelledby="tab-simulations" hidden={activeTab !== 'simulations'} tabIndex={0}>
-                {activeTab === 'simulations' && <Section title="Simulations" subtitle="Préparez vos listes de scénarios de passage en caisse.">
+                {activeTab === 'simulations' && <Section title="Simulations" subtitle="Préparez vos listes de scénarios de passage en caisse et vos datasets panier/piéton.">
                   <div className="hub-two-column">
                     <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleCreateSimulation(); }}>
                       <h3>Nouvelle simulation</h3>
@@ -404,6 +493,14 @@ export default function App() {
                         <li key={simulation.id}><h4>{simulation.name}</h4><p>{simulation.description || 'Sans description'}</p><span className="hub-small hub-muted">{simulation.scenarioCount} scénarios · Mis à jour le {formatDate(simulation.updatedAt)}</span></li>
                       ))}</ul> : <p className="hub-empty">Aucune simulation enregistrée. Préparez votre première liste de scénarios.</p>}
                     </div>
+                  </div>
+                  <div className="hub-section-divider" />
+                  <div>
+                    <h3>Datasets panier/piéton <span className="hub-count">{dashboard?.pedestrianDatasets.length ?? 0}</span></h3>
+                    <p className="hub-small hub-muted">Importez un CSV panier/piéton depuis le studio (panneau Simulation) : chaque import nommé est stocké ici, indépendamment du projet, et réutilisable dans n’importe quel projet 3D.</p>
+                    {dashboard?.pedestrianDatasets.length ? <ul className="hub-resource-list">{dashboard.pedestrianDatasets.map((dataset) => (
+                      <li key={dataset.id}><h4>{dataset.name}</h4><p>{dataset.description || 'Sans description'}</p><span className="hub-small hub-muted">{dataset.pedestrianCount} piétons · Mis à jour le {formatDate(dataset.updatedAt)}</span></li>
+                    ))}</ul> : <p className="hub-empty">Aucun dataset panier/piéton importé pour le moment.</p>}
                   </div>
                 </Section>}
               </div>

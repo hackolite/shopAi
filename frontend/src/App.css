@@ -10,12 +10,12 @@ body {
   height: 100vh;
   height: 100dvh;
   overflow-y: auto;
-  background: #f6f8fb;
-  color: #1b2b43;
+  background: #030712;
+  color: #e5e7eb;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 .hub-container { max-width: 1240px; margin: 0 auto; padding: 0 40px; }
@@ -25,11 +25,11 @@ body {
 .hub h3 { font-size: 18px; font-weight: 650; line-height: 1.4; }
 .hub h4 { font-size: 16px; font-weight: 650; }
 .hub .hub-small, .hub-small { font-size: 14px; }
-.hub-muted { color: #58677c; }
-.hub-header { min-height: 96px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #dde3ed; }
+.hub-muted { color: #9ca3af; }
+.hub-header { min-height: 96px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #1f2937; }
 .hub-brand { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 750; letter-spacing: -.04em; }
-.hub-brand-mark { display: grid; place-items: center; width: 38px; height: 38px; background: #2155cd; color: white; border-radius: 12px; font-size: 23px; }
-.hub-account { display: flex; align-items: center; gap: 20px; font-size: 14px; color: #58677c; min-width: 0; }
+.hub-brand-mark { display: grid; place-items: center; width: 38px; height: 38px; background: #2563eb; color: white; border-radius: 12px; font-size: 23px; }
+.hub-account { display: flex; align-items: center; gap: 20px; font-size: 14px; color: #9ca3af; min-width: 0; }
 .hub-account > span { overflow-wrap: anywhere; }
 .hub button {
   display: inline-flex;
@@ -38,10 +38,10 @@ body {
   gap: 10px;
   min-height: 44px;
   padding: 10px 18px;
-  border: 1px solid #c4cfdf;
+  border: 1px solid #374151;
   border-radius: 10px;
-  background: white;
-  color: #243954;
+  background: #1f2937;
+  color: #e5e7eb;
   font: inherit;
   font-size: 16px;
   font-weight: 600;
@@ -49,77 +49,77 @@ body {
   cursor: pointer;
   transition: background .15s, border-color .15s;
 }
-.hub button:hover:not(:disabled) { background: #edf2fb; border-color: #7e96ba; }
+.hub button:hover:not(:disabled) { background: #374151; border-color: #4b5563; }
 .hub button:disabled { cursor: not-allowed; opacity: .6; }
-.hub button.hub-primary { background: #2155cd; border-color: #2155cd; color: white; }
-.hub button.hub-primary:hover:not(:disabled) { background: #1944ac; border-color: #1944ac; }
-.hub :focus-visible { outline: 3px solid #2155cd; outline-offset: 4px; }
-.hub-skip-link { position: absolute; top: 8px; left: 8px; transform: translateY(-160%); padding: 12px 20px; background: white; color: #1944ac; z-index: 100; border-radius: 8px; }
+.hub button.hub-primary { background: #2563eb; border-color: #2563eb; color: white; }
+.hub button.hub-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+.hub :focus-visible { outline: 3px solid #3b82f6; outline-offset: 4px; }
+.hub-skip-link { position: absolute; top: 8px; left: 8px; transform: translateY(-160%); padding: 12px 20px; background: #1f2937; color: #60a5fa; z-index: 100; border-radius: 8px; }
 .hub-skip-link:focus { transform: translateY(0); }
 .hub-status { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
-.hub-status:not(:empty) { padding: 14px 18px; margin-top: 20px; border: 1px solid #b7cdf4; border-radius: 10px; background: #edf4ff; color: #21447f; }
+.hub-status:not(:empty) { padding: 14px 18px; margin-top: 20px; border: 1px solid #1e3a8a; border-radius: 10px; background: #0b1a3a; color: #93c5fd; }
 .hub-intro { padding: 40px 0 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.hub .hub-eyebrow { color: #2155cd; font-size: 14px; font-weight: 650; margin-bottom: 12px; }
+.hub .hub-eyebrow { color: #60a5fa; font-size: 14px; font-weight: 650; margin-bottom: 12px; }
 .hub-intro h1 + p { margin-top: 12px; }
-.hub-navigation { border-bottom: 1px solid #d3ddec; }
+.hub-navigation { border-bottom: 1px solid #1f2937; }
 .hub-tabs { display: flex; gap: 16px; overflow-x: auto; padding: 5px 4px; }
-.hub-tabs button { background: transparent; border: 0; border-radius: 8px; white-space: nowrap; padding: 12px 20px; color: #58677c; flex-shrink: 0; }
-.hub-tabs button[aria-selected="true"] { color: #1944ac; background: #e6edfc; box-shadow: inset 0 -3px #2155cd; }
+.hub-tabs button { background: transparent; border: 0; border-radius: 8px; white-space: nowrap; padding: 12px 20px; color: #9ca3af; flex-shrink: 0; }
+.hub-tabs button[aria-selected="true"] { color: #93c5fd; background: #111c3a; box-shadow: inset 0 -3px #3b82f6; }
 .hub-panel { padding: 36px 0 20px; }
 .hub-panel[hidden] { display: none; }
-.hub-section + .hub-section { margin-top: 40px; padding-top: 32px; border-top: 1px solid #dce3ed; }
-.hub-section-divider { margin: 32px 0; border-top: 1px solid #dce3ed; }
+.hub-section + .hub-section { margin-top: 40px; padding-top: 32px; border-top: 1px solid #1f2937; }
+.hub-section-divider { margin: 32px 0; border-top: 1px solid #1f2937; }
 .hub-section-heading { margin-bottom: 28px; }
-.hub-section-heading p { color: #58677c; margin-top: 8px; }
+.hub-section-heading p { color: #9ca3af; margin-top: 8px; }
 .hub-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-weight: 550; }
-.hub input, .hub textarea, .hub select { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid #aebed2; border-radius: 9px; background: white; color: #1b2b43; font: inherit; font-size: 16px; line-height: 1.5; font-weight: 400; }
+.hub input, .hub textarea, .hub select { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid #374151; border-radius: 9px; background: #111827; color: #e5e7eb; font: inherit; font-size: 16px; line-height: 1.5; font-weight: 400; }
 .hub textarea { resize: vertical; }
-.hub input::placeholder, .hub textarea::placeholder { color: #65748a; opacity: 1; }
-.hub-create-project { display: flex; gap: 16px; align-items: flex-end; padding: 24px; background: #fff; border: 1px solid #dce3ed; border-radius: 14px; margin-bottom: 28px; }
+.hub input::placeholder, .hub textarea::placeholder { color: #6b7280; opacity: 1; }
+.hub-create-project { display: flex; gap: 16px; align-items: flex-end; padding: 24px; background: #111827; border: 1px solid #1f2937; border-radius: 14px; margin-bottom: 28px; }
 .hub-create-project .hub-field { flex: 1; }
 .hub-create-project button { min-height: 48px; }
 .hub-project-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 24px; }
-.hub-project-card { padding: 28px; border: 1px solid #dce3ed; border-radius: 16px; background: white; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; overflow-wrap: anywhere; min-width: 0; }
-.hub-project-icon { width: 48px; height: 48px; border-radius: 12px; background: #edf2fe; color: #2155cd; display: grid; place-items: center; font-size: 30px; }
-.hub-project-details { display: flex; flex-wrap: wrap; gap: 6px 16px; color: #58677c; font-size: 14px; padding: 8px 0 14px; }
+.hub-project-card { padding: 28px; border: 1px solid #1f2937; border-radius: 16px; background: #111827; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; overflow-wrap: anywhere; min-width: 0; }
+.hub-project-icon { width: 48px; height: 48px; border-radius: 12px; background: #111c3a; color: #60a5fa; display: grid; place-items: center; font-size: 30px; }
+.hub-project-details { display: flex; flex-wrap: wrap; gap: 6px 16px; color: #9ca3af; font-size: 14px; padding: 8px 0 14px; }
 .hub-project-card button { margin-top: auto; width: 100%; }
-.hub-empty { padding: 36px 28px; margin-top: 20px; border: 1px dashed #b9c7db; border-radius: 14px; color: #58677c; background: #fff; }
-.hub-empty h3 { color: #243954; margin-bottom: 10px; }
+.hub-empty { padding: 36px 28px; margin-top: 20px; border: 1px dashed #374151; border-radius: 14px; color: #9ca3af; background: #111827; }
+.hub-empty h3 { color: #e5e7eb; margin-bottom: 10px; }
 .hub-two-column { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; align-items: start; }
 .hub-form { display: flex; flex-direction: column; gap: 20px; }
-.hub-form-card { background: white; border: 1px solid #dce3ed; border-radius: 16px; padding: 28px; }
-.hub-count { display: inline-block; margin-left: 8px; padding: 2px 10px; background: #e8eef9; color: #3f567a; border-radius: 20px; font-size: 14px; }
+.hub-form-card { background: #111827; border: 1px solid #1f2937; border-radius: 16px; padding: 28px; }
+.hub-count { display: inline-block; margin-left: 8px; padding: 2px 10px; background: #1f2937; color: #d1d5db; border-radius: 20px; font-size: 14px; }
 .hub-resource-list { padding: 0; list-style: none; margin: 20px 0 0; display: grid; gap: 16px; }
-.hub-resource-list > li { padding: 24px; background: white; border: 1px solid #dce3ed; border-radius: 14px; overflow-wrap: anywhere; }
+.hub-resource-list > li { padding: 24px; background: #111827; border: 1px solid #1f2937; border-radius: 14px; overflow-wrap: anywhere; }
 .hub-resource-list p { margin: 8px 0 12px; white-space: pre-wrap; }
 .hub-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.hub-badge { display: inline-block; background: #edf2fb; color: #3d5274; border-radius: 20px; padding: 4px 12px; font-size: 14px; }
-.hub-notice { padding: 20px 24px; border-left: 3px solid #2155cd; background: #eaf0fc; border-radius: 4px 12px 12px 4px; margin-bottom: 28px; color: #304c7a; }
+.hub-badge { display: inline-block; background: #1f2937; color: #d1d5db; border-radius: 20px; padding: 4px 12px; font-size: 14px; }
+.hub-notice { padding: 20px 24px; border-left: 3px solid #3b82f6; background: #0b1a3a; border-radius: 4px 12px 12px 4px; margin-bottom: 28px; color: #93c5fd; }
 .hub-workflow { padding-left: 24px; margin: 24px 0; }
 .hub-workflow li + li { margin-top: 12px; }
-.hub-disclosure { margin-top: 24px; padding: 20px; border: 1px solid #c8d3e3; border-radius: 12px; background: white; }
+.hub-disclosure { margin-top: 24px; padding: 20px; border: 1px solid #374151; border-radius: 12px; background: #111827; }
 .hub-disclosure summary { cursor: pointer; font-weight: 600; }
-.hub pre { padding: 20px; margin-top: 20px; overflow-x: auto; background: #f0f3f8; border-radius: 8px; font-size: 14px; }
+.hub pre { padding: 20px; margin-top: 20px; overflow-x: auto; background: #030712; border-radius: 8px; font-size: 14px; }
 .hub code { overflow-wrap: anywhere; font-size: 14px; }
 .hub-capabilities { list-style: none; padding: 0; margin: 24px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.hub-capabilities li { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: white; border: 1px solid #dce3ed; padding: 20px; border-radius: 12px; }
+.hub-capabilities li { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: #111827; border: 1px solid #1f2937; padding: 20px; border-radius: 12px; }
 .hub-welcome { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); align-items: center; gap: 80px; padding: 64px 0; }
 .hub-welcome-copy h1 { font-size: clamp(32px, 4vw, 48px); max-width: 540px; }
-.hub-welcome-copy h1 + p { margin-top: 24px; font-size: 18px; color: #58677c; }
-.hub-welcome-copy ul { padding-left: 22px; margin-top: 32px; color: #58677c; }
+.hub-welcome-copy h1 + p { margin-top: 24px; font-size: 18px; color: #9ca3af; }
+.hub-welcome-copy ul { padding-left: 22px; margin-top: 32px; color: #9ca3af; }
 .hub-welcome-copy li + li { margin-top: 16px; }
-.hub-auth { background: white; border: 1px solid #dce3ed; border-radius: 20px; padding: 32px; box-shadow: 0 12px 40px #24395406; }
-.hub-auth-modes { display: flex; gap: 8px; margin-bottom: 28px; padding: 4px; border-radius: 12px; background: #f0f3f8; }
+.hub-auth { background: #111827; border: 1px solid #1f2937; border-radius: 20px; padding: 32px; box-shadow: 0 12px 40px #00000066; }
+.hub-auth-modes { display: flex; gap: 8px; margin-bottom: 28px; padding: 4px; border-radius: 12px; background: #030712; }
 .hub-auth-modes button { flex: 1; border-color: transparent; background: transparent; }
-.hub-auth-modes button[aria-pressed="true"] { background: white; color: #1944ac; border-color: #d1dcef; }
+.hub-auth-modes button[aria-pressed="true"] { background: #1f2937; color: #93c5fd; border-color: #374151; }
 .hub-auth h2 + p { margin-top: 10px; }
 .hub-auth .hub-form { margin-top: 28px; }
-.hub-divider { display: flex; align-items: center; gap: 14px; color: #58677c; font-size: 14px; margin: 24px 0; }
-.hub-divider::before, .hub-divider::after { content: ''; height: 1px; flex: 1; background: #dce3ed; }
+.hub-divider { display: flex; align-items: center; gap: 14px; color: #9ca3af; font-size: 14px; margin: 24px 0; }
+.hub-divider::before, .hub-divider::after { content: ''; height: 1px; flex: 1; background: #1f2937; }
 .hub-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .hub-actions button { flex: 1; }
 .hub-auth .hub-small { margin-top: 16px; }
-.hub-footer { margin-top: 40px; padding: 24px 0; border-top: 1px solid #dde3ed; color: #58677c; font-size: 14px; }
+.hub-footer { margin-top: 40px; padding: 24px 0; border-top: 1px solid #1f2937; color: #9ca3af; font-size: 14px; }
 .hub-loading { display: grid; place-items: center; }
 .studio-shell {
   --text-xs: .875rem;

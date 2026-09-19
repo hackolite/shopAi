@@ -103,8 +103,9 @@ def _read_json(project_id: str, filename: str) -> Any:
             try:
                 obj, _ = json.JSONDecoder().raw_decode(content)
                 return obj
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as fallback_exc:
+                _log.warning("Invalid concatenated JSON in %s/%s: %s", project_id, filename, fallback_exc)
+                raise fallback_exc
         _log.warning("Invalid JSON in %s/%s: %s", project_id, filename, exc)
         return None
 

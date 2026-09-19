@@ -23,6 +23,14 @@ const tabs: { id: HubTab; label: string }[] = [
   { id: 'settings', label: 'Configuration' },
 ];
 
+const defaultAgentPromptPrefixLabels = [
+  'Créer implantation:',
+  'Modifier implantation:',
+  'Créer assortiment:',
+  'Modifier assortiment:',
+  'Projet complet:',
+];
+
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -91,6 +99,7 @@ export default function App() {
   const [agentTargetType, setAgentTargetType] = useState('workspace');
   const [agentTargetId, setAgentTargetId] = useState('');
   const [agentPrompt, setAgentPrompt] = useState('');
+  const promptPrefixLabels = agentGuide?.promptPrefixes.map((item) => item.prefix) ?? defaultAgentPromptPrefixLabels;
 
   const loadAuthenticatedData = useCallback(async () => {
     const dashboardData = await platformApi.getDashboard();
@@ -525,6 +534,7 @@ export default function App() {
                       <option value="">Aucun</option>
                       {(dashboard?.pedestrianDatasets ?? []).map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
                     </select></Field>
+                    <p className="hub-small hub-muted">Le catalogue du projet se choisit ici. Les imports JSON catalogue se font uniquement dans l’onglet Catalogues.</p>
                     <button className="hub-primary" type="submit" disabled={busy || !projectName.trim()}>Créer un projet</button>
                   </form>
                   <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportProjectZip(); }}>
@@ -719,7 +729,10 @@ export default function App() {
                         {agentTargetType !== 'workspace' && <Field label="Ressource ciblée"><select required value={agentTargetId} onChange={(event) => setAgentTargetId(event.target.value)}>
                           <option value="">Choisir une ressource</option>{targetResources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
                         </select></Field>}
-                        <Field label="Votre demande"><textarea required rows={5} value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder="Décrivez les changements souhaités…" /></Field>
+                        <p className="hub-small hub-muted">
+                          Préfixes conseillés : {promptPrefixLabels.join(' · ')}
+                        </p>
+                        <Field label="Votre demande"><textarea required rows={5} value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder="Ex. Modifier assortiment: utilise le catalogue du projet et réserve les promotions aux têtes de gondole." /></Field>
                         <button className="hub-primary" type="submit" disabled={busy || !agentPrompt.trim()}>Enregistrer la demande</button>
                       </form>
                       <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Demandes enregistrées">
@@ -735,6 +748,22 @@ export default function App() {
                   <Section title="Connexion REST / OpenAPI" subtitle="Transmettez ce guide à votre agent externe pour lui donner accès à l’API.">
                     <Field label="Adresse du schéma OpenAPI"><input readOnly value={agentGuide?.openApiUrl ?? `${window.location.origin}/openapi.json`} /></Field>
                     <ol className="hub-workflow">{(agentGuide?.workflowSteps ?? []).map((step) => <li key={step}>{step}</li>)}</ol>
+                    <div className="hub-form-card hub-resource-panel">
+                      <h3>Préfixes de demandes agent</h3>
+                      {agentGuide?.promptPrefixes?.length ? (
+                        <ul className="hub-workflow">
+                          {agentGuide.promptPrefixes.map((item) => (
+                            <li key={item.prefix}>
+                              <strong>{item.prefix}</strong> {item.description} <span className="hub-small hub-muted">Ex. {item.example}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="hub-small hub-muted">
+                          Préfixes conseillés : {defaultAgentPromptPrefixLabels.join(' · ')} Les détails complets sont chargés depuis le guide API dès qu’il est disponible.
+                        </p>
+                      )}
+                    </div>
                     <details className="hub-disclosure"><summary>Exemples de requêtes</summary><pre>{JSON.stringify(agentGuide?.sampleRequests ?? {}, null, 2)}</pre></details>
                   </Section>
                   <Section title="Capacités de l’agent externe" subtitle="Vérifications du script de pilotage et du premier projet de votre espace.">

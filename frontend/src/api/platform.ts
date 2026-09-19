@@ -103,6 +103,11 @@ export interface AgentApiGuide {
   capabilityUrl: string;
   changeRequestUrl: string;
   workflowSteps: string[];
+  promptPrefixes: Array<{
+    prefix: string;
+    description: string;
+    example: string;
+  }>;
   sampleRequests: Record<string, unknown>;
 }
 

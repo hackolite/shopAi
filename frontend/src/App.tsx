@@ -23,32 +23,12 @@ const tabs: { id: HubTab; label: string }[] = [
   { id: 'settings', label: 'Configuration' },
 ];
 
-const defaultAgentPromptPrefixes = [
-  {
-    prefix: 'Créer implantation:',
-    description: "Créer une implantation complète à partir d'un besoin décrit.",
-    example: 'Créer implantation: supérette urbaine 400 m² avec 6 gondoles et une zone frais.',
-  },
-  {
-    prefix: 'Modifier implantation:',
-    description: 'Modifier la grille, les dimensions ou le mobilier.',
-    example: 'Modifier implantation: passe la grille à 50 cm et élargis l’allée centrale.',
-  },
-  {
-    prefix: 'Créer assortiment:',
-    description: 'Créer un assortiment dans le layout existant avec des règles merchandising.',
-    example: 'Créer assortiment: utilise le catalogue du projet et priorise la marge.',
-  },
-  {
-    prefix: 'Modifier assortiment:',
-    description: 'Ajuster un assortiment existant sans refaire le layout.',
-    example: 'Modifier assortiment: augmente les facings des promotions et limite les doublons.',
-  },
-  {
-    prefix: 'Projet complet:',
-    description: 'Enchaîner implantation et assortiment avec le catalogue projet fourni.',
-    example: 'Projet complet: crée un magasin de dépannage du soir à partir du catalogue du projet.',
-  },
+const defaultAgentPromptPrefixLabels = [
+  'Créer implantation:',
+  'Modifier implantation:',
+  'Créer assortiment:',
+  'Modifier assortiment:',
+  'Projet complet:',
 ];
 
 function formatDate(value: string | null | undefined): string {
@@ -119,7 +99,7 @@ export default function App() {
   const [agentTargetType, setAgentTargetType] = useState('workspace');
   const [agentTargetId, setAgentTargetId] = useState('');
   const [agentPrompt, setAgentPrompt] = useState('');
-  const promptPrefixes = agentGuide?.promptPrefixes ?? defaultAgentPromptPrefixes;
+  const promptPrefixLabels = agentGuide?.promptPrefixes.map((item) => item.prefix) ?? defaultAgentPromptPrefixLabels;
 
   const loadAuthenticatedData = useCallback(async () => {
     const dashboardData = await platformApi.getDashboard();
@@ -750,7 +730,7 @@ export default function App() {
                           <option value="">Choisir une ressource</option>{targetResources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
                         </select></Field>}
                         <p className="hub-small hub-muted">
-                          Préfixes conseillés : {promptPrefixes.map((item) => item.prefix).join(' · ')}
+                          Préfixes conseillés : {promptPrefixLabels.join(' · ')}
                         </p>
                         <Field label="Votre demande"><textarea required rows={5} value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder="Ex. Modifier assortiment: utilise le catalogue du projet et réserve les promotions aux têtes de gondole." /></Field>
                         <button className="hub-primary" type="submit" disabled={busy || !agentPrompt.trim()}>Enregistrer la demande</button>
@@ -770,13 +750,19 @@ export default function App() {
                     <ol className="hub-workflow">{(agentGuide?.workflowSteps ?? []).map((step) => <li key={step}>{step}</li>)}</ol>
                     <div className="hub-form-card hub-resource-panel">
                       <h3>Préfixes de demandes agent</h3>
-                      <ul className="hub-workflow">
-                        {promptPrefixes.map((item) => (
-                          <li key={item.prefix}>
-                            <strong>{item.prefix}</strong> {item.description} <span className="hub-small hub-muted">Ex. {item.example}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {agentGuide?.promptPrefixes.length ? (
+                        <ul className="hub-workflow">
+                          {agentGuide.promptPrefixes.map((item) => (
+                            <li key={item.prefix}>
+                              <strong>{item.prefix}</strong> {item.description} <span className="hub-small hub-muted">Ex. {item.example}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="hub-small hub-muted">
+                          Préfixes conseillés : {defaultAgentPromptPrefixLabels.join(' · ')} Les détails complets sont chargés depuis le guide API dès qu’il est disponible.
+                        </p>
+                      )}
                     </div>
                     <details className="hub-disclosure"><summary>Exemples de requêtes</summary><pre>{JSON.stringify(agentGuide?.sampleRequests ?? {}, null, 2)}</pre></details>
                   </Section>

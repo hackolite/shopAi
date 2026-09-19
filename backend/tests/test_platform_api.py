@@ -580,6 +580,67 @@ def test_simulation_import_json_persists_scenarios() -> None:
     assert simulation["payload"]["scenarios"][0]["name"] == "Samedi 14h"
 
 
+def test_workspace_resources_expose_downloadable_json() -> None:
+    client = _make_client()
+    _register(client, name="Downloader", email="downloader@example.com")
+
+    project_response = client.post("/api/cad/projects/", json={"name": "Projet source téléchargement"})
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    furniture_response = client.post(
+        f"/api/cad/projects/{project_id}/scene/furniture",
+        json={
+            "id": "fixture-download",
+            "name": "Gondole download",
+            "type": "gondola",
+            "libraryId": "gondola",
+            "position": [200.0, 0.0, 200.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 120.0, "depth": 60.0, "height": 180.0},
+        },
+    )
+    assert furniture_response.status_code == 200, furniture_response.text
+
+    catalog_response = client.post(
+        "/api/platform/catalogs",
+        json={"name": "Catalogue download", "payload": {"products": [{"ean": "123"}]}, "productCount": 1},
+    )
+    assert catalog_response.status_code == 200, catalog_response.text
+    catalog_id = catalog_response.json()["id"]
+
+    simulation_response = client.post(
+        "/api/platform/simulations",
+        json={"name": "Simulation download", "payload": {"scenarios": [{"name": "soir"}]}, "scenarioCount": 1},
+    )
+    assert simulation_response.status_code == 200, simulation_response.text
+    simulation_id = simulation_response.json()["id"]
+
+    layout_response = client.post(
+        "/api/platform/store-layouts",
+        json={"name": "Layout download", "sourceProjectId": project_id},
+    )
+    assert layout_response.status_code == 200, layout_response.text
+    layout_id = layout_response.json()["id"]
+
+    catalog_download = client.get(f"/api/platform/catalogs/{catalog_id}/download")
+    assert catalog_download.status_code == 200, catalog_download.text
+    assert catalog_download.headers["content-disposition"].endswith('"Catalogue_download_catalog.json"')
+    assert json.loads(catalog_download.text)["products"][0]["ean"] == "123"
+
+    simulation_download = client.get(f"/api/platform/simulations/{simulation_id}/download")
+    assert simulation_download.status_code == 200, simulation_download.text
+    assert simulation_download.headers["content-disposition"].endswith('"Simulation_download_simulation.json"')
+    assert json.loads(simulation_download.text)["scenarios"][0]["name"] == "soir"
+
+    layout_download = client.get(f"/api/platform/store-layouts/{layout_id}/download")
+    assert layout_download.status_code == 200, layout_download.text
+    assert layout_download.headers["content-disposition"].endswith('"Layout_download_retail_layout.json"')
+    retail_layout = json.loads(layout_download.text)
+    assert retail_layout["store"]["name"] == "Projet source téléchargement"
+    assert retail_layout["furniture"][0]["name"] == "Gondole download"
+
+
 def test_workspace_resources_can_be_deleted() -> None:
     client = _make_client()
     _register(client, name="Cleaner", email="cleaner@example.com")

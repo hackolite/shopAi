@@ -20,6 +20,12 @@ from fastapi import HTTPException, Request, Response
 import services.project_manager as project_manager
 from models.project import Catalog, Planogram, ProjectSettings, SceneData, SimulationConfig
 from services.layout_audit import audit_project_layout
+from services.reference_templates import (
+    REFERENCE_PROJECT_IDS,
+    REFERENCE_PROJECT_NAMES,
+    load_default_assortment,
+    load_reference_template,
+)
 
 SESSION_COOKIE_NAME = "shopai_session"
 SESSION_DURATION_DAYS = 14
@@ -190,6 +196,13 @@ def ensure_platform_schema() -> None:
                 FOREIGN KEY (owner_user_id) REFERENCES users(id)
             );
 
+            CREATE TABLE IF NOT EXISTS tenant_default_assets (
+                tenant_id TEXT NOT NULL,
+                asset_key TEXT NOT NULL,
+                resource_id TEXT NOT NULL,
+                PRIMARY KEY (tenant_id, asset_key)
+            );
+
             CREATE TABLE IF NOT EXISTS checkout_simulation_lists (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -227,6 +240,86 @@ def _slugify(value: str) -> str:
     cleaned = "".join(char.lower() if char.isalnum() else "-" for char in value)
     parts = [part for part in cleaned.split("-") if part]
     return "-".join(parts)[:48] or "tenant"
+
+
+def ensure_tenant_defaults(user: dict[str, Any]) -> None:
+    """Provision each asset once, retaining edits, renames and intentional deletions."""
+    ensure_platform_schema()
+    with _connect() as conn:
+        # Serialize concurrent first logins/dashboards before writing project files.
+        conn.execute("BEGIN IMMEDIATE")
+        existing = {
+            row["asset_key"]
+            for row in conn.execute(
+                "SELECT asset_key FROM tenant_default_assets WHERE tenant_id = ?",
+                (user["tenantId"],),
+            )
+        }
+        for source_id in REFERENCE_PROJECT_IDS:
+            membership = conn.execute(
+                "SELECT 1 FROM project_memberships WHERE project_id = ? AND tenant_id = ?",
+                (source_id, user["tenantId"]),
+            ).fetchone()
+            if membership is None:
+                continue
+            # Older installations could claim shipped IDs. Preserve their edits in
+            # a private copy, rather than making a canonical source tenant-writable.
+            metadata = project_manager.get_project_metadata(source_id)
+            clone = project_manager.duplicate_project(source_id, metadata["name"])
+            conn.execute(
+                "UPDATE project_memberships SET project_id = ? WHERE project_id = ?",
+                (clone["id"], source_id),
+            )
+            for table in ("catalog_workspaces", "checkout_simulation_lists"):
+                conn.execute(
+                    f"UPDATE {table} SET source_project_id = ? WHERE tenant_id = ? AND source_project_id = ?",
+                    (clone["id"], user["tenantId"], source_id),
+                )
+            conn.execute(
+                "UPDATE agent_requests SET target_resource_id = ? WHERE tenant_id = ? "
+                "AND target_resource_type = 'project' AND target_resource_id = ?",
+                (clone["id"], user["tenantId"], source_id),
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO tenant_default_assets VALUES (?, ?, ?)",
+                (user["tenantId"], source_id, clone["id"]),
+            )
+            existing.add(source_id)
+
+        assets = [(source_id, False) for source_id in REFERENCE_PROJECT_IDS]
+        assets.extend((source_id, True) for source_id in REFERENCE_PROJECT_IDS[:2])
+        for source_id, layout_only in assets:
+            asset_key = source_id + ("_layout" if layout_only else "")
+            if asset_key in existing:
+                continue
+            name = REFERENCE_PROJECT_NAMES[source_id] + (" – Implantation seule" if layout_only else "")
+            snapshot = load_reference_template(source_id, layout_only=layout_only)
+            metadata = project_manager.import_project(snapshot, name)
+            project_manager.save_project_file(metadata["id"], "textures.json", snapshot["textures"])
+            conn.execute(
+                "INSERT INTO project_memberships VALUES (?, ?, ?, ?)",
+                (metadata["id"], user["tenantId"], user["id"], _utc_now()),
+            )
+            conn.execute(
+                "INSERT INTO tenant_default_assets VALUES (?, ?, ?)",
+                (user["tenantId"], asset_key, metadata["id"]),
+            )
+        if "assortment" not in existing:
+            catalog = load_default_assortment()
+            workspace_id = str(uuid4())
+            now = _utc_now()
+            conn.execute(
+                "INSERT INTO catalog_workspaces "
+                "(id, tenant_id, owner_user_id, name, description, product_count, payload_json, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (workspace_id, user["tenantId"], user["id"], "Assortiment Carrefour",
+                 "Assortiment Carrefour fourni avec ShopAI", len(catalog["products"]),
+                 json.dumps(catalog, ensure_ascii=False), now, now),
+            )
+            conn.execute(
+                "INSERT INTO tenant_default_assets VALUES (?, ?, ?)",
+                (user["tenantId"], "assortment", workspace_id),
+            )
 
 
 def _ensure_unique_slug(conn: sqlite3.Connection, base_slug: str) -> str:
@@ -269,6 +362,12 @@ def _row_to_user_payload(row: sqlite3.Row) -> dict[str, Any]:
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
+
+
+def _provisioned_user_payload(row: sqlite3.Row) -> dict[str, Any]:
+    user = _row_to_user_payload(row)
+    ensure_tenant_defaults(user)
+    return user
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -337,7 +436,7 @@ def register_user(name: str, email: str, password: str) -> dict[str, Any]:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=500, detail="Failed to create user")
-    return _row_to_user_payload(row)
+    return _provisioned_user_payload(row)
 
 
 def login_user(email: str, password: str) -> dict[str, Any]:
@@ -346,7 +445,7 @@ def login_user(email: str, password: str) -> dict[str, Any]:
         row = conn.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
     if row is None or not _verify_password(password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return _row_to_user_payload(row)
+    return _provisioned_user_payload(row)
 
 
 def _sign_oauth_state(payload_b64: str) -> str:
@@ -506,7 +605,7 @@ def oauth_sign_in(provider: str, email: str, name: str | None = None) -> dict[st
             row = conn.execute("SELECT * FROM users WHERE id = ?", (identity["user_id"],)).fetchone()
             if row is None:
                 raise HTTPException(status_code=500, detail="Corrupted identity record")
-            return _row_to_user_payload(row)
+            return _provisioned_user_payload(row)
 
         existing = conn.execute("SELECT * FROM users WHERE email = ?", (cleaned_email,)).fetchone()
         now = _utc_now()
@@ -543,7 +642,7 @@ def oauth_sign_in(provider: str, email: str, name: str | None = None) -> dict[st
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=500, detail="Failed to sign in")
-    return _row_to_user_payload(row)
+    return _provisioned_user_payload(row)
 
 
 def create_session_response(response: Response, user: dict[str, Any]) -> dict[str, Any]:
@@ -619,6 +718,8 @@ def require_current_user() -> dict[str, Any]:
 
 
 def assign_project_to_current_user(project_id: str) -> None:
+    if project_id in REFERENCE_PROJECT_IDS:
+        raise HTTPException(status_code=403, detail="Reference templates cannot be owned")
     user = get_current_user()
     if user is None:
         return
@@ -637,16 +738,22 @@ def assign_project_to_current_user(project_id: str) -> None:
 
 
 def list_owned_project_ids(user: dict[str, Any]) -> set[str]:
-    ensure_platform_schema()
+    ensure_tenant_defaults(user)
     with _connect() as conn:
         rows = conn.execute(
             "SELECT project_id FROM project_memberships WHERE tenant_id = ? ORDER BY created_at DESC",
             (user["tenantId"],),
         ).fetchall()
-    return {row["project_id"] for row in rows}
+    return {
+        row["project_id"] for row in rows
+        if row["project_id"] not in REFERENCE_PROJECT_IDS
+        and project_manager.load_project_file(row["project_id"], "project.json") is not None
+    }
 
 
 def current_user_can_access_project(project_id: str) -> bool:
+    if project_id in REFERENCE_PROJECT_IDS:
+        return False
     user = get_current_user()
     if user is None:
         return True
@@ -660,6 +767,8 @@ def current_user_can_access_project(project_id: str) -> bool:
 
 
 def require_current_user_project_access(project_id: str) -> None:
+    if project_id in REFERENCE_PROJECT_IDS:
+        raise HTTPException(status_code=403, detail="Reference templates are read-only; use a tenant copy")
     user = get_current_user()
     if user is None:
         return

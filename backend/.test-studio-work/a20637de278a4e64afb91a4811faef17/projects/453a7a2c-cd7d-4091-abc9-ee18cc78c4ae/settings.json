@@ -1,0 +1,18 @@
+{
+  "gridSize": 100.0,
+  "snapEnabled": true,
+  "showGrid": true,
+  "unit": "cm",
+  "cameraMode": "perspective",
+  "ambientLight": 0.8,
+  "simulation": {
+    "enabled": true,
+    "arrivalRatePerSecond": 0.5,
+    "durationSeconds": 180,
+    "maxCustomers": 120,
+    "randomSeed": 2024,
+    "desiredSpeedMps": 1.2,
+    "speedVariation": 0.2,
+    "waypoints": []
+  }
+}

@@ -13,6 +13,7 @@ interface ToolbarProps {
   onSaveAs: () => void;
   onExport: () => void;
   onImport: () => void;
+  onBack?: () => void;
 }
 
 const TOOLS: { id: ActiveTool; label: string; icon: string; title: string }[] = [
@@ -29,7 +30,7 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: 'split',     label: '⊞'  },
 ];
 
-export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onDelete, onSave, onSaveAs, onExport, onImport }: ToolbarProps) {
+export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onDelete, onSave, onSaveAs, onExport, onImport, onBack }: ToolbarProps) {
   const { activeTool, setActiveTool, viewMode, setViewMode, bevMode, setBevMode } = useUIStore();
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [loadMenuOpen, setLoadMenuOpen] = useState(false);
@@ -37,7 +38,8 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
   const closeMenus = () => { setFileMenuOpen(false); setLoadMenuOpen(false); };
 
   return (
-    <div className="flex items-center h-11 bg-gray-950 border-b border-gray-800 shrink-0 px-3 gap-4 select-none">
+    <div className="flex flex-wrap items-center min-h-14 bg-gray-950 border-b border-gray-800 shrink-0 px-3 py-2 gap-3 select-none">
+      {onBack && <button type="button" onClick={onBack} className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800">← Projets</button>}
       {/* ── Left: Logo + Project Name + File menu ── */}
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-lg leading-none">🏪</span>

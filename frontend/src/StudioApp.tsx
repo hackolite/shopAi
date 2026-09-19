@@ -17,6 +17,7 @@ import NameDialog from './components/NameDialog';
 import ExportDialog from './components/ExportDialog';
 import ImportDialog from './components/ImportDialog';
 import SimulationPanel from './components/SimulationPanel';
+import StudioAssistant from './components/StudioAssistant';
 import type { ImportFormat } from './components/ImportDialog';
 import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore } from './store/zoneStore';
@@ -42,9 +43,10 @@ function readStoredProjectId(): string {
 
 interface StudioAppProps {
   initialProjectId?: string | null;
+  onBack?: () => void;
 }
 
-export default function StudioApp({ initialProjectId }: StudioAppProps) {
+export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) {
   // Restore the last opened project so a page refresh (F5) brings the user
   // back into the project they were working on instead of the default one.
   const [projectId, setProjectId]     = useState<string>(() => initialProjectId ?? readStoredProjectId());
@@ -53,7 +55,10 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
   const [activePlanogramId, setActivePlanogramId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<'hierarchy' | 'catalog'>('hierarchy');
   const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [rightTab, setRightTab] = useState<'inspector' | 'simulation' | 'pedestrian'>('simulation');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [rightTab, setRightTab] = useState<'assistant' | 'inspector' | 'simulation' | 'pedestrian'>('assistant');
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
 
   // Dialog states
   const [nameDialog, setNameDialog] = useState<{
@@ -70,9 +75,14 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
-  const { setZones, selectedZoneId } = useZoneStore();
+  const { setZones, selectedZoneId, zones } = useZoneStore();
   const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
+  const simulationConfig = useSimulationStore((state) => state.config);
+
+  useEffect(() => {
+    setSaveStatus('idle');
+  }, [scene, zones, simulationConfig]);
 
   // Tracks the project ID currently being loaded; used to discard stale
   // responses when the user switches projects before a load completes.
@@ -117,6 +127,7 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
   const loadProjectData = useCallback(async (id: string) => {
     // Register this load as the active one; any earlier in-flight load is now stale.
     loadingProjectIdRef.current = id;
+    setLoadError(null);
 
     // Clear previous project's state immediately so stale data never bleeds into
     // the next project's view.  `loadedProjectId` stays null until the whole
@@ -186,18 +197,18 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
         if (loadingProjectIdRef.current === id) assets.finishLoading();
       });
     } catch (err) {
-      useAssetStore.getState().finishLoading();
       if (loadingProjectIdRef.current === id) {
+        useAssetStore.getState().finishLoading();
         console.error('Failed to load project data:', err);
-        // The restored project may have been deleted since the last visit:
-        // fall back to the default project instead of showing an empty app.
-        if (id !== DEFAULT_PROJECT) {
-          try {
-            localStorage.removeItem(LAST_PROJECT_STORAGE_KEY);
-          } catch {
-            // ignore storage failures
-          }
-          setProjectId(DEFAULT_PROJECT);
+        setLoadError(err instanceof Error ? err.message : String(err));
+        try {
+          const available = await cadApi.listProjects();
+          const fallback = available.projects.some((project) => project.id === id)
+            ? undefined
+            : available.projects[0];
+          if (fallback && loadingProjectIdRef.current === id) setProjectId(fallback.id);
+        } catch {
+          // Keep the load error visible when the server is unavailable.
         }
       } else {
         // Stale load that was superseded — log at lower severity so the error
@@ -240,6 +251,8 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
   // ── Switch to a project ───────────────────────────────────────────────────
   const switchProject = useCallback((id: string) => {
     setActivePlanogramId(null);
+    setSaveError(null);
+    setSaveStatus('idle');
     // Wipe the previous project's state right away.  Waiting for the load
     // effect means React first has to re-render the whole 3D scene, which can
     // take a while on large projects: until then the old furniture, floor
@@ -295,6 +308,37 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
     }
   }, [projects, projectId, switchProject, newProject]);
 
+  const saveProject = useCallback(async () => {
+    const currentScene = useSceneStore.getState().scene;
+    if (!currentScene || useProjectStore.getState().loadedProjectId !== projectId) {
+      const error = new Error('Attendez la fin du chargement avant d’enregistrer.');
+      setSaveError(error.message);
+      throw error;
+    }
+    setSaveStatus('saving');
+    setSaveError(null);
+    const savedZones = useZoneStore.getState().zones;
+    const savedConfig = useSimulationStore.getState().config;
+    try {
+      await cadApi.saveSnapshot(projectId, {
+        ...currentScene,
+        store: { ...currentScene.store, zones: savedZones },
+      }, savedConfig);
+      if (projectIdRef.current === projectId) {
+        const unchanged = useSceneStore.getState().scene === currentScene
+          && useZoneStore.getState().zones === savedZones
+          && useSimulationStore.getState().config === savedConfig;
+        setSaveStatus(unchanged ? 'saved' : 'idle');
+      }
+    } catch (err) {
+      if (projectIdRef.current === projectId) {
+        setSaveStatus('idle');
+        setSaveError(err instanceof Error ? err.message : String(err));
+      }
+      throw err;
+    }
+  }, [projectId]);
+
   // ── Save As (duplicate) ───────────────────────────────────────────────────
   const saveAsProject = useCallback(() => {
     setNameDialog({
@@ -305,6 +349,7 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
       onConfirm: async (name) => {
         setNameDialog(null);
         try {
+          await saveProject();
           const created = await cadApi.duplicateProject(projectId, name);
           await refreshProjectList();
           switchProject(created.id);
@@ -314,22 +359,7 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
         }
       },
     });
-  }, [projectId, projectName, refreshProjectList, switchProject]);
-
-  // ── Manual save (show feedback) ───────────────────────────────────────────
-  const saveProject = useCallback(async () => {
-    setSaveStatus('saving');
-    try {
-      // Trigger a no-op settings round-trip to ensure backend is up-to-date
-      const settings = await cadApi.getSettings(projectId);
-      await cadApi.updateSettings(projectId, settings);
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (err) {
-      console.error('Save failed:', err);
-      setSaveStatus('idle');
-    }
-  }, [projectId]);
+  }, [projectId, projectName, refreshProjectList, switchProject, saveProject]);
 
   // ── Open planogram ────────────────────────────────────────────────────────
   const openPlanogram = useCallback((planogramId: string) => {
@@ -505,7 +535,7 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
       // Ctrl/Cmd+S → save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        void saveProject();
+        void saveProject().catch(console.error);
         return;
       }
 
@@ -576,7 +606,7 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
+    <div className="studio-shell flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
       {/* Dialogs */}
       {nameDialog && (
         <NameDialog
@@ -610,38 +640,52 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
         onNew={newProject}
         onLoad={switchProject}
         onDelete={(id) => { void deleteProject(id); }}
-        onSave={saveProject}
+        onSave={() => { void saveProject().catch(console.error); }}
         onSaveAs={saveAsProject}
         onExport={exportProject}
         onImport={() => setShowImportDialog(true)}
+        onBack={onBack}
       />
+      <div className="flex flex-wrap items-center gap-3 border-b border-gray-800 px-4 py-2 text-sm">
+        <button type="button" aria-expanded={leftPanelOpen} aria-controls="studio-library"
+          onClick={() => setLeftPanelOpen((open) => !open)}
+          className="rounded-lg border border-gray-700 px-3 py-2 hover:bg-gray-800">
+          {leftPanelOpen ? 'Masquer la bibliothèque' : 'Scène et catalogue'}
+        </button>
+        <span className="text-gray-300">Studio 3D · {projectName}</span>
+        {saveStatus === 'saved' && <span role="status" className="text-emerald-300">Enregistrement effectué</span>}
+        {saveError && <span role="alert" className="text-red-300">Échec de l’enregistrement : {saveError}</span>}
+        {loadError && <span role="alert" className="text-red-300">Chargement impossible : {loadError}</span>}
+      </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         {/* ── Left panel (260px) ───────────────────────────────────────── */}
-        <div className="w-64 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
+        <div id="studio-library" className={leftPanelOpen ? 'absolute z-30 h-full w-72 max-w-[90vw] shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:static' : 'hidden'}>
           {/* Tab switcher */}
           <div className="flex shrink-0 border-b border-gray-800">
             <button
               className={[
-                'flex-1 py-1.5 text-xs font-medium transition-colors',
+                'flex-1 py-3 text-sm font-medium transition-colors',
                 leftTab === 'hierarchy'
                   ? 'text-blue-400 border-b-2 border-blue-400'
                   : 'text-gray-500 hover:text-gray-300',
               ].join(' ')}
               onClick={() => setLeftTab('hierarchy')}
+              aria-pressed={leftTab === 'hierarchy'}
             >
-              Scene
+              Scène
             </button>
             <button
               className={[
-                'flex-1 py-1.5 text-xs font-medium transition-colors',
+                'flex-1 py-3 text-sm font-medium transition-colors',
                 leftTab === 'catalog'
                   ? 'text-blue-400 border-b-2 border-blue-400'
                   : 'text-gray-500 hover:text-gray-300',
               ].join(' ')}
               onClick={() => setLeftTab('catalog')}
+              aria-pressed={leftTab === 'catalog'}
             >
-              Catalog
+              Catalogue
             </button>
           </div>
 
@@ -658,7 +702,7 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
         </div>
 
         {/* ── Main viewport ──────────────────────────────────────────────── */}
-        <main className="flex-1 relative overflow-hidden">
+        <main className="min-h-[30vh] flex-1 relative overflow-hidden md:min-h-0">
           {/*
             SceneEditor is ALWAYS mounted so the WebGL canvas (and any active
             MediaRecorder stream) persists across view-mode changes.
@@ -735,43 +779,62 @@ export default function StudioApp({ initialProjectId }: StudioAppProps) {
         </main>
 
         {/* ── Right panel (280px) ──────────────────────────────────────── */}
-        <aside className="w-72 shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden">
-          <div className="flex shrink-0 border-b border-gray-800">
+        <aside className="h-[45vh] w-full shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:h-auto md:w-96 md:max-w-[48vw]">
+          <div className="flex flex-wrap shrink-0 border-b border-gray-800" aria-label="Outils du studio">
+            <button type="button" aria-pressed={rightTab === 'assistant'}
+              onClick={() => setRightTab('assistant')}
+              className={`flex-1 px-3 py-3 text-sm font-medium ${rightTab === 'assistant' ? 'border-b-2 border-cyan-400 text-cyan-300' : 'text-gray-300 hover:bg-gray-800'}`}>
+              Assistant
+            </button>
             <button
               className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
+                'flex-1 px-2 py-3 text-sm font-medium transition-colors',
                 rightTab === 'simulation'
                   ? 'border-b-2 border-blue-400 text-blue-400'
                   : 'text-gray-500 hover:text-gray-300',
               ].join(' ')}
               onClick={() => setRightTab('simulation')}
+              aria-pressed={rightTab === 'simulation'}
             >
               Simulation
             </button>
             <button
               className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
+                'flex-1 px-2 py-3 text-sm font-medium transition-colors',
                 rightTab === 'inspector'
                   ? 'border-b-2 border-blue-400 text-blue-400'
                   : 'text-gray-500 hover:text-gray-300',
               ].join(' ')}
               onClick={() => setRightTab('inspector')}
+              aria-pressed={rightTab === 'inspector'}
             >
-              Inspector
+              Inspecteur
             </button>
             <button
               className={[
-                'flex-1 py-2 text-xs font-medium transition-colors',
+                'flex-1 px-2 py-3 text-sm font-medium transition-colors',
                 rightTab === 'pedestrian'
                   ? 'border-b-2 border-blue-400 text-blue-400'
                   : 'text-gray-500 hover:text-gray-300',
               ].join(' ')}
               onClick={() => setRightTab('pedestrian')}
+              aria-pressed={rightTab === 'pedestrian'}
             >
               Piéton
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
+            <div className={rightTab === 'assistant' ? 'h-full' : 'hidden'}>
+              <StudioAssistant
+                projectId={projectId}
+                onSave={saveProject}
+                onProjectCreated={async (id) => {
+                  await refreshProjectList();
+                  setViewMode('3d');
+                  switchProject(id);
+                }}
+              />
+            </div>
             {/* SimulationPanel stays mounted on both tabs (hidden via CSS on the
                 Inspector tab): it drives the live-simulation tick loop and its
                 unmount cleanup stops the backend session, so unmounting it here

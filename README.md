@@ -4,6 +4,32 @@
 
 ---
 
+## Workspace and studio assistant
+
+The home page separates **Projects**, **Catalogues**, **Simulations** and
+**Configuration** into keyboard-accessible tabs. Each workspace receives saved,
+independent Carrefour City, Express and Express airport projects, City/Express
+layout-only variants, and an **Assortiment Carrefour** product catalogue.
+Provisioning is idempotent: reopening the dashboard does not replace your edits.
+
+Open a project and use the **Assistant** panel beside the 3D view. For example,
+ask “Crée une implantation complète Carrefour City” or
+“Crée une implantation seule Carrefour Express”, then confirm creation.
+The assistant creates a **new saved project** and opens its result in 3D without
+replacing the current project. Complete projects include the furniture, catalogue
+and populated planograms. You can also request an audit.
+
+This built-in assistant is a **local, template-based assistant**, not a connected
+general-purpose LLM. It does not execute arbitrary design instructions or stream
+individual construction steps. The 3D result appears when creation finishes.
+External agent requests in Configuration remain a queue requiring an external
+consumer; selecting a provider does not establish an AI connection.
+
+**Enregistrer** / **Ctrl+S** persists the current scene, zones and simulation
+configuration; **Enregistrer sous…** saves those edits before duplicating.
+Existing catalogue and planogram editors continue to persist through their own
+CAD endpoints. **Exporter…** downloads a portable project archive or retail layout.
+
 ## Architecture
 
 ```
@@ -336,7 +362,7 @@ Current values of the reference projects (recomputed from
 The policy that decides **which references are carried and how many facings
 each one gets** is stored with the project, not in the code: it is described in
 `store-profile.json` (context modifiers) and audited in `validation-report.md`
-(`backend/storage/projects/carrefour_express_aeroport/`).
+(`backend/storage/templates/carrefour_express_aeroport/`).
 
 | Rule | Content |
 |------|---------|

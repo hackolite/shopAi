@@ -4,12 +4,12 @@ import base64
 import json
 import re
 import threading
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Form, HTTPException, UploadFile, File
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool, StringConstraints
 
 from models.project import (
     Catalog,
@@ -38,6 +38,7 @@ from services.simulation import SimulationConstraintViolation, run_flow_simulati
 from services.live_simulation import live_simulation_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
+from services.studio_assistant import run_studio_assistant
 from services.project_manager import (
     create_project,
     delete_project,
@@ -95,6 +96,26 @@ def _ensure_furniture_does_not_overlap(
 
 class CreateProjectPayload(BaseModel):
     name: str
+
+
+class StudioAssistantPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    prompt: Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=2000)]
+    confirm: StrictBool = False
+
+
+class StudioAssistantResponse(BaseModel):
+    message: str
+    requiresConfirmation: bool
+    changed: bool
+    projectId: str | None = None
+    steps: list[str] = []
+
+
+class StudioSnapshotPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scene: SceneData
+    simulation: SimulationConfig
 
 
 class DuplicateProjectPayload(BaseModel):
@@ -225,13 +246,56 @@ def get_project(project_id: str):
     return get_project_metadata(project_id)
 
 
+@router.post("/{project_id}/assistant", response_model=StudioAssistantResponse, response_model_exclude_none=True)
+def studio_assistant(project_id: str, payload: StudioAssistantPayload):
+    """Preview built-in model commands; confirmation creates a separate tenant-owned project."""
+    return run_studio_assistant(project_id, payload.prompt, confirm=payload.confirm)
+
+
+@router.put("/{project_id}/snapshot")
+def save_studio_snapshot(project_id: str, payload: StudioSnapshotPayload):
+    """Persist editor state without replacing the project's catalog or planograms."""
+    platform_service.require_current_user()
+    platform_service.require_current_user_project_access(project_id)
+    with _get_project_lock(project_id):
+        ensure_project_exists(project_id)
+        scene = payload.scene
+        try:
+            json.dumps(payload.model_dump(mode="json"), allow_nan=False)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Snapshot numbers must be finite") from exc
+        store_issues = validate_store(scene.store)
+        if store_issues:
+            raise HTTPException(status_code=422, detail=store_issues[0])
+        if len({item.id for item in scene.furniture}) != len(scene.furniture):
+            raise HTTPException(status_code=409, detail="Furniture IDs must be unique")
+        sx, _, sz = scene.store.position
+        width, depth = (scene.store.dimensions[key] for key in ("width", "depth"))
+        for index, item in enumerate(scene.furniture):
+            if any(value <= 0 for value in item.dimensions.values()):
+                raise HTTPException(status_code=422, detail=f"{item.name}: dimensions must be positive")
+            x0, x1, z0, z1 = furniture_rotated_bounds(item)
+            if x0 < sx - 0.5 or x1 > sx + width + 0.5 or z0 < sz - 0.5 or z1 > sz + depth + 0.5:
+                raise HTTPException(status_code=422, detail=f"{item.name}: furniture exceeds store bounds")
+            _ensure_furniture_does_not_overlap(item, scene.furniture[:index])
+        furniture_ids = {item.id for item in scene.furniture}
+        if any(item.furnitureId not in furniture_ids for item in _load_planograms(project_id)):
+            raise HTTPException(status_code=422, detail="Snapshot would orphan existing planograms")
+        settings = _load_settings(project_id)
+        settings.simulation = payload.simulation
+        _save_scene(project_id, scene)
+        _save_settings(project_id, settings)
+        metadata = get_project_metadata(project_id)
+    return {"projectId": project_id, "saved": True, "updatedAt": metadata["updatedAt"]}
+
+
 @router.get("/{project_id}/export")
 def export_project_endpoint(project_id: str):
     """Export the project as a ZIP archive containing all JSON files."""
     platform_service.require_current_user_project_access(project_id)
     zip_bytes = export_project_zip(project_id)
     metadata = get_project_metadata(project_id)
-    safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id))
+    safe_name = re.sub(r"[^\w\-]", "_", metadata.get("name", project_id), flags=re.ASCII)
     return Response(
         content=zip_bytes,
         media_type="application/zip",
@@ -682,8 +746,9 @@ def get_settings(project_id: str):
 
 @router.put("/{project_id}/settings")
 def update_settings(project_id: str, payload: dict[str, Any] = Body(...)):
-    settings = _merge_model(ProjectSettings, _load_settings(project_id), payload)
-    _save_settings(project_id, settings)
+    with _get_project_lock(project_id):
+        settings = _merge_model(ProjectSettings, _load_settings(project_id), payload)
+        _save_settings(project_id, settings)
     return settings.model_dump(mode="json")
 
 

@@ -108,7 +108,9 @@ def _read_json(project_id: str, filename: str) -> Any:
                 stripped = content.lstrip()
                 obj, end = json.JSONDecoder().raw_decode(stripped)
                 suffix = stripped[end:].lstrip()
-                if not suffix.startswith("{"):
+                try:
+                    json.loads(suffix)
+                except json.JSONDecodeError:
                     _log.warning("Invalid concatenated JSON suffix in %s/%s", project_id, filename)
                     return None
                 if filename == "project.json" and not isinstance(obj, dict):

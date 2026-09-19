@@ -134,3 +134,34 @@ def test_list_cad_projects_skips_invalid_concatenated_metadata_suffix(tmp_path) 
         pm.STORAGE_ROOT = previous_root
 
     assert [project["id"] for project in projects] == ["valid-project"]
+
+
+def test_list_cad_projects_recovers_with_json_array_suffix(tmp_path) -> None:
+    storage_root = tmp_path / "projects"
+    storage_root.mkdir(parents=True)
+
+    valid_dir = storage_root / "valid-project"
+    valid_dir.mkdir()
+    (valid_dir / "project.json").write_text(
+        json.dumps({"id": "valid-project", "name": "Valid Project"}),
+        encoding="utf-8",
+    )
+
+    recovered_dir = storage_root / "recovered-array-suffix-project"
+    recovered_dir.mkdir()
+    (recovered_dir / "project.json").write_text(
+        '{"id":"recovered-array-suffix-project","name":"Recovered"}[]',
+        encoding="utf-8",
+    )
+
+    previous_root = pm.STORAGE_ROOT
+    pm.STORAGE_ROOT = storage_root
+    try:
+        projects = pm.list_cad_projects()
+    finally:
+        pm.STORAGE_ROOT = previous_root
+
+    assert [project["id"] for project in projects] == [
+        "recovered-array-suffix-project",
+        "valid-project",
+    ]

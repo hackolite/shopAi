@@ -68,6 +68,7 @@ body {
 .hub-panel { padding: 36px 0 20px; }
 .hub-panel[hidden] { display: none; }
 .hub-section + .hub-section { margin-top: 40px; padding-top: 32px; border-top: 1px solid #dce3ed; }
+.hub-section-divider { margin: 32px 0; border-top: 1px solid #dce3ed; }
 .hub-section-heading { margin-bottom: 28px; }
 .hub-section-heading p { color: #58677c; margin-top: 8px; }
 .hub-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-weight: 550; }

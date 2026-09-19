@@ -64,10 +64,18 @@ export const cadApi = {
     }),
   listProjects: () => request<{ projects: ProjectListItem[] }>(BASE),
   getProject: (id: string) => request<ProjectMeta>(`${BASE}/${id}`),
-  createProject: (name: string) =>
+  createProject: (
+    name: string,
+    options?: { storeLayoutId?: string; catalogId?: string; pedestrianDatasetId?: string },
+  ) =>
     request<CreateProjectResponse>(BASE, {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({
+        name,
+        storeLayoutId: options?.storeLayoutId ?? null,
+        catalogId: options?.catalogId ?? null,
+        pedestrianDatasetId: options?.pedestrianDatasetId ?? null,
+      }),
     }),
   deleteProject: (id: string) =>
     request<{ deleted: boolean; id: string }>(`${BASE}/${id}`, {
@@ -249,16 +257,27 @@ export const cadApi = {
       method: 'POST',
     }),
 
-  importPedestrians: (id: string, file: File) => {
+  importPedestrians: (id: string, file: File, datasetName?: string) => {
     const form = new FormData();
     form.append('file', file);
-    return request<PedestrianImportResult>(`${BASE}/${id}/simulation/import-pedestrians`, {
-      method: 'POST',
-      body: form,
-    });
+    if (datasetName && datasetName.trim()) {
+      form.append('datasetName', datasetName.trim());
+    }
+    return request<PedestrianImportResult & { datasetId?: string }>(
+      `${BASE}/${id}/simulation/import-pedestrians`,
+      {
+        method: 'POST',
+        body: form,
+      },
+    );
   },
   getPedestrians: (id: string) =>
     request<PedestrianImportResult>(`${BASE}/${id}/simulation/pedestrians`),
+  loadPedestrianDataset: (id: string, datasetId: string) =>
+    request<PedestrianImportResult>(
+      `${BASE}/${id}/simulation/load-pedestrian-dataset/${encodeURIComponent(datasetId)}`,
+      { method: 'POST' },
+    ),
   loadPedestriansIntoLiveSimulation: (id: string, sessionId: string) =>
     request<{ sessionId: string; pedestrianCount: number }>(
       `${BASE}/${id}/simulation/live/${sessionId}/load-pedestrians`,

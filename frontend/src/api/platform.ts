@@ -213,6 +213,16 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  importSimulationJson: (file: File, name: string, description?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', name);
+    form.append('description', description ?? '');
+    return request<PlatformSimulationList>('/api/platform/simulations/import-json', {
+      method: 'POST',
+      body: form,
+    });
+  },
   importCatalogCsv: (file: File, name: string, description?: string) => {
     const form = new FormData();
     form.append('file', file);
@@ -233,6 +243,16 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  importStoreLayoutJson: (file: File, name: string, description?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', name);
+    form.append('description', description ?? '');
+    return request<PlatformStoreLayout>('/api/platform/store-layouts/import-json', {
+      method: 'POST',
+      body: form,
+    });
+  },
   getStoreLayout: (layoutId: string) =>
     request<PlatformStoreLayout>(`/api/platform/store-layouts/${encodeURIComponent(layoutId)}`),
   createPedestrianDataset: (payload: {

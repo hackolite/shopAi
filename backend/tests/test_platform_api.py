@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -478,3 +479,74 @@ def test_catalog_list_and_load_into_project() -> None:
     assert catalog.status_code == 200, catalog.text
     eans = [product["ean"] for product in catalog.json()["products"]]
     assert "3234567890123" in eans
+
+
+def test_catalog_csv_upload_parses_optional_description_column() -> None:
+    client = _make_client()
+    _register(client, name="Describer", email="describer@example.com")
+
+    csv_body = (
+        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,description\n"
+        "4234567890123,Chips nature 150g,MarqueD,Épicerie,20,10,30,150,Chips artisanales salées\n"
+    )
+    response = client.post(
+        "/api/platform/catalogs/import-csv",
+        data={"name": "Catalogue avec descriptions", "description": ""},
+        files={"file": ("catalog.csv", csv_body, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    product = response.json()["payload"]["products"][0]
+    assert product["description"] == "Chips artisanales salées"
+
+
+def test_store_layout_import_json_uses_shopai_retail_layout_format() -> None:
+    client = _make_client()
+    _register(client, name="Layout Importer", email="layout-importer@example.com")
+
+    project_response = client.post("/api/cad/projects/", json={"name": "Boutique source"})
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    furniture_response = client.post(
+        f"/api/cad/projects/{project_id}/scene/furniture",
+        json={
+            "id": "fixture-gondola-import",
+            "name": "Gondole",
+            "type": "gondola",
+            "libraryId": "gondola",
+            "position": [200.0, 0.0, 200.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 120.0, "depth": 60.0, "height": 180.0},
+        },
+    )
+    assert furniture_response.status_code == 200, furniture_response.text
+
+    export_response = client.get(f"/api/cad/projects/{project_id}/export/retail-layout")
+    assert export_response.status_code == 200, export_response.text
+    layout_json = export_response.text
+
+    import_response = client.post(
+        "/api/platform/store-layouts/import-json",
+        data={"name": "Implantation importée", "description": "Depuis export ShopAI"},
+        files={"file": ("retail_layout.json", layout_json, "application/json")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    layout = import_response.json()
+    assert layout["furnitureCount"] == 1
+    assert layout["payload"]["scene"]["furniture"][0]["id"] == "fixture-gondola-import"
+
+
+def test_simulation_import_json_persists_scenarios() -> None:
+    client = _make_client()
+    _register(client, name="Simulation Importer", email="simulation-importer@example.com")
+
+    payload = {"scenarios": [{"name": "Samedi 14h"}, {"name": "Vendredi 18h"}]}
+    response = client.post(
+        "/api/platform/simulations/import-json",
+        data={"name": "Simulation importée", "description": "Depuis JSON"},
+        files={"file": ("scenarios.json", json.dumps(payload), "application/json")},
+    )
+    assert response.status_code == 200, response.text
+    simulation = response.json()
+    assert simulation["scenarioCount"] == 2
+    assert simulation["payload"]["scenarios"][0]["name"] == "Samedi 14h"

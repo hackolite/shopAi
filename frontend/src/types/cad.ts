@@ -235,6 +235,8 @@ export interface CADProduct {
   heightCm: number;
   weightG: number;
   imageUrl: string | null;
+  /** Description libre du produit. */
+  description?: string | null;
   /** Prix d'achat estimé (€ HT). */
   priceBuyEur?: number | null;
   /** Prix de vente estimé (€ TTC). */

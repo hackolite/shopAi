@@ -6,33 +6,86 @@
 
 ## Workspace and studio assistant
 
-The home page separates **Projects**, **Catalogues**, **Simulations** and
-**Configuration** into keyboard-accessible tabs. Each workspace receives saved,
-independent Carrefour City, Express and Express airport projects, City/Express
-layout-only variants, and an **Assortiment Carrefour** product catalogue.
-Provisioning is idempotent: reopening the dashboard does not replace your edits.
+La page d'accueil sépare **Projects**, **Implantations**, **Catalogues**,
+**Simulations** et **Configuration**. Chaque workspace reçoit des projets
+Carrefour de référence, des variantes layout-only, et un **catalogue
+Assortiment Carrefour** persistant. Le provisioning est idempotent : rouvrir le
+dashboard ne réécrit pas vos ressources.
 
-Open a project and use the **Assistant** panel beside the 3D view. For example,
-ask “Crée une implantation complète Carrefour City” or
-“Crée une implantation seule Carrefour Express”, then confirm creation.
-The assistant creates a **new saved project** and opens its result in 3D without
-replacing the current project. Complete projects include the furniture, catalogue
-and populated planograms. You can also request an audit.
+### Règle produit : où gérer les catalogues ?
 
-This built-in assistant is a **local, template-based assistant**, not a connected
-general-purpose LLM. It does not execute arbitrary design instructions or stream
-individual construction steps. The 3D result appears when creation finishes.
-External agent requests in Configuration remain a queue requiring an external
-consumer; selecting a provider does not establish an AI connection.
+- **Import JSON catalogue : workspace uniquement** (`Catalogues`).
+- **Choix du catalogue : au moment de créer le projet** (`Projects`).
+- **Dans la vue 3D : plus d'import ni de changement de catalogue** ; le panneau
+  catalogue sert uniquement à consulter, rechercher, sélectionner et illustrer
+  les produits du projet courant.
 
-**Enregistrer** / **Ctrl+S** persists the current scene, zones and simulation
-configuration; **Enregistrer sous…** saves those edits before duplicating.
-Existing catalogue and planogram editors continue to persist through their own
-CAD endpoints. **Exporter…** downloads a portable project archive or retail layout.
-Saved workspace layouts, catalogues and simulations can each be downloaded
-directly from their dashboard cards. In the 3D simulation panel, pedestrian
-flows are now selected only from workspace datasets: choosing one applies it to
-the project immediately and it auto-starts with the live simulation.
+Flux recommandé :
+
+1. Importer le JSON assortiment dans `Catalogues`.
+2. Créer un projet et choisir éventuellement une implantation, un catalogue et
+   un dataset piéton/panier.
+3. Ouvrir le studio 3D pour travailler l'implantation et les planogrammes du
+   projet créé.
+
+### Assistant intégré du studio
+
+Dans le studio 3D, le panneau **Assistant** reste un assistant local,
+déterministe, basé sur des modèles Carrefour. Il sait créer une implantation
+complète, une implantation seule, sauvegarder et auditer un projet enregistré.
+Il **n'est pas** un LLM connecté et n'exécute pas de consignes libres.
+
+### Agent externe : préfixes de demandes recommandés
+
+Pour des demandes riches et pilotées par agent, utilisez l'onglet
+**Configuration** avec ces préfixes :
+
+- `Créer implantation:` créer une implantation à partir d'un besoin décrit.
+- `Modifier implantation:` changer grille, dimensions, mobilier, circulation.
+- `Créer assortiment:` placer les produits en rayon selon des règles
+  merchandising.
+- `Modifier assortiment:` retoucher les facings et règles sans refaire le
+  layout.
+- `Projet complet:` enchaîner implantation + assortiment avec le catalogue du
+  projet déjà fourni.
+
+Exemples :
+
+- `Modifier implantation: passe la grille à 50 cm et ajoute 2 têtes de gondole en entrée.`
+- `Créer assortiment: utilise le catalogue du projet, priorise la marge et garde les frais sur les meubles froids.`
+- `Projet complet: à partir du catalogue du projet, crée une supérette urbaine orientée dépannage du soir.`
+
+### Comment connecter un provider API à un agent
+
+1. Activez votre provider d'authentification dans le workspace si vous voulez un
+   vrai parcours utilisateur : `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+   `GOOGLE_REDIRECT_URI`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`,
+   `GITHUB_REDIRECT_URI`.
+2. Donnez à votre orchestrateur agent l'URL OpenAPI exposée par ShopAI :
+   `/openapi.json`.
+3. Laissez l'agent appeler l'API REST du produit avec le cookie de session du
+   workspace.
+4. Gardez vos clés LLM/provider **hors du dépôt**, via variables d'environnement
+   ou secret manager.
+
+### Exemple pédagogique — assortiment avec layout déjà fourni
+
+Cas d'usage : le layout existe déjà, vous voulez seulement remplir les rayons.
+
+1. Enregistrez ou importez d'abord le layout dans `Implantations`.
+2. Importez le catalogue fournisseur dans `Catalogues`.
+3. Créez un projet en sélectionnant ce layout et ce catalogue.
+4. Envoyez ensuite une demande agent du type :
+   `Créer assortiment: le layout est déjà fourni, utilise le catalogue du projet, mets les promotions en tête de gondole, garde les produits frais près des frigos et limite les doublons.`
+5. L'agent peut alors se concentrer sur les règles d'assortiment, sans redéfinir
+   la géométrie du magasin.
+
+**Enregistrer** / **Ctrl+S** persiste la scène, les zones et la configuration
+de simulation. **Enregistrer sous…** sauvegarde avant duplication.
+**Exporter…** télécharge une archive projet ou un retail layout. Les
+implantations, catalogues, simulations et datasets du workspace sont
+téléchargeables depuis leurs cartes respectives. Dans la simulation 3D, les
+flux piétons proviennent uniquement des datasets du workspace.
 
 ## Architecture
 
@@ -191,7 +244,7 @@ Toutes les dimensions sont en **centimètres** (`largeur × profondeur × hauteu
 | POST | `/{id}/catalog/products` | Add product |
 | PUT | `/{id}/catalog/products/{ean}` | Update product |
 | DELETE | `/{id}/catalog/products/{ean}` | Delete product |
-| POST | `/{id}/catalog/import` | **Import catalog from JSON** (see format below) |
+| POST | `/{id}/catalog/import` | **Import catalog from JSON** for automation/agent workflows |
 | GET | `/{id}/planograms` | List planograms (summaries) |
 | POST | `/{id}/planograms` | Create planogram |
 | GET | `/{id}/planograms/{pid}` | Full planogram with cells |
@@ -217,8 +270,9 @@ Interactive docs: **http://localhost:8000/docs**
 
 ## Catalog JSON Import Format
 
-The **📂 Importer JSON** button in the Catalog panel (and the `POST /{id}/catalog/import` API
-endpoint) accepts a JSON file in one of two shapes:
+Les imports de catalogue se font dans le **workspace** via l'onglet
+`Catalogues` ou l'endpoint `POST /api/platform/catalogs/import-json`.
+Le JSON accepté peut prendre deux formes :
 
 ### Shape 1 — bare array
 
@@ -272,8 +326,10 @@ endpoint) accepts a JSON file in one of two shapes:
 | `weightG` | number | ✅ | Product weight in **grams** |
 | `imageUrl` | string \| null | optional | URL or `data:` URI for the product thumbnail |
 
-> **Note:** importing replaces the entire catalog by default. To keep existing products and only
-> add/overwrite the imported ones, add `"merge": true` at the root of the JSON (API only).
+> **Note:** le flux produit recommandé est : importer dans le workspace, créer
+> un projet avec ce catalogue, puis travailler dans le studio 3D. L'endpoint
+> `POST /api/cad/projects/{id}/catalog/import` reste disponible pour
+> l'automatisation pilotée par agent.
 
 ---
 

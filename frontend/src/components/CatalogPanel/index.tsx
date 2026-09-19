@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
-import { platformApi, type PlatformCatalogWorkspace } from '../../api/platform';
 import type { CADProduct } from '../../types/cad';
 
 const CATEGORIES = ['All', 'Épicerie', 'Boissons', 'Frais', 'Hygiène', 'Bébé', 'Promotion'];
@@ -150,35 +149,6 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
     setSearchQuery, selectProduct, setProducts, products, loading,
   } = useCatalogStore();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const importRef = useRef<HTMLInputElement>(null);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [availableCatalogs, setAvailableCatalogs] = useState<PlatformCatalogWorkspace[]>([]);
-  const [selectedCatalogId, setSelectedCatalogId] = useState('');
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
-
-  useEffect(() => {
-    platformApi
-      .listCatalogs()
-      .then((response) => setAvailableCatalogs(response.catalogs))
-      .catch(() => undefined);
-  }, []);
-
-  const handleLoadTenantCatalog = async () => {
-    if (!projectId || !selectedCatalogId) return;
-    setIsLoadingCatalog(true);
-    setImportStatus('Chargement du catalogue…');
-    try {
-      const result = await cadApi.loadTenantCatalog(projectId, selectedCatalogId);
-      const refreshed = await cadApi.getCatalog(projectId);
-      setProducts(refreshed.products);
-      setImportStatus(`${result.imported} produits chargés`);
-    } catch (err) {
-      setImportStatus(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsLoadingCatalog(false);
-      setTimeout(() => setImportStatus(null), 3000);
-    }
-  };
 
   const displayed =
     selectedCategory === 'All'
@@ -188,26 +158,6 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   const handleImageUploaded = (ean: string, imageUrl: string) => {
     const updated = products.map(p => p.ean === ean ? { ...p, imageUrl } : p);
     setProducts(updated);
-  };
-
-  const handleImportJson = async (file: File) => {
-    if (!projectId) return;
-    setImportStatus('Importation…');
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text) as unknown;
-      // Accept either { products: [...] } or a bare array
-      const raw = Array.isArray(json) ? json : (json as Record<string, unknown>).products;
-      if (!Array.isArray(raw)) throw new Error('Format invalide : tableau "products" attendu');
-      const result = await cadApi.importCatalog(projectId, raw as CADProduct[], false);
-      const refreshed = await cadApi.getCatalog(projectId);
-      setProducts(refreshed.products);
-      setImportStatus(`${result.imported} produits importés`);
-    } catch (err) {
-      setImportStatus(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setTimeout(() => setImportStatus(null), 3000);
-    }
   };
 
   return (
@@ -255,70 +205,17 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
         ))}
       </div>
 
-      {/* Count + import button */}
-      <div className="px-3 py-1 text-xs text-gray-600 border-b border-gray-800 shrink-0 flex items-center justify-between">
-        <span>
+      {/* Count + workspace guidance */}
+      <div className="px-3 py-1 text-xs text-gray-600 border-b border-gray-800 shrink-0">
+        <div>
           {displayed.length} produits
           {selectedEan && <span className="ml-2 text-blue-400">• Sélectionné: {selectedEan}</span>}
-        </span>
-        <button
-          title="Importer un catalogue JSON"
-          onClick={() => importRef.current?.click()}
-          className="text-gray-500 hover:text-blue-400 transition-colors text-xs flex items-center gap-1"
-          disabled={!projectId}
-        >
-          📂 Importer JSON
-        </button>
-        <input
-          ref={importRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImportJson(file);
-            e.target.value = '';
-          }}
-        />
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          Les catalogues se gèrent dans le workspace : importez-les dans l’onglet
+          Catalogues puis sélectionnez-en un à la création du projet.
+        </p>
       </div>
-
-      {/* Import status */}
-      {importStatus && (
-        <div className="px-3 py-1 text-xs text-blue-400 border-b border-gray-800 shrink-0">
-          {importStatus}
-        </div>
-      )}
-
-      {/* Tenant catalog selector */}
-      {availableCatalogs.length > 0 && (
-        <div className="px-3 py-2 border-b border-gray-800 shrink-0 space-y-1.5">
-          <p className="text-[11px] text-gray-500">Charger un catalogue déjà stocké :</p>
-          <select
-            value={selectedCatalogId}
-            onChange={(e) => setSelectedCatalogId(e.target.value)}
-            className="w-full rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
-          >
-            <option value="">Choisir un catalogue…</option>
-            {availableCatalogs.map((catalog) => (
-              <option key={catalog.id} value={catalog.id}>
-                {catalog.name} ({catalog.productCount} produits)
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => void handleLoadTenantCatalog()}
-            disabled={!projectId || !selectedCatalogId || isLoadingCatalog}
-            className={[
-              'w-full rounded px-3 py-1.5 text-xs font-medium transition-colors',
-              !projectId || !selectedCatalogId || isLoadingCatalog
-                ? 'bg-gray-800 text-gray-500 opacity-50 cursor-not-allowed'
-                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 cursor-pointer',
-            ].join(' ')}
-          >
-            {isLoadingCatalog ? '⏳ Chargement…' : 'Utiliser ce catalogue'}
-          </button>
-        </div>
-      )}
 
       {/* Product list */}
       <div className="flex-1 overflow-y-auto p-1">

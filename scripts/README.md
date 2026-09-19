@@ -66,6 +66,11 @@ npm run dev
 - Documentation interactive de l'API : `http://localhost:8000/docs`
 - Schéma OpenAPI brut : `http://localhost:8000/openapi.json`
 
+> Côté produit, le flux recommandé reste : **importer les catalogues dans le
+> workspace**, puis **sélectionner le catalogue à la création du projet**. Les
+> imports catalogue directs dans un projet sont surtout utiles pour
+> l'automatisation pilotée par agent.
+
 ---
 
 ## Démarrage rapide
@@ -160,6 +165,26 @@ appelle alors directement les endpoints REST dans l'ordre des 8 étapes.
 - vous voulez brancher plusieurs modèles ;
 - vous voulez journaliser précisément tous les appels.
 
+## Préfixes de demandes conseillés pour un agent externe
+
+Quand vous stockez une demande agent dans l'interface ShopAI, utilisez des
+préfixes simples et stables :
+
+- `Créer implantation:` pour générer un layout à partir d'un besoin métier ;
+- `Modifier implantation:` pour changer la grille, les dimensions ou le
+  mobilier ;
+- `Créer assortiment:` pour remplir les rayons à partir du catalogue projet et
+  de règles merchandising ;
+- `Modifier assortiment:` pour corriger un assortiment existant ;
+- `Projet complet:` pour enchaîner implantation + assortiment.
+
+Exemples :
+
+- `Créer implantation: supérette urbaine 400 m², parcours rapide, 1 zone frais en fond.`
+- `Modifier implantation: passe la grille à 50 cm, ajoute 2 meubles promo et élargis l'allée centrale.`
+- `Créer assortiment: utilise le catalogue du projet, mets les promotions sur les têtes de gondole et garde les frais près des frigos.`
+- `Projet complet: à partir du catalogue du projet, crée un magasin orienté déjeuner du midi.`
+
 ## Authentification, clés API et sécurité
 
 ### Ce que fait le dépôt aujourd'hui
@@ -201,6 +226,40 @@ Exemples de clés qui peuvent exister **chez vous**, mais **pas dans ce dépôt*
   directement.
 - **Pour votre agent LLM** : dans votre orchestrateur, vos variables
   d'environnement — pas dans le dépôt.
+
+### Connexion type à un provider API
+
+Exemple minimal :
+
+1. votre utilisateur se connecte à ShopAI via GitHub ou Google dans
+   l'interface ;
+2. votre orchestrateur récupère le cookie de session ShopAI ;
+3. vous fournissez à l'agent :
+   - l'URL du backend ShopAI ;
+   - `/openapi.json` ;
+   - vos variables de provider LLM (OpenAI, Anthropic, etc.) côté infra ;
+4. l'agent appelle ensuite l'API REST ShopAI en session authentifiée.
+
+Autrement dit :
+
+- **auth utilisateur ShopAI** = accès à l'API métier du produit ;
+- **clé provider LLM** = accès à votre modèle d'agent ;
+- ces deux couches doivent rester séparées.
+
+## Exemple pédagogique — assortiment avec layout déjà fourni
+
+Vous avez déjà un layout valide et vous voulez uniquement automatiser
+l'assortiment.
+
+1. Importez le layout dans `Implantations`.
+2. Importez le fichier assortiment JSON dans `Catalogues`.
+3. Créez un nouveau projet en choisissant ce layout et ce catalogue.
+4. Envoyez une demande agent telle que :
+
+   `Créer assortiment: le layout est déjà fourni, utilise le catalogue du projet, place les meilleures marges à hauteur des yeux, réserve les têtes de gondole aux promotions et limite les doublons par allée.`
+
+5. L'agent n'a alors plus à recalculer la géométrie : il peut se focaliser sur
+   les règles de placement produit et les planogrammes.
 
 ---
 

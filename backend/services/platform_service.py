@@ -1512,10 +1512,38 @@ def get_agent_api_description(base_url: str | None = None) -> dict[str, Any]:
         "workflowSteps": [
             "Démarrer le backend FastAPI sur le port 8000.",
             "S'authentifier dans l'interface web pour obtenir le cookie de session.",
+            "Importer les catalogues uniquement dans le workspace, puis choisir le catalogue au moment de créer le projet.",
             "Donner à l'agent le schéma OpenAPI /openapi.json ou des tool calls REST équivalents.",
             "Lister les projets via /api/platform/dashboard.",
             "Vérifier un projet via /api/platform/agent-capabilities?projectId=...",
             "Pousser une demande via /api/platform/agent-requests si vous gardez une inbox utilisateur.",
+        ],
+        "promptPrefixes": [
+            {
+                "prefix": "Créer implantation:",
+                "description": "Créer une implantation complète à partir d'un besoin exprimé en langage naturel.",
+                "example": "Créer implantation: magasin de proximité de 450 m², allée centrale large, 6 gondoles et 2 meubles frais.",
+            },
+            {
+                "prefix": "Modifier implantation:",
+                "description": "Modifier une implantation existante (grille, dimensions du magasin, mobilier, circulation).",
+                "example": "Modifier implantation: passe la grille à 50 cm, décale les gondoles de 80 cm et ajoute une tête de gondole en entrée.",
+            },
+            {
+                "prefix": "Créer assortiment:",
+                "description": "Créer un assortiment et remplir les rayons selon des règles merchandising.",
+                "example": "Créer assortiment: utilise le catalogue du projet, priorise les meilleures marges et garde les produits frais près des meubles froids.",
+            },
+            {
+                "prefix": "Modifier assortiment:",
+                "description": "Ajuster un assortiment existant sans refaire l'implantation.",
+                "example": "Modifier assortiment: augmente les facings des MDD, limite les doublons et réserve les têtes de gondole aux promotions.",
+            },
+            {
+                "prefix": "Projet complet:",
+                "description": "Créer ou reprendre implantation + assortiment avec catalogue projet fourni.",
+                "example": "Projet complet: à partir du catalogue du projet, crée une supérette urbaine avec besoin décrit pour le soir et le dépannage.",
+            },
         ],
         "sampleRequests": {
             "dashboard": {
@@ -1533,7 +1561,7 @@ def get_agent_api_description(base_url: str | None = None) -> dict[str, Any]:
                     "provider": "github-copilot",
                     "targetResourceType": "project",
                     "targetResourceId": "<project-id>",
-                    "prompt": "Ajoute une vue KPI et un onboarding plus orienté retail.",
+                    "prompt": "Modifier assortiment: utilise le catalogue du projet et rééquilibre les facings en faveur des meilleures marges.",
                 },
             },
         },

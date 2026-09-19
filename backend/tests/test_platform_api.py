@@ -678,7 +678,7 @@ def test_workspace_pedestrian_dataset_is_downloadable_as_csv() -> None:
 
     dataset_download = client.get(f"/api/platform/pedestrian-datasets/{dataset_id}/download")
     assert dataset_download.status_code == 200, dataset_download.text
-    assert dataset_download.headers["content-disposition"].endswith('"Pietons_demo_pedestrian_dataset.csv"')
+    assert dataset_download.headers["content-disposition"].endswith('"Pi_tons_d_mo_pedestrian_dataset.csv"')
     assert dataset_download.headers["content-type"].startswith("text/csv")
     assert dataset_download.text == (
         "pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n"

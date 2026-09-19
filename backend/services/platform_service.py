@@ -1128,6 +1128,19 @@ def list_catalog_workspaces() -> list[dict[str, Any]]:
     return [_catalog_workspace_row_to_dict(row) for row in rows]
 
 
+def delete_catalog_workspace(catalog_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        deleted = conn.execute(
+            "DELETE FROM catalog_workspaces WHERE id = ? AND tenant_id = ?",
+            (catalog_id, user["tenantId"]),
+        ).rowcount
+        conn.commit()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail=f"Catalog '{catalog_id}' not found")
+    return {"deleted": True, "id": catalog_id}
+
+
 def create_checkout_simulation_list(
     name: str,
     description: str = "",
@@ -1270,6 +1283,19 @@ def get_store_layout(layout_id: str) -> dict[str, Any]:
     return _store_layout_row_to_dict(row)
 
 
+def delete_store_layout(layout_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        deleted = conn.execute(
+            "DELETE FROM store_layouts WHERE id = ? AND tenant_id = ?",
+            (layout_id, user["tenantId"]),
+        ).rowcount
+        conn.commit()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail=f"Store layout '{layout_id}' not found")
+    return {"deleted": True, "id": layout_id}
+
+
 def _pedestrian_dataset_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -1357,6 +1383,19 @@ def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
     if row is None:
         raise HTTPException(status_code=404, detail=f"Pedestrian dataset '{dataset_id}' not found")
     return _pedestrian_dataset_row_to_dict(row)
+
+
+def delete_checkout_simulation_list(simulation_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        deleted = conn.execute(
+            "DELETE FROM checkout_simulation_lists WHERE id = ? AND tenant_id = ?",
+            (simulation_id, user["tenantId"]),
+        ).rowcount
+        conn.commit()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail=f"Simulation '{simulation_id}' not found")
+    return {"deleted": True, "id": simulation_id}
 
 
 def create_agent_request(

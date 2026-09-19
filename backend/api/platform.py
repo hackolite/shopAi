@@ -7,8 +7,10 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Respon
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
+from models.project import PedestrianImportResult, PedestrianPickupPlan, PickupPlanItem
 from services import platform_service
 from services.catalog_import import parse_catalog_csv
+from services.pedestrian_import import parse_pedestrian_csv
 from services.retail_layout import split_retail_layout
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
@@ -162,6 +164,11 @@ def list_catalogs() -> dict[str, Any]:
     return {"catalogs": platform_service.list_catalog_workspaces()}
 
 
+@router.delete("/catalogs/{catalog_id}")
+def delete_catalog(catalog_id: str) -> dict[str, Any]:
+    return platform_service.delete_catalog_workspace(catalog_id)
+
+
 @router.post("/catalogs/import-csv")
 async def create_catalog_from_csv(
     file: UploadFile = File(...),
@@ -193,6 +200,11 @@ def create_simulation(payload: WorkspacePayload) -> dict[str, Any]:
         scenario_count=payload.scenarioCount,
         payload=payload.payload,
     )
+
+
+@router.delete("/simulations/{simulation_id}")
+def delete_simulation(simulation_id: str) -> dict[str, Any]:
+    return platform_service.delete_checkout_simulation_list(simulation_id)
 
 
 @router.post("/simulations/import-json")
@@ -288,6 +300,11 @@ def get_store_layout(layout_id: str) -> dict[str, Any]:
     return platform_service.get_store_layout(layout_id)
 
 
+@router.delete("/store-layouts/{layout_id}")
+def delete_store_layout(layout_id: str) -> dict[str, Any]:
+    return platform_service.delete_store_layout(layout_id)
+
+
 @router.post("/pedestrian-datasets")
 def create_pedestrian_dataset(payload: PedestrianDatasetPayload) -> dict[str, Any]:
     return platform_service.create_pedestrian_dataset(
@@ -302,6 +319,50 @@ def create_pedestrian_dataset(payload: PedestrianDatasetPayload) -> dict[str, An
 @router.get("/pedestrian-datasets")
 def list_pedestrian_datasets() -> dict[str, Any]:
     return {"pedestrianDatasets": platform_service.list_pedestrian_datasets()}
+
+
+@router.post("/pedestrian-datasets/import-csv")
+async def create_pedestrian_dataset_from_csv(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(""),
+) -> dict[str, Any]:
+    """Upload a pedestrian/basket CSV and persist it as a reusable tenant dataset."""
+    raw = await file.read()
+    try:
+        csv_text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded CSV text") from exc
+    records, anomalies = parse_pedestrian_csv(csv_text)
+    plans = [
+        PedestrianPickupPlan(
+            pedestrianId=record.pedestrianId,
+            startUnixTs=record.startUnixTs,
+            speedMps=record.speedMps,
+            profile=record.profile,
+            items=[
+                PickupPlanItem(
+                    ean=ean,
+                    found=False,
+                    reasonNotFound="Produit non résolu (aucune implantation source)",
+                )
+                for ean in record.wantedProducts
+            ],
+        )
+        for record in records.values()
+    ]
+    result = PedestrianImportResult(
+        pedestrianCount=len(plans),
+        rowCount=sum(len(record.wantedProducts) or 1 for record in records.values()),
+        plans=plans,
+        anomalies=anomalies,
+    )
+    return platform_service.create_pedestrian_dataset(
+        name=name,
+        description=description,
+        pedestrian_count=result.pedestrianCount,
+        payload=result.model_dump(mode="json"),
+    )
 
 
 @router.get("/pedestrian-datasets/{dataset_id}")

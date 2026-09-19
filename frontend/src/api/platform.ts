@@ -191,6 +191,10 @@ export const platformApi = {
   logout: () => request<{ ok: boolean }>('/api/platform/auth/logout', { method: 'POST' }),
   getDashboard: () => request<PlatformDashboard>('/api/platform/dashboard'),
   listCatalogs: () => request<{ catalogs: PlatformCatalogWorkspace[] }>('/api/platform/catalogs'),
+  deleteCatalog: (catalogId: string) =>
+    request<{ deleted: boolean; id: string }>(`/api/platform/catalogs/${encodeURIComponent(catalogId)}`, {
+      method: 'DELETE',
+    }),
   createCatalog: (payload: {
     name: string;
     description?: string;
@@ -213,6 +217,13 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  deleteSimulation: (simulationId: string) =>
+    request<{ deleted: boolean; id: string }>(
+      `/api/platform/simulations/${encodeURIComponent(simulationId)}`,
+      {
+        method: 'DELETE',
+      },
+    ),
   importSimulationJson: (file: File, name: string, description?: string) => {
     const form = new FormData();
     form.append('file', file);
@@ -243,6 +254,11 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  deleteStoreLayout: (layoutId: string) =>
+    request<{ deleted: boolean; id: string }>(
+      `/api/platform/store-layouts/${encodeURIComponent(layoutId)}`,
+      { method: 'DELETE' },
+    ),
   importStoreLayoutJson: (file: File, name: string, description?: string) => {
     const form = new FormData();
     form.append('file', file);
@@ -270,6 +286,16 @@ export const platformApi = {
     request<PlatformPedestrianDataset>(`/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}`),
   listPedestrianDatasets: () =>
     request<{ pedestrianDatasets: PlatformPedestrianDataset[] }>('/api/platform/pedestrian-datasets'),
+  importPedestrianDatasetCsv: (file: File, name: string, description?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', name);
+    form.append('description', description ?? '');
+    return request<PlatformPedestrianDataset>('/api/platform/pedestrian-datasets/import-csv', {
+      method: 'POST',
+      body: form,
+    });
+  },
   createAgentRequest: (payload: {
     provider: string;
     targetResourceType: string;

@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from models.project import PedestrianImportResult, PedestrianPickupPlan, PickupPlanItem
 from services import platform_service
@@ -44,8 +44,14 @@ def _pedestrian_dataset_to_csv(payload: dict[str, Any]) -> str:
     output = io.StringIO()
     writer = csv.writer(output, lineterminator="\n")
     writer.writerow(("pedestrian_id", "start_unix_ts", "speed_mps", "profile_json", "ean"))
-    for plan_data in payload.get("plans", []):
-        plan = PedestrianPickupPlan.model_validate(plan_data)
+    try:
+        plans = [PedestrianPickupPlan.model_validate(plan_data) for plan_data in payload.get("plans", [])]
+    except (TypeError, ValidationError) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Stored pedestrian dataset is invalid and cannot be exported as CSV",
+        ) from exc
+    for plan in plans:
         profile_json = json.dumps(plan.profile, separators=(",", ":"))
         if plan.items:
             for item in plan.items:

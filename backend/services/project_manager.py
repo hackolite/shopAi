@@ -300,6 +300,7 @@ def export_project_zip(project_id: str) -> bytes:
         planograms=planograms_raw.get("planograms", []),
         metadata=metadata,
     )
+    retail_layout["exportedAt"] = metadata.get("updatedAt") or metadata.get("createdAt") or retail_layout.get("exportedAt")
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -307,7 +308,10 @@ def export_project_zip(project_id: str) -> bytes:
             path = project_dir / filename  # safe: project_dir validated, filename from allowlist
             if path.exists():
                 zf.write(path, arcname=filename)  # lgtm[py/path-injection]
-        zf.writestr("retail-layout.json", json.dumps(retail_layout, indent=2, ensure_ascii=False))
+        info = zipfile.ZipInfo("retail-layout.json")
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.date_time = (1980, 1, 1, 0, 0, 0)
+        zf.writestr(info, json.dumps(retail_layout, indent=2, ensure_ascii=False))
     return buf.getvalue()
 
 

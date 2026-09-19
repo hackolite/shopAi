@@ -101,7 +101,7 @@ def _read_json(project_id: str, filename: str) -> Any:
         _log.warning("Failed to read %s/%s (%s): %s", project_id, filename, path, exc)
         return None
     if not content.strip():
-        _log.warning("Empty JSON file in %s/%s (%s)", project_id, filename, path)
+        _log.debug("Empty JSON file in %s/%s (%s)", project_id, filename, path)
         return None
     try:
         parsed = json.loads(content)

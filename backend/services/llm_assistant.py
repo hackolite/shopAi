@@ -84,11 +84,10 @@ def run_llm_assistant(
     platform_service.require_current_user_project_access(project_id)
     project_manager.ensure_project_exists(project_id)
     _log.info(
-        "External LLM request: project_id=%s confirm=%s prompt_chars=%d has_session_cookie=%s",
+        "External LLM request: project_id=%s confirm=%s prompt_chars=%d",
         project_id,
         confirm,
         len(prompt),
-        bool(session_cookie),
     )
 
     webhook_url = os.environ.get(_WEBHOOK_URL_ENV, "").strip()

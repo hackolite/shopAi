@@ -771,10 +771,14 @@ def _resolve_forwarded_session_token(request: Request) -> str | None:
 
 def resolve_session_user(request: Request) -> dict[str, Any] | None:
     ensure_platform_schema()
+    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
     if request.headers.get(SESSION_HEADER_NAME):
-        token = _resolve_forwarded_session_token(request)
+        if request.headers.get("Authorization"):
+            token = _resolve_forwarded_session_token(request)
+        else:
+            token = cookie_token
     else:
-        token = request.cookies.get(SESSION_COOKIE_NAME)
+        token = cookie_token
     if not token:
         return None
     now = datetime.now(timezone.utc)

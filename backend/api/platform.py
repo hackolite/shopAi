@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from models.project import PedestrianImportResult, PedestrianPickupPlan, PickupPlanItem
 from services import platform_service
-from services.catalog_import import parse_catalog_csv
+from services.catalog_import import parse_catalog_json
 from services.pedestrian_import import parse_pedestrian_csv
 from services.retail_layout import split_retail_layout
 
@@ -169,19 +169,19 @@ def delete_catalog(catalog_id: str) -> dict[str, Any]:
     return platform_service.delete_catalog_workspace(catalog_id)
 
 
-@router.post("/catalogs/import-csv")
-async def create_catalog_from_csv(
+@router.post("/catalogs/import-json")
+async def create_catalog_from_json(
     file: UploadFile = File(...),
     name: str = Form(...),
     description: str = Form(""),
 ) -> dict[str, Any]:
-    """Upload a product catalog CSV and persist it as a reusable tenant catalog."""
+    """Upload an assortment/catalog JSON and persist it as a reusable tenant catalog."""
     raw = await file.read()
     try:
-        csv_text = raw.decode("utf-8-sig")
+        json_text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded CSV text") from exc
-    catalog = parse_catalog_csv(csv_text)
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded JSON text") from exc
+    catalog = parse_catalog_json(json_text)
     payload = catalog.model_dump(mode="json")
     return platform_service.create_catalog_workspace(
         name=name,
@@ -368,6 +368,11 @@ async def create_pedestrian_dataset_from_csv(
 @router.get("/pedestrian-datasets/{dataset_id}")
 def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
     return platform_service.get_pedestrian_dataset(dataset_id)
+
+
+@router.delete("/pedestrian-datasets/{dataset_id}")
+def delete_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
+    return platform_service.delete_pedestrian_dataset(dataset_id)
 
 
 @router.post("/agent-requests")

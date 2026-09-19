@@ -288,12 +288,26 @@ def export_project_zip(project_id: str) -> bytes:
     if project_dir is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
 
+    metadata = load_project_file(project_id, "project.json") or {"id": project_id, "name": project_id}
+    scene_raw = load_project_file(project_id, "scene.json") or {"store": {}, "furniture": []}
+    planograms_raw = load_project_file(project_id, "planograms.json") or {"planograms": []}
+
+    from services.retail_layout import build_retail_layout
+
+    retail_layout = build_retail_layout(
+        project_id=project_id,
+        scene=scene_raw,
+        planograms=planograms_raw.get("planograms", []),
+        metadata=metadata,
+    )
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for filename in sorted(_ALLOWED_FILENAMES):
             path = project_dir / filename  # safe: project_dir validated, filename from allowlist
             if path.exists():
                 zf.write(path, arcname=filename)  # lgtm[py/path-injection]
+        zf.writestr("retail-layout.json", json.dumps(retail_layout, indent=2, ensure_ascii=False))
     return buf.getvalue()
 
 

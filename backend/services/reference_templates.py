@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
-from models.project import Catalog
+from services.catalog_import import parse_catalog_json
 
 REFERENCE_PROJECT_IDS = (
     "carrefour_city",
@@ -26,31 +25,7 @@ _ASSORTMENT_PATH = Path(__file__).resolve().parents[2] / "assortment.json"
 
 def load_default_assortment() -> dict[str, Any]:
     """Normalize the supplied Carrefour assortment into the CAD catalog schema."""
-    rows = json.loads(_ASSORTMENT_PATH.read_text(encoding="utf-8"))
-    products = []
-    for row in rows:
-        quantity = str(row.get("quantity") or "")
-        match = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*(kg|g)\s*", quantity, re.IGNORECASE)
-        weight = float(match[1].replace(",", ".")) * (1000 if match[2].lower() == "kg" else 1) if match else 0
-        products.append({
-            "ean": str(row["barcode"]),
-            "name": row["product_name"],
-            "brand": row.get("brand") or "",
-            "category": row.get("category_name") or "",
-            "subcategory": row.get("subcategory_name"),
-            "format": quantity or None,
-            "productRange": "MDD" if row.get("is_mdd") else None,
-            # The source does not provide packaging dimensions.
-            "widthCm": 10,
-            "depthCm": 10,
-            "heightCm": 20,
-            "weightG": weight,
-            "imageUrl": row.get("image_url") or None,
-            "priceBuyEur": row.get("cost_price_eur"),
-            "priceSellEur": row.get("suggested_price_eur"),
-            "marginPct": row.get("margin_rate_pct"),
-        })
-    return Catalog.model_validate({"products": products}).model_dump(mode="json")
+    return parse_catalog_json(_ASSORTMENT_PATH.read_text(encoding="utf-8")).model_dump(mode="json")
 
 
 def build_demo_pedestrian_dataset() -> dict[str, Any]:

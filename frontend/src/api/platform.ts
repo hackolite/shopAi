@@ -234,12 +234,12 @@ export const platformApi = {
       body: form,
     });
   },
-  importCatalogCsv: (file: File, name: string, description?: string) => {
+  importCatalogJson: (file: File, name: string, description?: string) => {
     const form = new FormData();
     form.append('file', file);
     form.append('name', name);
     form.append('description', description ?? '');
-    return request<PlatformCatalogWorkspace>('/api/platform/catalogs/import-csv', {
+    return request<PlatformCatalogWorkspace>('/api/platform/catalogs/import-json', {
       method: 'POST',
       body: form,
     });
@@ -286,6 +286,11 @@ export const platformApi = {
     request<PlatformPedestrianDataset>(`/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}`),
   listPedestrianDatasets: () =>
     request<{ pedestrianDatasets: PlatformPedestrianDataset[] }>('/api/platform/pedestrian-datasets'),
+  deletePedestrianDataset: (datasetId: string) =>
+    request<{ deleted: boolean; id: string }>(
+      `/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}`,
+      { method: 'DELETE' },
+    ),
   importPedestrianDatasetCsv: (file: File, name: string, description?: string) => {
     const form = new FormData();
     form.append('file', file);

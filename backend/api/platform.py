@@ -45,13 +45,13 @@ def _pedestrian_dataset_to_csv(payload: dict[str, Any]) -> str:
     writer = csv.writer(output, lineterminator="\n")
     writer.writerow(("pedestrian_id", "start_unix_ts", "speed_mps", "profile_json", "ean"))
     try:
-        plans = [PedestrianPickupPlan.model_validate(plan_data) for plan_data in payload.get("plans", [])]
+        result = PedestrianImportResult.model_validate(payload)
     except (TypeError, ValidationError) as exc:
         raise HTTPException(
             status_code=422,
             detail="Stored pedestrian dataset is invalid and cannot be exported as CSV",
         ) from exc
-    for plan in plans:
+    for plan in result.plans:
         profile_json = json.dumps(plan.profile, separators=(",", ":"))
         if plan.items:
             for item in plan.items:

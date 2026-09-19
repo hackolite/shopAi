@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from services import platform_service
 from services.catalog_import import parse_catalog_csv
+from services.retail_layout import split_retail_layout
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
 
@@ -193,6 +195,43 @@ def create_simulation(payload: WorkspacePayload) -> dict[str, Any]:
     )
 
 
+@router.post("/simulations/import-json")
+async def create_simulation_from_json(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(""),
+) -> dict[str, Any]:
+    """Upload a simulation scenario list (JSON) and persist it as a reusable tenant simulation.
+
+    Accepts either a JSON array of scenarios or an object with a ``scenarios`` key.
+    """
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded JSON text") from exc
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid JSON file: {exc}") from exc
+
+    if isinstance(data, list):
+        scenarios = data
+    elif isinstance(data, dict):
+        scenarios = data.get("scenarios", [])
+        if not isinstance(scenarios, list):
+            raise HTTPException(status_code=422, detail="'scenarios' must be a list")
+    else:
+        raise HTTPException(status_code=422, detail="JSON root must be an array or an object with 'scenarios'")
+
+    return platform_service.create_checkout_simulation_list(
+        name=name,
+        description=description,
+        scenario_count=len(scenarios),
+        payload={"scenarios": scenarios},
+    )
+
+
 @router.post("/store-layouts")
 def create_store_layout(payload: StoreLayoutPayload) -> dict[str, Any]:
     return platform_service.create_store_layout(
@@ -200,6 +239,42 @@ def create_store_layout(payload: StoreLayoutPayload) -> dict[str, Any]:
         description=payload.description,
         source_project_id=payload.sourceProjectId,
         payload=payload.payload,
+    )
+
+
+@router.post("/store-layouts/import-json")
+async def create_store_layout_from_json(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(""),
+) -> dict[str, Any]:
+    """Upload a ShopAI retail-layout JSON export and persist it as a reusable store layout.
+
+    The file must follow ShopAI's unified retail-layout format (the same JSON
+    produced by ``GET /api/cad/projects/{id}/export/retail-layout``), which is
+    split back into a scene (store + furniture) and its planograms.
+    """
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded JSON text") from exc
+    try:
+        layout = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid JSON file: {exc}") from exc
+    if not isinstance(layout, dict):
+        raise HTTPException(status_code=422, detail="JSON root must be a ShopAI retail-layout object")
+
+    try:
+        scene_dict, planograms_list = split_retail_layout(layout=layout, project_name=name.strip() or None)
+    except (AttributeError, TypeError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid ShopAI retail-layout document: {exc}") from exc
+    payload = {"scene": scene_dict, "planograms": planograms_list}
+    return platform_service.create_store_layout(
+        name=name,
+        description=description,
+        payload=payload,
     )
 
 

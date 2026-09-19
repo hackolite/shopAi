@@ -65,9 +65,14 @@ export default function App() {
   const [newProjectLayoutId, setNewProjectLayoutId] = useState('');
   const [newProjectCatalogId, setNewProjectCatalogId] = useState('');
   const [newProjectPedestrianDatasetId, setNewProjectPedestrianDatasetId] = useState('');
+  const [projectZipName, setProjectZipName] = useState('');
+  const [projectZipFile, setProjectZipFile] = useState<File | null>(null);
   const [layoutName, setLayoutName] = useState('');
   const [layoutDescription, setLayoutDescription] = useState('');
   const [layoutProjectId, setLayoutProjectId] = useState('');
+  const [layoutJsonName, setLayoutJsonName] = useState('');
+  const [layoutJsonDescription, setLayoutJsonDescription] = useState('');
+  const [layoutJsonFile, setLayoutJsonFile] = useState<File | null>(null);
   const [catalogName, setCatalogName] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
   const [catalogProjectId, setCatalogProjectId] = useState('');
@@ -76,6 +81,9 @@ export default function App() {
   const [simulationName, setSimulationName] = useState('');
   const [simulationDescription, setSimulationDescription] = useState('');
   const [simulationProjectId, setSimulationProjectId] = useState('');
+  const [simulationJsonName, setSimulationJsonName] = useState('');
+  const [simulationJsonDescription, setSimulationJsonDescription] = useState('');
+  const [simulationJsonFile, setSimulationJsonFile] = useState<File | null>(null);
   const [agentProvider, setAgentProvider] = useState('github-copilot');
   const [agentTargetType, setAgentTargetType] = useState('workspace');
   const [agentTargetId, setAgentTargetId] = useState('');
@@ -162,6 +170,16 @@ export default function App() {
     setStatusMessage('Projet créé.');
   });
 
+  const handleImportProjectZip = () => runAction(async () => {
+    if (!projectZipFile || !projectZipName.trim()) return;
+    const created = await cadApi.importProjectZip(projectZipName.trim(), projectZipFile);
+    setProjectZipName('');
+    setProjectZipFile(null);
+    await loadAuthenticatedData();
+    setStatusMessage('Projet importé depuis le ZIP ShopAI.');
+    setStudioProjectId(created.id);
+  });
+
   const handleCreateStoreLayout = () => runAction(async () => {
     if (!layoutName.trim()) return;
     await platformApi.createStoreLayout({
@@ -174,6 +192,16 @@ export default function App() {
     setLayoutProjectId('');
     await loadAuthenticatedData();
     setStatusMessage('Implantation enregistrée.');
+  });
+
+  const handleImportStoreLayoutJson = () => runAction(async () => {
+    if (!layoutJsonFile || !layoutJsonName.trim()) return;
+    await platformApi.importStoreLayoutJson(layoutJsonFile, layoutJsonName.trim(), layoutJsonDescription.trim());
+    setLayoutJsonName('');
+    setLayoutJsonDescription('');
+    setLayoutJsonFile(null);
+    await loadAuthenticatedData();
+    setStatusMessage('Implantation importée depuis le JSON ShopAI.');
   });
 
   const handleCreateCatalog = () => runAction(async () => {
@@ -209,6 +237,16 @@ export default function App() {
     setSimulationDescription('');
     await loadAuthenticatedData();
     setStatusMessage('Simulation enregistrée.');
+  });
+
+  const handleImportSimulationJson = () => runAction(async () => {
+    if (!simulationJsonFile || !simulationJsonName.trim()) return;
+    await platformApi.importSimulationJson(simulationJsonFile, simulationJsonName.trim(), simulationJsonDescription.trim());
+    setSimulationJsonName('');
+    setSimulationJsonDescription('');
+    setSimulationJsonFile(null);
+    await loadAuthenticatedData();
+    setStatusMessage('Simulation importée depuis le JSON.');
   });
 
   const handleSubmitAgentRequest = () => runAction(async () => {
@@ -409,6 +447,15 @@ export default function App() {
                     </select></Field>
                     <button className="hub-primary" type="submit" disabled={busy || !projectName.trim()}>Créer un projet</button>
                   </form>
+                  <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportProjectZip(); }}>
+                    <h3>Importer un projet (ZIP ShopAI)</h3>
+                    <Field label="Nom du projet importé">
+                      <input required value={projectZipName} onChange={(event) => setProjectZipName(event.target.value)} placeholder="Ex. Magasin repris" />
+                    </Field>
+                    <Field label="Fichier ZIP"><input required type="file" accept=".zip,application/zip" onChange={(event) => setProjectZipFile(event.target.files?.[0] ?? null)} /></Field>
+                    <p className="hub-small hub-muted">Archive ZIP exportée depuis ShopAI (scène, planogrammes, catalogue).</p>
+                    <button className="hub-primary" type="submit" disabled={busy || !projectZipFile || !projectZipName.trim()}>Importer le ZIP</button>
+                  </form>
                   {projects.length === 0 ? <div className="hub-empty"><h3>Votre premier projet commence ici</h3><p>Donnez-lui un nom ci-dessus, puis aménagez votre magasin dans le studio.</p></div> : (
                     <ul className="hub-project-grid">
                       {projects.map((project) => <li className="hub-project-card" key={project.id}>
@@ -440,6 +487,14 @@ export default function App() {
                       </select></Field>
                       <button className="hub-primary" type="submit" disabled={busy || !layoutName.trim() || !layoutProjectId}>Enregistrer l’implantation</button>
                     </form>
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutJson(); }}>
+                      <h3>Importer une implantation (JSON ShopAI)</h3>
+                      <Field label="Nom de l’implantation"><input required value={layoutJsonName} onChange={(event) => setLayoutJsonName(event.target.value)} placeholder="Ex. Implantation fournisseur" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={4} value={layoutJsonDescription} onChange={(event) => setLayoutJsonDescription(event.target.value)} /></Field>
+                      <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setLayoutJsonFile(event.target.files?.[0] ?? null)} /></Field>
+                      <p className="hub-small hub-muted">Format retail-layout JSON ShopAI (export « Retail Layout » du studio : store + furniture + planogrammes).</p>
+                      <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
+                    </form>
                     <div>
                       <h3>Vos implantations <span className="hub-count">{dashboard?.storeLayouts.length ?? 0}</span></h3>
                       {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
@@ -464,7 +519,7 @@ export default function App() {
                       <h3>Importer un catalogue CSV</h3>
                       <Field label="Nom du catalogue"><input required value={catalogCsvName} onChange={(event) => setCatalogCsvName(event.target.value)} placeholder="Ex. Assortiment fournisseur" /></Field>
                       <Field label="Fichier CSV"><input required type="file" accept=".csv,text/csv" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Colonnes requises : ean, name, brand, category, widthCm, depthCm, heightCm, weightG.</p>
+                      <p className="hub-small hub-muted">Colonnes requises : ean, name, brand, category, widthCm, depthCm, heightCm, weightG. Colonnes facultatives : description, subcategory, productRange, format, imageUrl, priceBuyEur, marginPct, priceSellEur.</p>
                       <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le CSV</button>
                     </form>
                     <div>
@@ -486,6 +541,14 @@ export default function App() {
                       <Field label="Description (facultatif)"><textarea rows={4} value={simulationDescription} onChange={(event) => setSimulationDescription(event.target.value)} /></Field>
                       <Field label="Projet source (facultatif)"><select value={simulationProjectId} onChange={(event) => setSimulationProjectId(event.target.value)}>{projectChoices}</select></Field>
                       <button className="hub-primary" type="submit" disabled={busy || !simulationName.trim()}>Enregistrer la simulation</button>
+                    </form>
+                    <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportSimulationJson(); }}>
+                      <h3>Importer une simulation (JSON)</h3>
+                      <Field label="Nom de la simulation"><input required value={simulationJsonName} onChange={(event) => setSimulationJsonName(event.target.value)} placeholder="Ex. Scénarios caisses été" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={4} value={simulationJsonDescription} onChange={(event) => setSimulationJsonDescription(event.target.value)} /></Field>
+                      <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setSimulationJsonFile(event.target.files?.[0] ?? null)} /></Field>
+                      <p className="hub-small hub-muted">Tableau JSON de scénarios, ou objet avec une clé « scenarios ».</p>
+                      <button className="hub-primary" type="submit" disabled={busy || !simulationJsonFile || !simulationJsonName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
                       <h3>Vos simulations <span className="hub-count">{dashboard?.simulations.length ?? 0}</span></h3>

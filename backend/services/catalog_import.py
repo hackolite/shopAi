@@ -2,7 +2,8 @@
 
 Expected columns: ``ean, name, brand, category, widthCm, depthCm, heightCm,
 weightG`` (required) plus optional ``subcategory, productRange, format,
-imageUrl, priceBuyEur, marginPct, priceSellEur``. One row per product.
+description, imageUrl, priceBuyEur, marginPct, priceSellEur``. One row per
+product.
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ def parse_catalog_csv(csv_text: str) -> Catalog:
             continue
 
         cleaned: dict[str, Any] = {"ean": ean, "name": name}
-        for key in ("brand", "category", "subcategory", "productRange", "format", "imageUrl"):
+        for key in ("brand", "category", "subcategory", "productRange", "format", "description", "imageUrl"):
             value = (row.get(key) or "").strip()
             cleaned[key] = value or None
         cleaned["brand"] = cleaned["brand"] or ""

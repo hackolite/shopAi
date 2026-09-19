@@ -108,6 +108,11 @@ def _read_json(project_id: str, filename: str) -> Any:
                 stripped = content.lstrip()
                 obj, end = json.JSONDecoder().raw_decode(stripped)
                 suffix = stripped[end:].lstrip()
+                if not suffix:
+                    if filename == "project.json" and not isinstance(obj, dict):
+                        _log.warning("Invalid metadata type in %s/%s: expected object", project_id, filename)
+                        return None
+                    return obj
                 try:
                     json.loads(suffix)
                 except json.JSONDecodeError:

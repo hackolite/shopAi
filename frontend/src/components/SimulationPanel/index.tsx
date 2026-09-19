@@ -268,6 +268,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const [availablePedestrianDatasets, setAvailablePedestrianDatasets] = useState<PlatformPedestrianDataset[]>([]);
   const [selectedPedestrianDatasetId, setSelectedPedestrianDatasetId] = useState('');
   const [appliedPedestrianDataset, setAppliedPedestrianDataset] = useState<PlatformPedestrianDataset | null>(null);
+  const appliedPedestrianDatasetRef = useRef<PlatformPedestrianDataset | null>(null);
   const [isApplyingPedestrianDataset, setIsApplyingPedestrianDataset] = useState(false);
   /**
    * The live session id the active dataset was successfully loaded into.
@@ -686,6 +687,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, []);
 
   useEffect(() => {
+    appliedPedestrianDatasetRef.current = appliedPedestrianDataset;
+  }, [appliedPedestrianDataset]);
+
+  useEffect(() => {
     setSelectedPedestrianDatasetId('');
     setAppliedPedestrianDataset(null);
     setPedestrianDatasetError(null);
@@ -695,7 +700,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   useEffect(() => {
     if (!projectId) return;
     if (!selectedPedestrianDatasetId) {
-      if (appliedPedestrianDataset) {
+      if (appliedPedestrianDatasetRef.current) {
         setAppliedPedestrianDataset(null);
         setPedestrianImport(null);
         setPedestrianLoadedSessionId(null);
@@ -704,7 +709,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       return;
     }
     void applyPedestrianDataset(selectedPedestrianDatasetId);
-  }, [appliedPedestrianDataset, applyPedestrianDataset, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
+  }, [applyPedestrianDataset, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !scene || !playing) return;

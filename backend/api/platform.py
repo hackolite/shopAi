@@ -358,7 +358,7 @@ def download_store_layout(layout_id: str) -> Response:
     scene = payload.get("scene") if isinstance(payload, dict) else None
     planograms = payload.get("planograms") if isinstance(payload, dict) else None
     retail_layout = build_retail_layout(
-        project_id=layout["id"],
+        project_id=layout.get("sourceProjectId") or layout["id"],
         scene=scene if isinstance(scene, dict) else {"store": {}, "furniture": []},
         planograms=planograms if isinstance(planograms, list) else [],
         metadata={"name": layout["name"], "createdAt": layout["createdAt"], "updatedAt": layout["updatedAt"]},

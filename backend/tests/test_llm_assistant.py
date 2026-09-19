@@ -54,6 +54,7 @@ def test_llm_endpoint_rejects_when_not_configured(studio, monkeypatch: pytest.Mo
 def test_llm_endpoint_relays_a_valid_preview_reply(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     captured: dict = {}
 
@@ -79,11 +80,13 @@ def test_llm_endpoint_relays_a_valid_preview_reply(studio, monkeypatch: pytest.M
         "projectId": project_id, "prompt": "Modifier implantation: élargis l'allée centrale", "confirm": False,
     }
     assert "X-ShopAI-Session" in captured["headers"]
+    assert captured["headers"]["Authorization"].startswith("Bearer ")
 
 
 def test_llm_endpoint_rejects_malformed_agent_reply(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     def fake_post(url, json=None, headers=None, timeout=None):
         return httpx.Response(200, json={"unexpectedField": True})
@@ -97,6 +100,7 @@ def test_llm_endpoint_rejects_malformed_agent_reply(studio, monkeypatch: pytest.
 def test_llm_endpoint_surfaces_transport_failures(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     def fake_post(url, json=None, headers=None, timeout=None):
         raise httpx.ConnectTimeout("boom")
@@ -110,6 +114,7 @@ def test_llm_endpoint_surfaces_transport_failures(studio, monkeypatch: pytest.Mo
 def test_llm_endpoint_audits_a_reported_write_and_surfaces_issues(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     scene = pm.load_project_file(project_id, "scene.json")
     scene["store"]["dimensions"]["width"] = -1
@@ -153,6 +158,7 @@ def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_head
 
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     def fake_post(url, json=None, headers=None, timeout=None):
         with TestClient(app) as callback_client:
@@ -166,7 +172,10 @@ def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_head
                         "planograms": [],
                     },
                 },
-                headers={"X-ShopAI-Session": headers["X-ShopAI-Session"]},
+                headers={
+                    "X-ShopAI-Session": headers["X-ShopAI-Session"],
+                    "Authorization": headers["Authorization"],
+                },
             )
         assert response.status_code == 200, response.text
         return httpx.Response(200, json={
@@ -187,6 +196,30 @@ def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_head
     created_project = client.get(f"/api/cad/projects/{created_project_id}")
     assert created_project.status_code == 200, created_project.text
     assert created_project.json()["name"] == "Projet généré par agent"
+
+
+def test_forwarded_session_header_requires_matching_webhook_token(
+    studio,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from main import app
+
+    client, _ = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
+    session_token = client.cookies.get("shopai_session")
+    assert session_token
+
+    with TestClient(app) as callback_client:
+        unauthorized = callback_client.post(
+            "/api/cad/projects/import",
+            json={"name": "Unauthorized", "snapshot": {}},
+            headers={"X-ShopAI-Session": session_token},
+        )
+    assert unauthorized.status_code == 200
+
+    created_project_id = unauthorized.json()["id"]
+    forbidden = client.get(f"/api/cad/projects/{created_project_id}")
+    assert forbidden.status_code == 403
 
 
 @pytest.mark.parametrize("payload", [

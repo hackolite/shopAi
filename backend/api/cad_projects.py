@@ -96,6 +96,9 @@ def _ensure_furniture_does_not_overlap(
 
 class CreateProjectPayload(BaseModel):
     name: str
+    storeLayoutId: str | None = None
+    catalogId: str | None = None
+    pedestrianDatasetId: str | None = None
 
 
 class StudioAssistantPayload(BaseModel):
@@ -238,8 +241,25 @@ def get_projects() -> dict[str, Any]:
 @router.post("/")
 def post_project(payload: CreateProjectPayload):
     project_id = str(uuid4())
-    metadata = create_project(project_id, payload.name)
+    if payload.storeLayoutId or payload.catalogId:
+        snapshot: dict[str, Any] = {}
+        if payload.storeLayoutId:
+            layout = platform_service.get_store_layout(payload.storeLayoutId)
+            layout_payload = layout["payload"] or {}
+            snapshot["scene"] = layout_payload.get("scene", {"store": {}, "furniture": []})
+            snapshot["planograms"] = layout_payload.get("planograms", [])
+        if payload.catalogId:
+            catalog = platform_service.get_catalog_workspace(payload.catalogId)
+            snapshot["catalog"] = catalog["payload"] or {"products": []}
+        metadata = import_project(snapshot, payload.name)
+        # import_project() generates its own id; align the response with it.
+        project_id = metadata["id"]
+    else:
+        metadata = create_project(project_id, payload.name)
     platform_service.assign_project_to_current_user(project_id)
+    if payload.pedestrianDatasetId:
+        dataset = platform_service.get_pedestrian_dataset(payload.pedestrianDatasetId)
+        save_project_file(project_id, "pedestrians.json", dataset["payload"] or {})
     return metadata
 
 
@@ -872,7 +892,11 @@ def stop_live_simulation(project_id: str, session_id: str):
 
 
 @router.post("/{project_id}/simulation/import-pedestrians")
-async def import_pedestrians(project_id: str, file: UploadFile = File(...)):
+async def import_pedestrians(
+    project_id: str,
+    file: UploadFile = File(...),
+    datasetName: str | None = Form(None),
+):
     """Import a pedestrian/basket CSV and build a per-pedestrian pickup plan.
 
     Expected columns: ``pedestrian_id, start_unix_ts, speed_mps, profile_json,
@@ -881,6 +905,11 @@ async def import_pedestrians(project_id: str, file: UploadFile = File(...)):
     the project's planograms; EAN missing from the catalog or not placed on
     any planogram are kept in the plan with ``found=false`` and a reason
     instead of being silently dropped.
+
+    When ``datasetName`` is provided, the resulting pickup plan is also
+    persisted as a tenant-scoped, named and timestamped pedestrian/basket
+    dataset (independent of this project) so it stays selectable from the
+    simulation panel of any project, including after this project is deleted.
     """
     raw = await file.read()
     try:
@@ -915,7 +944,16 @@ async def import_pedestrians(project_id: str, file: UploadFile = File(...)):
     )
 
     save_project_file(project_id, "pedestrians.json", result.model_dump(mode="json"))
-    return result.model_dump(mode="json")
+    response = result.model_dump(mode="json")
+    if datasetName and datasetName.strip():
+        dataset = platform_service.create_pedestrian_dataset(
+            name=datasetName.strip(),
+            source_project_id=project_id,
+            pedestrian_count=result.pedestrianCount,
+            payload=response,
+        )
+        response["datasetId"] = dataset["id"]
+    return response
 
 
 @router.get("/{project_id}/simulation/pedestrians")
@@ -926,6 +964,17 @@ def get_pedestrians(project_id: str):
     if stored is None:
         return PedestrianImportResult(pedestrianCount=0, rowCount=0).model_dump(mode="json")
     return PedestrianImportResult.model_validate(stored).model_dump(mode="json")
+
+
+@router.post("/{project_id}/simulation/load-pedestrian-dataset/{dataset_id}")
+def load_pedestrian_dataset_into_project(project_id: str, dataset_id: str):
+    """Copy a tenant-stored pedestrian/basket dataset into this project's pedestrians.json."""
+    platform_service.require_current_user_project_access(project_id)
+    ensure_project_exists(project_id)
+    dataset = platform_service.get_pedestrian_dataset(dataset_id)
+    payload = dataset["payload"] or {}
+    save_project_file(project_id, "pedestrians.json", payload)
+    return PedestrianImportResult.model_validate(payload).model_dump(mode="json")
 
 
 @router.post("/{project_id}/simulation/live/{session_id}/load-pedestrians")

@@ -218,6 +218,36 @@ def ensure_platform_schema() -> None:
                 FOREIGN KEY (owner_user_id) REFERENCES users(id)
             );
 
+            CREATE TABLE IF NOT EXISTS store_layouts (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                owner_user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                source_project_id TEXT,
+                furniture_count INTEGER NOT NULL DEFAULT 0,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+                FOREIGN KEY (owner_user_id) REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS pedestrian_datasets (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                owner_user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                source_project_id TEXT,
+                pedestrian_count INTEGER NOT NULL DEFAULT 0,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+                FOREIGN KEY (owner_user_id) REFERENCES users(id)
+            );
+
             CREATE TABLE IF NOT EXISTS agent_requests (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -282,7 +312,12 @@ def ensure_tenant_defaults(user: dict[str, Any]) -> None:
                 "UPDATE project_memberships SET project_id = ? WHERE project_id = ?",
                 (clone["id"], source_id),
             )
-            for table in ("catalog_workspaces", "checkout_simulation_lists"):
+            for table in (
+                "catalog_workspaces",
+                "checkout_simulation_lists",
+                "store_layouts",
+                "pedestrian_datasets",
+            ):
                 conn.execute(
                     f"UPDATE {table} SET source_project_id = ? WHERE tenant_id = ? AND source_project_id = ?",
                     (clone["id"], user["tenantId"], source_id),
@@ -891,6 +926,28 @@ def get_dashboard() -> dict[str, Any]:
                 (user["tenantId"],),
             ).fetchall()
         ]
+        store_layouts = [
+            _store_layout_row_to_dict(row)
+            for row in conn.execute(
+                """
+                SELECT * FROM store_layouts
+                WHERE tenant_id = ?
+                ORDER BY updated_at DESC, name ASC
+                """,
+                (user["tenantId"],),
+            ).fetchall()
+        ]
+        pedestrian_datasets = [
+            _pedestrian_dataset_row_to_dict(row)
+            for row in conn.execute(
+                """
+                SELECT * FROM pedestrian_datasets
+                WHERE tenant_id = ?
+                ORDER BY updated_at DESC, name ASC
+                """,
+                (user["tenantId"],),
+            ).fetchall()
+        ]
 
     return {
         "user": user,
@@ -904,11 +961,15 @@ def get_dashboard() -> dict[str, Any]:
             "catalogCount": len(catalogs),
             "simulationCount": len(simulations),
             "agentRequestCount": len(agent_requests),
+            "storeLayoutCount": len(store_layouts),
+            "pedestrianDatasetCount": len(pedestrian_datasets),
         },
         "projects": projects,
         "catalogs": catalogs,
         "simulations": simulations,
         "agentRequests": agent_requests,
+        "storeLayouts": store_layouts,
+        "pedestrianDatasets": pedestrian_datasets,
     }
 
 
@@ -994,6 +1055,27 @@ def create_catalog_workspace(
     }
 
 
+def get_catalog_workspace(catalog_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM catalog_workspaces WHERE id = ? AND tenant_id = ?",
+            (catalog_id, user["tenantId"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Catalog '{catalog_id}' not found")
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "sourceProjectId": row["source_project_id"],
+        "productCount": row["product_count"],
+        "payload": _decode_payload(row["payload_json"]),
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
 def create_checkout_simulation_list(
     name: str,
     description: str = "",
@@ -1038,6 +1120,191 @@ def create_checkout_simulation_list(
         "createdAt": now,
         "updatedAt": now,
     }
+
+
+def _store_layout_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "sourceProjectId": row["source_project_id"],
+        "furnitureCount": row["furniture_count"],
+        "payload": _decode_payload(row["payload_json"]),
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def create_store_layout(
+    name: str,
+    description: str = "",
+    source_project_id: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Persist a reusable store layout (store dimensions + furniture placements).
+
+    When ``source_project_id`` is given, the layout snapshot is captured from
+    that project's current scene so the resource stays usable even after the
+    source project is later deleted.
+    """
+    user = require_current_user()
+    if source_project_id:
+        require_current_user_project_access(source_project_id)
+        scene_payload = project_manager.load_project_file(source_project_id, "scene.json") or {
+            "store": {},
+            "furniture": [],
+        }
+        planograms_payload = project_manager.load_project_file(source_project_id, "planograms.json") or {
+            "planograms": []
+        }
+        payload = {"scene": scene_payload, "planograms": planograms_payload.get("planograms", [])}
+    payload = payload or {"scene": {"store": {}, "furniture": []}, "planograms": []}
+    furniture_count = len(payload.get("scene", {}).get("furniture", []) or [])
+    now = _utc_now()
+    layout_id = str(uuid4())
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO store_layouts (
+                id, tenant_id, owner_user_id, name, description,
+                source_project_id, furniture_count, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                layout_id,
+                user["tenantId"],
+                user["id"],
+                name.strip() or "Store layout",
+                description.strip(),
+                source_project_id,
+                furniture_count,
+                json.dumps(payload, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+    return {
+        "id": layout_id,
+        "name": name.strip() or "Store layout",
+        "description": description.strip(),
+        "sourceProjectId": source_project_id,
+        "furnitureCount": furniture_count,
+        "payload": payload,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+
+
+def list_store_layouts() -> list[dict[str, Any]]:
+    user = require_current_user()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM store_layouts WHERE tenant_id = ? ORDER BY updated_at DESC, name ASC",
+            (user["tenantId"],),
+        ).fetchall()
+    return [_store_layout_row_to_dict(row) for row in rows]
+
+
+def get_store_layout(layout_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM store_layouts WHERE id = ? AND tenant_id = ?",
+            (layout_id, user["tenantId"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Store layout '{layout_id}' not found")
+    return _store_layout_row_to_dict(row)
+
+
+def _pedestrian_dataset_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "sourceProjectId": row["source_project_id"],
+        "pedestrianCount": row["pedestrian_count"],
+        "payload": _decode_payload(row["payload_json"]),
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def create_pedestrian_dataset(
+    name: str,
+    description: str = "",
+    source_project_id: str | None = None,
+    pedestrian_count: int = 0,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Persist an imported pedestrian/basket dataset (CSV import result).
+
+    Stored independently of the project it was imported from (with an
+    optional ``source_project_id`` for traceability) so it stays selectable
+    from any project's simulation panel, including after the source project
+    is deleted, and is named + timestamped for reuse.
+    """
+    user = require_current_user()
+    if source_project_id:
+        require_current_user_project_access(source_project_id)
+    payload = payload or {"pedestrianCount": 0, "rowCount": 0, "plans": [], "anomalies": []}
+    now = _utc_now()
+    dataset_id = str(uuid4())
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO pedestrian_datasets (
+                id, tenant_id, owner_user_id, name, description,
+                source_project_id, pedestrian_count, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                dataset_id,
+                user["tenantId"],
+                user["id"],
+                name.strip() or "Panier / piéton",
+                description.strip(),
+                source_project_id,
+                max(int(pedestrian_count), 0),
+                json.dumps(payload, ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+    return {
+        "id": dataset_id,
+        "name": name.strip() or "Panier / piéton",
+        "description": description.strip(),
+        "sourceProjectId": source_project_id,
+        "pedestrianCount": max(int(pedestrian_count), 0),
+        "payload": payload,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+
+
+def list_pedestrian_datasets() -> list[dict[str, Any]]:
+    user = require_current_user()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM pedestrian_datasets WHERE tenant_id = ? ORDER BY updated_at DESC, name ASC",
+            (user["tenantId"],),
+        ).fetchall()
+    return [_pedestrian_dataset_row_to_dict(row) for row in rows]
+
+
+def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM pedestrian_datasets WHERE id = ? AND tenant_id = ?",
+            (dataset_id, user["tenantId"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Pedestrian dataset '{dataset_id}' not found")
+    return _pedestrian_dataset_row_to_dict(row)
 
 
 def create_agent_request(

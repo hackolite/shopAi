@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from services import platform_service
+from services.catalog_import import parse_catalog_csv
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
 
@@ -32,6 +33,21 @@ class WorkspacePayload(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     productCount: int = 0
     scenarioCount: int = 0
+
+
+class StoreLayoutPayload(BaseModel):
+    name: str
+    description: str = ""
+    sourceProjectId: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class PedestrianDatasetPayload(BaseModel):
+    name: str
+    description: str = ""
+    sourceProjectId: str | None = None
+    pedestrianCount: int = 0
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentRequestPayload(BaseModel):
@@ -139,6 +155,28 @@ def create_catalog(payload: WorkspacePayload) -> dict[str, Any]:
     )
 
 
+@router.post("/catalogs/import-csv")
+async def create_catalog_from_csv(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(""),
+) -> dict[str, Any]:
+    """Upload a product catalog CSV and persist it as a reusable tenant catalog."""
+    raw = await file.read()
+    try:
+        csv_text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded CSV text") from exc
+    catalog = parse_catalog_csv(csv_text)
+    payload = catalog.model_dump(mode="json")
+    return platform_service.create_catalog_workspace(
+        name=name,
+        description=description,
+        product_count=len(payload["products"]),
+        payload=payload,
+    )
+
+
 @router.post("/simulations")
 def create_simulation(payload: WorkspacePayload) -> dict[str, Any]:
     return platform_service.create_checkout_simulation_list(
@@ -148,6 +186,47 @@ def create_simulation(payload: WorkspacePayload) -> dict[str, Any]:
         scenario_count=payload.scenarioCount,
         payload=payload.payload,
     )
+
+
+@router.post("/store-layouts")
+def create_store_layout(payload: StoreLayoutPayload) -> dict[str, Any]:
+    return platform_service.create_store_layout(
+        name=payload.name,
+        description=payload.description,
+        source_project_id=payload.sourceProjectId,
+        payload=payload.payload,
+    )
+
+
+@router.get("/store-layouts")
+def list_store_layouts() -> dict[str, Any]:
+    return {"storeLayouts": platform_service.list_store_layouts()}
+
+
+@router.get("/store-layouts/{layout_id}")
+def get_store_layout(layout_id: str) -> dict[str, Any]:
+    return platform_service.get_store_layout(layout_id)
+
+
+@router.post("/pedestrian-datasets")
+def create_pedestrian_dataset(payload: PedestrianDatasetPayload) -> dict[str, Any]:
+    return platform_service.create_pedestrian_dataset(
+        name=payload.name,
+        description=payload.description,
+        source_project_id=payload.sourceProjectId,
+        pedestrian_count=payload.pedestrianCount,
+        payload=payload.payload,
+    )
+
+
+@router.get("/pedestrian-datasets")
+def list_pedestrian_datasets() -> dict[str, Any]:
+    return {"pedestrianDatasets": platform_service.list_pedestrian_datasets()}
+
+
+@router.get("/pedestrian-datasets/{dataset_id}")
+def get_pedestrian_dataset(dataset_id: str) -> dict[str, Any]:
+    return platform_service.get_pedestrian_dataset(dataset_id)
 
 
 @router.post("/agent-requests")

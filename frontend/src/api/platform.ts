@@ -190,6 +190,7 @@ export const platformApi = {
     }),
   logout: () => request<{ ok: boolean }>('/api/platform/auth/logout', { method: 'POST' }),
   getDashboard: () => request<PlatformDashboard>('/api/platform/dashboard'),
+  listCatalogs: () => request<{ catalogs: PlatformCatalogWorkspace[] }>('/api/platform/catalogs'),
   createCatalog: (payload: {
     name: string;
     description?: string;

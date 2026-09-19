@@ -1055,15 +1055,7 @@ def create_catalog_workspace(
     }
 
 
-def get_catalog_workspace(catalog_id: str) -> dict[str, Any]:
-    user = require_current_user()
-    with _connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM catalog_workspaces WHERE id = ? AND tenant_id = ?",
-            (catalog_id, user["tenantId"]),
-        ).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Catalog '{catalog_id}' not found")
+def _catalog_workspace_row_to_dict(row: Any) -> dict[str, Any]:
     return {
         "id": row["id"],
         "name": row["name"],
@@ -1074,6 +1066,28 @@ def get_catalog_workspace(catalog_id: str) -> dict[str, Any]:
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
+
+
+def get_catalog_workspace(catalog_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM catalog_workspaces WHERE id = ? AND tenant_id = ?",
+            (catalog_id, user["tenantId"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Catalog '{catalog_id}' not found")
+    return _catalog_workspace_row_to_dict(row)
+
+
+def list_catalog_workspaces() -> list[dict[str, Any]]:
+    user = require_current_user()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM catalog_workspaces WHERE tenant_id = ? ORDER BY updated_at DESC, name ASC",
+            (user["tenantId"],),
+        ).fetchall()
+    return [_catalog_workspace_row_to_dict(row) for row in rows]
 
 
 def create_checkout_simulation_list(

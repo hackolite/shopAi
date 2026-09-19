@@ -155,6 +155,11 @@ def create_catalog(payload: WorkspacePayload) -> dict[str, Any]:
     )
 
 
+@router.get("/catalogs")
+def list_catalogs() -> dict[str, Any]:
+    return {"catalogs": platform_service.list_catalog_workspaces()}
+
+
 @router.post("/catalogs/import-csv")
 async def create_catalog_from_csv(
     file: UploadFile = File(...),

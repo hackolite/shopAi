@@ -169,6 +169,12 @@ export const cadApi = {
       body: JSON.stringify({ products, merge }),
     }),
 
+  loadTenantCatalog: (id: string, catalogId: string) =>
+    request<{ imported: number; total: number }>(
+      `${BASE}/${id}/catalog/load-tenant-catalog/${catalogId}`,
+      { method: 'POST' },
+    ),
+
   uploadProductImage: (id: string, ean: string, file: File) => {
     const form = new FormData();
     form.append('file', file);

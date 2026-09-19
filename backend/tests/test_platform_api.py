@@ -443,3 +443,38 @@ def test_catalog_csv_upload_persists_tenant_catalog() -> None:
     dashboard = client.get("/api/platform/dashboard")
     assert dashboard.status_code == 200, dashboard.text
     assert dashboard.json()["stats"]["catalogCount"] == 2
+
+
+def test_catalog_list_and_load_into_project() -> None:
+    client = _make_client()
+    _register(client, name="Loader", email="loader@example.com")
+
+    project = client.post("/api/cad/projects/", json={"name": "Cible"})
+    assert project.status_code == 200, project.text
+    project_id = project.json()["id"]
+
+    csv_body = (
+        "ean,name,brand,category,widthCm,depthCm,heightCm,weightG,priceSellEur\n"
+        "3234567890123,Café moulu 250g,MarqueC,Épicerie,10,6,15,260,3.50\n"
+    )
+    created = client.post(
+        "/api/platform/catalogs/import-csv",
+        data={"name": "Catalogue à charger", "description": ""},
+        files={"file": ("catalog.csv", csv_body, "text/csv")},
+    )
+    assert created.status_code == 200, created.text
+    catalog_id = created.json()["id"]
+
+    listing = client.get("/api/platform/catalogs")
+    assert listing.status_code == 200, listing.text
+    catalog_ids = [item["id"] for item in listing.json()["catalogs"]]
+    assert catalog_id in catalog_ids
+
+    loaded = client.post(f"/api/cad/projects/{project_id}/catalog/load-tenant-catalog/{catalog_id}")
+    assert loaded.status_code == 200, loaded.text
+    assert loaded.json()["imported"] == 1
+
+    catalog = client.get(f"/api/cad/projects/{project_id}/catalog")
+    assert catalog.status_code == 200, catalog.text
+    eans = [product["ean"] for product in catalog.json()["products"]]
+    assert "3234567890123" in eans

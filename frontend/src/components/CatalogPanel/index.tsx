@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
+import { platformApi, type PlatformCatalogWorkspace } from '../../api/platform';
 import type { CADProduct } from '../../types/cad';
 
 const CATEGORIES = ['All', 'Épicerie', 'Boissons', 'Frais', 'Hygiène', 'Bébé', 'Promotion'];
@@ -151,6 +152,33 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const importRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [availableCatalogs, setAvailableCatalogs] = useState<PlatformCatalogWorkspace[]>([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState('');
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
+
+  useEffect(() => {
+    platformApi
+      .listCatalogs()
+      .then((response) => setAvailableCatalogs(response.catalogs))
+      .catch(() => undefined);
+  }, []);
+
+  const handleLoadTenantCatalog = async () => {
+    if (!projectId || !selectedCatalogId) return;
+    setIsLoadingCatalog(true);
+    setImportStatus('Chargement du catalogue…');
+    try {
+      const result = await cadApi.loadTenantCatalog(projectId, selectedCatalogId);
+      const refreshed = await cadApi.getCatalog(projectId);
+      setProducts(refreshed.products);
+      setImportStatus(`${result.imported} produits chargés`);
+    } catch (err) {
+      setImportStatus(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoadingCatalog(false);
+      setTimeout(() => setImportStatus(null), 3000);
+    }
+  };
 
   const displayed =
     selectedCategory === 'All'
@@ -258,6 +286,37 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
       {importStatus && (
         <div className="px-3 py-1 text-xs text-blue-400 border-b border-gray-800 shrink-0">
           {importStatus}
+        </div>
+      )}
+
+      {/* Tenant catalog selector */}
+      {availableCatalogs.length > 0 && (
+        <div className="px-3 py-2 border-b border-gray-800 shrink-0 space-y-1.5">
+          <p className="text-[11px] text-gray-500">Charger un catalogue déjà stocké :</p>
+          <select
+            value={selectedCatalogId}
+            onChange={(e) => setSelectedCatalogId(e.target.value)}
+            className="w-full rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
+          >
+            <option value="">Choisir un catalogue…</option>
+            {availableCatalogs.map((catalog) => (
+              <option key={catalog.id} value={catalog.id}>
+                {catalog.name} ({catalog.productCount} produits)
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => void handleLoadTenantCatalog()}
+            disabled={!projectId || !selectedCatalogId || isLoadingCatalog}
+            className={[
+              'w-full rounded px-3 py-1.5 text-xs font-medium transition-colors',
+              !projectId || !selectedCatalogId || isLoadingCatalog
+                ? 'bg-gray-800 text-gray-500 opacity-50 cursor-not-allowed'
+                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 cursor-pointer',
+            ].join(' ')}
+          >
+            {isLoadingCatalog ? '⏳ Chargement…' : 'Utiliser ce catalogue'}
+          </button>
         </div>
       )}
 

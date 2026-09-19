@@ -583,6 +583,20 @@ def import_catalog(project_id: str, payload: CatalogImportPayload):
     return {"imported": len(imported), "total": len(catalog.products)}
 
 
+@router.post("/{project_id}/catalog/load-tenant-catalog/{catalog_id}")
+def load_tenant_catalog_into_project(project_id: str, catalog_id: str):
+    """Replace this project's catalog with a tenant-stored catalog workspace."""
+    platform_service.require_current_user_project_access(project_id)
+    ensure_project_exists(project_id)
+    workspace = platform_service.get_catalog_workspace(catalog_id)
+    payload = workspace["payload"] or {}
+    raw_products = payload.get("products", payload) if isinstance(payload, dict) else payload
+    imported = [Product.model_validate(raw) for raw in raw_products]
+    catalog = Catalog(products=imported)
+    _save_catalog(project_id, catalog)
+    return {"imported": len(imported), "total": len(catalog.products)}
+
+
 @router.get("/{project_id}/catalog/search")
 def search_catalog(project_id: str, q: str):
     query = q.strip().lower()

@@ -51,13 +51,19 @@ def _pedestrian_dataset_to_csv(payload: dict[str, Any]) -> str:
             status_code=422,
             detail="Stored pedestrian dataset is invalid and cannot be exported as CSV",
         ) from exc
-    for plan in result.plans:
-        profile_json = json.dumps(plan.profile, separators=(",", ":"))
-        if plan.items:
-            for item in plan.items:
-                writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, item.ean))
-            continue
-        writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, ""))
+    try:
+        for plan in result.plans:
+            profile_json = json.dumps(plan.profile, separators=(",", ":"))
+            if plan.items:
+                for item in plan.items:
+                    writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, item.ean))
+                continue
+            writer.writerow((plan.pedestrianId, plan.startUnixTs, plan.speedMps, profile_json, ""))
+    except AttributeError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Stored pedestrian dataset is invalid and cannot be exported as CSV",
+        ) from exc
     return output.getvalue()
 
 

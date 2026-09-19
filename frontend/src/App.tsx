@@ -190,6 +190,11 @@ export default function App() {
     setStatusMessage('Projet supprimé.');
   });
 
+  const handleDownloadProjectZip = (projectId: string, projectName: string) => runAction(async () => {
+    await cadApi.exportProjectZip(projectId, projectName);
+    setStatusMessage('Téléchargement du projet lancé.');
+  });
+
   const handleCreateStoreLayout = () => runAction(async () => {
     if (!layoutName.trim()) return;
     await platformApi.createStoreLayout({
@@ -542,6 +547,9 @@ export default function App() {
                           <span>{project.planograms} planogrammes</span>
                           <span>{project.checkoutSimulations} scénarios</span>
                         </div>
+                        <button type="button" disabled={busy} onClick={() => void handleDownloadProjectZip(project.id, project.name)} aria-label={`Télécharger le projet ${project.name}`}>
+                          Télécharger
+                        </button>
                         <button type="button" disabled={busy} onClick={() => openStudio(project)} aria-label={`Ouvrir ${project.name} dans le studio`}>Ouvrir le studio <span aria-hidden="true">↗</span></button>
                         <button
                           type="button"
@@ -578,7 +586,7 @@ export default function App() {
                       <p className="hub-small hub-muted">Format retail-layout JSON ShopAI (export « Retail Layout » du studio : store + furniture + planogrammes).</p>
                       <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
                     </form>
-                    <div>
+                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Implantations enregistrées">
                       {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
                         <li key={layout.id}>
                           <div className="hub-resource-item-header">
@@ -614,7 +622,7 @@ export default function App() {
                       <p className="hub-small hub-muted">Accepte le format brut `assortment.json` (barcode, product_name, image_url, etc.) et aussi un objet JSON déjà normalisé avec une clé `products`.</p>
                       <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
                     </form>
-                    <div>
+                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Catalogues enregistrés">
                       {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
                         <li key={catalog.id}>
                           <div className="hub-resource-item-header">
@@ -651,7 +659,7 @@ export default function App() {
                       <p className="hub-small hub-muted">Tableau JSON de scénarios, ou objet avec une clé « scenarios ».</p>
                       <button className="hub-primary" type="submit" disabled={busy || !simulationJsonFile || !simulationJsonName.trim()}>Importer le JSON</button>
                     </form>
-                    <div>
+                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Simulations enregistrées">
                       {dashboard?.simulations.length ? <ul className="hub-resource-list">{dashboard.simulations.map((simulation) => (
                         <li key={simulation.id}>
                           <div className="hub-resource-item-header">
@@ -714,8 +722,7 @@ export default function App() {
                         <Field label="Votre demande"><textarea required rows={5} value={agentPrompt} onChange={(event) => setAgentPrompt(event.target.value)} placeholder="Décrivez les changements souhaités…" /></Field>
                         <button className="hub-primary" type="submit" disabled={busy || !agentPrompt.trim()}>Enregistrer la demande</button>
                       </form>
-                      <div>
-                        <h3>Demandes enregistrées</h3>
+                      <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Demandes enregistrées">
                         {dashboard?.agentRequests.length ? <ul className="hub-resource-list">{dashboard.agentRequests.map((request) => <li key={request.id}>
                           <div className="hub-list-heading"><h4>{request.provider}</h4><span className="hub-badge">{request.status === 'queued' ? 'En attente' : request.status}</span></div>
                           <p>{request.prompt}</p>

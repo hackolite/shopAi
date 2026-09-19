@@ -225,11 +225,7 @@ def test_forwarded_session_header_requires_matching_webhook_token(
             json={"name": "Unauthorized", "snapshot": {}},
             headers={"X-ShopAI-Session": session_token},
         )
-    assert unauthorized.status_code == 200
-
-    created_project_id = unauthorized.json()["id"]
-    forbidden = client.get(f"/api/cad/projects/{created_project_id}")
-    assert forbidden.status_code == 403
+    assert unauthorized.status_code == 401
 
 
 @pytest.mark.parametrize("payload", [

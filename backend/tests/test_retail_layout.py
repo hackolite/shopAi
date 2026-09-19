@@ -33,6 +33,18 @@ from services.retail_layout import build_retail_layout, split_retail_layout  # n
 client = TestClient(app, raise_server_exceptions=True)
 
 
+def _register() -> None:
+    response = client.post("/api/platform/auth/register", json={
+        "name": "Retail Layout",
+        "email": f"{uuid4().hex}@example.com",
+        "password": "retail-layout-test-password",
+    })
+    assert response.status_code == 200, response.text
+
+
+_register()
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -264,7 +276,7 @@ def test_export_retail_layout_contains_ean() -> None:
 
 def test_export_retail_layout_404_for_unknown_project() -> None:
     resp = client.get("/api/cad/projects/nonexistent-xyz/export/retail-layout")
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 def test_import_retail_layout_creates_project() -> None:

@@ -6,10 +6,11 @@ import json
 import re
 import unicodedata
 from typing import Any
+from uuid import uuid4
 
 from pydantic import ValidationError
 
-from models.project import Catalog, Material, Planogram, ProjectSettings, SceneData
+from models.project import Catalog, Material, Planogram, PlanogramCell, ProjectSettings, SceneData
 from services import platform_service, project_manager
 from services.layout_audit import audit_project_layout, furniture_rotated_bounds
 from services.reference_templates import load_reference_template
@@ -47,6 +48,15 @@ _SAVE_COMMANDS = {
     "enregistre le projet",
     "sauvegarde",
     "sauvegarde le projet",
+}
+_RECOMMENDATION_COMMANDS = {
+    "recommandation d'implantation",
+    "recommandation d implantation",
+    "recommande l'implantation",
+    "recommande l implantation",
+    "recommandation implantation",
+    "implante le catalogue",
+    "implemente le catalogue",
 }
 
 
@@ -164,6 +174,80 @@ def _prepare_snapshot(snapshot: dict[str, Any], *, layout_only: bool) -> list[st
     return steps
 
 
+def _recommend_placements(
+    catalog: Catalog,
+    planograms: list[Planogram],
+) -> list[dict[str, Any]]:
+    """Greedily match unplaced catalog articles to free planogram cells.
+
+    Articles already present in a planogram cell are skipped. Remaining
+    articles are assigned one at a time, in catalog order, to the next free
+    (row, col) slot of a planogram whose ``category``-tagged name matches the
+    article's category when possible, otherwise to the first planogram with
+    free capacity. Returns an ordered list of actions (one per article).
+    """
+    placed_eans = {cell.ean for planogram in planograms for cell in planogram.cells}
+    pending = [product for product in catalog.products if product.ean not in placed_eans]
+
+    free_slots: dict[str, list[tuple[int, int]]] = {}
+    for planogram in planograms:
+        occupied = {(cell.row, cell.col) for cell in planogram.cells}
+        slots = [
+            (row, col)
+            for row in range(planogram.rows)
+            for col in range(planogram.cols)
+            if (row, col) not in occupied
+        ]
+        if slots:
+            free_slots[planogram.id] = slots
+
+    def _best_planogram_id(product: Any) -> str | None:
+        category = (product.category or "").strip().casefold()
+        if category:
+            for planogram in planograms:
+                if planogram.id in free_slots and category in planogram.name.casefold():
+                    return planogram.id
+        for planogram in planograms:
+            if planogram.id in free_slots:
+                return planogram.id
+        return None
+
+    planogram_by_id = {planogram.id: planogram for planogram in planograms}
+    actions: list[dict[str, Any]] = []
+    for product in pending:
+        planogram_id = _best_planogram_id(product)
+        if planogram_id is None:
+            break
+        row, col = free_slots[planogram_id].pop(0)
+        if not free_slots[planogram_id]:
+            del free_slots[planogram_id]
+        planogram = planogram_by_id[planogram_id]
+        actions.append({
+            "ean": product.ean,
+            "name": product.name,
+            "planogramId": planogram_id,
+            "furnitureId": planogram.furnitureId,
+            "row": row,
+            "col": col,
+        })
+    return actions
+
+
+def _apply_placements(snapshot: dict[str, Any], actions: list[dict[str, Any]]) -> None:
+    """Mutate ``snapshot['planograms']`` in place, adding one cell per action."""
+    by_id = {item["id"]: item for item in snapshot["planograms"]}
+    for action in actions:
+        planogram = by_id[action["planogramId"]]
+        planogram["cells"].append(
+            PlanogramCell(
+                id=str(uuid4()),
+                ean=action["ean"],
+                row=action["row"],
+                col=action["col"],
+            ).model_dump(mode="json")
+        )
+
+
 def run_studio_assistant(
     project_id: str,
     prompt: str,
@@ -207,6 +291,55 @@ def run_studio_assistant(
             steps=issues[:30],
         )
 
+    if command in _RECOMMENDATION_COMMANDS:
+        try:
+            metadata, snapshot = _load_persisted(project_id)
+        except (ValueError, KeyError, TypeError, OSError, ValidationError):
+            return _reply(
+                "État persistant incomplet ou illisible : "
+                "impossible de générer une recommandation d'implantation."
+            )
+        catalog = Catalog.model_validate(snapshot["catalog"])
+        planograms = [Planogram.model_validate(item) for item in snapshot["planograms"]]
+        if not planograms:
+            return _reply(
+                "Aucun planogramme dans ce projet : sélectionnez d'abord un Store Layout "
+                "avec du mobilier équipé de planogrammes.",
+                project_id=project_id,
+            )
+        actions = _recommend_placements(catalog, planograms)
+        if not actions:
+            return _reply(
+                "Aucune recommandation : tous les articles du catalogue sont déjà implantés, "
+                "ou il n'y a plus de case libre dans les planogrammes.",
+                project_id=project_id,
+            )
+        steps = [
+            f"{index + 1}/{len(actions)} — {action['name']} (EAN {action['ean']}) "
+            f"→ planogramme {action['planogramId']}, case (ligne {action['row']}, colonne {action['col']})"
+            for index, action in enumerate(actions)
+        ]
+        if not confirm:
+            return _reply(
+                f"Aperçu de la recommandation d'implantation : {len(actions)} article(s) à placer, "
+                "un article après l'autre. Confirmez pour exécuter ces actions sur ce projet.",
+                confirmation=True,
+                project_id=project_id,
+                steps=steps,
+            )
+        _apply_placements(snapshot, actions)
+        _validate_snapshot(snapshot)
+        project_manager.save_project_file(
+            project_id, "planograms.json", {"planograms": snapshot["planograms"]}
+        )
+        return _reply(
+            f"Recommandation exécutée : {len(actions)}/{len(actions)} article(s) implanté(s), "
+            "un par un, dans les planogrammes existants.",
+            changed=True,
+            project_id=project_id,
+            steps=steps,
+        )
+
     match = _GENERATE.fullmatch(command)
     if match is None or (match["mode"] == "complete" and match["empty"]):
         return _reply(
@@ -214,7 +347,8 @@ def run_studio_assistant(
             "« Crée une implantation complète Carrefour City », "
             "« Crée une implantation complète Carrefour Express », "
             "« Crée une implantation complète Carrefour Express aéroport », "
-            "« implantation seule [Carrefour …] », « vérifie », « enregistre ». "
+            "« implantation seule [Carrefour …] », « recommandation d'implantation », "
+            "« vérifie », « enregistre ». "
             "Les consignes libres et personnalisations ne sont pas exécutées."
         )
     template_id, name = _TEMPLATES[match["template"] or "express aeroport"]

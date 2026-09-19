@@ -319,3 +319,47 @@ def test_natural_audit_aliases_are_read_only(studio, prompt):
     assert "Audit de l'état enregistré" in result["message"]
     assert not result["changed"] and not result["requiresConfirmation"]
     assert client.get(f"/api/cad/projects/{project_id}/export").content == before
+
+
+def test_placement_recommendation_previews_then_applies_articles_one_by_one(studio):
+    client, project_id = studio
+    scene = pm.load_project_file(project_id, "scene.json")
+    scene["furniture"] = [{
+        "id": "gondole-1", "name": "Gondole Épicerie", "libraryId": "gondola_double",
+        "type": "gondola_double", "position": [200.0, 0.0, 200.0], "rotation": [0.0, 0.0, 0.0],
+        "dimensions": {"width": 120.0, "depth": 80.0, "height": 200.0},
+    }]
+    pm.save_project_file(project_id, "scene.json", scene)
+    pm.save_project_file(project_id, "planograms.json", {"planograms": [{
+        "id": "plano-1", "name": "Gondole Épicerie face avant", "furnitureId": "gondole-1",
+        "face": "front", "rows": 2, "cols": 2, "widthCm": 120.0, "heightCm": 200.0, "cells": [],
+    }]})
+    pm.save_project_file(project_id, "catalog.json", {"products": [
+        {
+            "ean": f"100000000000{i}", "name": f"Article {i}", "brand": "MarqueTest",
+            "category": "Épicerie", "widthCm": 10, "depthCm": 10, "heightCm": 20, "weightG": 500,
+        }
+        for i in range(3)
+    ]})
+
+    preview = _ask(client, project_id, "Recommandation d'implantation")
+    assert preview["requiresConfirmation"] and not preview["changed"]
+    assert len(preview["steps"]) == 3
+    assert "Article 0" in preview["steps"][0]
+
+    persisted_before = pm.load_project_file(project_id, "planograms.json")
+    assert persisted_before["planograms"][0]["cells"] == []
+
+    result = _ask(client, project_id, "Recommandation d'implantation", confirm=True)
+    assert result["changed"] and not result["requiresConfirmation"]
+    assert "3/3" in result["message"]
+
+    persisted_after = pm.load_project_file(project_id, "planograms.json")
+    cells = persisted_after["planograms"][0]["cells"]
+    assert len(cells) == 3
+    assert {cell["ean"] for cell in cells} == {"1000000000000", "1000000000001", "1000000000002"}
+
+    # A second run has nothing left to place since all articles are now implanted.
+    exhausted = _ask(client, project_id, "Recommandation d'implantation")
+    assert not exhausted["changed"] and not exhausted["requiresConfirmation"]
+    assert "Aucune recommandation" in exhausted["message"]

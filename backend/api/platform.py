@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
@@ -11,9 +12,22 @@ from models.project import PedestrianImportResult, PedestrianPickupPlan, PickupP
 from services import platform_service
 from services.catalog_import import parse_catalog_json
 from services.pedestrian_import import parse_pedestrian_csv
-from services.retail_layout import split_retail_layout
+from services.retail_layout import build_retail_layout, split_retail_layout
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
+
+
+def _safe_download_name(name: str, fallback: str) -> str:
+    safe = re.sub(r"[^\w\-]", "_", name.strip() or fallback, flags=re.ASCII)
+    return safe or fallback
+
+
+def _download_json_response(payload: dict[str, Any], filename: str) -> Response:
+    return Response(
+        content=json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8"),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 class AuthPayload(BaseModel):
@@ -164,6 +178,22 @@ def list_catalogs() -> dict[str, Any]:
     return {"catalogs": platform_service.list_catalog_workspaces()}
 
 
+@router.get("/catalogs/{catalog_id}")
+def get_catalog(catalog_id: str) -> dict[str, Any]:
+    return platform_service.get_catalog_workspace(catalog_id)
+
+
+@router.get("/catalogs/{catalog_id}/download")
+def download_catalog(catalog_id: str) -> Response:
+    catalog = platform_service.get_catalog_workspace(catalog_id)
+    safe_name = _safe_download_name(catalog["name"], "catalogue")
+    payload = catalog.get("payload")
+    return _download_json_response(
+        payload if isinstance(payload, dict) else {"products": []},
+        f"{safe_name}_catalog.json",
+    )
+
+
 @router.delete("/catalogs/{catalog_id}")
 def delete_catalog(catalog_id: str) -> dict[str, Any]:
     return platform_service.delete_catalog_workspace(catalog_id)
@@ -199,6 +229,27 @@ def create_simulation(payload: WorkspacePayload) -> dict[str, Any]:
         source_project_id=payload.sourceProjectId,
         scenario_count=payload.scenarioCount,
         payload=payload.payload,
+    )
+
+
+@router.get("/simulations")
+def list_simulations() -> dict[str, Any]:
+    return {"simulations": platform_service.list_checkout_simulation_lists()}
+
+
+@router.get("/simulations/{simulation_id}")
+def get_simulation(simulation_id: str) -> dict[str, Any]:
+    return platform_service.get_checkout_simulation_list(simulation_id)
+
+
+@router.get("/simulations/{simulation_id}/download")
+def download_simulation(simulation_id: str) -> Response:
+    simulation = platform_service.get_checkout_simulation_list(simulation_id)
+    safe_name = _safe_download_name(simulation["name"], "simulation")
+    payload = simulation.get("payload")
+    return _download_json_response(
+        payload if isinstance(payload, dict) else {"scenarios": []},
+        f"{safe_name}_simulation.json",
     )
 
 
@@ -298,6 +349,22 @@ def list_store_layouts() -> dict[str, Any]:
 @router.get("/store-layouts/{layout_id}")
 def get_store_layout(layout_id: str) -> dict[str, Any]:
     return platform_service.get_store_layout(layout_id)
+
+
+@router.get("/store-layouts/{layout_id}/download")
+def download_store_layout(layout_id: str) -> Response:
+    layout = platform_service.get_store_layout(layout_id)
+    payload = layout.get("payload")
+    scene = payload.get("scene") if isinstance(payload, dict) else None
+    planograms = payload.get("planograms") if isinstance(payload, dict) else None
+    retail_layout = build_retail_layout(
+        project_id=layout["id"],
+        scene=scene if isinstance(scene, dict) else {"store": {}, "furniture": []},
+        planograms=planograms if isinstance(planograms, list) else [],
+        metadata={"name": layout["name"], "createdAt": layout["createdAt"], "updatedAt": layout["updatedAt"]},
+    )
+    safe_name = _safe_download_name(layout["name"], "implantation")
+    return _download_json_response(retail_layout, f"{safe_name}_retail_layout.json")
 
 
 @router.delete("/store-layouts/{layout_id}")

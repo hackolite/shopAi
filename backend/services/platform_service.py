@@ -1141,6 +1141,19 @@ def delete_catalog_workspace(catalog_id: str) -> dict[str, Any]:
     return {"deleted": True, "id": catalog_id}
 
 
+def _checkout_simulation_list_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "sourceProjectId": row["source_project_id"],
+        "scenarioCount": row["scenario_count"],
+        "payload": _decode_payload(row["payload_json"]),
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
 def create_checkout_simulation_list(
     name: str,
     description: str = "",
@@ -1185,6 +1198,28 @@ def create_checkout_simulation_list(
         "createdAt": now,
         "updatedAt": now,
     }
+
+
+def get_checkout_simulation_list(simulation_id: str) -> dict[str, Any]:
+    user = require_current_user()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM checkout_simulation_lists WHERE id = ? AND tenant_id = ?",
+            (simulation_id, user["tenantId"]),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Simulation '{simulation_id}' not found")
+    return _checkout_simulation_list_row_to_dict(row)
+
+
+def list_checkout_simulation_lists() -> list[dict[str, Any]]:
+    user = require_current_user()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM checkout_simulation_lists WHERE tenant_id = ? ORDER BY updated_at DESC, name ASC",
+            (user["tenantId"],),
+        ).fetchall()
+    return [_checkout_simulation_list_row_to_dict(row) for row in rows]
 
 
 def _store_layout_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:

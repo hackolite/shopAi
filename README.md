@@ -29,6 +29,10 @@ consumer; selecting a provider does not establish an AI connection.
 configuration; **Enregistrer sous…** saves those edits before duplicating.
 Existing catalogue and planogram editors continue to persist through their own
 CAD endpoints. **Exporter…** downloads a portable project archive or retail layout.
+Saved workspace layouts, catalogues and simulations can each be downloaded
+directly from their dashboard cards. In the 3D simulation panel, pedestrian
+flows are now selected only from workspace datasets: choosing one applies it to
+the project immediately and it auto-starts with the live simulation.
 
 ## Architecture
 

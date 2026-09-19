@@ -221,6 +221,11 @@ export default function App() {
     setStatusMessage('Implantation supprimée.');
   });
 
+  const handleDownloadStoreLayout = (layoutId: string, layoutName: string) => runAction(async () => {
+    await platformApi.downloadStoreLayout(layoutId, layoutName);
+    setStatusMessage('Implantation téléchargée.');
+  });
+
   const handleCreateCatalog = () => runAction(async () => {
     if (!catalogName.trim()) return;
     await platformApi.createCatalog({
@@ -248,6 +253,11 @@ export default function App() {
     await platformApi.deleteCatalog(catalogId);
     await loadAuthenticatedData();
     setStatusMessage('Catalogue supprimé.');
+  });
+
+  const handleDownloadCatalog = (catalogId: string, catalogName: string) => runAction(async () => {
+    await platformApi.downloadCatalog(catalogId, catalogName);
+    setStatusMessage('Catalogue téléchargé.');
   });
 
   const handleCreateSimulation = () => runAction(async () => {
@@ -278,6 +288,11 @@ export default function App() {
     await platformApi.deleteSimulation(simulationId);
     await loadAuthenticatedData();
     setStatusMessage('Simulation supprimée.');
+  });
+
+  const handleDownloadSimulation = (simulationId: string, simulationNameValue: string) => runAction(async () => {
+    await platformApi.downloadSimulation(simulationId, simulationNameValue);
+    setStatusMessage('Simulation téléchargée.');
   });
 
   const handleImportPedestrianDatasetCsv = () => runAction(async () => {
@@ -559,12 +574,15 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
-                      <h3>Vos implantations <span className="hub-count">{dashboard?.storeLayouts.length ?? 0}</span></h3>
+                      <h3>Implantations disponibles</h3>
                       {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
                         <li key={layout.id}>
                           <div className="hub-resource-item-header">
                             <h4>{layout.name}</h4>
-                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteStoreLayout(layout.id, layout.name)}>Supprimer</button>
+                            <div className="hub-resource-actions">
+                              <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadStoreLayout(layout.id, layout.name)}>Télécharger</button>
+                              <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteStoreLayout(layout.id, layout.name)}>Supprimer</button>
+                            </div>
                           </div>
                           <p>{layout.description || 'Sans description'}</p>
                           <span className="hub-small hub-muted">{layout.furnitureCount} meubles · Mis à jour le {formatDate(layout.updatedAt)}</span>
@@ -593,12 +611,15 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
-                      <h3>Vos catalogues <span className="hub-count">{dashboard?.catalogs.length ?? 0}</span></h3>
+                      <h3>Catalogues disponibles</h3>
                       {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
                         <li key={catalog.id}>
                           <div className="hub-resource-item-header">
                             <h4>{catalog.name}</h4>
-                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteCatalog(catalog.id, catalog.name)}>Supprimer</button>
+                            <div className="hub-resource-actions">
+                              <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadCatalog(catalog.id, catalog.name)}>Télécharger</button>
+                              <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteCatalog(catalog.id, catalog.name)}>Supprimer</button>
+                            </div>
                           </div>
                           <p>{catalog.description || 'Sans description'}</p>
                           <span className="hub-small hub-muted">{catalog.productCount} produits · Mis à jour le {formatDate(catalog.updatedAt)}</span>
@@ -628,12 +649,15 @@ export default function App() {
                       <button className="hub-primary" type="submit" disabled={busy || !simulationJsonFile || !simulationJsonName.trim()}>Importer le JSON</button>
                     </form>
                     <div>
-                      <h3>Vos simulations <span className="hub-count">{dashboard?.simulations.length ?? 0}</span></h3>
+                      <h3>Simulations disponibles</h3>
                       {dashboard?.simulations.length ? <ul className="hub-resource-list">{dashboard.simulations.map((simulation) => (
                         <li key={simulation.id}>
                           <div className="hub-resource-item-header">
                             <h4>{simulation.name}</h4>
-                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteSimulation(simulation.id, simulation.name)}>Supprimer</button>
+                            <div className="hub-resource-actions">
+                              <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadSimulation(simulation.id, simulation.name)}>Télécharger</button>
+                              <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteSimulation(simulation.id, simulation.name)}>Supprimer</button>
+                            </div>
                           </div>
                           <p>{simulation.description || 'Sans description'}</p>
                           <span className="hub-small hub-muted">{simulation.scenarioCount} scénarios · Mis à jour le {formatDate(simulation.updatedAt)}</span>

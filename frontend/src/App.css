@@ -96,6 +96,19 @@ body {
 .hub-resource-list > li { padding: 24px; background: #111827; border: 1px solid #1f2937; border-radius: 14px; overflow-wrap: anywhere; }
 .hub-resource-list p { margin: 8px 0 12px; white-space: pre-wrap; }
 .hub-resource-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hub-resource-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.hub-link-button {
+  border: none;
+  background: transparent;
+  color: #93c5fd;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.hub-link-button:hover:not(:disabled) { color: #bfdbfe; }
+.hub-link-button:disabled { color: #4b5563; cursor: not-allowed; text-decoration: none; }
 .hub-danger { background: #3f1d1d !important; border-color: #7f1d1d !important; color: #fecaca !important; }
 .hub-danger:hover:not(:disabled) { background: #7f1d1d !important; border-color: #991b1b !important; }
 .hub-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

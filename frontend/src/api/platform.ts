@@ -164,6 +164,28 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function extractDownloadName(contentDisposition: string | null, fallbackName: string): string {
+  const match = contentDisposition?.match(/filename="([^"]+)"/i);
+  return match?.[1] || fallbackName;
+}
+
+async function download(url: string, fallbackName: string): Promise<void> {
+  const response = await fetch(url, { credentials: 'include' });
+  if (!response.ok) {
+    const text = await response.text().catch(() => 'Unknown error');
+    throw new Error(`[${response.status}] ${text}`);
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = extractDownloadName(response.headers.get('Content-Disposition'), fallbackName);
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
+}
+
 export const platformApi = {
   bootstrap: () =>
     request<{
@@ -191,6 +213,13 @@ export const platformApi = {
   logout: () => request<{ ok: boolean }>('/api/platform/auth/logout', { method: 'POST' }),
   getDashboard: () => request<PlatformDashboard>('/api/platform/dashboard'),
   listCatalogs: () => request<{ catalogs: PlatformCatalogWorkspace[] }>('/api/platform/catalogs'),
+  getCatalog: (catalogId: string) =>
+    request<PlatformCatalogWorkspace>(`/api/platform/catalogs/${encodeURIComponent(catalogId)}`),
+  downloadCatalog: (catalogId: string, catalogName: string) =>
+    download(
+      `/api/platform/catalogs/${encodeURIComponent(catalogId)}/download`,
+      `${catalogName.replace(/\s+/g, '_')}_catalog.json`,
+    ),
   deleteCatalog: (catalogId: string) =>
     request<{ deleted: boolean; id: string }>(`/api/platform/catalogs/${encodeURIComponent(catalogId)}`, {
       method: 'DELETE',
@@ -217,6 +246,14 @@ export const platformApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  listSimulations: () => request<{ simulations: PlatformSimulationList[] }>('/api/platform/simulations'),
+  getSimulation: (simulationId: string) =>
+    request<PlatformSimulationList>(`/api/platform/simulations/${encodeURIComponent(simulationId)}`),
+  downloadSimulation: (simulationId: string, simulationName: string) =>
+    download(
+      `/api/platform/simulations/${encodeURIComponent(simulationId)}/download`,
+      `${simulationName.replace(/\s+/g, '_')}_simulation.json`,
+    ),
   deleteSimulation: (simulationId: string) =>
     request<{ deleted: boolean; id: string }>(
       `/api/platform/simulations/${encodeURIComponent(simulationId)}`,
@@ -271,6 +308,11 @@ export const platformApi = {
   },
   getStoreLayout: (layoutId: string) =>
     request<PlatformStoreLayout>(`/api/platform/store-layouts/${encodeURIComponent(layoutId)}`),
+  downloadStoreLayout: (layoutId: string, layoutName: string) =>
+    download(
+      `/api/platform/store-layouts/${encodeURIComponent(layoutId)}/download`,
+      `${layoutName.replace(/\s+/g, '_')}_retail_layout.json`,
+    ),
   createPedestrianDataset: (payload: {
     name: string;
     description?: string;

@@ -641,6 +641,78 @@ def test_workspace_resources_expose_downloadable_json() -> None:
     assert retail_layout["furniture"][0]["name"] == "Gondole download"
 
 
+def test_workspace_pedestrian_dataset_is_downloadable_as_csv() -> None:
+    client = _make_client()
+    _register(client, name="Dataset Downloader", email="dataset-downloader@example.com")
+
+    dataset_response = client.post(
+        "/api/platform/pedestrian-datasets",
+        json={
+            "name": "Piétons démo",
+            "pedestrianCount": 2,
+            "payload": {
+                "pedestrianCount": 2,
+                "rowCount": 3,
+                "plans": [
+                    {
+                        "pedestrianId": 1,
+                        "startUnixTs": 1700000000,
+                        "speedMps": 1.2,
+                        "profile": {"type": "rush"},
+                        "items": [{"ean": "123", "found": False}, {"ean": "456", "found": False}],
+                    },
+                    {
+                        "pedestrianId": 2,
+                        "startUnixTs": 1700000300,
+                        "speedMps": 1.0,
+                        "profile": {},
+                        "items": [],
+                    },
+                ],
+                "anomalies": [],
+            },
+        },
+    )
+    assert dataset_response.status_code == 200, dataset_response.text
+    dataset_id = dataset_response.json()["id"]
+
+    dataset_download = client.get(f"/api/platform/pedestrian-datasets/{dataset_id}/download")
+    assert dataset_download.status_code == 200, dataset_download.text
+    assert dataset_download.headers["content-disposition"].endswith('"Pi_tons_d_mo_pedestrian_dataset.csv"')
+    assert dataset_download.headers["content-type"].startswith("text/csv")
+    assert dataset_download.text == (
+        "pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n"
+        '1,1700000000,1.2,"{""type"":""rush""}",123\n'
+        '1,1700000000,1.2,"{""type"":""rush""}",456\n'
+        "2,1700000300,1.0,{},\n"
+    )
+
+
+def test_workspace_pedestrian_dataset_download_handles_invalid_payload() -> None:
+    client = _make_client()
+    _register(client, name="Broken Dataset Downloader", email="broken-dataset@example.com")
+
+    dataset_response = client.post(
+        "/api/platform/pedestrian-datasets",
+        json={
+            "name": "Dataset invalide",
+            "pedestrianCount": 1,
+            "payload": {
+                "pedestrianCount": 1,
+                "rowCount": 1,
+                "plans": [{"startUnixTs": 1700000000, "speedMps": 1.2, "profile": {}, "items": []}],
+                "anomalies": [],
+            },
+        },
+    )
+    assert dataset_response.status_code == 200, dataset_response.text
+    dataset_id = dataset_response.json()["id"]
+
+    dataset_download = client.get(f"/api/platform/pedestrian-datasets/{dataset_id}/download")
+    assert dataset_download.status_code == 422, dataset_download.text
+    assert dataset_download.json()["detail"] == "Stored pedestrian dataset is invalid and cannot be exported as CSV"
+
+
 def test_workspace_resources_can_be_deleted() -> None:
     client = _make_client()
     _register(client, name="Cleaner", email="cleaner@example.com")

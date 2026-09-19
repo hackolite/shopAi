@@ -181,6 +181,11 @@ function extractDownloadName(contentDisposition: string | null, fallbackName: st
   return bareMatch?.[1]?.trim().replace(/^"(.*)"$/, '$1') || fallbackName;
 }
 
+function safeDownloadName(name: string, fallback: string): string {
+  const safe = name.trim().replace(/[^\w-]/g, '_');
+  return safe || fallback;
+}
+
 async function download(url: string, fallbackName: string): Promise<void> {
   const response = await fetch(url, { credentials: 'include' });
   if (!response.ok) {
@@ -230,7 +235,7 @@ export const platformApi = {
   downloadCatalog: (catalogId: string, catalogName: string) =>
     download(
       `/api/platform/catalogs/${encodeURIComponent(catalogId)}/download`,
-      `${catalogName.replace(/\s+/g, '_')}_catalog.json`,
+      `${safeDownloadName(catalogName, 'catalogue')}_catalog.json`,
     ),
   deleteCatalog: (catalogId: string) =>
     request<{ deleted: boolean; id: string }>(`/api/platform/catalogs/${encodeURIComponent(catalogId)}`, {
@@ -264,7 +269,7 @@ export const platformApi = {
   downloadSimulation: (simulationId: string, simulationName: string) =>
     download(
       `/api/platform/simulations/${encodeURIComponent(simulationId)}/download`,
-      `${simulationName.replace(/\s+/g, '_')}_simulation.json`,
+      `${safeDownloadName(simulationName, 'simulation')}_simulation.json`,
     ),
   deleteSimulation: (simulationId: string) =>
     request<{ deleted: boolean; id: string }>(
@@ -323,7 +328,7 @@ export const platformApi = {
   downloadStoreLayout: (layoutId: string, layoutName: string) =>
     download(
       `/api/platform/store-layouts/${encodeURIComponent(layoutId)}/download`,
-      `${layoutName.replace(/\s+/g, '_')}_retail_layout.json`,
+      `${safeDownloadName(layoutName, 'layout')}_retail_layout.json`,
     ),
   createPedestrianDataset: (payload: {
     name: string;
@@ -343,7 +348,7 @@ export const platformApi = {
   downloadPedestrianDataset: (datasetId: string, datasetName: string) =>
     download(
       `/api/platform/pedestrian-datasets/${encodeURIComponent(datasetId)}/download`,
-      `${datasetName.replace(/\s+/g, '_')}_pedestrian_dataset.csv`,
+      `${safeDownloadName(datasetName, 'dataset')}_pedestrian_dataset.csv`,
     ),
   deletePedestrianDataset: (datasetId: string) =>
     request<{ deleted: boolean; id: string }>(

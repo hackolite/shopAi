@@ -72,6 +72,8 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [llmAvailable, setLlmAvailable] = useState(false);
+  const [useLlm, setUseLlm] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const generatedProject = useRef<string | null>(null);
   const activeProject = useRef(projectId);
@@ -84,6 +86,15 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setCategory(null);
     setConfirmation(null);
     setError(null);
+    setUseLlm(false);
+  }, [projectId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    cadApi.getLlmAssistantStatus(projectId)
+      .then((status) => { if (!cancelled) setLlmAvailable(status.enabled); })
+      .catch(() => { if (!cancelled) setLlmAvailable(false); });
+    return () => { cancelled = true; };
   }, [projectId]);
 
   useEffect(() => {
@@ -93,6 +104,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   async function send(text: string, confirm = false) {
     if (!text.trim() || !category || busy) return;
     const sourceId = projectId;
+    const viaLlm = useLlm && llmAvailable;
     setBusy(true);
     setError(null);
     setConfirmation(null);
@@ -101,14 +113,16 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
       setPrompt('');
     }
     try {
-      if (/^(enregistre|sauvegarde)( le projet)?[.!?]*$/i.test(text.trim())) {
+      if (!viaLlm && /^(enregistre|sauvegarde)( le projet)?[.!?]*$/i.test(text.trim())) {
         await onSave();
         if (activeProject.current !== sourceId) return;
       }
-      const result = await cadApi.askAssistant(sourceId, text, confirm);
+      const result = viaLlm
+        ? await cadApi.askLlmAssistant(sourceId, text, confirm)
+        : await cadApi.askAssistant(sourceId, text, confirm);
       if (activeProject.current !== sourceId) return;
       setMessages((current) => [...current, {
-        role: 'Assistant',
+        role: viaLlm ? 'Agent LLM' : 'Assistant',
         text: [result.message, ...(result.steps ?? [])].join('\n'),
       }]);
       if (result.requiresConfirmation) setConfirmation(text);
@@ -130,10 +144,19 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
       <div className="border-b border-gray-700 p-5">
         <h2 className="text-lg font-semibold">Assistant d’implantation</h2>
         <p className="mt-2 text-sm leading-relaxed text-gray-300">
-          Assistant local basé sur les modèles Carrefour, sans IA externe.
-          Une implantation complète inclut mobilier, catalogue et produits.
+          {useLlm && llmAvailable
+            ? "Mode agent LLM externe : le prompt est relayé à l'orchestrateur configuré côté serveur."
+            : 'Assistant local basé sur les modèles Carrefour, sans IA externe.'}
+          {' '}Une implantation complète inclut mobilier, catalogue et produits.
           Le résultat s’ouvre en 3D dès sa création et reste enregistré.
         </p>
+        {llmAvailable && (
+          <label className="mt-3 flex items-center gap-2 text-sm text-cyan-200">
+            <input type="checkbox" checked={useLlm} disabled={busy}
+              onChange={(event) => setUseLlm(event.target.checked)} />
+            Utiliser l’agent LLM externe configuré côté serveur
+          </label>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <fieldset className="mb-5 rounded-xl border border-gray-600 p-4">

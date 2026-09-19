@@ -62,6 +62,13 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ prompt, confirm }),
     }),
+  askLlmAssistant: (id: string, prompt: string, confirm = false) =>
+    request<StudioAssistantResponse>(`${BASE}/${id}/assistant/llm`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt, confirm }),
+    }),
+  getLlmAssistantStatus: (id: string) =>
+    request<{ enabled: boolean }>(`${BASE}/${id}/assistant/llm/status`),
   listProjects: () => request<{ projects: ProjectListItem[] }>(BASE),
   getProject: (id: string) => request<ProjectMeta>(`${BASE}/${id}`),
   createProject: (

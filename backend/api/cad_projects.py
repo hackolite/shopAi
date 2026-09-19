@@ -7,7 +7,7 @@ import threading
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, Form, HTTPException, UploadFile, File
+from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, StrictBool, StringConstraints
 
@@ -39,6 +39,7 @@ from services.live_simulation import live_simulation_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
 from services.studio_assistant import run_studio_assistant
+from services.llm_assistant import llm_assistant_enabled, run_llm_assistant
 from services.project_manager import (
     create_project,
     delete_project,
@@ -273,6 +274,25 @@ def get_project(project_id: str):
 def studio_assistant(project_id: str, payload: StudioAssistantPayload):
     """Preview built-in model commands; confirmation creates a separate tenant-owned project."""
     return run_studio_assistant(project_id, payload.prompt, confirm=payload.confirm)
+
+
+@router.get("/{project_id}/assistant/llm/status")
+def studio_assistant_llm_status(project_id: str):
+    """Whether a server-configured external LLM agent webhook is available."""
+    platform_service.require_current_user_project_access(project_id)
+    return {"enabled": llm_assistant_enabled()}
+
+
+@router.post("/{project_id}/assistant/llm", response_model=StudioAssistantResponse, response_model_exclude_none=True)
+def studio_assistant_llm(project_id: str, payload: StudioAssistantPayload, request: Request):
+    """Forward the prompt to the server-configured external LLM orchestrator.
+
+    The orchestrator URL is server-side configuration only (never accepted
+    from this payload); see services/llm_assistant.py for the contract and
+    the mandatory post-write audit.
+    """
+    session_cookie = request.cookies.get(platform_service.SESSION_COOKIE_NAME)
+    return run_llm_assistant(project_id, payload.prompt, confirm=payload.confirm, session_cookie=session_cookie)
 
 
 @router.put("/{project_id}/snapshot")

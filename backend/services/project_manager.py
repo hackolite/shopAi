@@ -87,8 +87,12 @@ def _read_json(project_id: str, filename: str) -> Any:
     path = project_dir / filename
     if not path.exists():
         return None
-    with path.open(encoding="utf-8") as handle:
-        content = handle.read()
+    try:
+        with path.open(encoding="utf-8") as handle:
+            content = handle.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        _log.warning("Failed to read %s/%s: %s", project_id, filename, exc)
+        return None
     if not content.strip():
         return None
     try:
@@ -96,9 +100,13 @@ def _read_json(project_id: str, filename: str) -> Any:
     except json.JSONDecodeError as exc:
         # Recover from files that contain concatenated JSON objects ("Extra data").
         if "Extra data" in str(exc):
-            obj, _ = json.JSONDecoder().raw_decode(content)
-            return obj
-        raise
+            try:
+                obj, _ = json.JSONDecoder().raw_decode(content)
+                return obj
+            except json.JSONDecodeError:
+                pass
+        _log.warning("Invalid JSON in %s/%s: %s", project_id, filename, exc)
+        return None
 
 
 def _write_json(project_id: str, filename: str, data: Any) -> None:

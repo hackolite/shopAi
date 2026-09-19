@@ -79,6 +79,13 @@ def _safe_project_path(project_id: str, filename: str) -> Path:
     return STORAGE_ROOT / project_id / filename
 
 
+def _preview_for_log(value: str, *, limit: int = 180) -> str:
+    compact = " ".join(value.split())
+    if len(compact) <= limit:
+        return compact
+    return compact[:limit] + "…"
+
+
 def _read_json(project_id: str, filename: str) -> Any:
     _validate_filename(filename)
     project_dir = _find_existing_project(project_id)
@@ -91,9 +98,10 @@ def _read_json(project_id: str, filename: str) -> Any:
         with path.open(encoding="utf-8") as handle:
             content = handle.read()
     except (OSError, UnicodeDecodeError) as exc:
-        _log.warning("Failed to read %s/%s: %s", project_id, filename, exc)
+        _log.warning("Failed to read %s/%s (%s): %s", project_id, filename, path, exc)
         return None
     if not content.strip():
+        _log.warning("Empty JSON file in %s/%s (%s)", project_id, filename, path)
         return None
     try:
         parsed = json.loads(content)
@@ -116,16 +124,38 @@ def _read_json(project_id: str, filename: str) -> Any:
                 try:
                     json.loads(suffix)
                 except json.JSONDecodeError:
-                    _log.warning("Invalid concatenated JSON suffix in %s/%s", project_id, filename)
+                    _log.warning(
+                        "Invalid concatenated JSON suffix in %s/%s (%s): len=%d preview=%r",
+                        project_id,
+                        filename,
+                        path,
+                        len(suffix),
+                        _preview_for_log(suffix),
+                    )
                     return None
                 if filename == "project.json" and not isinstance(obj, dict):
                     _log.warning("Invalid metadata type in %s/%s: expected object", project_id, filename)
                     return None
                 return obj
             except json.JSONDecodeError as fallback_exc:
-                _log.warning("Invalid concatenated JSON in %s/%s: %s", project_id, filename, fallback_exc)
+                _log.warning(
+                    "Invalid concatenated JSON in %s/%s (%s): %s (preview=%r)",
+                    project_id,
+                    filename,
+                    path,
+                    fallback_exc,
+                    _preview_for_log(content),
+                )
                 return None
-        _log.warning("Invalid JSON in %s/%s: %s", project_id, filename, exc)
+        _log.warning(
+            "Invalid JSON in %s/%s (%s): %s (len=%d preview=%r)",
+            project_id,
+            filename,
+            path,
+            exc,
+            len(content),
+            _preview_for_log(content),
+        )
         return None
 
 

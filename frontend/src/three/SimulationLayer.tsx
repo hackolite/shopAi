@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -269,18 +269,8 @@ const AGENT_PALETTE: Array<[string, string]> = [
   ['#a16207', '#fef08a'],
 ];
 
-// Radius of the anti-collision envelope (1 m diameter → 50 cm radius)
-const ANTICOLLISION_RADIUS_CM = 50;
-// Direction cone: vision-field angle and range used for the sector indicator
-const AGENT_VISION_ANGLE_DEG = 70;
-const AGENT_VISION_RANGE_CM = 220;
 const RENDER_BUFFER_SECONDS = 0.25;
 const MAX_EXTRAPOLATION_SECONDS = 0.35;
-// Fixed GPU buffer capacity: the instancedMesh is allocated once with this
-// many slots so Three.js never destroys/recreates it when agents arrive or
-// depart.  mesh.count is updated imperatively to tell the renderer how many
-// instances are actually active.
-const INSTANCED_AGENTS_MAX_CAPACITY = 512;
 const POSE_SMOOTHING_HZ = 12;
 const MOVEMENT_HEADING_MIN_CM = 0.35;
 const MAX_HEADING_TURN_RATE_RAD_S = Math.PI * 2.5;
@@ -307,170 +297,6 @@ function steerAngle(current: number, target: number, maxDelta: number): number {
   const wrappedDelta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
   const clampedDelta = Math.max(-maxDelta, Math.min(maxDelta, wrappedDelta));
   return current + clampedDelta;
-}
-
-// Agents are ALWAYS rendered through the fixed-capacity instanced meshes below.
-// A previous per-agent React component path (<AgentMarker>) leaked orphaned
-// Group/Mesh subtrees into the Three.js scene on every agent arrival/departure
-// (never removed nor disposed), which grew the renderer memory without bound
-// during long live sessions and eventually crashed the tab out of memory.
-
-function InstancedAgents({
-  agentSlots,
-  agentPoses,
-}: {
-  agentSlots: Map<number, { colorDark: string; colorLight: string }>;
-  agentPoses: MutableRefObject<Map<number, AgentPose>>;
-}) {
-  const envelopeRef = useRef<THREE.InstancedMesh>(null);
-  const bodyRef = useRef<THREE.InstancedMesh>(null);
-  const coneRef = useRef<THREE.InstancedMesh>(null);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const lastPoseById = useRef<Map<number, AgentPose>>(new Map());
-  const orderedAgents = useMemo(() => [...agentSlots.entries()], [agentSlots]);
-  const indexById = useMemo(() => {
-    const map = new Map<number, number>();
-    orderedAgents.forEach(([id], index) => map.set(id, index));
-    return map;
-  }, [orderedAgents]);
-  const count = orderedAgents.length;
-  const coneThetaLength = THREE.MathUtils.degToRad(AGENT_VISION_ANGLE_DEG);
-  const coneThetaStart = -coneThetaLength / 2;
-  const envelopeOuter = ANTICOLLISION_RADIUS_CM * CM_TO_UNIT;
-  const envelopeInner = envelopeOuter * 0.82;
-  const coneRange = AGENT_VISION_RANGE_CM * CM_TO_UNIT;
-
-  // Tracks the previous agent count so we can zero-out tail slots that were
-  // vacated when agents departed (orderedAgents is always contiguous 0..n-1).
-  const prevCountRef = useRef(0);
-
-  useEffect(() => {
-    if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
-    const dark = new THREE.Color();
-    const light = new THREE.Color();
-
-    // Update the visible instance count without recreating the GPU buffer.
-    envelopeRef.current.count = count;
-    bodyRef.current.count = count;
-    coneRef.current.count = count;
-
-    // Write colours for every currently-active slot.
-    orderedAgents.forEach(([, colors], index) => {
-      dark.set(colors.colorDark);
-      light.set(colors.colorLight);
-      envelopeRef.current!.setColorAt(index, light);
-      bodyRef.current!.setColorAt(index, dark);
-      coneRef.current!.setColorAt(index, light);
-    });
-    if (envelopeRef.current.instanceColor) envelopeRef.current.instanceColor.needsUpdate = true;
-    if (bodyRef.current.instanceColor) bodyRef.current.instanceColor.needsUpdate = true;
-    if (coneRef.current.instanceColor) coneRef.current.instanceColor.needsUpdate = true;
-
-    // Zero-out tail slots that existed in the previous frame but no longer do.
-    // Because orderedAgents is always a contiguous 0..n-1 range derived from a
-    // Map, departures always shrink the tail: the vacated slots are exactly the
-    // indices [count, prevCount).
-    if (prevCountRef.current > count) {
-      const scratch = new THREE.Object3D();
-      scratch.scale.setScalar(0);
-      scratch.position.set(0, 0, 0);
-      scratch.rotation.set(0, 0, 0);
-      scratch.updateMatrix();
-      for (let i = count; i < prevCountRef.current; i++) {
-        envelopeRef.current.setMatrixAt(i, scratch.matrix);
-        bodyRef.current.setMatrixAt(i, scratch.matrix);
-        coneRef.current.setMatrixAt(i, scratch.matrix);
-      }
-    }
-    prevCountRef.current = count;
-
-    // Reset poses so the per-frame loop re-writes all active matrices.
-    lastPoseById.current.clear();
-
-    envelopeRef.current.instanceMatrix.needsUpdate = true;
-    bodyRef.current.instanceMatrix.needsUpdate = true;
-    coneRef.current.instanceMatrix.needsUpdate = true;
-  }, [orderedAgents, count]);
-
-  useFrame(() => {
-    if (!envelopeRef.current || !bodyRef.current || !coneRef.current) return;
-    let matrixUpdated = false;
-    for (const [id, pose] of agentPoses.current.entries()) {
-      const index = indexById.get(id);
-      if (index == null) continue;
-      const previousPose = lastPoseById.current.get(id);
-      if (
-        previousPose
-        && previousPose.x === pose.x
-        && previousPose.z === pose.z
-        && previousPose.heading === pose.heading
-      ) continue;
-
-      dummy.position.set(pose.x, 0.01, pose.z);
-      dummy.rotation.set(-Math.PI / 2, 0, 0);
-      dummy.updateMatrix();
-      envelopeRef.current.setMatrixAt(index, dummy.matrix);
-
-      dummy.position.set(pose.x, 0.22, pose.z);
-      dummy.rotation.set(0, 0, 0);
-      dummy.updateMatrix();
-      bodyRef.current.setMatrixAt(index, dummy.matrix);
-
-      dummy.position.set(pose.x, 0.015, pose.z);
-      // Heading must spin the flattened circle around its own normal (local Z
-      // after the -PI/2 X flip). Putting it on the Y euler tilts the sector
-      // vertically off the floor because XYZ order applies Y before X.
-      dummy.rotation.set(-Math.PI / 2, 0, pose.heading);
-      dummy.updateMatrix();
-      coneRef.current.setMatrixAt(index, dummy.matrix);
-      lastPoseById.current.set(id, pose);
-      matrixUpdated = true;
-    }
-
-    if (matrixUpdated) {
-      envelopeRef.current.instanceMatrix.needsUpdate = true;
-      bodyRef.current.instanceMatrix.needsUpdate = true;
-      coneRef.current.instanceMatrix.needsUpdate = true;
-    }
-  });
-
-  if (count === 0) return null;
-
-  const handleAgentClick = (event: { stopPropagation: () => void; instanceId?: number }) => {
-    event.stopPropagation();
-    if (event.instanceId == null) return;
-    const entry = orderedAgents[event.instanceId];
-    if (!entry) return;
-    useSimulationStore.getState().selectAgent(entry[0]);
-  };
-
-  return (
-    <>
-      <instancedMesh
-        ref={envelopeRef}
-        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
-        onPointerDown={handleAgentClick}
-      >
-        <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
-        {/* No `vertexColors` here: these geometries have no `color` attribute, and
-            the flag would multiply by an unbound (black) attribute, erasing the
-            per-instance colours.  setColorAt() is applied automatically. */}
-        <meshBasicMaterial transparent opacity={0.55} depthWrite={false} />
-      </instancedMesh>
-      <instancedMesh
-        ref={bodyRef}
-        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
-        onPointerDown={handleAgentClick}
-      >
-        <sphereGeometry args={[0.11, 20, 20]} />
-        <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} />
-      </instancedMesh>
-      <instancedMesh ref={coneRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
-        <circleGeometry args={[coneRange, 28, coneThetaStart, coneThetaLength]} />
-        <meshBasicMaterial transparent opacity={0.18} depthWrite={false} />
-      </instancedMesh>
-    </>
-  );
 }
 
 /** Cumulative occupancy heatmap, drawn flat on the store floor. */
@@ -886,12 +712,14 @@ export function SimulationLayer() {
       {showTrajectories && analytics && analytics.trajectories.length > 0 && (
         <TrajectoryOverlay trajectories={analytics.trajectories} />
       )}
-      <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
+      {/* Pedestrian avatars are intentionally not rendered in 3D anymore; the
+          backend simulation mechanics (poses, analytics, pickups…) keep running
+          and still drive the overlays below. */}
       <PickupPopups popups={pickupPopups} agentPoses={agentPoses} />
       {showProfilingHud && (
         <Html position={[0, 2.2, 0]} distanceFactor={12}>
           <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">
-            {profilingText} · agents {agentSlots.size} · instanced
+            {profilingText} · agents {agentSlots.size} · not rendered
           </div>
         </Html>
       )}

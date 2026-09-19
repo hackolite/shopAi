@@ -534,7 +534,6 @@ export default function App() {
                       <option value="">Aucun</option>
                       {(dashboard?.pedestrianDatasets ?? []).map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}
                     </select></Field>
-                    <p className="hub-small hub-muted">Le catalogue du projet se choisit ici. Les imports JSON catalogue se font uniquement dans l’onglet Catalogues.</p>
                     <button className="hub-primary" type="submit" disabled={busy || !projectName.trim()}>Créer un projet</button>
                   </form>
                   <form className="hub-form hub-form-card" onSubmit={(event) => { event.preventDefault(); void handleImportProjectZip(); }}>

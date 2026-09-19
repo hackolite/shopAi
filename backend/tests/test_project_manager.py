@@ -106,3 +106,31 @@ def test_list_cad_projects_recovers_concatenated_metadata_with_leading_whitespac
         pm.STORAGE_ROOT = previous_root
 
     assert [project["id"] for project in projects] == ["recovered-project", "valid-project"]
+
+
+def test_list_cad_projects_skips_invalid_concatenated_metadata_suffix(tmp_path) -> None:
+    storage_root = tmp_path / "projects"
+    storage_root.mkdir(parents=True)
+
+    valid_dir = storage_root / "valid-project"
+    valid_dir.mkdir()
+    (valid_dir / "project.json").write_text(
+        json.dumps({"id": "valid-project", "name": "Valid Project"}),
+        encoding="utf-8",
+    )
+
+    invalid_suffix_dir = storage_root / "invalid-suffix-project"
+    invalid_suffix_dir.mkdir()
+    (invalid_suffix_dir / "project.json").write_text(
+        '{"id":"invalid-suffix-project","name":"Broken"} trailing-garbage',
+        encoding="utf-8",
+    )
+
+    previous_root = pm.STORAGE_ROOT
+    pm.STORAGE_ROOT = storage_root
+    try:
+        projects = pm.list_cad_projects()
+    finally:
+        pm.STORAGE_ROOT = previous_root
+
+    assert [project["id"] for project in projects] == ["valid-project"]

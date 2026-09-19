@@ -105,7 +105,12 @@ def _read_json(project_id: str, filename: str) -> Any:
         # Recover from files that contain concatenated JSON objects ("Extra data").
         if "Extra data" in str(exc):
             try:
-                obj, _ = json.JSONDecoder().raw_decode(content.lstrip())
+                stripped = content.lstrip()
+                obj, end = json.JSONDecoder().raw_decode(stripped)
+                suffix = stripped[end:].lstrip()
+                if not suffix.startswith("{"):
+                    _log.warning("Invalid concatenated JSON suffix in %s/%s", project_id, filename)
+                    return None
                 if filename == "project.json" and not isinstance(obj, dict):
                     _log.warning("Invalid metadata type in %s/%s: expected object", project_id, filename)
                     return None

@@ -209,6 +209,15 @@ def test_forwarded_session_header_requires_matching_webhook_token(
     session_token = client.cookies.get("shopai_session")
     assert session_token
 
+    rejected_with_cookie = client.get(
+        "/api/platform/dashboard",
+        headers={
+            "X-ShopAI-Session": session_token,
+            "Authorization": "Bearer " + "wrong-secret",
+        },
+    )
+    assert rejected_with_cookie.status_code == 401
+
     with TestClient(app) as callback_client:
         rejected = callback_client.get(
             "/api/platform/dashboard",

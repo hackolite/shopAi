@@ -205,7 +205,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     <section aria-label="Assistant d’implantation" className="flex h-full flex-col text-base">
       <div className="border-b border-gray-700 p-5">
         <h2 className="text-lg font-semibold">Assistant d’implantation</h2>
-        <div className="mt-3 rounded-2xl border border-cyan-900/70 bg-gray-900/70 p-4">
+        <div className="relative mt-3 rounded-2xl border border-cyan-900/70 bg-gray-900/70 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-200">

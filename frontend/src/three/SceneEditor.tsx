@@ -31,7 +31,7 @@ import {
   type GridOriginCm,
 } from '../engine/gridSnap';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
-import { zoneShape, zoneSupportsResizeHandles } from '../engine/floorZones';
+import { zoneCenterCm, zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from '../engine/floorZones';
 import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
@@ -1698,34 +1698,12 @@ const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
 };
 const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 
-function zoneCenterCm(zone: FloorZone) {
-  return {
-    x: zone.x + zone.width / 2,
-    z: zone.z + zone.depth / 2,
-  };
-}
-
 function zoneLocalFootprint(zone: FloorZone): [number, number][] {
-  const W = zone.width * CM_TO_UNIT;
-  const D = zone.depth * CM_TO_UNIT;
-  const shape = zoneShape(zone);
-  if (shape === 'circle') {
-    return Array.from({ length: 48 }, (_, index) => {
-      const angle = (Math.PI * 2 * index) / 48;
-      return [Math.cos(angle) * W / 2, Math.sin(angle) * D / 2];
-    });
-  }
-  if (shape === 'diamond') {
-    return [[0, -D / 2], [W / 2, 0], [0, D / 2], [-W / 2, 0]];
-  }
-  if (shape === 'polygon' && zone.points && zone.points.length >= 3) {
-    const center = zoneCenterCm(zone);
-    return zone.points.map((point) => [
-      (point.x - center.x) * CM_TO_UNIT,
-      (point.z - center.z) * CM_TO_UNIT,
-    ]);
-  }
-  return [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]];
+  const center = zoneCenterCm(zone);
+  return zoneOutlinePointsCm(zone).map((point) => [
+    (point.x - center.x) * CM_TO_UNIT,
+    (point.z - center.z) * CM_TO_UNIT,
+  ]);
 }
 
 function zoneWorldOutline(zone: FloorZone, y: number): [number, number, number][] {
@@ -1777,6 +1755,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const cx = zoneCenter.x * CM_TO_UNIT;
   const cz = zoneCenter.z * CM_TO_UNIT;
   const y  = GRID_Y_OFFSET + 0.016;
+  const rotationDeg = zoneRotationDeg(zone);
 
   const palette = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
   const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
@@ -1865,7 +1844,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
 
   // Build interior grid lines for supply zones.
   const supplyGridLines: React.ReactElement[] = [];
-  if (zone.type === 'supply' && zoneShape(zone) === 'rectangle') {
+  if (zone.type === 'supply' && zoneShape(zone) === 'rectangle' && Math.abs(rotationDeg) < 1e-6) {
     const rows = Math.max(1, zone.rows ?? 1);
     const cols = Math.max(1, zone.cols ?? 1);
     const gridLineY = lineY + 0.001;
@@ -2660,6 +2639,7 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   } = useZoneStore();
   const [previewEnd, setPreviewEnd] = useState<THREE.Vector3 | null>(null);
   const previewFrame = useRef<number | null>(null);
+  const freehandDrawing = useRef(false);
 
   useEffect(() => {
     if (!polygonDraft) {
@@ -2707,6 +2687,7 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
 
   const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
+    if (polygonDraft.mode === 'freehand') return;
     if (isDragRelease(event)) return;
     const point = snapPoint(event.point.clone());
     const first = polygonDraft.points[0];
@@ -2723,12 +2704,35 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   };
 
   const handleFloorPointerMove = (event: ThreeEvent<PointerEvent>) => {
+    if (polygonDraft.mode === 'freehand' && freehandDrawing.current) {
+      appendPolygonPoint(snapPoint(event.point.clone()));
+    }
     const nextPoint = event.point.clone();
     if (previewFrame.current != null) cancelAnimationFrame(previewFrame.current);
     previewFrame.current = requestAnimationFrame(() => {
       setPreviewEnd(nextPoint);
       previewFrame.current = null;
     });
+  };
+
+  const handleFreehandPointerDown = (event: ThreeEvent<PointerEvent>) => {
+    if (polygonDraft.mode !== 'freehand') return;
+    event.stopPropagation();
+    freehandDrawing.current = true;
+    appendPolygonPoint(snapPoint(event.point.clone()));
+  };
+
+  const handleFreehandPointerUp = (event: ThreeEvent<PointerEvent>) => {
+    if (polygonDraft.mode !== 'freehand' || !freehandDrawing.current) return;
+    event.stopPropagation();
+    freehandDrawing.current = false;
+    if ((polygonDraft.points.length ?? 0) >= 2) {
+      appendPolygonPoint(snapPoint(event.point.clone()));
+    }
+    if ((useZoneStore.getState().polygonDraft?.points.length ?? 0) >= 3) {
+      finishPolygonDrawing();
+      setPreviewEnd(null);
+    }
   };
 
   const fixedPoints = polygonDraftLine(polygonDraft.points, drawY);
@@ -2746,7 +2750,9 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
         rotation={[-Math.PI / 2, 0, 0]}
         position={[storeOriginX + w / 2, GRID_Y_OFFSET + 0.02, storeOriginZ + d / 2]}
         onClick={handleFloorClick}
+        onPointerDown={handleFreehandPointerDown}
         onPointerMove={handleFloorPointerMove}
+        onPointerUp={handleFreehandPointerUp}
       >
         <planeGeometry args={[w, d]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />

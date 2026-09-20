@@ -11,6 +11,7 @@ interface AddZoneOptions {
 }
 
 interface PolygonDraft {
+  mode: 'polygon' | 'freehand';
   color: string;
   points: FloorZonePoint[];
 }
@@ -34,7 +35,7 @@ interface ZoneState {
   removeZone: (id: string) => void;
   updateZone: (zone: FloorZone) => void;
   selectZone: (id: string | null) => void;
-  startPolygonDrawing: (color?: string) => void;
+  startPolygonDrawing: (mode?: PolygonDraft['mode'], color?: string) => void;
   appendPolygonPoint: (point: FloorZonePoint) => void;
   removeLastPolygonPoint: () => void;
   finishPolygonDrawing: () => void;
@@ -111,6 +112,7 @@ function buildZone(
     z,
     width: polygonBox?.width ?? DEFAULT_ZONE_WIDTH_CM,
     depth: polygonBox?.depth ?? DEFAULT_ZONE_DEPTH_CM,
+    rotationDeg: 0,
     shape,
     color: options?.color ?? (type === 'forbidden' ? DEFAULT_FORBIDDEN_COLOR : undefined),
     points,
@@ -152,8 +154,8 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
 
   selectZone: (id) => set({ selectedZoneId: id }),
 
-  startPolygonDrawing: (color = DEFAULT_FORBIDDEN_COLOR) => set({
-    polygonDraft: { color, points: [] },
+  startPolygonDrawing: (mode = 'polygon', color = DEFAULT_FORBIDDEN_COLOR) => set({
+    polygonDraft: { mode, color, points: [] },
     selectedZoneId: null,
   }),
 
@@ -161,7 +163,13 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
     polygonDraft: state.polygonDraft
       ? {
           ...state.polygonDraft,
-          points: [...state.polygonDraft.points, { x: snapToCm(point.x), z: snapToCm(point.z) }],
+          points: (() => {
+            const snapped = { x: snapToCm(point.x), z: snapToCm(point.z) };
+            const last = state.polygonDraft?.points[state.polygonDraft.points.length - 1];
+            return last && last.x === snapped.x && last.z === snapped.z
+              ? state.polygonDraft.points
+              : [...state.polygonDraft.points, snapped];
+          })(),
         }
       : state.polygonDraft,
   })),

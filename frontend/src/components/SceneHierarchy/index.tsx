@@ -444,7 +444,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
               type="button"
               onClick={() => {
                 if (polygonDraft) cancelPolygonDrawing();
-                else startPolygonDrawing();
+                else startPolygonDrawing('polygon');
               }}
               className={`rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors ${
                 polygonDraft
@@ -454,10 +454,26 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
             >
               ✏️ Polygone libre
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (polygonDraft) cancelPolygonDrawing();
+                else startPolygonDrawing('freehand');
+              }}
+              className={`rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors ${
+                polygonDraft?.mode === 'freehand'
+                  ? 'border-red-500 bg-red-950/40 text-red-200'
+                  : 'border-dashed border-red-800 text-red-200 hover:bg-red-950/30'
+              }`}
+            >
+              🖊️ Dessin libre
+            </button>
           </div>
           {polygonDraft && (
             <p className="rounded-lg border border-red-900 bg-red-950/30 px-2 py-2 text-[11px] leading-snug text-red-200">
-              Mode polygone actif : cliquez point par point sur la grille puis recliquez près du premier point pour fermer la zone.
+              {polygonDraft.mode === 'freehand'
+                ? 'Mode dessin libre actif : maintenez le clic et tracez une forme fermée sur le sol.'
+                : 'Mode polygone actif : cliquez point par point sur la grille puis recliquez près du premier point pour fermer la zone.'}
             </p>
           )}
         </section>

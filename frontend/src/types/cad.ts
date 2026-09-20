@@ -62,6 +62,8 @@ export interface FloorZone {
   z: number;
   width: number;
   depth: number;
+  /** Rotation around the zone center on the floor plane. */
+  rotationDeg?: number;
   /** Number of rows in the supply grid (only used when type === 'supply'). */
   rows?: number;
   /** Number of columns in the supply grid (only used when type === 'supply'). */

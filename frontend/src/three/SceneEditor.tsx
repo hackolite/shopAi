@@ -3119,7 +3119,7 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
-  const { selectedZoneId, removeZone, selectZone, polygonDraft } = useZoneStore();
+  const { zones, selectedZoneId, removeZone, selectZone, polygonDraft } = useZoneStore();
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
 
@@ -3193,6 +3193,9 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const selectedFurniture = selectedFurnitureId
     ? (scene.furniture.find(f => f.id === selectedFurnitureId && f.mounted !== false) ?? null)
     : null;
+  const selectedZone = selectedZoneId
+    ? (zones.find((zone) => zone.id === selectedZoneId) ?? null)
+    : null;
 
   // Selected unmounted furniture (has UnmountedFurnitureResizeHandles)
   const selectedUnmounted = selectedFurnitureId
@@ -3212,7 +3215,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
   const lockSceneNavigation = Boolean(
-    selectedZoneId
+    selectedZone?.type === 'forbidden'
     || selectedWaypointId
     || (selectedFurnitureId && activeTool !== 'select' && activeTool !== 'measure')
   );

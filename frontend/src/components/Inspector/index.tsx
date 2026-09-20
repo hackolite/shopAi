@@ -680,8 +680,7 @@ function zoneTypeLabel(zone: FloorZone): string {
   if (zone.type === 'entrance') return 'Entrée';
   if (zone.type === 'exit') return 'Sortie';
   if (zone.type === 'supply') return 'Fournitures';
-  if (zone.type === 'forbidden') return 'Dessin au sol';
-  return 'Zone';
+  return 'Zone interdite';
 }
 
 function zoneShapeLabel(zone: FloorZone): string {

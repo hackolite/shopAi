@@ -87,7 +87,6 @@ function llmStatusIndicator(status: LlmAssistantStatus) {
 }
 
 function llmStatusAnnouncement(status: LlmAssistantStatus): string {
-  if (shouldUseLlmPath(status)) return 'Provider LLM disponible.';
   return [status.message, llmStatusIndicator(status).detail]
     .filter(Boolean)
     .join(' ');

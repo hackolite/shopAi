@@ -86,6 +86,12 @@ function llmStatusIndicator(status: LlmAssistantStatus) {
   };
 }
 
+function llmStatusAnnouncement(status: LlmAssistantStatus): string {
+  return shouldUseLlmPath(status)
+    ? 'Provider LLM disponible.'
+    : llmStatusIndicator(status).detail ?? 'Le mode local prend automatiquement le relais.';
+}
+
 export default function StudioAssistant({ projectId, onProjectCreated, onSave }: Props) {
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState<AssistantCategory | null>(null);
@@ -93,6 +99,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [llmAnnouncement, setLlmAnnouncement] = useState('');
   const [llmStatus, setLlmStatus] = useState<LlmAssistantStatus>({
     enabled: false,
     reachable: false,
@@ -102,6 +109,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const endRef = useRef<HTMLDivElement>(null);
   const generatedProject = useRef<string | null>(null);
   const activeProject = useRef(projectId);
+  const lastAnnouncedLlmStatus = useRef<LlmAssistantStatus['status'] | null>(null);
   const llmIndicator = llmStatusIndicator(llmStatus);
   activeProject.current = projectId;
 
@@ -112,6 +120,8 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setCategory(null);
     setConfirmation(null);
     setError(null);
+    setLlmAnnouncement('');
+    lastAnnouncedLlmStatus.current = null;
   }, [projectId]);
 
   useEffect(() => {
@@ -140,6 +150,17 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, busy]);
+
+  useEffect(() => {
+    if (lastAnnouncedLlmStatus.current === null) {
+      lastAnnouncedLlmStatus.current = llmStatus.status;
+      return;
+    }
+    if (lastAnnouncedLlmStatus.current !== llmStatus.status) {
+      setLlmAnnouncement(llmStatusAnnouncement(llmStatus));
+      lastAnnouncedLlmStatus.current = llmStatus.status;
+    }
+  }, [llmStatus]);
 
   async function send(text: string, pending?: PendingConfirmation) {
     if (!text.trim() || !category || busy) return;
@@ -201,11 +222,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
               </span>
             </div>
           </div>
-          <p role="status" aria-live="polite" className="sr-only">
-            {shouldUseLlmPath(llmStatus)
-              ? 'Provider LLM disponible.'
-              : llmIndicator.detail ?? "Le mode local prend automatiquement le relais."}
-          </p>
+          {llmAnnouncement && <p role="status" aria-live="polite" className="sr-only">{llmAnnouncement}</p>}
           <p className="mt-3 text-sm leading-relaxed text-gray-300">
             {shouldUseLlmPath(llmStatus)
               ? "Le prompt part directement vers l'orchestrateur LLM configuré côté serveur."

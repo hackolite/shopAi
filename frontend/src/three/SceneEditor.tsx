@@ -2637,8 +2637,10 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     finishPolygonDrawing,
     cancelPolygonDrawing,
   } = useZoneStore();
+  const { gl } = useThree();
   const [previewEnd, setPreviewEnd] = useState<THREE.Vector3 | null>(null);
   const previewFrame = useRef<number | null>(null);
+  const previewEndRef = useRef<THREE.Vector3 | null>(null);
   const freehandDrawing = useRef(false);
 
   useEffect(() => {
@@ -2671,8 +2673,6 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     return shape;
   }, [polygonDraft]);
 
-  if (!polygonDraft) return null;
-
   const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width * CM_TO_UNIT;
@@ -2680,10 +2680,41 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   const drawY = GRID_Y_OFFSET + 0.025;
   const closeThreshold = GRID_CELL_CM;
 
-  const snapPoint = (value: THREE.Vector3): FloorZonePoint => ({
+  const snapPoint = useCallback((value: THREE.Vector3): FloorZonePoint => ({
     x: snapToCell(value.x / CM_TO_UNIT, store.position?.[0] ?? 0),
     z: snapToCell(value.z / CM_TO_UNIT, store.position?.[2] ?? 0),
-  });
+  }), [store.position]);
+
+  const finishFreehandDrawing = useCallback(() => {
+    if (!polygonDraft) return;
+    if (!freehandDrawing.current) return;
+    freehandDrawing.current = false;
+    if (previewEndRef.current) {
+      appendPolygonPoint(snapPoint(previewEndRef.current));
+    }
+    if ((useZoneStore.getState().polygonDraft?.points.length ?? 0) >= 3) {
+      finishPolygonDrawing();
+    } else {
+      cancelPolygonDrawing();
+    }
+    setPreviewEnd(null);
+    previewEndRef.current = null;
+  }, [appendPolygonPoint, cancelPolygonDrawing, finishPolygonDrawing, polygonDraft, snapPoint]);
+
+  useEffect(() => {
+    if (!polygonDraft || polygonDraft.mode !== 'freehand') return;
+    const handlePointerRelease = () => finishFreehandDrawing();
+    gl.domElement.addEventListener('pointerup', handlePointerRelease);
+    gl.domElement.addEventListener('pointercancel', handlePointerRelease);
+    window.addEventListener('pointerup', handlePointerRelease);
+    return () => {
+      gl.domElement.removeEventListener('pointerup', handlePointerRelease);
+      gl.domElement.removeEventListener('pointercancel', handlePointerRelease);
+      window.removeEventListener('pointerup', handlePointerRelease);
+    };
+  }, [finishFreehandDrawing, gl.domElement, polygonDraft]);
+
+  if (!polygonDraft) return null;
 
   const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
@@ -2710,6 +2741,7 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     const nextPoint = event.point.clone();
     if (previewFrame.current != null) cancelAnimationFrame(previewFrame.current);
     previewFrame.current = requestAnimationFrame(() => {
+      previewEndRef.current = nextPoint;
       setPreviewEnd(nextPoint);
       previewFrame.current = null;
     });
@@ -2725,14 +2757,8 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   const handleFreehandPointerUp = (event: ThreeEvent<PointerEvent>) => {
     if (polygonDraft.mode !== 'freehand' || !freehandDrawing.current) return;
     event.stopPropagation();
-    freehandDrawing.current = false;
-    if ((polygonDraft.points.length ?? 0) >= 2) {
-      appendPolygonPoint(snapPoint(event.point.clone()));
-    }
-    if ((useZoneStore.getState().polygonDraft?.points.length ?? 0) >= 3) {
-      finishPolygonDrawing();
-      setPreviewEnd(null);
-    }
+    previewEndRef.current = event.point.clone();
+    finishFreehandDrawing();
   };
 
   const fixedPoints = polygonDraftLine(polygonDraft.points, drawY);

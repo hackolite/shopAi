@@ -101,7 +101,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
                   : 'Zone interdite');
 
     const points = options?.points
-      ? options.points.map((point) => ({ x: snapToCm(point.x), z: snapToCm(point.z) }))
+      ? options.points.map((point) => ({ x: point.x, z: point.z }))
       : undefined;
 
     const polygonBox = points && points.length >= 3 ? polygonBounds(points) : null;

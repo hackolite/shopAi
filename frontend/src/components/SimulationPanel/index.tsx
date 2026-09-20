@@ -321,10 +321,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     };
   }, [config, projectId, loadedProjectId]);
 
-  useEffect(() => {
-    if (!config.enabled) patchConfig({ enabled: true });
-  }, [config.enabled, patchConfig]);
-
   const selectedSummary = result?.summary ?? null;
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;

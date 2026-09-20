@@ -371,11 +371,13 @@ def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | None:
         polygon = Polygon(points)
     elif shape == "circle":
         center = Point(_cm_to_m(x + width / 2.0), _cm_to_m(z + depth / 2.0))
-        polygon = center.buffer(0.5, resolution=32)
+        radius_x_m = _cm_to_m(width / 2.0)
+        radius_z_m = _cm_to_m(depth / 2.0)
+        polygon = center.buffer(1.0, quad_segs=32)
         polygon = Polygon([
             (
-                center.x + (px - center.x) * _cm_to_m(width),
-                center.y + (py - center.y) * _cm_to_m(depth),
+                center.x + (px - center.x) * radius_x_m,
+                center.y + (py - center.y) * radius_z_m,
             )
             for px, py in polygon.exterior.coords
         ])

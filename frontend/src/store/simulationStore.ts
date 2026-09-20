@@ -32,6 +32,7 @@ function normalizeWaypoint(waypoint: SimulationWaypoint): SimulationWaypoint {
 function normalizeConfig(config: SimulationConfig): SimulationConfig {
   return {
     ...config,
+    enabled: config.enabled !== false,
     waypoints: (config.waypoints ?? []).map(normalizeWaypoint),
   };
 }

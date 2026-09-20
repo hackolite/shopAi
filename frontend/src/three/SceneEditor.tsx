@@ -2662,6 +2662,7 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     cancelPolygonDrawing,
   } = useZoneStore();
   const [previewEnd, setPreviewEnd] = useState<THREE.Vector3 | null>(null);
+  const previewFrame = useRef<number | null>(null);
 
   useEffect(() => {
     if (!polygonDraft) {
@@ -2679,6 +2680,10 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [cancelPolygonDrawing, polygonDraft, removeLastPolygonPoint]);
+
+  useEffect(() => () => {
+    if (previewFrame.current != null) cancelAnimationFrame(previewFrame.current);
+  }, []);
 
   const previewShape = useMemo(() => {
     if (!polygonDraft || polygonDraft.points.length < 3) return null;
@@ -2721,7 +2726,12 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   };
 
   const handleFloorPointerMove = (event: ThreeEvent<PointerEvent>) => {
-    setPreviewEnd(event.point.clone());
+    const nextPoint = event.point.clone();
+    if (previewFrame.current != null) cancelAnimationFrame(previewFrame.current);
+    previewFrame.current = requestAnimationFrame(() => {
+      setPreviewEnd(nextPoint);
+      previewFrame.current = null;
+    });
   };
 
   const fixedPoints = polygonDraftLine(polygonDraft.points, drawY);

@@ -17,7 +17,7 @@ Le produit expose aujourd'hui **3 chemins IA distincts** :
    Nature : le backend relaie vers un orchestrateur externe configuré **côté serveur uniquement**.
 
 3. **Pilote agent Astra**  
-   Script : `/home/runner/work/shopAi/shopAi/scripts/astra_build_store.py`  
+   Script : `scripts/astra_build_store.py`  
    Nature : pipeline REST déterministe de bout en bout, sans chat UI.
 
 ---
@@ -28,7 +28,7 @@ Le produit expose aujourd'hui **3 chemins IA distincts** :
 
 Le chat est implémenté dans :
 
-- `/home/runner/work/shopAi/shopAi/frontend/src/components/StudioAssistant.tsx`
+- `frontend/src/components/StudioAssistant.tsx`
 
 Le composant impose :
 
@@ -51,7 +51,7 @@ La décision frontend est simple :
 
 La règle est centralisée dans :
 
-- `/home/runner/work/shopAi/shopAi/frontend/src/engine/assistantRouting.ts`
+- `frontend/src/engine/assistantRouting.ts`
 
 ### Contrat frontend → backend
 
@@ -77,7 +77,7 @@ La règle est centralisée dans :
 
 Le contrat TypeScript est défini dans :
 
-- `/home/runner/work/shopAi/shopAi/frontend/src/api/cad.ts`
+- `frontend/src/api/cad.ts`
 
 ### Boucle UX
 
@@ -102,12 +102,12 @@ Le contrat TypeScript est défini dans :
 
 ### Point d'entrée backend
 
-- `/home/runner/work/shopAi/shopAi/backend/api/cad_projects.py`
+- `backend/api/cad_projects.py`
 - fonction `studio_assistant(...)`
 
 Le moteur est dans :
 
-- `/home/runner/work/shopAi/shopAi/backend/services/studio_assistant.py`
+- `backend/services/studio_assistant.py`
 
 ### Ce qu'il fait réellement
 
@@ -140,12 +140,12 @@ Le local assistant n'est pas un agent libre : il reste un moteur déterministe �
 
 ### Point d'entrée backend
 
-- `/home/runner/work/shopAi/shopAi/backend/api/cad_projects.py`
+- `backend/api/cad_projects.py`
 - fonction `studio_assistant_llm(...)`
 
 La logique de proxy est dans :
 
-- `/home/runner/work/shopAi/shopAi/backend/services/llm_assistant.py`
+- `backend/services/llm_assistant.py`
 
 ### Principe
 
@@ -230,7 +230,7 @@ Conséquence :
 
 ### Emplacement
 
-- `/home/runner/work/shopAi/shopAi/orchestrator`
+- `orchestrator/`
 
 ### Entrée HTTP
 
@@ -388,13 +388,13 @@ Utiliser uniquement `/assistant` pour :
 
 ## 9. Fichiers à lire pour aller plus loin
 
-- `/home/runner/work/shopAi/shopAi/frontend/src/components/StudioAssistant.tsx`
-- `/home/runner/work/shopAi/shopAi/frontend/src/api/cad.ts`
-- `/home/runner/work/shopAi/shopAi/frontend/src/engine/assistantRouting.ts`
-- `/home/runner/work/shopAi/shopAi/backend/api/cad_projects.py`
-- `/home/runner/work/shopAi/shopAi/backend/services/studio_assistant.py`
-- `/home/runner/work/shopAi/shopAi/backend/services/llm_assistant.py`
-- `/home/runner/work/shopAi/shopAi/orchestrator/README.md`
-- `/home/runner/work/shopAi/shopAi/orchestrator/app/agent.py`
-- `/home/runner/work/shopAi/shopAi/scripts/astra_build_store.py`
-- `/home/runner/work/shopAi/shopAi/scripts/README.md`
+- `frontend/src/components/StudioAssistant.tsx`
+- `frontend/src/api/cad.ts`
+- `frontend/src/engine/assistantRouting.ts`
+- `backend/api/cad_projects.py`
+- `backend/services/studio_assistant.py`
+- `backend/services/llm_assistant.py`
+- `orchestrator/README.md`
+- `orchestrator/app/agent.py`
+- `scripts/astra_build_store.py`
+- `scripts/README.md`

@@ -40,6 +40,7 @@ _DEFAULT_TIMEOUT_SECONDS = 30.0
 _MIN_TIMEOUT_SECONDS = 1.0
 _MAX_TIMEOUT_SECONDS = 120.0
 _SESSION_HEADER = "X-ShopAI-Session"
+_STATUS_TIMEOUT_SECONDS = 5.0
 
 
 class _WebhookResponse(BaseModel):
@@ -62,6 +63,51 @@ class _WebhookResponse(BaseModel):
 def llm_assistant_enabled() -> bool:
     """True when a server operator configured an external agent webhook."""
     return bool(os.environ.get(_WEBHOOK_URL_ENV, "").strip())
+
+
+def llm_assistant_status() -> dict[str, Any]:
+    """Return a preflight status for the external LLM webhook."""
+    webhook_url = os.environ.get(_WEBHOOK_URL_ENV, "").strip()
+    if not webhook_url:
+        return {
+            "enabled": False,
+            "reachable": False,
+            "status": "missing",
+            "message": (
+                "Provider LLM introuvable : variable serveur "
+                f"{_WEBHOOK_URL_ENV} absente."
+            ),
+        }
+    try:
+        response = httpx.get(webhook_url, timeout=min(_timeout_seconds(), _STATUS_TIMEOUT_SECONDS))
+    except httpx.HTTPError as exc:
+        _log.warning("External LLM preflight failed error_class=%s", type(exc).__name__)
+        return {
+            "enabled": True,
+            "reachable": False,
+            "status": "unreachable",
+            "message": (
+                "Provider LLM configuré mais injoignable. Vérifiez l'orchestrateur, "
+                "le réseau et l'URL du webhook."
+            ),
+        }
+    if response.status_code in (200, 202, 204, 401, 403, 405, 409, 422, 429):
+        return {
+            "enabled": True,
+            "reachable": True,
+            "status": "ready",
+            "message": "Provider LLM détecté et joignable.",
+        }
+    _log.warning("External LLM preflight returned unexpected status=%d", response.status_code)
+    return {
+        "enabled": True,
+        "reachable": False,
+        "status": "error",
+        "message": (
+            "Provider LLM détecté mais le prétest a échoué "
+            f"(HTTP {response.status_code})."
+        ),
+    }
 
 
 def _timeout_seconds() -> float:

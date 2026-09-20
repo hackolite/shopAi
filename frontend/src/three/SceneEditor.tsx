@@ -12,7 +12,7 @@ import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { loadRatio, useAssetStore } from '../store/assetStore';
 import { cellRectCm, columnAtRatio } from '../engine/planogramLayout';
-import type { FloorZone, Planogram, SelectedCellRef } from '../types/cad';
+import type { FloorZone, FloorZonePoint, Planogram, SelectedCellRef, ZoneShape } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -1693,8 +1693,73 @@ const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
   entrance: { fill: '#22c55e', border: '#16a34a' },
   exit:     { fill: '#f97316', border: '#ea580c' },
   supply:   { fill: '#a855f7', border: '#7c3aed' },
+  forbidden:{ fill: '#ef4444', border: '#dc2626' },
 };
 const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
+
+function zoneShape(zone: FloorZone): ZoneShape {
+  return zone.shape ?? 'rectangle';
+}
+
+function zoneCenterCm(zone: FloorZone) {
+  return {
+    x: zone.x + zone.width / 2,
+    z: zone.z + zone.depth / 2,
+  };
+}
+
+function zoneLocalFootprint(zone: FloorZone): [number, number][] {
+  const W = zone.width * CM_TO_UNIT;
+  const D = zone.depth * CM_TO_UNIT;
+  const shape = zoneShape(zone);
+  if (shape === 'circle') {
+    return Array.from({ length: 48 }, (_, index) => {
+      const angle = (Math.PI * 2 * index) / 48;
+      return [Math.cos(angle) * W / 2, Math.sin(angle) * D / 2];
+    });
+  }
+  if (shape === 'diamond') {
+    return [[0, -D / 2], [W / 2, 0], [0, D / 2], [-W / 2, 0]];
+  }
+  if (shape === 'polygon' && zone.points && zone.points.length >= 3) {
+    const center = zoneCenterCm(zone);
+    return zone.points.map((point) => [
+      (point.x - center.x) * CM_TO_UNIT,
+      (point.z - center.z) * CM_TO_UNIT,
+    ]);
+  }
+  return [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]];
+}
+
+function zoneWorldOutline(zone: FloorZone, y: number): [number, number, number][] {
+  const center = zoneCenterCm(zone);
+  const points = zoneLocalFootprint(zone).map(([x, z]) => [
+    center.x * CM_TO_UNIT + x,
+    y,
+    center.z * CM_TO_UNIT + z,
+  ] as [number, number, number]);
+  return points.length > 0 ? [...points, points[0]] : points;
+}
+
+function zoneShapeGeometry(zone: FloorZone): THREE.Shape {
+  const points = zoneLocalFootprint(zone);
+  const shape = new THREE.Shape();
+  points.forEach(([x, z], index) => {
+    if (index === 0) shape.moveTo(x, z);
+    else shape.lineTo(x, z);
+  });
+  shape.closePath();
+  return shape;
+}
+
+function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
+  return {
+    ...zone,
+    x: zone.x + dxCm,
+    z: zone.z + dzCm,
+    points: zone.points?.map((point) => ({ x: point.x + dxCm, z: point.z + dzCm })),
+  };
+}
 
 // ─── Floor zone mesh (movable) ────────────────────────────────────────────────
 function FloorZoneMesh({ zone }: { zone: FloorZone }) {
@@ -1711,11 +1776,15 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const isSelected = selectedZoneId === zone.id;
   const W = zone.width  * CM_TO_UNIT;
   const D = zone.depth  * CM_TO_UNIT;
-  const cx = zone.x * CM_TO_UNIT + W / 2;
-  const cz = zone.z * CM_TO_UNIT + D / 2;
+  const zoneCenter = zoneCenterCm(zone);
+  const cx = zoneCenter.x * CM_TO_UNIT;
+  const cz = zoneCenter.z * CM_TO_UNIT;
   const y  = GRID_Y_OFFSET + 0.016;
 
-  const color = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
+  const palette = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
+  const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
+  const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
+  const shapeGeometry = useMemo(() => zoneShapeGeometry(zone), [zone]);
 
   // Drag state (same pattern as ResizeHandles / FurnitureMesh)
   const isDragging   = useRef(false);
@@ -1740,7 +1809,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
-        updateZone({ ...base, x: base.x + dx / CM_TO_UNIT, z: base.z + dz / CM_TO_UNIT });
+        updateZone(moveZone(base, dx / CM_TO_UNIT, dz / CM_TO_UNIT));
       });
     };
 
@@ -1750,11 +1819,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       isDragging.current = false;
       setResizeDragging(false);
       const cur = curZoneRef.current;
-      updateZone({
-        ...cur,
-        x: snapToCell(cur.x, gridOriginRef.current.x),
-        z: snapToCell(cur.z, gridOriginRef.current.z),
-      });
+      const snappedX = snapToCell(cur.x, gridOriginRef.current.x);
+      const snappedZ = snapToCell(cur.z, gridOriginRef.current.z);
+      updateZone(moveZone(cur, snappedX - cur.x, snappedZ - cur.z));
     };
 
     gl.domElement.addEventListener('pointermove', onMove);
@@ -1794,25 +1861,18 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     e.stopPropagation();
   };
 
+  const lineY = y + 0.001;
+  const borderPts = zoneWorldOutline(zone, lineY);
   const bx = zone.x * CM_TO_UNIT;
   const bz = zone.z * CM_TO_UNIT;
-  const lineY = y + 0.001;
-
-  const borderPts: [number, number, number][] = [
-    [bx,      lineY, bz],
-    [bx + W,  lineY, bz],
-    [bx + W,  lineY, bz + D],
-    [bx,      lineY, bz + D],
-    [bx,      lineY, bz],
-  ];
 
   // Build interior grid lines for supply zones.
   const supplyGridLines: React.ReactElement[] = [];
-  if (zone.type === 'supply') {
+  if (zone.type === 'supply' && zoneShape(zone) === 'rectangle') {
     const rows = Math.max(1, zone.rows ?? 1);
     const cols = Math.max(1, zone.cols ?? 1);
     const gridLineY = lineY + 0.001;
-    const gridColor = isSelected ? '#ffffff' : color.border;
+    const gridColor = isSelected ? '#ffffff' : borderColor;
     for (let c = 1; c < cols; c++) {
       const gx = bx + (W / cols) * c;
       supplyGridLines.push(
@@ -1853,9 +1913,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         }}
         onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
       >
-        <planeGeometry args={[W, D]} />
+        <shapeGeometry args={[shapeGeometry]} />
         <meshBasicMaterial
-          color={color.fill}
+          color={fillColor}
           transparent
           opacity={isSelected ? 0.55 : hovered ? 0.45 : 0.32}
           depthWrite={false}
@@ -1866,7 +1926,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       {/* Border outline */}
       <Line
         points={borderPts}
-        color={isSelected ? '#ffffff' : color.border}
+        color={isSelected ? '#ffffff' : borderColor}
         lineWidth={isSelected ? 3 : 2}
       />
 
@@ -2043,7 +2103,7 @@ function FloorZoneLayer() {
       {zones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
-      {selectedZone && (
+      {selectedZone && zoneShape(selectedZone) !== 'polygon' && (
         <FloorZoneResizeHandles zone={selectedZone} />
       )}
     </>
@@ -2543,6 +2603,10 @@ interface MeasureLine {
   end: THREE.Vector3;
 }
 
+function polygonDraftLine(points: FloorZonePoint[], y: number): [number, number, number][] {
+  return points.map((point) => [point.x * CM_TO_UNIT, y, point.z * CM_TO_UNIT] as [number, number, number]);
+}
+
 // ─── Clickable line hit area (invisible box along the line) ───────────────────
 function MeasureLineHit({
   line,
@@ -2586,6 +2650,137 @@ function MeasureLineHit({
       <boxGeometry args={[length, 0.08, 0.18]} />
       <meshBasicMaterial transparent opacity={hovered ? 0.15 : 0} color={isSelected ? '#ff4444' : '#facc15'} depthWrite={false} />
     </mesh>
+  );
+}
+
+function PolygonDraftTool({ store }: { store: StoreConfig }) {
+  const {
+    polygonDraft,
+    appendPolygonPoint,
+    removeLastPolygonPoint,
+    finishPolygonDrawing,
+    cancelPolygonDrawing,
+  } = useZoneStore();
+  const [previewEnd, setPreviewEnd] = useState<THREE.Vector3 | null>(null);
+
+  useEffect(() => {
+    if (!polygonDraft) {
+      setPreviewEnd(null);
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (event.key === 'Escape') cancelPolygonDrawing();
+      if ((event.key === 'Backspace' || event.key === 'Delete') && polygonDraft.points.length > 0) {
+        removeLastPolygonPoint();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [cancelPolygonDrawing, polygonDraft, removeLastPolygonPoint]);
+
+  const previewShape = useMemo(() => {
+    if (!polygonDraft || polygonDraft.points.length < 3) return null;
+    const shape = new THREE.Shape(
+      polygonDraft.points.map((point) => new THREE.Vector2(point.x * CM_TO_UNIT, point.z * CM_TO_UNIT)),
+    );
+    shape.closePath();
+    return shape;
+  }, [polygonDraft]);
+
+  if (!polygonDraft) return null;
+
+  const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
+  const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
+  const w = store.dimensions.width * CM_TO_UNIT;
+  const d = store.dimensions.depth * CM_TO_UNIT;
+  const drawY = GRID_Y_OFFSET + 0.025;
+  const closeThreshold = GRID_CELL_CM * 0.75;
+
+  const snapPoint = (value: THREE.Vector3): FloorZonePoint => ({
+    x: snapToCell(value.x / CM_TO_UNIT, store.position?.[0] ?? 0),
+    z: snapToCell(value.z / CM_TO_UNIT, store.position?.[2] ?? 0),
+  });
+
+  const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    if (isDragRelease(event)) return;
+    const point = snapPoint(event.point.clone());
+    const first = polygonDraft.points[0];
+    if (
+      first
+      && polygonDraft.points.length >= 3
+      && Math.hypot(point.x - first.x, point.z - first.z) <= closeThreshold
+    ) {
+      finishPolygonDrawing();
+      setPreviewEnd(null);
+      return;
+    }
+    appendPolygonPoint(point);
+  };
+
+  const handleFloorPointerMove = (event: ThreeEvent<PointerEvent>) => {
+    setPreviewEnd(event.point.clone());
+  };
+
+  const fixedPoints = polygonDraftLine(polygonDraft.points, drawY);
+  const previewPoint = previewEnd ? snapPoint(previewEnd) : null;
+  const previewLine = polygonDraft.points.length > 0 && previewPoint
+    ? [
+        [polygonDraft.points[polygonDraft.points.length - 1].x * CM_TO_UNIT, drawY, polygonDraft.points[polygonDraft.points.length - 1].z * CM_TO_UNIT],
+        [previewPoint.x * CM_TO_UNIT, drawY, previewPoint.z * CM_TO_UNIT],
+      ] as [number, number, number][]
+    : null;
+
+  return (
+    <>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[storeOriginX + w / 2, GRID_Y_OFFSET + 0.02, storeOriginZ + d / 2]}
+        onClick={handleFloorClick}
+        onPointerMove={handleFloorPointerMove}
+      >
+        <planeGeometry args={[w, d]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      {previewShape && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, drawY - 0.001, 0]}>
+          <shapeGeometry args={[previewShape]} />
+          <meshBasicMaterial color={polygonDraft.color} transparent opacity={0.18} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {fixedPoints.length >= 2 && <Line points={fixedPoints} color={polygonDraft.color} lineWidth={2} />}
+      {fixedPoints.length >= 3 && (
+        <Line
+          points={[...fixedPoints, fixedPoints[0]]}
+          color={polygonDraft.color}
+          lineWidth={2}
+          dashed
+          dashSize={0.12}
+          gapSize={0.08}
+        />
+      )}
+      {previewLine && (
+        <Line
+          points={previewLine}
+          color={polygonDraft.color}
+          lineWidth={2}
+          dashed
+          dashSize={0.12}
+          gapSize={0.08}
+        />
+      )}
+
+      {polygonDraft.points.map((point, index) => (
+        <mesh key={`${point.x}-${point.z}-${index}`} position={[point.x * CM_TO_UNIT, drawY, point.z * CM_TO_UNIT]}>
+          <sphereGeometry args={[0.06, 10, 10]} />
+          <meshBasicMaterial color={index === 0 ? '#ffffff' : polygonDraft.color} />
+        </mesh>
+      ))}
+    </>
   );
 }
 
@@ -2879,7 +3074,7 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
-  const { selectedZoneId, removeZone, selectZone } = useZoneStore();
+  const { selectedZoneId, removeZone, selectZone, polygonDraft } = useZoneStore();
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
 
@@ -2971,7 +3166,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
   // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
-  const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure';
+  const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure' && !polygonDraft;
   // Show furniture resize handles in scale mode for resizable furniture types.
   const showFurnitureResize =
     activeTool === 'scale' &&
@@ -2981,6 +3176,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // OR passively in scale mode when nothing else is selected (backward compat).
   const showBoundaryHandles =
     activeTool !== 'measure' &&
+    !polygonDraft &&
     (storeBoundarySelected || (activeTool === 'scale' && !selectedFurnitureId && !selectedZoneId));
   const tMode: 'translate' | 'rotate' = activeTool === 'rotate' ? 'rotate' : 'translate';
 
@@ -3004,6 +3200,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         />
         <SimulationLayer />
         <FloorZoneLayer />
+        <PolygonDraftTool store={scene.store} />
         <MeasureTool store={scene.store} />
 
         {/* Mounted furniture rendered as full 3D objects */}

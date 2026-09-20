@@ -46,7 +46,13 @@ export interface FurnitureDefinition {
 }
 
 // ─── Floor zones ──────────────────────────────────────────────────────────────
-export type ZoneType = 'entrance' | 'exit' | 'supply';
+export type ZoneType = 'entrance' | 'exit' | 'supply' | 'forbidden';
+export type ZoneShape = 'rectangle' | 'circle' | 'diamond' | 'polygon';
+
+export interface FloorZonePoint {
+  x: number;
+  z: number;
+}
 
 export interface FloorZone {
   id: string;
@@ -60,6 +66,12 @@ export interface FloorZone {
   rows?: number;
   /** Number of columns in the supply grid (only used when type === 'supply'). */
   cols?: number;
+  /** Shape drawn on the floor. Rectangles remain the default for legacy zones. */
+  shape?: ZoneShape;
+  /** Fill color used for custom floor drawings. */
+  color?: string;
+  /** Closed polygon points in store coordinates (cm), only used for polygon drawings. */
+  points?: FloorZonePoint[];
 }
 
 // ─── Store / Scene ────────────────────────────────────────────────────────────

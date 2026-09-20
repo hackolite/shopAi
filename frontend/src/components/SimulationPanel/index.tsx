@@ -321,9 +321,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     };
   }, [config, projectId, loadedProjectId]);
 
+  useEffect(() => {
+    if (!config.enabled) patchConfig({ enabled: true });
+  }, [config.enabled, patchConfig]);
+
   const selectedSummary = result?.summary ?? null;
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
+  const datasetModeActive = Boolean(selectedPedestrianDatasetId || appliedPedestrianDataset || pedestrianLoadedIntoSession);
+  const simulationModeLabel = datasetModeActive ? 'Dataset piétons & paniers' : 'JuPedSim';
   // New waypoints are dropped at the bottom-left corner of the grid so they are
   // always visible right where the store starts.
   const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);
@@ -819,15 +825,24 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto p-3">
         <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
-          <label className="flex items-center justify-between text-xs text-gray-300">
-            <span className="text-gray-500">Activer JuPedSim</span>
-            <input
-              type="checkbox"
-              checked={config.enabled}
-              onChange={(event) => patchConfig({ enabled: event.target.checked })}
-              className="accent-blue-500"
-            />
-          </label>
+          <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">Mode de simulation</p>
+                <p className="mt-1 text-sm font-medium text-gray-100">{simulationModeLabel}</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${
+                datasetModeActive ? 'bg-cyan-500/15 text-cyan-200' : 'bg-emerald-500/15 text-emerald-300'
+              }`}>
+                {datasetModeActive ? 'Piloté par dataset' : 'Piloté par JuPedSim'}
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] leading-snug text-gray-400">
+              {datasetModeActive
+                ? 'Le dataset sélectionné pilote automatiquement les piétons. Les réglages JuPedSim restent affichés mais sont neutralisés tant que ce scénario est actif.'
+                : 'Aucun dataset sélectionné : la simulation passe automatiquement en mode JuPedSim, sans case à activer.'}
+            </p>
+          </div>
           <NumberField
             label="Clients / sec"
             value={config.arrivalRatePerSecond}
@@ -897,14 +912,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           ) : (
             <button
               onClick={() => void runSimulation()}
-              disabled={running || !config.enabled || isApplyingPedestrianDataset}
+              disabled={running || isApplyingPedestrianDataset}
               className={[
                 'w-full rounded px-3 py-2 text-xs font-semibold text-white transition-colors',
                 running || isApplyingPedestrianDataset
                   ? 'bg-amber-500 cursor-not-allowed'
-                  : config.enabled
-                    ? 'bg-blue-600 hover:bg-blue-500 cursor-pointer'
-                    : 'bg-blue-600 opacity-50 cursor-not-allowed',
+                  : 'bg-blue-600 hover:bg-blue-500 cursor-pointer',
               ].join(' ')}
             >
               {running

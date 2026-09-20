@@ -214,6 +214,19 @@ class ZoneTypeEnum(str, Enum):
     entrance = "entrance"
     exit = "exit"
     supply = "supply"
+    forbidden = "forbidden"
+
+
+class ZoneShapeEnum(str, Enum):
+    rectangle = "rectangle"
+    circle = "circle"
+    diamond = "diamond"
+    polygon = "polygon"
+
+
+class FloorZonePoint(CADBaseModel):
+    x: float
+    z: float
 
 
 class FloorZone(CADBaseModel):
@@ -226,6 +239,9 @@ class FloorZone(CADBaseModel):
     depth: float
     rows: int | None = None
     cols: int | None = None
+    shape: ZoneShapeEnum = ZoneShapeEnum.rectangle
+    color: str | None = None
+    points: list[FloorZonePoint] | None = None
 
 
 class Store(CADBaseModel):

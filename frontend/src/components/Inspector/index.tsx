@@ -676,10 +676,27 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   );
 }
 
-// ─── Supply zone inspector ────────────────────────────────────────────────────
-function SupplyZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string | null }) {
+function zoneTypeLabel(zone: FloorZone): string {
+  if (zone.type === 'entrance') return 'Entrée';
+  if (zone.type === 'exit') return 'Sortie';
+  if (zone.type === 'supply') return 'Fournitures';
+  return 'Zone interdite';
+}
+
+function zoneShapeLabel(zone: FloorZone): string {
+  if (zone.shape === 'circle') return 'Cercle';
+  if (zone.shape === 'diamond') return 'Losange';
+  if (zone.shape === 'polygon') return 'Polygone';
+  return 'Rectangle';
+}
+
+// ─── Zone inspector ───────────────────────────────────────────────────────────
+function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string | null }) {
   const { updateZone } = useZoneStore();
   const { scene } = useSceneStore();
+  const isSupply = zone.type === 'supply';
+  const isForbidden = zone.type === 'forbidden';
+  const pointCount = zone.points?.length ?? 0;
 
   const save = (updated: FloorZone) => {
     updateZone(updated);
@@ -691,8 +708,31 @@ function SupplyZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: 
 
   return (
     <div className="space-y-3">
-      <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Fournitures</h4>
+      <h4 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">{zoneTypeLabel(zone)}</h4>
       <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 w-16 shrink-0">Nom</label>
+          <input
+            type="text"
+            value={zone.label}
+            onChange={(event) => save({ ...zone, label: event.target.value })}
+            className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+          />
+        </div>
+        {isForbidden && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 w-16 shrink-0">Couleur</label>
+            <input
+              type="color"
+              value={zone.color ?? '#ef4444'}
+              onChange={(event) => save({ ...zone, color: event.target.value })}
+              className="h-9 w-14 rounded border border-gray-700 bg-gray-800 p-1"
+            />
+          </div>
+        )}
+      </div>
+      {isSupply && (
+        <div className="space-y-1.5">
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500 w-16 shrink-0">Lignes</label>
           <input
@@ -719,8 +759,13 @@ function SupplyZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: 
             className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
           />
         </div>
-      </div>
+        </div>
+      )}
       <div className="space-y-1 pt-1 border-t border-gray-800 text-xs text-gray-400">
+        <div className="flex justify-between">
+          <span className="text-gray-500">Forme</span>
+          <span>{zoneShapeLabel(zone)}</span>
+        </div>
         <div className="flex justify-between">
           <span className="text-gray-500">Largeur</span>
           <span>{zone.width} cm</span>
@@ -729,10 +774,23 @@ function SupplyZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: 
           <span className="text-gray-500">Profondeur</span>
           <span>{zone.depth} cm</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Cellules</span>
-          <span>{(zone.rows ?? 1) * (zone.cols ?? 1)}</span>
-        </div>
+        {isSupply && (
+          <div className="flex justify-between">
+            <span className="text-gray-500">Cellules</span>
+            <span>{(zone.rows ?? 1) * (zone.cols ?? 1)}</span>
+          </div>
+        )}
+        {zone.shape === 'polygon' && (
+          <div className="flex justify-between">
+            <span className="text-gray-500">Points</span>
+            <span>{pointCount}</span>
+          </div>
+        )}
+        {isForbidden && (
+          <div className="rounded-lg border border-red-900 bg-red-950/20 px-2 py-2 text-[11px] leading-snug text-red-200">
+            Cette forme ferme une zone au sol et y interdit l’entrée des piétons.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -755,7 +813,6 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const selectedZone = selectedZoneId
     ? (zones.find((z) => z.id === selectedZoneId) ?? null)
     : null;
-  const selectedSupplyZone = selectedZone?.type === 'supply' ? selectedZone : null;
 
   const selectedPlanogram =
     selection.type === 'planogram_cell' && selection.planogramId
@@ -800,15 +857,15 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
           />
         )}
 
-        {!selectedFurniture && selectedSupplyZone && (
-          <SupplyZoneInspector
-            key={selectedSupplyZone.id}
-            zone={selectedSupplyZone}
+        {!selectedFurniture && selectedZone && (
+          <ZoneInspector
+            key={selectedZone.id}
+            zone={selectedZone}
             projectId={projectId}
           />
         )}
 
-        {!selectedFurniture && !selectedSupplyZone && (selectedCell || selectedEanProduct) && (
+        {!selectedFurniture && !selectedZone && (selectedCell || selectedEanProduct) && (
           <div className="space-y-3">
             {selectedCell && (
               <>

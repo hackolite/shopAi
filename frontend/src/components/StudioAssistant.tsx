@@ -67,6 +67,25 @@ function isPlacementRecommendation(prompt: string): boolean {
   return /recommand|implante le catalogue|implemente le catalogue/i.test(prompt);
 }
 
+function llmStatusIndicator(status: LlmAssistantStatus) {
+  if (shouldUseLlmPath(status)) {
+    return {
+      label: 'LLM',
+      dotClassName: 'bg-emerald-400',
+      textClassName: 'text-emerald-300',
+      detail: null,
+    };
+  }
+  return {
+    label: 'Local',
+    dotClassName: status.status === 'missing' ? 'bg-amber-400' : 'bg-red-400',
+    textClassName: status.status === 'missing' ? 'text-amber-300' : 'text-red-300',
+    detail: status.status === 'missing'
+      ? 'Provider non configuré, fallback local automatique.'
+      : 'Provider indisponible, fallback local automatique.',
+  };
+}
+
 export default function StudioAssistant({ projectId, onProjectCreated, onSave }: Props) {
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState<AssistantCategory | null>(null);
@@ -83,6 +102,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const endRef = useRef<HTMLDivElement>(null);
   const generatedProject = useRef<string | null>(null);
   const activeProject = useRef(projectId);
+  const llmIndicator = llmStatusIndicator(llmStatus);
   activeProject.current = projectId;
 
   useEffect(() => {
@@ -169,49 +189,30 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     <section aria-label="Assistant d’implantation" className="flex h-full flex-col text-base">
       <div className="border-b border-gray-700 p-5">
         <h2 className="text-lg font-semibold">Assistant d’implantation</h2>
-        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="rounded-2xl border border-cyan-900/70 bg-gray-900/70 p-4">
+        <div className="mt-3 rounded-2xl border border-cyan-900/70 bg-gray-900/70 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-200">
                 Mode par défaut
               </span>
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${
-                shouldUseLlmPath(llmStatus)
-                  ? 'bg-emerald-500/15 text-emerald-300'
-                  : 'bg-red-500/15 text-red-300'
-              }`}>
-                {shouldUseLlmPath(llmStatus) ? 'LLM actif' : 'Fallback local'}
+              <span className={`inline-flex items-center gap-2 rounded-full bg-gray-950/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${llmIndicator.textClassName}`}>
+                <span className={`h-2 w-2 rounded-full ${llmIndicator.dotClassName}`} aria-hidden="true" />
+                {llmIndicator.label}
               </span>
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-gray-300">
-              {shouldUseLlmPath(llmStatus)
-                ? "Le prompt part désormais directement vers l'orchestrateur LLM configuré côté serveur."
-                : "Le prétest LLM a détecté une indisponibilité : l'assistant local reprend automatiquement le relais."}
-              {' '}Une implantation complète inclut mobilier, catalogue et produits.
-              Le résultat s’ouvre en 3D dès sa création et reste enregistré.
-            </p>
           </div>
-          <div className={`rounded-2xl border p-4 ${
-            shouldUseLlmPath(llmStatus)
-              ? 'border-emerald-800 bg-emerald-950/20'
-              : 'border-red-900 bg-red-950/30'
-          }`}>
-            <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${
-              shouldUseLlmPath(llmStatus) ? 'text-emerald-300' : 'text-red-300'
-            }`}>
-              Prétest provider LLM
+          <p className="mt-3 text-sm leading-relaxed text-gray-300">
+            {shouldUseLlmPath(llmStatus)
+              ? "Le prompt part directement vers l'orchestrateur LLM configuré côté serveur."
+              : "L'assistant local reprend automatiquement le relais si le provider LLM n'est pas disponible."}
+            {' '}Une implantation complète inclut mobilier, catalogue et produits.
+            Le résultat s’ouvre en 3D dès sa création et reste enregistré.
+          </p>
+          {llmIndicator.detail && (
+            <p className={`mt-3 text-xs font-medium ${llmIndicator.textClassName}`}>
+              {llmIndicator.detail}
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-gray-200">{llmStatus.message}</p>
-            {!shouldUseLlmPath(llmStatus) ? (
-              <p className="mt-2 text-xs font-medium text-red-300">
-                Critique : vérifiez immédiatement la configuration et la disponibilité du provider.
-              </p>
-            ) : (
-              <p className="mt-2 text-xs font-medium text-emerald-300">
-                Provider validé avant envoi : les requêtes LLM peuvent partir.
-              </p>
-            )}
-          </div>
+          )}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">

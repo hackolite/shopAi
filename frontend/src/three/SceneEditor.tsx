@@ -2736,7 +2736,11 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
 
   const handleFloorPointerMove = (event: ThreeEvent<PointerEvent>) => {
     if (polygonDraft.mode === 'freehand' && freehandDrawing.current) {
-      appendPolygonPoint(snapPoint(event.point.clone()));
+      const snapped = snapPoint(event.point.clone());
+      const lastPoint = useZoneStore.getState().polygonDraft?.points.at(-1);
+      if (!lastPoint || lastPoint.x !== snapped.x || lastPoint.z !== snapped.z) {
+        appendPolygonPoint(snapped);
+      }
     }
     const nextPoint = event.point.clone();
     if (previewFrame.current != null) cancelAnimationFrame(previewFrame.current);

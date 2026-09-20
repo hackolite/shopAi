@@ -325,7 +325,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   const selectedSummary = result?.summary ?? null;
   const sceneWithZones = useMemo(
-    () => (scene ? { ...scene, store: { ...scene.store, zones } } : null),
+    () => (scene ? { ...scene, store: { ...(scene.store ?? {}), zones } } : null),
     [scene, zones],
   );
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;

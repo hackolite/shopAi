@@ -1,9 +1,45 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
+import secrets
+import threading
+import time
+from dataclasses import dataclass
+from typing import Any
+
+import httpx
+from fastapi import HTTPException
+
 from .config import Settings
 from .llm import LLMPlanner
 from .schemas import WebhookRequest, WebhookResponse
 from .tools import BackendApiError, BackendTools
+from .workflow import Operation, compile_operations, fingerprint, planner_context, read_state
+
+
+@dataclass(frozen=True)
+class PendingPlan:
+    expires: int
+    binding: str
+    state_hash: str
+    create: bool
+    project_name: str
+    operations: list[Operation]
+
+
+# Intentionally fail closed across process restarts/workers: a missing preview must
+# be regenerated, never reconstructed by asking the LLM a second time.
+_pending: dict[str, PendingPlan] = {}
+_guard = threading.Lock()
+_TTL = 600
+_MAX_PENDING = 128
+
+
+def _binding(payload: WebhookRequest, session: str, secret: str) -> str:
+    data = json.dumps([payload.projectId, payload.prompt, payload.category, session], ensure_ascii=False)
+    return hmac.new(secret.encode(), data.encode(), hashlib.sha256).hexdigest()
 
 
 class ShopAIOrchestrator:
@@ -12,102 +48,120 @@ class ShopAIOrchestrator:
         self.planner = LLMPlanner(settings)
 
     async def run(self, payload: WebhookRequest, session_cookie: str | None = None) -> WebhookResponse:
-        plan = await self.planner.build_plan(payload.prompt)
-
-        if plan.intent != "build_complete_store":
-            return WebhookResponse(
-                message="Demande comprise, mais cette version de l'orchestrateur exécute uniquement la création complète d'un magasin.",
-                requiresConfirmation=False,
-                changed=False,
-                projectId=payload.projectId,
-                steps=["Aucune écriture exécutée."],
-            )
-
-        preview = [
-            "1/8 Health check",
-            "2/8 Création projet",
-            "3/8 Bibliothèque mobilier",
-            "4/8 Dimensions magasin",
-            "5/8 Placement mobilier",
-            "6/8 Import catalogue",
-            "7/8 Création planogrammes",
-            "8/8 Vérification retail-layout",
-        ]
-
-        if not payload.confirm:
-            return WebhookResponse(
-                message=(
-                    f"Je vais créer un magasin '{plan.project_name}' ({int(plan.store.width)}x{int(plan.store.depth)} cm, "
-                    f"{plan.max_products} produits) en suivant le pipeline 8 étapes. Confirme pour lancer."
-                ),
-                requiresConfirmation=True,
-                changed=False,
-                projectId=payload.projectId,
-                steps=preview,
-            )
-
+        secret = self.settings.webhook_auth_token
+        if not secret:
+            raise HTTPException(503, "WEBHOOK_AUTH_TOKEN requis pour l'orchestrateur.")
+        if not session_cookie:
+            raise HTTPException(401, "Session utilisateur requise.")
+        binding = _binding(payload, session_cookie, secret)
         tools = BackendTools(self.settings, session_cookie=session_cookie)
-        steps: list[str] = []
-
+        if payload.confirm:
+            token = payload.confirmationToken or ""
+            with _guard:
+                pending = _pending.get(token)
+                if not pending or pending.expires <= time.time() or not hmac.compare_digest(pending.binding, binding):
+                    raise HTTPException(409, "Confirmation absente, expirée ou invalide. Génère un nouvel aperçu.")
+                del _pending[token]
+            return await self._execute(payload, tools, pending)
+        if payload.confirmationToken:
+            raise HTTPException(422, "Le jeton de confirmation s'utilise uniquement avec confirm=true.")
         try:
-            health = await tools.health_check()
-            steps.append(f"1/8 backend OK: {health}")
-
-            project = await tools.create_project(plan.project_name)
-            project_id = str(project["id"])
-            steps.append(f"2/8 projet créé: {project_id}")
-
-            library_response = await tools.get_furniture_library()
-            library_items = library_response.get("furniture", [])
-            library = {item["id"]: item for item in library_items}
-            steps.append(f"3/8 bibliothèque chargée: {len(library)} types")
-
-            await tools.set_store_dimensions(
-                project_id,
-                plan.project_name,
-                {
-                    "width": plan.store.width,
-                    "depth": plan.store.depth,
-                    "height": plan.store.height,
-                },
+            state = await read_state(tools, payload.projectId)
+            library = {item["id"]: item for item in (await tools.get_furniture_library())["furniture"]}
+            context = planner_context(state, library)
+            if len(json.dumps(context)) > 500_000:
+                raise ValueError("Contexte trop volumineux pour une planification bornée.")
+            plan = await self.planner.build_plan(payload.prompt, payload.category, context)
+            if plan.intent == "other":
+                return WebhookResponse(
+                    message="Demande hors du périmètre implantation/assortiment; aucune écriture.",
+                    requiresConfirmation=False,
+                    changed=False,
+                    projectId=payload.projectId,
+                )
+            create, operations = compile_operations(tools, plan, state, library)
+        except BackendApiError as exc:
+            raise HTTPException(exc.status_code, "Impossible de lire le projet pour préparer le plan.") from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(502, "Le fournisseur LLM est indisponible; aucun plan de remplacement exécuté.") from exc
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            raise HTTPException(422, f"Plan non exécutable: {exc}") from exc
+        expires = int(time.time()) + _TTL
+        nonce = secrets.token_urlsafe(24)
+        signature = hmac.new(secret.encode(), f"{nonce}.{expires}.{binding}".encode(), hashlib.sha256).hexdigest()
+        token = f"{nonce}.{expires}.{signature}"
+        with _guard:
+            for key in list(_pending):
+                if _pending[key].expires <= time.time():
+                    del _pending[key]
+            if len(_pending) >= _MAX_PENDING:
+                raise HTTPException(503, "Trop d'aperçus en attente; réessaie plus tard.")
+            _pending[token] = PendingPlan(
+                expires=expires,
+                binding=binding,
+                state_hash=fingerprint(state),
+                create=create,
+                project_name=plan.project_name,
+                operations=operations,
             )
-            steps.append(
-                f"4/8 dimensions définies: {int(plan.store.width)}x{int(plan.store.depth)}x{int(plan.store.height)} cm"
-            )
+        target = f"nouveau projet « {plan.project_name} »" if create else f"projet courant {payload.projectId}"
+        mode = " Mode déterministe sans LLM." if self.settings.llm_provider == "none" else ""
+        return WebhookResponse(
+            message=f"Aperçu: {target}; {len(operations)} opérations. Confirme sous 10 minutes.{mode}",
+            requiresConfirmation=True,
+            changed=False,
+            projectId=payload.projectId,
+            confirmationToken=token,
+            steps=(
+                ([f"Créer un nouveau projet « {plan.project_name} »."] if create else [])
+                + [operation.description for operation in operations]
+            ),
+        )
 
-            planned_furniture = tools.plan_layout(library, plan)
-            placed_furniture = []
-            for furniture in planned_furniture:
-                placed = await tools.place_furniture(project_id, furniture)
-                placed_furniture.append(placed)
-            steps.append(f"5/8 mobilier placé: {len(placed_furniture)}")
-
-            products = tools.load_products(plan.max_products)
-            imported = await tools.import_catalog(project_id, products)
-            steps.append(f"6/8 catalogue importé: {imported.get('imported', 0)} produits")
-
-            planograms = tools.build_planograms(placed_furniture, products)
-            for payload_item in planograms:
-                await tools.create_planogram(project_id, payload_item)
-            steps.append(f"7/8 planogrammes créés: {len(planograms)}")
-
-            layout = await tools.export_retail_layout(project_id)
-            furniture_count = len(layout.get("furniture", []))
-            steps.append(f"8/8 vérification OK: export retail-layout avec {furniture_count} meubles")
-
+    async def _execute(self, payload: WebhookRequest, tools: BackendTools, pending: PendingPlan) -> WebhookResponse:
+        project_id = payload.projectId
+        changed = False
+        writing = False
+        steps: list[str] = []
+        try:
+            if fingerprint(await read_state(tools, project_id)) != pending.state_hash:
+                raise HTTPException(409, "Le projet a changé depuis l'aperçu. Génère un nouvel aperçu.")
+            if pending.create:
+                writing = True
+                project: dict[str, Any] = await tools.create_project(pending.project_name)
+                changed = True
+                project_id = str(project["id"])
+                steps.append(f"Projet créé: {project_id}")
+            for operation in pending.operations:
+                writing = True
+                await tools._request(
+                    operation.method,
+                    f"/api/cad/projects/{project_id}{operation.path}",
+                    operation.payload,
+                )
+                changed = True
+                steps.append(operation.description)
+            writing = False
+            await tools.export_retail_layout(project_id)
+            steps.append("Export retail-layout relu; audit métier effectué par le backend appelant.")
             return WebhookResponse(
-                message="Création complète du magasin terminée avec succès.",
+                message="Plan confirmé exécuté.",
                 requiresConfirmation=False,
-                changed=True,
+                changed=changed,
                 projectId=project_id,
                 steps=steps,
             )
-        except BackendApiError as exc:
-            steps.append(f"Erreur pipeline: {exc}")
+        except (BackendApiError, ValueError, KeyError, TypeError) as exc:
+            uncertain = writing and (not isinstance(exc, BackendApiError) or exc.status_code >= 500)
+            steps.append("Exécution interrompue. Les écritures précédentes ne sont pas annulées.")
+            steps.append(
+                "Résultat de la dernière écriture incertain; vérifie le projet avant tout nouvel essai."
+                if uncertain else str(exc)
+            )
             return WebhookResponse(
-                message="La création du magasin a échoué. Consulte les étapes pour corriger la requête.",
+                message="Échec du plan confirmé; aucune relance automatique. Génère un nouvel aperçu après vérification.",
                 requiresConfirmation=False,
-                changed=False,
-                projectId=payload.projectId,
+                changed=changed or uncertain,
+                projectId=project_id,
                 steps=steps,
             )

@@ -4,6 +4,7 @@ import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.cad_projects import router as cad_router
@@ -43,6 +44,8 @@ if os.path.isdir(_icons_path):
 @app.middleware("http")
 async def attach_current_user(request: Request, call_next):
     user = platform_service.resolve_session_user(request)
+    if platform_service._request_uses_forwarded_session(request) and user is None:
+        return JSONResponse(status_code=401, content={"detail": "Invalid forwarded agent session"})
     token = platform_service.set_current_user(user)
     try:
         return await call_next(request)

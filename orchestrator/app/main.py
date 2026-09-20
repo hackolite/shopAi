@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 
 from .agent import ShopAIOrchestrator
@@ -18,11 +20,11 @@ def get_settings() -> Settings:
 def _verify_webhook_token(authorization: str | None, settings: Settings) -> None:
     expected = settings.webhook_auth_token
     if not expected:
-        return
+        raise HTTPException(status_code=503, detail="Webhook authentication is not configured")
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing webhook token")
     scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or token.strip() != expected:
+    if scheme.lower() != "bearer" or not hmac.compare_digest(token.strip(), expected):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook token")
 
 

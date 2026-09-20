@@ -93,14 +93,43 @@ Résultat :
 Ce que doit faire le développeur pour que ce flux UI soit possible :
 
 1. Configurer le backend avec `STUDIO_LLM_WEBHOOK_URL` (obligatoire pour le mode LLM).
-2. Optionnel : ajouter `STUDIO_LLM_WEBHOOK_TOKEN` et `STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS`.
+2. Configurer le même secret `STUDIO_LLM_WEBHOOK_TOKEN` sur le backend et
+   `WEBHOOK_AUTH_TOKEN` sur l'orchestrateur fourni. Les callbacks transmettent
+   `X-ShopAI-Session` **et** le secret dans un header `Authorization` de type Bearer ; un header de
+   session invalide est refusé, jamais traité comme une création anonyme.
+   Ajuster si nécessaire `STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS`.
 3. Implémenter un webhook orchestrateur qui reçoit :
-   `{"projectId","prompt","confirm"}`.
+   `{"projectId","prompt","confirm","category","confirmationToken"}`.
+   Les deux derniers champs sont optionnels pour les webhooks historiques ;
+   l'orchestrateur fourni exige le jeton de l'aperçu pour confirmer une écriture.
 4. Faire appeler à l'orchestrateur l'API ShopAI (`/openapi.json`, `/api/cad/projects/...`)
    avec la session utilisateur transmise.
 5. Retourner au frontend le contrat JSON attendu :
-   `message`, `requiresConfirmation`, `changed`, `projectId`, `steps`.
+   `message`, `requiresConfirmation`, `changed`, `projectId`, `steps`,
+   et `confirmationToken` pour confirmer l'aperçu exact.
 6. Ne jamais exposer de clé provider dans le client ni dans le dépôt.
+
+Le backend vérifie l'accès au projet retourné et audite les écritures annoncées.
+Un audit en échec remplace le message de succès par un avertissement explicite ;
+il ne constitue pas un rollback. `changed` indique des écritures, pas leur validité.
+
+#### Diagnostic Windows et projets refusés (403)
+
+Les anciens dossiers `storage/projects/carrefour_*` contiennent des liens vers
+`storage/templates`. Sous Windows, Git peut les matérialiser en fichiers texte
+contenant `../../templates/.../project.json` (43, 46 ou 55 caractères), et non du
+JSON. Ces modèles ne sont plus parcourus comme projets utilisateur : les copies
+tenant sont créées depuis les vrais JSON de `storage/templates`, sans exiger
+le support des liens symboliques Windows. Les fichiers UTF-8 avec BOM sont acceptés
+et les sauvegardes JSON remplacent atomiquement un fichier complet.
+
+Un 403 sur un UUID signifie que le compte connecté ne possède pas ce projet.
+Les anciennes créations par un orchestrateur sans session reconnue peuvent être
+restées sans rattachement. Le correctif sécurise les **nouvelles** créations, mais
+ne revendique pas automatiquement les projets existants : sauvegarder le stockage
+et `_platform.sqlite3`, puis faire vérifier leur propriétaire par l'administrateur
+avant toute récupération. Ne pas supprimer la base ni désactiver les contrôles
+d'accès. Le GET des piétons applique désormais le même contrôle de tenant.
 
 Exemple de providers avec offre gratuite de test (selon quotas en vigueur) :
 

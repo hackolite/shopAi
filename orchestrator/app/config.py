@@ -56,7 +56,7 @@ def _read_int(name: str, default: int) -> int:
 def load_settings() -> Settings:
     provider = os.getenv("LLM_PROVIDER", "none").strip().lower() or "none"
     if provider not in {"none", "openai", "anthropic", "xai", "openrouter"}:
-        provider = "none"
+        raise ValueError("Unsupported LLM_PROVIDER")
 
     webhook_auth_token = (
         os.getenv("WEBHOOK_AUTH_TOKEN", "").strip()

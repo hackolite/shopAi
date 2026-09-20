@@ -4,7 +4,7 @@ import base64
 import json
 import re
 import threading
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File
@@ -111,12 +111,22 @@ class StudioAssistantPayload(BaseModel):
     confirm: StrictBool = False
 
 
+class LlmAssistantPayload(StudioAssistantPayload):
+    category: Literal[
+        "layout-modify", "layout-create", "assortment-modify", "assortment-full", "freestyle",
+    ] | None = None
+    confirmationToken: Annotated[
+        str, StringConstraints(strict=True, min_length=1, max_length=512),
+    ] | None = None
+
+
 class StudioAssistantResponse(BaseModel):
     message: str
     requiresConfirmation: bool
     changed: bool
     projectId: str | None = None
     steps: list[str] = []
+    confirmationToken: str | None = None
 
 
 class StudioSnapshotPayload(BaseModel):
@@ -284,7 +294,7 @@ def studio_assistant_llm_status(project_id: str):
 
 
 @router.post("/{project_id}/assistant/llm", response_model=StudioAssistantResponse, response_model_exclude_none=True)
-def studio_assistant_llm(project_id: str, payload: StudioAssistantPayload, request: Request):
+def studio_assistant_llm(project_id: str, payload: LlmAssistantPayload, request: Request):
     """Forward the prompt to the server-configured external LLM orchestrator.
 
     The orchestrator URL is server-side configuration only (never accepted
@@ -292,7 +302,10 @@ def studio_assistant_llm(project_id: str, payload: StudioAssistantPayload, reque
     the mandatory post-write audit.
     """
     session_cookie = request.cookies.get(platform_service.SESSION_COOKIE_NAME)
-    return run_llm_assistant(project_id, payload.prompt, confirm=payload.confirm, session_cookie=session_cookie)
+    return run_llm_assistant(
+        project_id, payload.prompt, confirm=payload.confirm, session_cookie=session_cookie,
+        category=payload.category, confirmation_token=payload.confirmationToken,
+    )
 
 
 @router.put("/{project_id}/snapshot")
@@ -996,6 +1009,7 @@ async def import_pedestrians(
 @router.get("/{project_id}/simulation/pedestrians")
 def get_pedestrians(project_id: str):
     """Return the last imported pedestrian pickup plans for this project."""
+    platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
     stored = load_project_file(project_id, "pedestrians.json")
     if stored is None:

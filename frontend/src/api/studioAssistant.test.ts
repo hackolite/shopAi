@@ -49,4 +49,25 @@ describe('studio assistant API', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Forbidden', { status: 403 })));
     await expect(cadApi.askAssistant('other-tenant', 'Carrefour City', true)).rejects.toThrow('[403]');
   });
+
+  it('relays the LLM category and exact preview confirmation token', async () => {
+    const result = {
+      message: 'Aperçu', requiresConfirmation: true, changed: false, confirmationToken: 'approved-plan',
+    };
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(result)));
+    vi.stubGlobal('fetch', fetch);
+    const preview = await cadApi.askLlmAssistant('current', 'Déplace le meuble', false, {
+      category: 'layout-modify',
+    });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+      prompt: 'Déplace le meuble', confirm: false, category: 'layout-modify',
+    });
+    fetch.mockResolvedValue(new Response(JSON.stringify({ ...result, requiresConfirmation: false })));
+    await cadApi.askLlmAssistant('current', 'Déplace le meuble', true, {
+      category: 'layout-modify', confirmationToken: preview.confirmationToken,
+    });
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
+      prompt: 'Déplace le meuble', confirm: true, category: 'layout-modify', confirmationToken: 'approved-plan',
+    });
+  });
 });

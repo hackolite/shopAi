@@ -135,6 +135,7 @@ def test_llm_endpoint_audits_a_reported_write_and_surfaces_issues(studio, monkey
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["changed"] is True
+    assert "ne peut pas être considéré comme réussi" in body["message"]
     assert any("Audit post-écriture" in step for step in body["steps"])
 
 
@@ -243,8 +244,132 @@ def test_forwarded_session_header_requires_matching_webhook_token(
     {"prompt": ""}, {"prompt": "   "}, {"prompt": "a" * 2001},
     {"prompt": 123}, {"prompt": "X", "confirm": "yes"},
     {"prompt": "X", "extra": "nope"},
+    {"prompt": "X", "category": "unsupported"},
+    {"prompt": "X", "confirmationToken": ""},
+    {"prompt": "X", "confirmationToken": 123},
+    {"prompt": "X", "confirmationToken": "a" * 513},
 ])
 def test_llm_endpoint_prompt_is_bounded_and_strictly_validated(studio, payload):
     client, project_id = studio
     response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json=payload)
     assert response.status_code == 422
+
+
+def test_forwarded_creation_and_edits_belong_to_the_browser_tenant(studio, monkeypatch):
+    from main import app
+
+    client, _ = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "test-webhook-token")
+    headers = {
+        "X-ShopAI-Session": client.cookies.get("shopai_session"),
+        "Authorization": "Bearer " + "test-webhook-token",
+    }
+    with TestClient(app) as agent:
+        created = agent.post("/api/cad/projects/", json={"name": "Agent"}, headers=headers)
+        assert created.status_code == 200, created.text
+        project_id = created.json()["id"]
+        updated = agent.put(
+            f"/api/cad/projects/{project_id}/scene/store",
+            json={"name": "Updated by agent"}, headers=headers,
+        )
+        assert updated.status_code == 200, updated.text
+        assert agent.get(
+            f"/api/cad/projects/{project_id}/export/retail-layout", headers=headers,
+        ).status_code == 200
+        _register(agent, "Other tenant")
+        assert agent.get(f"/api/cad/projects/{project_id}").status_code == 403
+        assert agent.get(f"/api/cad/projects/{project_id}/simulation/pedestrians").status_code == 403
+    assert client.get(f"/api/cad/projects/{project_id}").status_code == 200
+    assert project_id in {p["id"] for p in client.get("/api/cad/projects/").json()["projects"]}
+
+
+@pytest.mark.parametrize("session,authorization", [
+    ("valid", None), ("valid", "wrong-token"), ("expired", "test-webhook-token"),
+    ("", "test-webhook-token"),
+])
+def test_invalid_forwarded_session_cannot_create_an_unowned_project(studio, monkeypatch, session, authorization):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "test-webhook-token")
+    headers = {"X-ShopAI-Session": client.cookies.get("shopai_session") if session == "valid" else session}
+    if authorization:
+        headers["Authorization"] = "Bearer " + authorization
+    before = {p["id"] for p in pm.list_cad_projects()}
+    assert client.post("/api/cad/projects/", json={"name": "Rejected"}, headers=headers).status_code == 401
+    assert client.get(f"/api/cad/projects/{project_id}/scene", headers=headers).status_code == 401
+    assert {p["id"] for p in pm.list_cad_projects()} == before
+
+
+def test_category_and_confirmation_token_are_relayed(studio, monkeypatch):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+
+    def fake_post(url, json=None, **kwargs):
+        assert json["category"] == "layout-modify"
+        assert json["confirmationToken"] == "preview-token"
+        return httpx.Response(200, json={
+            "message": "Aperçu", "requiresConfirmation": True, "changed": False,
+            "confirmationToken": "returned-token",
+        })
+
+    monkeypatch.setattr(llm_assistant.httpx, "post", fake_post)
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={
+        "prompt": "Modifier", "category": "layout-modify", "confirmationToken": "preview-token",
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["confirmationToken"] == "returned-token"
+
+
+@pytest.mark.parametrize("reply", [
+    {"changed": True},
+    {"changed": "true", "projectId": "unused"},
+])
+def test_invalid_write_report_is_rejected(studio, monkeypatch, reply):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setattr(llm_assistant.httpx, "post", lambda *a, **kw: httpx.Response(200, json={
+        "message": "Success", "requiresConfirmation": False, **reply,
+    }))
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={"prompt": "X", "confirm": True})
+    assert response.status_code == 502
+
+
+def test_agent_cannot_return_another_tenants_project(studio, monkeypatch):
+    from main import app
+
+    client, project_id = studio
+    with TestClient(app) as outsider:
+        _register(outsider, "Other tenant")
+        other_id = outsider.post("/api/cad/projects/", json={"name": "Private"}).json()["id"]
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setattr(llm_assistant.httpx, "post", lambda *a, **kw: httpx.Response(200, json={
+        "message": "Success", "requiresConfirmation": False, "changed": True, "projectId": other_id,
+    }))
+    monkeypatch.setattr(
+        llm_assistant, "audit_persisted_project",
+        lambda *a: pytest.fail("Must not audit another tenant's project"),
+    )
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={"prompt": "X", "confirm": True})
+    assert response.status_code == 403
+
+
+def test_unconfirmed_write_report_is_rejected(studio, monkeypatch):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setattr(llm_assistant.httpx, "post", lambda *a, **kw: httpx.Response(200, json={
+        "message": "Success", "requiresConfirmation": False, "changed": True, "projectId": project_id,
+    }))
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={"prompt": "X"})
+    assert response.status_code == 502
+
+
+def test_expired_preview_requests_a_new_confirmation(studio, monkeypatch):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setattr(llm_assistant.httpx, "post", lambda *a, **kw: httpx.Response(
+        409, json={"detail": "Expired confirmation"},
+    ))
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={
+        "prompt": "X", "confirm": True, "confirmationToken": "expired",
+    })
+    assert response.status_code == 409
+    assert "nouvel aperçu" in response.json()["detail"]

@@ -30,7 +30,15 @@ export interface StudioAssistantResponse {
   changed: boolean;
   projectId?: string;
   steps?: string[];
+  confirmationToken?: string;
 }
+
+export type AssistantCategory =
+  | 'layout-modify'
+  | 'layout-create'
+  | 'assortment-modify'
+  | 'assortment-full'
+  | 'freestyle';
 
 async function request<T>(url: string, opts?: RequestInit): Promise<T> {
   const headers = new Headers(opts?.headers);
@@ -62,10 +70,13 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ prompt, confirm }),
     }),
-  askLlmAssistant: (id: string, prompt: string, confirm = false) =>
+  askLlmAssistant: (
+    id: string, prompt: string, confirm = false,
+    options?: { category: AssistantCategory; confirmationToken?: string },
+  ) =>
     request<StudioAssistantResponse>(`${BASE}/${id}/assistant/llm`, {
       method: 'POST',
-      body: JSON.stringify({ prompt, confirm }),
+      body: JSON.stringify({ prompt, confirm, ...options }),
     }),
   getLlmAssistantStatus: (id: string) =>
     request<{ enabled: boolean }>(`${BASE}/${id}/assistant/llm/status`),

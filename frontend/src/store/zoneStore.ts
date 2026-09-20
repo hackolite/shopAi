@@ -72,6 +72,52 @@ function polygonBounds(points: FloorZonePoint[]) {
   };
 }
 
+function defaultLabel(type: ZoneType, shape: ZoneShape) {
+  if (type === 'entrance') return 'Entrée';
+  if (type === 'exit') return 'Sortie sans achat';
+  if (type === 'supply') return 'Fournitures';
+  if (shape === 'circle') return 'Zone interdite ronde';
+  if (shape === 'diamond') return 'Zone interdite losange';
+  if (shape === 'polygon') return 'Zone interdite libre';
+  return 'Zone interdite';
+}
+
+function buildZone(
+  type: ZoneType,
+  storeWidth: number | undefined,
+  storeDepth: number | undefined,
+  options?: AddZoneOptions,
+): FloorZone {
+  const shape = options?.shape ?? 'rectangle';
+  const points = options?.points
+    ? options.points.map((point) => ({ x: point.x, z: point.z }))
+    : undefined;
+  const polygonBox = points && points.length >= 3 ? polygonBounds(points) : null;
+  const safeStoreWidth = storeWidth ?? DEFAULT_ZONE_WIDTH_CM * 2;
+  const safeStoreDepth = storeDepth ?? DEFAULT_ZONE_DEPTH_CM * 2;
+  const x = polygonBox?.x ?? snapToCm(safeStoreWidth / 2 - DEFAULT_ZONE_WIDTH_CM / 2);
+  const z = polygonBox?.z ?? (
+    type === 'entrance'
+      ? 0
+      : type === 'exit'
+        ? snapToCm(Math.max(0, safeStoreDepth - DEFAULT_ZONE_DEPTH_CM))
+        : snapToCm(safeStoreDepth / 2 - DEFAULT_ZONE_DEPTH_CM / 2)
+  );
+  return {
+    id: crypto.randomUUID(),
+    type,
+    label: options?.label ?? defaultLabel(type, shape),
+    x,
+    z,
+    width: polygonBox?.width ?? DEFAULT_ZONE_WIDTH_CM,
+    depth: polygonBox?.depth ?? DEFAULT_ZONE_DEPTH_CM,
+    shape,
+    color: options?.color ?? (type === 'forbidden' ? DEFAULT_FORBIDDEN_COLOR : undefined),
+    points,
+    ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),
+  };
+}
+
 export const useZoneStore = create<ZoneState>((set, get) => ({
   zones: [],
   selectedZoneId: null,
@@ -79,7 +125,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
   zonesLoaded: false,
 
   addZone: (type, storeWidth, storeDepth, options) => {
-    const shape = options?.shape ?? (type === 'forbidden' ? 'rectangle' : 'rectangle');
+    const shape = options?.shape ?? 'rectangle';
     // For entrance/exit: only one allowed — select existing if present.
     if (type !== 'supply') {
       const existing = type === 'forbidden'
@@ -90,44 +136,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
         return;
       }
     }
-
-    const label = options?.label
-      ?? (type === 'entrance' ? 'Entrée'
-        : type === 'exit' ? 'Sortie sans achat'
-          : type === 'supply' ? 'Fournitures'
-            : shape === 'circle' ? 'Zone interdite ronde'
-              : shape === 'diamond' ? 'Zone interdite losange'
-                : shape === 'polygon' ? 'Zone interdite libre'
-                  : 'Zone interdite');
-
-    const points = options?.points
-      ? options.points.map((point) => ({ x: point.x, z: point.z }))
-      : undefined;
-
-    const polygonBox = points && points.length >= 3 ? polygonBounds(points) : null;
-
-    const x = polygonBox?.x ?? snapToCm(storeWidth / 2 - DEFAULT_ZONE_WIDTH_CM / 2);
-    const z = polygonBox?.z ?? (
-      type === 'entrance'
-        ? 0
-        : type === 'exit'
-          ? snapToCm(Math.max(0, storeDepth - DEFAULT_ZONE_DEPTH_CM))
-          : snapToCm(storeDepth / 2 - DEFAULT_ZONE_DEPTH_CM / 2)
-    );
-
-    const zone: FloorZone = {
-      id: crypto.randomUUID(),
-      type,
-      label,
-      x,
-      z,
-      width: polygonBox?.width ?? DEFAULT_ZONE_WIDTH_CM,
-      depth: polygonBox?.depth ?? DEFAULT_ZONE_DEPTH_CM,
-      shape,
-      color: options?.color ?? (type === 'forbidden' ? DEFAULT_FORBIDDEN_COLOR : undefined),
-      points,
-      ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),
-    };
+    const zone = buildZone(type, storeWidth, storeDepth, { ...options, shape });
 
     set((state) => ({ zones: [...state.zones, zone], selectedZoneId: zone.id, polygonDraft: null }));
   },
@@ -168,13 +177,12 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
   finishPolygonDrawing: () => {
     const draft = get().polygonDraft;
     if (!draft || draft.points.length < 3) return;
-    const maxX = Math.max(...draft.points.map((point) => point.x)) + DEFAULT_ZONE_WIDTH_CM;
-    const maxZ = Math.max(...draft.points.map((point) => point.z)) + DEFAULT_ZONE_DEPTH_CM;
-    get().addZone('forbidden', maxX, maxZ, {
+    const zone = buildZone('forbidden', undefined, undefined, {
       shape: 'polygon',
       color: draft.color,
       points: draft.points,
     });
+    set((state) => ({ zones: [...state.zones, zone], selectedZoneId: zone.id, polygonDraft: null }));
   },
 
   cancelPolygonDrawing: () => set({ polygonDraft: null }),

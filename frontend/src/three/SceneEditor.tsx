@@ -12,7 +12,7 @@ import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { loadRatio, useAssetStore } from '../store/assetStore';
 import { cellRectCm, columnAtRatio } from '../engine/planogramLayout';
-import type { FloorZone, FloorZonePoint, Planogram, SelectedCellRef, ZoneShape } from '../types/cad';
+import type { FloorZone, FloorZonePoint, Planogram, SelectedCellRef } from '../types/cad';
 import { cadApi } from '../api/cad';
 import { CM_TO_UNIT } from '../constants';
 import type { ActiveTool } from '../store/uiStore';
@@ -31,6 +31,7 @@ import {
   type GridOriginCm,
 } from '../engine/gridSnap';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
+import { zoneShape, zoneSupportsResizeHandles } from '../engine/floorZones';
 import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
@@ -1697,10 +1698,6 @@ const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
 };
 const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 
-function zoneShape(zone: FloorZone): ZoneShape {
-  return zone.shape ?? 'rectangle';
-}
-
 function zoneCenterCm(zone: FloorZone) {
   return {
     x: zone.x + zone.width / 2,
@@ -2103,7 +2100,7 @@ function FloorZoneLayer() {
       {zones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
-      {selectedZone && zoneShape(selectedZone) !== 'polygon' && (
+      {selectedZone && zoneSupportsResizeHandles(selectedZone) && (
         <FloorZoneResizeHandles zone={selectedZone} />
       )}
     </>

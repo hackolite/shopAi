@@ -908,12 +908,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           ) : (
             <button
               onClick={() => void runSimulation()}
-              disabled={running || isApplyingPedestrianDataset}
+              disabled={running || !config.enabled || isApplyingPedestrianDataset}
               className={[
                 'w-full rounded px-3 py-2 text-xs font-semibold text-white transition-colors',
                 running || isApplyingPedestrianDataset
                   ? 'bg-amber-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-500 cursor-pointer',
+                  : config.enabled
+                    ? 'bg-blue-600 hover:bg-blue-500 cursor-pointer'
+                    : 'bg-blue-600 opacity-50 cursor-not-allowed',
               ].join(' ')}
             >
               {running

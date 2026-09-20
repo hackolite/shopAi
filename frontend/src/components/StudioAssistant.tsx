@@ -99,7 +99,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [llmAnnouncement, setLlmAnnouncement] = useState('');
   const [llmStatus, setLlmStatus] = useState<LlmAssistantStatus>({
     enabled: false,
     reachable: false,
@@ -119,7 +118,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setCategory(null);
     setConfirmation(null);
     setError(null);
-    setLlmAnnouncement('');
   }, [projectId]);
 
   useEffect(() => {
@@ -130,12 +128,10 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
       status: 'missing',
       message: 'Prétest LLM en cours…',
     });
-    setLlmAnnouncement('Prétest LLM en cours…');
     cadApi.getLlmAssistantStatus(projectId)
       .then((status) => {
         if (!cancelled) {
           setLlmStatus(status);
-          setLlmAnnouncement(llmStatusAnnouncement(status));
         }
       })
       .catch((cause) => {
@@ -147,7 +143,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
             message: cause instanceof Error ? cause.message : 'Prétest LLM impossible',
           } satisfies LlmAssistantStatus;
           setLlmStatus(status);
-          setLlmAnnouncement(llmStatusAnnouncement(status));
         }
       });
     return () => { cancelled = true; };
@@ -156,12 +151,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, busy]);
-
-  useEffect(() => {
-    if (!llmAnnouncement) return;
-    const timeout = window.setTimeout(() => setLlmAnnouncement(''), 1500);
-    return () => window.clearTimeout(timeout);
-  }, [llmAnnouncement]);
 
   async function send(text: string, pending?: PendingConfirmation) {
     if (!text.trim() || !category || busy) return;
@@ -217,17 +206,22 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
               <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-200">
                 Mode par défaut
               </span>
-              <span className={`inline-flex items-center gap-2 rounded-full bg-gray-950/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${llmIndicator.textClassName}`}>
+              <span
+                {...(llmStatus.message === 'Prétest LLM en attente…'
+                  ? {}
+                  : {
+                      role: 'status' as const,
+                      'aria-live': 'polite' as const,
+                      'aria-atomic': 'true' as const,
+                      'aria-label': llmStatusAnnouncement(llmStatus),
+                    })}
+                className={`inline-flex items-center gap-2 rounded-full bg-gray-950/70 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${llmIndicator.textClassName}`}
+              >
                 <span className={`h-2 w-2 rounded-full ${llmIndicator.dotClassName}`} aria-hidden="true" />
                 {llmIndicator.label}
               </span>
             </div>
           </div>
-          {llmAnnouncement && (
-            <div role="status" aria-live="polite" aria-atomic="true">
-              <span className="sr-only">{llmAnnouncement}</span>
-            </div>
-          )}
           <p className="mt-3 text-sm leading-relaxed text-gray-300">
             {shouldUseLlmPath(llmStatus)
               ? "Le prompt part directement vers l'orchestrateur LLM configuré côté serveur."

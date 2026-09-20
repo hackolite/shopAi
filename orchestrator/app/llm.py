@@ -24,6 +24,7 @@ _INTENT_ALIASES = {
     "assortment_full": "assortment-full",
     "assortment_modify": "assortment-modify",
     "build-complete-store": "build_complete_store",
+    "build complete store": "build_complete_store",
 }
 
 
@@ -41,7 +42,7 @@ class LLMPlanner:
         ))
         if provider_plan is None:
             raise ValueError("Le fournisseur LLM n'a pas retourné de plan exploitable (clé ou appel d'outil manquant).")
-        plan = OrchestrationPlan.model_validate(provider_plan)
+        plan = OrchestrationPlan.model_validate(self._normalize_provider_plan(provider_plan))
         if category not in {None, "freestyle"} and plan.intent != category:
             raise ValueError("Le plan LLM ne respecte pas la catégorie demandée.")
         if plan.intent in {"layout-create", "build_complete_store"}:
@@ -50,7 +51,14 @@ class LLMPlanner:
                     re.search(_CREATION, user_prompt.lower()) and re.search(_PROJECT, user_prompt.lower())
                 )
             ):
-                raise ValueError("Une création de projet doit être explicitement demandée, jamais déduite d'une modification.")
+                _log.info("Provider plan downgraded to intent=other after unsafe inferred project creation")
+                return plan.model_copy(update={
+                    "intent": "other",
+                    "store": None,
+                    "furniture": [],
+                    "products": [],
+                    "planograms": [],
+                })
         return plan
 
     def _heuristic_plan(self, user_prompt: str, category: Category | None = None) -> OrchestrationPlan:
@@ -225,9 +233,15 @@ class LLMPlanner:
         normalized = dict(plan)
         intent = normalized.get("intent")
         if isinstance(intent, str):
-            alias = _INTENT_ALIASES.get(intent.strip().lower())
+            cleaned = intent.strip().lower()
+            alias = _INTENT_ALIASES.get(cleaned)
             if alias:
                 normalized["intent"] = alias
+            elif cleaned:
+                normalized["intent"] = cleaned
+        project_name = normalized.get("project_name")
+        if isinstance(project_name, str):
+            normalized["project_name"] = project_name.strip()
         return normalized
 
     def _openai_compatible_payload(self, user_prompt: str, *, model: str, force_tool_choice: bool) -> dict[str, Any]:

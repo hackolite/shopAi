@@ -14,6 +14,8 @@ from services import project_manager as pm
 @pytest.fixture
 def workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path / "projects")
+    monkeypatch.delenv("STUDIO_LLM_WEBHOOK_TOKEN", raising=False)
+    monkeypatch.delenv("WEBHOOK_AUTH_TOKEN", raising=False)
     return tmp_path
 
 
@@ -54,7 +56,6 @@ def test_llm_endpoint_rejects_when_not_configured(studio, monkeypatch: pytest.Mo
 def test_llm_endpoint_relays_a_valid_preview_reply(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     captured: dict = {}
 
@@ -80,13 +81,12 @@ def test_llm_endpoint_relays_a_valid_preview_reply(studio, monkeypatch: pytest.M
         "projectId": project_id, "prompt": "Modifier implantation: élargis l'allée centrale", "confirm": False,
     }
     assert "X-ShopAI-Session" in captured["headers"]
-    assert captured["headers"]["Authorization"].startswith("Bearer ")
+    assert "Authorization" not in captured["headers"]
 
 
 def test_llm_endpoint_rejects_malformed_agent_reply(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     def fake_post(url, json=None, headers=None, timeout=None):
         return httpx.Response(200, json={"unexpectedField": True})
@@ -100,7 +100,6 @@ def test_llm_endpoint_rejects_malformed_agent_reply(studio, monkeypatch: pytest.
 def test_llm_endpoint_surfaces_transport_failures(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     def fake_post(url, json=None, headers=None, timeout=None):
         raise httpx.ConnectTimeout("boom")
@@ -114,7 +113,6 @@ def test_llm_endpoint_surfaces_transport_failures(studio, monkeypatch: pytest.Mo
 def test_llm_endpoint_audits_a_reported_write_and_surfaces_issues(studio, monkeypatch: pytest.MonkeyPatch):
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     scene = pm.load_project_file(project_id, "scene.json")
     scene["store"]["dimensions"]["width"] = -1
@@ -159,7 +157,6 @@ def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_head
 
     client, project_id = studio
     monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
 
     def fake_post(url, json=None, headers=None, timeout=None):
         with TestClient(app) as callback_client:
@@ -175,7 +172,6 @@ def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_head
                 },
                 headers={
                     "X-ShopAI-Session": headers["X-ShopAI-Session"],
-                    "Authorization": headers["Authorization"],
                 },
             )
         assert response.status_code == 200, response.text
@@ -199,51 +195,27 @@ def test_llm_endpoint_allows_external_agent_callbacks_via_forwarded_session_head
     assert created_project.json()["name"] == "Projet généré par agent"
 
 
-def test_forwarded_session_header_requires_matching_webhook_token(
-    studio,
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_forwarded_session_authenticates_without_shared_secret(studio):
     from main import app
 
-    client, _ = studio
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "shared-secret")
+    client, project_id = studio
     session_token = client.cookies.get("shopai_session")
     assert session_token
 
-    rejected_with_cookie = client.post(
-        "/api/cad/projects/import",
-        json={"name": "Unauthorized", "snapshot": {}},
-        headers={
-            "X-ShopAI-Session": session_token,
-            "Authorization": "Bearer " + "wrong-secret",
-        },
-    )
-    assert rejected_with_cookie.status_code == 401
-
     with TestClient(app) as callback_client:
-        rejected = callback_client.post(
-            "/api/cad/projects/import",
-            json={"name": "Unauthorized", "snapshot": {}},
-            headers={
-                "X-ShopAI-Session": session_token,
-                "Authorization": "Bearer " + "wrong-secret",
-            },
-        )
-    assert rejected.status_code == 401
-
-    with TestClient(app) as callback_client:
-        unauthorized = callback_client.post(
-            "/api/cad/projects/import",
-            json={"name": "Unauthorized", "snapshot": {}},
-            headers={"X-ShopAI-Session": session_token},
-        )
-    assert unauthorized.status_code == 401
+        for extra_headers in ({}, {"Authorization": "******"}):
+            response = callback_client.get(
+                f"/api/cad/projects/{project_id}/scene",
+                headers={"X-ShopAI-Session": session_token, **extra_headers},
+            )
+            assert response.status_code == 200
 
 
 @pytest.mark.parametrize("payload", [
     {"prompt": ""}, {"prompt": "   "}, {"prompt": "a" * 2001},
     {"prompt": 123}, {"prompt": "X", "confirm": "yes"},
     {"prompt": "X", "extra": "nope"},
+    {"prompt": "X", "webhookUrl": "https://untrusted.invalid"},
     {"prompt": "X", "category": "unsupported"},
     {"prompt": "X", "confirmationToken": ""},
     {"prompt": "X", "confirmationToken": 123},
@@ -259,10 +231,8 @@ def test_forwarded_creation_and_edits_belong_to_the_browser_tenant(studio, monke
     from main import app
 
     client, _ = studio
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "test-webhook-token")
     headers = {
         "X-ShopAI-Session": client.cookies.get("shopai_session"),
-        "Authorization": "Bearer " + "test-webhook-token",
     }
     with TestClient(app) as agent:
         created = agent.post("/api/cad/projects/", json={"name": "Agent"}, headers=headers)
@@ -283,16 +253,17 @@ def test_forwarded_creation_and_edits_belong_to_the_browser_tenant(studio, monke
     assert project_id in {p["id"] for p in client.get("/api/cad/projects/").json()["projects"]}
 
 
-@pytest.mark.parametrize("session,authorization", [
-    ("valid", None), ("valid", "wrong-token"), ("expired", "test-webhook-token"),
-    ("", "test-webhook-token"),
-])
-def test_invalid_forwarded_session_cannot_create_an_unowned_project(studio, monkeypatch, session, authorization):
+@pytest.mark.parametrize("session", ["invalid-session", "", "   ", "expired"])
+def test_invalid_forwarded_session_cannot_create_an_unowned_project(studio, session):
+    from services import platform_service
+
     client, project_id = studio
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", "test-webhook-token")
-    headers = {"X-ShopAI-Session": client.cookies.get("shopai_session") if session == "valid" else session}
-    if authorization:
-        headers["Authorization"] = "Bearer " + authorization
+    if session == "expired":
+        session = client.cookies.get("shopai_session")
+        with platform_service._connect() as conn:
+            conn.execute("UPDATE sessions SET expires_at = ? WHERE token = ?", ("2000-01-01T00:00:00+00:00", session))
+            conn.commit()
+    headers = {"X-ShopAI-Session": session}
     before = {p["id"] for p in pm.list_cad_projects()}
     assert client.post("/api/cad/projects/", json={"name": "Rejected"}, headers=headers).status_code == 401
     assert client.get(f"/api/cad/projects/{project_id}/scene", headers=headers).status_code == 401
@@ -373,3 +344,73 @@ def test_expired_preview_requests_a_new_confirmation(studio, monkeypatch):
     })
     assert response.status_code == 409
     assert "nouvel aperçu" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("status", [401, 403, 404, 422, 429, 502, 503, 504, 500])
+def test_proxy_returns_safe_actionable_errors(studio, monkeypatch, caplog, status):
+    client, project_id = studio
+    private = "private-upstream-detail-do-not-log"
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setattr(llm_assistant.httpx, "post", lambda *a, **kw: httpx.Response(
+        status, json={"detail": private}, headers={"content-type": private},
+    ))
+    caplog.set_level("INFO", logger="uvicorn.error")
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={"prompt": private})
+    assert response.status_code == (502 if status == 500 else status)
+    assert private not in response.text
+    assert private not in caplog.text
+    assert f"status={status}" in caplog.text
+    assert "duration_ms=" in caplog.text
+
+
+@pytest.mark.parametrize("failure", ["transport", "validation", "audit"])
+def test_proxy_errors_and_logs_never_include_sensitive_values(studio, monkeypatch, caplog, failure):
+    client, project_id = studio
+    private = "private-request-and-error-do-not-log"
+    confirmation = "private-confirmation-do-not-log"
+    session = client.cookies.get("shopai_session")
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+
+    def fake_post(*a, **kw):
+        if failure == "transport":
+            raise httpx.ConnectTimeout(private)
+        if failure == "validation":
+            return httpx.Response(200, json={"message": private, "changed": private})
+        return httpx.Response(200, json={
+            "message": "Success", "changed": True, "requiresConfirmation": False, "projectId": project_id,
+        })
+
+    def fail_audit(*a):
+        raise ValueError(private)
+
+    monkeypatch.setattr(llm_assistant.httpx, "post", fake_post)
+    monkeypatch.setattr(llm_assistant, "audit_persisted_project", fail_audit)
+    caplog.set_level("INFO", logger="uvicorn.error")
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={
+        "prompt": private, "confirm": True, "confirmationToken": confirmation,
+    })
+    assert response.status_code == (200 if failure == "audit" else 502)
+    for secret in (private, confirmation, session):
+        assert secret not in caplog.text
+        assert secret not in response.text
+    assert "error_class=" in caplog.text
+    if failure == "audit":
+        assert "Post-write audit started" in caplog.text
+        assert "ne peut pas être considéré comme réussi" in response.json()["message"]
+
+
+def test_proxy_success_logs_completion_without_payload(studio, monkeypatch, caplog):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+    monkeypatch.setattr(llm_assistant.httpx, "post", lambda *a, **kw: httpx.Response(200, json={
+        "message": "private-response-do-not-log", "requiresConfirmation": True, "changed": False,
+        "confirmationToken": "private-confirmation-do-not-log",
+    }))
+    caplog.set_level("INFO", logger="uvicorn.error")
+    response = client.post(f"/api/cad/projects/{project_id}/assistant/llm", json={"prompt": "private-prompt-do-not-log"})
+    assert response.status_code == 200
+    assert "External LLM request completed" in caplog.text
+    assert "duration_ms=" in caplog.text
+    for private in ("private-response-do-not-log", "private-confirmation-do-not-log", "private-prompt-do-not-log",
+                    client.cookies.get("shopai_session")):
+        assert private not in caplog.text

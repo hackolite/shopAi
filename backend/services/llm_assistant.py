@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -32,9 +33,8 @@ from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError, model_v
 from services import platform_service, project_manager
 from services.studio_assistant import audit_persisted_project
 
-_log = logging.getLogger(__name__)
+_log = logging.getLogger("uvicorn.error.shopai.llm_proxy")
 _WEBHOOK_URL_ENV = "STUDIO_LLM_WEBHOOK_URL"
-_WEBHOOK_TOKEN_ENV = "STUDIO_LLM_WEBHOOK_TOKEN"
 _WEBHOOK_TIMEOUT_ENV = "STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS"
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 _MIN_TIMEOUT_SECONDS = 1.0
@@ -82,14 +82,13 @@ def run_llm_assistant(
     category: str | None = None,
     confirmation_token: str | None = None,
 ) -> dict[str, Any]:
+    started = time.monotonic()
     platform_service.require_current_user()
     platform_service.require_current_user_project_access(project_id)
     project_manager.ensure_project_exists(project_id)
     _log.info(
-        "External LLM request: project_id=%s confirm=%s prompt_chars=%d",
-        project_id,
+        "External LLM request started confirm=%s",
         confirm,
-        len(prompt),
     )
 
     webhook_url = os.environ.get(_WEBHOOK_URL_ENV, "").strip()
@@ -104,11 +103,9 @@ def run_llm_assistant(
         )
 
     headers = {"Content-Type": "application/json"}
-    webhook_token = os.environ.get(_WEBHOOK_TOKEN_ENV, "").strip()
-    if webhook_token:
-        headers["Authorization"] = "Bearer " + webhook_token
-    if session_cookie:
-        headers[_SESSION_HEADER] = session_cookie
+    if not session_cookie or not session_cookie.strip():
+        raise HTTPException(status_code=401, detail="Session ShopAI requise pour contacter l'agent LLM.")
+    headers[_SESSION_HEADER] = session_cookie
 
     payload = {"projectId": project_id, "prompt": prompt, "confirm": confirm}
     if category is not None:
@@ -118,17 +115,31 @@ def run_llm_assistant(
     try:
         response = httpx.post(webhook_url, json=payload, headers=headers, timeout=_timeout_seconds())
     except httpx.HTTPError as exc:
-        _log.warning("External LLM request failed for project_id=%s: %s", project_id, exc)
-        raise HTTPException(status_code=502, detail=f"Agent LLM externe injoignable : {exc}") from exc
-
-    if response.status_code >= 400:
         _log.warning(
-            "External LLM returned error for project_id=%s: status=%d content_type=%r body_bytes=%d",
-            project_id,
-            response.status_code,
-            response.headers.get("content-type"),
-            len(response.content),
+            "External LLM transport failure error_class=%s duration_ms=%.0f",
+            type(exc).__name__, (time.monotonic() - started) * 1000,
         )
+        raise HTTPException(
+            status_code=502,
+            detail="Agent LLM externe injoignable : vérifiez qu'il est démarré et que son URL et son délai sont corrects.",
+        ) from exc
+
+    _log.info(
+        "External LLM response received status=%d duration_ms=%.0f",
+        response.status_code, (time.monotonic() - started) * 1000,
+    )
+    if response.status_code >= 400:
+        _log.warning("External LLM returned error status=%d", response.status_code)
+        explanations = {
+            401: "Session ShopAI absente, invalide ou expirée. Reconnectez-vous puis demandez un nouvel aperçu.",
+            403: "Accès au projet refusé. Vérifiez le compte et l'organisation sélectionnés.",
+            404: "Projet ou route de l'agent introuvable. Vérifiez le projet et l'URL du webhook côté serveur.",
+            422: "Plan ou demande non exécutable. Vérifiez la configuration du fournisseur et reformulez la demande.",
+            429: "Agent ou fournisseur temporairement limité. Réessayez plus tard.",
+            502: "L'agent ne peut pas joindre le backend ou le fournisseur LLM. Consultez leurs logs.",
+            503: "Agent ou backend temporairement indisponible. Vérifiez les services et leur configuration.",
+            504: "Le délai de l'agent ou du fournisseur LLM a été dépassé. Réessayez plus tard.",
+        }
         if response.status_code == 409:
             raise HTTPException(
                 status_code=409,
@@ -138,23 +149,20 @@ def run_llm_assistant(
                 ),
             )
         raise HTTPException(
-            status_code=502,
-            detail=f"Agent LLM externe a répondu HTTP {response.status_code}",
+            status_code=response.status_code if response.status_code in explanations else 502,
+            detail=explanations.get(response.status_code, "L'agent LLM externe a échoué. Consultez les logs du service."),
         )
 
     try:
         validated = _WebhookResponse.model_validate(response.json())
     except (ValueError, ValidationError) as exc:
         _log.warning(
-            "External LLM returned invalid payload for project_id=%s: %s content_type=%r body_bytes=%d",
-            project_id,
-            exc,
-            response.headers.get("content-type"),
-            len(response.content),
+            "External LLM returned invalid payload error_class=%s",
+            type(exc).__name__,
         )
         raise HTTPException(
             status_code=502,
-            detail=f"Réponse de l'agent LLM externe invalide : {exc}",
+            detail="Réponse de l'agent LLM externe invalide : contrat de réponse non respecté.",
         ) from exc
 
     result = validated.model_dump(mode="json", exclude_none=True)
@@ -169,10 +177,10 @@ def run_llm_assistant(
         # self-reported success without re-reading and auditing the actual
         # persisted state it claims to have written.
         try:
-            _log.info("Running post-write audit for project_id=%s", validated.projectId)
+            _log.info("Post-write audit started")
             audit = audit_persisted_project(validated.projectId)
         except (ValueError, KeyError, TypeError, OSError, ValidationError, HTTPException) as exc:
-            _log.warning("Post-write audit failed for project_id=%s: %s", validated.projectId, exc)
+            _log.warning("Post-write audit failed error_class=%s", type(exc).__name__)
             result["message"] = (
                 "L'agent a signalé des modifications, mais leur validation a échoué. "
                 "Le résultat ne peut pas être considéré comme réussi."
@@ -183,14 +191,14 @@ def run_llm_assistant(
                 "après l'action de l'agent externe.",
             ]
         else:
+            _log.info("Post-write audit completed ok=%s", audit["ok"])
             if not audit["ok"]:
                 result["message"] = (
                     "Des modifications ont été enregistrées, mais l'audit a détecté des anomalies. "
                     "Le résultat ne peut pas être considéré comme réussi."
                 )
                 _log.warning(
-                    "Post-write audit detected issues for project_id=%s: issue_count=%s",
-                    validated.projectId,
+                    "Post-write audit detected issues issue_count=%s",
                     audit.get("issueCount"),
                 )
                 issues = [issue for check in audit["checks"].values() for issue in check["issues"]]
@@ -200,4 +208,8 @@ def run_llm_assistant(
                     "dans le projet modifié par l'agent externe.",
                     *issues[:20],
                 ]
+    _log.info(
+        "External LLM request completed changed=%s confirmation_required=%s duration_ms=%.0f",
+        validated.changed, validated.requiresConfirmation, (time.monotonic() - started) * 1000,
+    )
     return result

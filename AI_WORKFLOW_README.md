@@ -86,9 +86,10 @@ Si vous voulez un usage 100% interface utilisateur :
 Pré-requis dev :
 
 - Configurer `STUDIO_LLM_WEBHOOK_URL` côté serveur pour activer l'agent externe.
-- Pour l'orchestrateur fourni, partager le secret entre `STUDIO_LLM_WEBHOOK_TOKEN`
-  (backend) et `WEBHOOK_AUTH_TOKEN` (orchestrateur). Les callbacks doivent fournir
-  la session utilisateur **et** le secret du webhook dans le header d'autorisation.
+- Aucun secret partagé entre backend et orchestrateur : la session ShopAI est
+  transmise automatiquement via `X-ShopAI-Session`. Le backend vérifie la session
+  en base (expiration comprise) et l'accès au projet/tenant avant la planification LLM.
+  Les clés du fournisseur restent nécessaires uniquement dans l'orchestrateur.
 - Implémenter le webhook orchestrateur avec le contrat d'entrée/sortie attendu.
 - Transmettre la `category` choisie et conserver le `confirmationToken` de l'aperçu
   jusqu'à la confirmation. Changer de catégorie ou de mode annule cet aperçu.
@@ -102,6 +103,12 @@ un autre plan. Après une interruption, des écritures partielles peuvent subsis
 vérifier le projet signalé et demander un nouvel aperçu, plutôt que relancer
 aveuglément la confirmation. Consulter aussi les limites de l'orchestrateur dans
 [`orchestrator/README.md`](orchestrator/README.md).
+
+Le [lancement PowerShell](orchestrator/README.md#lancement-simple-sous-powershell)
+ne nécessite aucun script auxiliaire. Les logs INFO montrent lectures autorisées,
+planification, aperçu, confirmation et audit, avec statuts/durées, sans contenu sensible.
+Une session expirée (401) exige une reconnexion; un accès refusé (403), le bon compte/projet;
+un service indisponible (503), la vérification des processus backend/orchestrateur.
 
 Providers avec offre gratuite pour tests (quotas variables) :
 

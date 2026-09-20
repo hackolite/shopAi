@@ -222,7 +222,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
               </span>
             </div>
           </div>
-          {llmAnnouncement && <p role="status" aria-live="polite" className="sr-only">{llmAnnouncement}</p>}
+          <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{llmAnnouncement}</p>
           <p className="mt-3 text-sm leading-relaxed text-gray-300">
             {shouldUseLlmPath(llmStatus)
               ? "Le prompt part directement vers l'orchestrateur LLM configuré côté serveur."

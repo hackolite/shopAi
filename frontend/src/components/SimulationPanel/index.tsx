@@ -335,7 +335,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   );
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
-  const datasetModeActive = Boolean(selectedPedestrianDatasetId || appliedPedestrianDataset || pedestrianLoadedIntoSession);
+  const hasExplicitDatasetSelection = Boolean(selectedPedestrianDatasetId || appliedPedestrianDataset);
+  const datasetModeActive = hasExplicitDatasetSelection || pedestrianLoadedIntoSession;
   const simulationModeLabel = !config.enabled
     ? 'Simulation désactivée'
     : datasetModeActive ? 'Dataset piétons & paniers' : 'JuPedSim';
@@ -390,7 +391,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setLiveSessionId(live.sessionId);
       setResult(live.result);
       setPaused(live.paused);
-      if (pedestrianImport && pedestrianImport.pedestrianCount > 0) {
+      if (hasExplicitDatasetSelection && pedestrianImport && pedestrianImport.pedestrianCount > 0) {
         await loadPedestriansIntoSession(live.sessionId);
       } else {
         setPedestrianLoadedSessionId(null);
@@ -435,6 +436,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     isStale,
     liveSessionId,
     loadPedestriansIntoSession,
+    hasExplicitDatasetSelection,
     pedestrianImport,
     projectId,
     sceneWithZones,
@@ -972,7 +974,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           {isApplyingPedestrianDataset && (
             <p className="text-[11px] text-gray-400">Application du dataset au projet…</p>
           )}
-          {pedestrianImport && pedestrianImport.pedestrianCount > 0 && (
+          {hasExplicitDatasetSelection && pedestrianImport && pedestrianImport.pedestrianCount > 0 && (
             <p className="text-[11px] text-gray-500">
               {appliedPedestrianDataset
                 ? `Dataset actif : ${appliedPedestrianDataset.name} · `

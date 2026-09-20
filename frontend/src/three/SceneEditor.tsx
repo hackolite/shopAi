@@ -3119,7 +3119,7 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
-  const { selectedZoneId, removeZone, selectZone, polygonDraft } = useZoneStore();
+  const { zones, selectedZoneId, removeZone, selectZone, polygonDraft } = useZoneStore();
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
 
@@ -3193,6 +3193,9 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   const selectedFurniture = selectedFurnitureId
     ? (scene.furniture.find(f => f.id === selectedFurnitureId && f.mounted !== false) ?? null)
     : null;
+  const selectedZone = selectedZoneId
+    ? (zones.find((zone) => zone.id === selectedZoneId) ?? null)
+    : null;
 
   // Selected unmounted furniture (has UnmountedFurnitureResizeHandles)
   const selectedUnmounted = selectedFurnitureId
@@ -3211,6 +3214,11 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
   // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
+  const lockSceneNavigation = Boolean(
+    selectedZone?.type === 'forbidden'
+    || selectedWaypointId
+    || (selectedFurnitureId && activeTool !== 'select' && activeTool !== 'measure')
+  );
   const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure' && !polygonDraft;
   // Show furniture resize handles in scale mode for resizable furniture types.
   const showFurnitureResize =
@@ -3303,8 +3311,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         <OrbitControls
           makeDefault
           target={initialOrbitTarget.current}
-          enabled={!isResizeDragging && !selectedWaypointId}
-          enableRotate={!isResizeDragging && !selectedWaypointId && !bevMode}
+          enabled={!isResizeDragging && !lockSceneNavigation}
+          enableRotate={!isResizeDragging && !lockSceneNavigation && !bevMode}
           maxPolarAngle={bevMode ? BEV_MAX_POLAR_ANGLE : Math.PI}
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}

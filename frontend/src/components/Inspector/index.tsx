@@ -949,7 +949,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
           </div>
         )}
 
-        {!selectedFurniture && !selectedSupplyZone && !selectedCell && !selectedEanProduct && (
+        {!selectedFurniture && !selectedZone && !selectedCell && !selectedEanProduct && (
           <div className="space-y-4">
             <p className="text-xs text-gray-600 italic">
               Sélectionnez un meuble ou un produit dans la scène.

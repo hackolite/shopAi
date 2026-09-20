@@ -223,6 +223,9 @@ curl -X POST http://localhost:8010/webhook/llm \
   les modifications antérieures, mais ne remplace pas un verrou distribué.
 - Une panne fournisseur, une clé absente ou un plan invalide ne bascule jamais
   vers un magasin générique.
+- Pour les API compatibles OpenAI (OpenAI, xAI/Grok, OpenRouter), le schéma
+  d'outil est normalisé (refs/tuple nullable simplifiés) afin d'améliorer la
+  compatibilité des appels `tools` entre fournisseurs.
 
 ### Logs
 

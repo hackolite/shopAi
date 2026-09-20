@@ -157,6 +157,12 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, busy]);
 
+  useEffect(() => {
+    if (!llmAnnouncement) return;
+    const timeout = window.setTimeout(() => setLlmAnnouncement(''), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [llmAnnouncement]);
+
   async function send(text: string, pending?: PendingConfirmation) {
     if (!text.trim() || !category || busy) return;
     const confirm = pending !== undefined;

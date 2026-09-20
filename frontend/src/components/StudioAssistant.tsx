@@ -109,7 +109,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const endRef = useRef<HTMLDivElement>(null);
   const generatedProject = useRef<string | null>(null);
   const activeProject = useRef(projectId);
-  const lastAnnouncedLlmStatus = useRef<LlmAssistantStatus['status'] | null>(null);
   const llmIndicator = llmStatusIndicator(llmStatus);
   activeProject.current = projectId;
 
@@ -121,7 +120,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setConfirmation(null);
     setError(null);
     setLlmAnnouncement('');
-    lastAnnouncedLlmStatus.current = null;
   }, [projectId]);
 
   useEffect(() => {
@@ -133,15 +131,22 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
       message: 'Prétest LLM en cours…',
     });
     cadApi.getLlmAssistantStatus(projectId)
-      .then((status) => { if (!cancelled) setLlmStatus(status); })
+      .then((status) => {
+        if (!cancelled) {
+          setLlmStatus(status);
+          setLlmAnnouncement(llmStatusAnnouncement(status));
+        }
+      })
       .catch((cause) => {
         if (!cancelled) {
-          setLlmStatus({
+          const status = {
             enabled: false,
             reachable: false,
             status: 'error',
             message: cause instanceof Error ? cause.message : 'Prétest LLM impossible',
-          });
+          } satisfies LlmAssistantStatus;
+          setLlmStatus(status);
+          setLlmAnnouncement(llmStatusAnnouncement(status));
         }
       });
     return () => { cancelled = true; };
@@ -150,17 +155,6 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, busy]);
-
-  useEffect(() => {
-    if (lastAnnouncedLlmStatus.current === null) {
-      lastAnnouncedLlmStatus.current = llmStatus.status;
-      return;
-    }
-    if (lastAnnouncedLlmStatus.current !== llmStatus.status) {
-      setLlmAnnouncement(llmStatusAnnouncement(llmStatus));
-      lastAnnouncedLlmStatus.current = llmStatus.status;
-    }
-  }, [llmStatus]);
 
   async function send(text: string, pending?: PendingConfirmation) {
     if (!text.trim() || !category || busy) return;

@@ -99,6 +99,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [llmPretestStarted, setLlmPretestStarted] = useState(false);
   const [llmStatus, setLlmStatus] = useState<LlmAssistantStatus>({
     enabled: false,
     reachable: false,
@@ -118,10 +119,12 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setCategory(null);
     setConfirmation(null);
     setError(null);
+    setLlmPretestStarted(false);
   }, [projectId]);
 
   useEffect(() => {
     let cancelled = false;
+    setLlmPretestStarted(true);
     setLlmStatus({
       enabled: false,
       reachable: false,
@@ -207,7 +210,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
                 Mode par défaut
               </span>
               <span
-                {...(llmStatus.message === 'Prétest LLM en attente…'
+                {...(!llmPretestStarted
                   ? {}
                   : {
                       role: 'status' as const,

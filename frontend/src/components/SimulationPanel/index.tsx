@@ -325,7 +325,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
   const datasetModeActive = Boolean(selectedPedestrianDatasetId || appliedPedestrianDataset || pedestrianLoadedIntoSession);
-  const simulationModeLabel = datasetModeActive ? 'Dataset piétons & paniers' : 'JuPedSim';
+  const simulationModeLabel = !config.enabled
+    ? 'Simulation désactivée'
+    : datasetModeActive ? 'Dataset piétons & paniers' : 'JuPedSim';
   // New waypoints are dropped at the bottom-left corner of the grid so they are
   // always visible right where the store starts.
   const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);

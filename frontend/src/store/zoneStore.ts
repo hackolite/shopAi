@@ -127,10 +127,8 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
   addZone: (type, storeWidth, storeDepth, options) => {
     const shape = options?.shape ?? 'rectangle';
     // For entrance/exit: only one allowed — select existing if present.
-    if (type !== 'supply') {
-      const existing = type === 'forbidden'
-        ? null
-        : get().zones.find((z) => z.type === type);
+    if (type === 'entrance' || type === 'exit') {
+      const existing = get().zones.find((z) => z.type === type);
       if (existing) {
         set({ selectedZoneId: existing.id });
         return;

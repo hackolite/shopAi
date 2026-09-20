@@ -10,7 +10,7 @@ try:
 except ImportError:  # pragma: no cover - handled at runtime
     jps = None
 
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import GeometryCollection, MultiPolygon, Point, Polygon
 
 from models.project import (
     FurnitureInstance,
@@ -355,7 +355,7 @@ def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> 
     return clipped if isinstance(clipped, Polygon) else None
 
 
-def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | None:
+def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None:
     if getattr(zone, "type", None) != "forbidden":
         return None
     shape = getattr(zone, "shape", "rectangle")
@@ -404,9 +404,12 @@ def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | None:
     clipped = polygon.intersection(store_polygon).buffer(0)
     if clipped.is_empty:
         return None
-    if isinstance(clipped, MultiPolygon):
-        clipped = max(clipped.geoms, key=lambda geom: geom.area)
-    return clipped if isinstance(clipped, Polygon) else None
+    if isinstance(clipped, GeometryCollection):
+        polygons = [geom for geom in clipped.geoms if isinstance(geom, Polygon)]
+        if not polygons:
+            return None
+        clipped = MultiPolygon(polygons) if len(polygons) > 1 else polygons[0]
+    return clipped if isinstance(clipped, (Polygon, MultiPolygon)) else None
 
 
 def _build_walkable_geometry(scene: SceneData) -> Polygon:

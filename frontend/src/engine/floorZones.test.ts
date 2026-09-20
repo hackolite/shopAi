@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from './floorZones';
+import { floorShapePlanePointCm, zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from './floorZones';
 import type { FloorZone } from '../types/cad';
 
 function zone(partial: Partial<FloorZone>): FloorZone {
@@ -44,5 +44,10 @@ describe('floorZones helpers', () => {
       { x: 50, z: 150 },
       { x: 50, z: -50 },
     ]);
+  });
+
+  it('maps floor points onto the shape plane without mirroring the floor fill', () => {
+    expect(floorShapePlanePointCm({ x: 130, z: 260 }, { x: 100, z: 200 })).toEqual([30, -60]);
+    expect(floorShapePlanePointCm({ x: 130, z: 260 })).toEqual([130, -260]);
   });
 });

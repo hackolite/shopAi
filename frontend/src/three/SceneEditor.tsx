@@ -31,7 +31,7 @@ import {
   type GridOriginCm,
 } from '../engine/gridSnap';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
-import { zoneCenterCm, zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from '../engine/floorZones';
+import { floorShapePlanePointCm, zoneCenterCm, zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from '../engine/floorZones';
 import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
@@ -1717,7 +1717,11 @@ function zoneWorldOutline(zone: FloorZone, y: number): [number, number, number][
 }
 
 function zoneShapeGeometry(zone: FloorZone): THREE.Shape {
-  const points = zoneLocalFootprint(zone);
+  const center = zoneCenterCm(zone);
+  const points = zoneOutlinePointsCm(zone).map((point) => {
+    const [x, planeY] = floorShapePlanePointCm(point, center);
+    return [x * CM_TO_UNIT, planeY * CM_TO_UNIT] as const;
+  });
   const shape = new THREE.Shape();
   points.forEach(([x, z], index) => {
     if (index === 0) shape.moveTo(x, z);
@@ -2667,7 +2671,10 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   const previewShape = useMemo(() => {
     if (!polygonDraft || polygonDraft.points.length < 3) return null;
     const shape = new THREE.Shape(
-      polygonDraft.points.map((point) => new THREE.Vector2(point.x * CM_TO_UNIT, point.z * CM_TO_UNIT)),
+      polygonDraft.points.map((point) => {
+        const [x, planeY] = floorShapePlanePointCm(point);
+        return new THREE.Vector2(x * CM_TO_UNIT, planeY * CM_TO_UNIT);
+      }),
     );
     shape.closePath();
     return shape;

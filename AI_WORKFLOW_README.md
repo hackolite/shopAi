@@ -86,8 +86,22 @@ Si vous voulez un usage 100% interface utilisateur :
 Pré-requis dev :
 
 - Configurer `STUDIO_LLM_WEBHOOK_URL` côté serveur pour activer l'agent externe.
+- Pour l'orchestrateur fourni, partager le secret entre `STUDIO_LLM_WEBHOOK_TOKEN`
+  (backend) et `WEBHOOK_AUTH_TOKEN` (orchestrateur). Les callbacks doivent fournir
+  la session utilisateur **et** le secret du webhook dans le header d'autorisation.
 - Implémenter le webhook orchestrateur avec le contrat d'entrée/sortie attendu.
+- Transmettre la `category` choisie et conserver le `confirmationToken` de l'aperçu
+  jusqu'à la confirmation. Changer de catégorie ou de mode annule cet aperçu.
+- Enregistrer les modifications manuelles avant la demande : l'agent travaille sur
+  l'état persistant et refuse une confirmation si cet état a changé entre-temps.
 - Garder les clés provider en variables d'environnement/secret manager uniquement.
+
+Les catégories LLM ne changent pas les capacités de l'assistant **local**, qui
+reste déterministe. Un échec de fournisseur n'est pas une autorisation d'exécuter
+un autre plan. Après une interruption, des écritures partielles peuvent subsister :
+vérifier le projet signalé et demander un nouvel aperçu, plutôt que relancer
+aveuglément la confirmation. Consulter aussi les limites de l'orchestrateur dans
+[`orchestrator/README.md`](orchestrator/README.md).
 
 Providers avec offre gratuite pour tests (quotas variables) :
 

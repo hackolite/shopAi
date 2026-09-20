@@ -8,36 +8,45 @@ import httpx
 
 from .config import Settings
 from .prompts import SYSTEM_PROMPT, TOOL_SPEC
-from .schemas import OrchestrationPlan, StoreDimensions
+from .schemas import Category, OrchestrationPlan, StoreDimensions
+
+_MODIFICATION = r"\b(modifi\w*|déplac\w*|deplac\w*|supprim\w*|agrandi\w*|élargi\w*|elargi\w*|réorgani\w*|reorgani\w*|renomm\w*|modify|move|remove|update|resize|rename|widen)\b"
+_CREATION = r"\b(créer|creer|crée|cree|create|nouveau|nouvelle|new|projet complet)\b"
+_PROJECT = r"\b(magasin|store|project|projet|supermarché|supermarche|supermarket|implantation|layout)\b"
 
 
 class LLMPlanner:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    async def build_plan(self, user_prompt: str) -> OrchestrationPlan:
-        plan = self._heuristic_plan(user_prompt)
-        try:
-            provider_plan = await self._plan_with_provider(user_prompt)
-        except Exception:
-            provider_plan = None
+    async def build_plan(
+        self, user_prompt: str, category: Category | None = None, context: dict[str, Any] | None = None,
+    ) -> OrchestrationPlan:
+        if self.settings.llm_provider == "none":
+            return self._heuristic_plan(user_prompt, category)
+        provider_plan = await self._plan_with_provider(json.dumps(
+            {"prompt": user_prompt, "category": category, "context": context or {}}, ensure_ascii=False,
+        ))
         if provider_plan is None:
-            return plan
-        merged = {
-            "intent": provider_plan.get("intent", plan.intent),
-            "project_name": provider_plan.get("project_name", plan.project_name),
-            "store": provider_plan.get(
-                "store",
-                {"width": plan.store.width, "depth": plan.store.depth, "height": plan.store.height},
-            ),
-            "max_products": provider_plan.get("max_products", plan.max_products),
-        }
-        return OrchestrationPlan.model_validate(merged)
+            raise ValueError("Le fournisseur LLM n'a pas retourné de plan exploitable (clé ou appel d'outil manquant).")
+        plan = OrchestrationPlan.model_validate(provider_plan)
+        if category not in {None, "freestyle"} and plan.intent != category:
+            raise ValueError("Le plan LLM ne respecte pas la catégorie demandée.")
+        if plan.intent in {"layout-create", "build_complete_store"}:
+            if re.search(_MODIFICATION, user_prompt.lower()) or (
+                category != "layout-create" and not (
+                    re.search(_CREATION, user_prompt.lower()) and re.search(_PROJECT, user_prompt.lower())
+                )
+            ):
+                raise ValueError("Une création de projet doit être explicitement demandée, jamais déduite d'une modification.")
+        return plan
 
-    def _heuristic_plan(self, user_prompt: str) -> OrchestrationPlan:
+    def _heuristic_plan(self, user_prompt: str, category: Category | None = None) -> OrchestrationPlan:
         lower = user_prompt.lower()
-        is_build = any(keyword in lower for keyword in ["créer", "creer", "implantation", "projet complet", "magasin"])
-        intent = "build_complete_store" if is_build else "other"
+        if category in {"layout-modify", "assortment-modify"} or re.search(_MODIFICATION, lower):
+            raise ValueError("Configure un fournisseur LLM pour planifier des modifications précises.")
+        is_build = bool(re.search(_CREATION, lower) and re.search(_PROJECT, lower))
+        intent = category if category not in {None, "freestyle"} else ("build_complete_store" if is_build else "other")
 
         width = 3000.0
         depth = 2000.0
@@ -53,7 +62,7 @@ class LLMPlanner:
         max_products = 200
         product_match = re.search(r"(\d{2,4})\s*(produits|products)", lower)
         if product_match:
-            max_products = max(20, min(int(product_match.group(1)), 3000))
+            max_products = max(1, min(int(product_match.group(1)), 500))
 
         project_name = "Magasin IA"
         quoted = re.search(r'"([^"]{3,80})"', user_prompt)
@@ -63,7 +72,7 @@ class LLMPlanner:
         return OrchestrationPlan(
             intent=intent,
             project_name=project_name,
-            store=StoreDimensions(width=width, depth=depth, height=height),
+            store=StoreDimensions(width=width, depth=depth, height=height) if intent in {"layout-create", "build_complete_store"} else None,
             max_products=max_products,
         )
 
@@ -127,7 +136,7 @@ class LLMPlanner:
                 {"role": "user", "content": user_prompt},
             ],
             "tools": [{"type": "function", "function": TOOL_SPEC}],
-            "tool_choice": "auto",
+            "tool_choice": {"type": "function", "function": {"name": TOOL_SPEC["name"]}},
         }
         headers = {
             "Authorization": f"{''.join(['B','e','a','r','e','r'])} {api_key}",
@@ -151,7 +160,8 @@ class LLMPlanner:
     async def _anthropic_plan(self, user_prompt: str) -> dict[str, Any] | None:
         payload = {
             "model": self.settings.anthropic_model,
-            "max_tokens": 600,
+            "max_tokens": 8192,
+            "tool_choice": {"type": "tool", "name": TOOL_SPEC["name"]},
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_prompt}],
             "tools": [

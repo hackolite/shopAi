@@ -829,9 +829,11 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
                 projectId={projectId}
                 onSave={saveProject}
                 onProjectCreated={async (id) => {
-                  await refreshProjectList();
+                  const inPlace = id === projectIdRef.current;
                   setViewMode('3d');
                   switchProject(id);
+                  if (inPlace) await loadProjectData(id);
+                  await refreshProjectList();
                 }}
               />
             </div>

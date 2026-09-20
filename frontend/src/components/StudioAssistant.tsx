@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cadApi } from '../api/cad';
+import type { AssistantCategory } from '../api/cad';
 
 interface Props {
   projectId: string;
@@ -7,12 +8,12 @@ interface Props {
   onSave: () => Promise<void>;
 }
 
-type AssistantCategory =
-  | 'layout-modify'
-  | 'layout-create'
-  | 'assortment-modify'
-  | 'assortment-full'
-  | 'freestyle';
+interface PendingConfirmation {
+  text: string;
+  category: AssistantCategory;
+  viaLlm: boolean;
+  token?: string;
+}
 
 interface CategoryOption {
   id: AssistantCategory;
@@ -69,7 +70,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState<AssistantCategory | null>(null);
   const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [llmAvailable, setLlmAvailable] = useState(false);
@@ -91,6 +92,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
 
   useEffect(() => {
     let cancelled = false;
+    setLlmAvailable(false);
     cadApi.getLlmAssistantStatus(projectId)
       .then((status) => { if (!cancelled) setLlmAvailable(status.enabled); })
       .catch(() => { if (!cancelled) setLlmAvailable(false); });
@@ -101,10 +103,12 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     endRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages, busy]);
 
-  async function send(text: string, confirm = false) {
+  async function send(text: string, pending?: PendingConfirmation) {
     if (!text.trim() || !category || busy) return;
+    const confirm = pending !== undefined;
     const sourceId = projectId;
-    const viaLlm = useLlm && llmAvailable;
+    const viaLlm = pending?.viaLlm ?? (useLlm && llmAvailable);
+    const requestCategory = pending?.category ?? category;
     setBusy(true);
     setError(null);
     setConfirmation(null);
@@ -118,14 +122,18 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
         if (activeProject.current !== sourceId) return;
       }
       const result = viaLlm
-        ? await cadApi.askLlmAssistant(sourceId, text, confirm)
+        ? await cadApi.askLlmAssistant(sourceId, text, confirm, {
+          category: requestCategory, confirmationToken: pending?.token,
+        })
         : await cadApi.askAssistant(sourceId, text, confirm);
       if (activeProject.current !== sourceId) return;
       setMessages((current) => [...current, {
         role: viaLlm ? 'Agent LLM' : 'Assistant',
         text: [result.message, ...(result.steps ?? [])].join('\n'),
       }]);
-      if (result.requiresConfirmation) setConfirmation(text);
+      if (result.requiresConfirmation) setConfirmation({
+        text, category: requestCategory, viaLlm, token: result.confirmationToken,
+      });
       if (result.changed && result.projectId) {
         generatedProject.current = result.projectId;
         await onProjectCreated(result.projectId);
@@ -153,7 +161,10 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
         {llmAvailable && (
           <label className="mt-3 flex items-center gap-2 text-sm text-cyan-200">
             <input type="checkbox" checked={useLlm} disabled={busy}
-              onChange={(event) => setUseLlm(event.target.checked)} />
+              onChange={(event) => {
+                setUseLlm(event.target.checked);
+                setConfirmation(null);
+              }} />
             Utiliser l’agent LLM externe configuré côté serveur
           </label>
         )}
@@ -175,7 +186,10 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
                 <span className="flex items-center gap-2">
                   <input type="radio" name="assistant-category" value={option.id} disabled={busy}
                     checked={category === option.id}
-                    onChange={() => setCategory(option.id)} />
+                    onChange={() => {
+                      setCategory(option.id);
+                      setConfirmation(null);
+                    }} />
                   <span className="font-medium text-cyan-100">{option.label}</span>
                 </span>
                 <span className="pl-6 text-xs text-gray-400">{option.hint}</span>
@@ -207,14 +221,18 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
         {confirmation && (
           <div className="mt-4 space-y-3 rounded-xl border border-cyan-800 p-4">
             <p className="text-sm text-gray-200">
-              {isPlacementRecommendation(confirmation)
+              {confirmation.viaLlm
+                ? 'Seules les opérations de cet aperçu seront confirmées. Vérifiez les étapes avant de continuer.'
+                : isPlacementRecommendation(confirmation.text)
                 ? 'Les articles seront implantés un par un dans les planogrammes de ce projet.'
                 : 'Un nouveau projet sera enregistré. Le projet actuel ne sera pas remplacé.'}
             </p>
             <div className="flex flex-wrap gap-3">
-              <button type="button" disabled={busy} onClick={() => void send(confirmation, true)}
+              <button type="button" disabled={busy} onClick={() => void send(confirmation.text, confirmation)}
                 className="rounded-lg bg-cyan-400 px-4 py-3 font-medium text-gray-950">
-                {isPlacementRecommendation(confirmation) ? 'Exécuter la recommandation' : 'Créer et ouvrir en 3D'}
+                {confirmation.viaLlm
+                  ? 'Confirmer les opérations'
+                  : isPlacementRecommendation(confirmation.text) ? 'Exécuter la recommandation' : 'Créer et ouvrir en 3D'}
               </button>
               <button type="button" onClick={() => setConfirmation(null)} className="px-3 py-3 text-gray-300">Annuler</button>
             </div>

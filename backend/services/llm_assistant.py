@@ -27,7 +27,7 @@ from typing import Any
 
 import httpx
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError, model_validator
 
 from services import platform_service, project_manager
 from services.studio_assistant import audit_persisted_project
@@ -46,10 +46,17 @@ class _WebhookResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str
-    requiresConfirmation: bool
-    changed: bool
+    requiresConfirmation: StrictBool
+    changed: StrictBool
     projectId: str | None = None
     steps: list[str] = []
+    confirmationToken: str | None = None
+
+    @model_validator(mode="after")
+    def validate_write_result(self):
+        if self.changed and (not self.projectId or self.requiresConfirmation):
+            raise ValueError("A write requires a projectId and cannot request confirmation")
+        return self
 
 
 def llm_assistant_enabled() -> bool:
@@ -72,6 +79,8 @@ def run_llm_assistant(
     *,
     confirm: bool,
     session_cookie: str | None = None,
+    category: str | None = None,
+    confirmation_token: str | None = None,
 ) -> dict[str, Any]:
     platform_service.require_current_user()
     platform_service.require_current_user_project_access(project_id)
@@ -102,6 +111,10 @@ def run_llm_assistant(
         headers[_SESSION_HEADER] = session_cookie
 
     payload = {"projectId": project_id, "prompt": prompt, "confirm": confirm}
+    if category is not None:
+        payload["category"] = category
+    if confirmation_token is not None:
+        payload["confirmationToken"] = confirmation_token
     try:
         response = httpx.post(webhook_url, json=payload, headers=headers, timeout=_timeout_seconds())
     except httpx.HTTPError as exc:
@@ -116,6 +129,14 @@ def run_llm_assistant(
             response.headers.get("content-type"),
             len(response.content),
         )
+        if response.status_code == 409:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Confirmation refusée : aperçu expiré, déjà utilisé, ou projet modifié. "
+                    "Demandez un nouvel aperçu avant de confirmer."
+                ),
+            )
         raise HTTPException(
             status_code=502,
             detail=f"Agent LLM externe a répondu HTTP {response.status_code}",
@@ -138,6 +159,11 @@ def run_llm_assistant(
 
     result = validated.model_dump(mode="json", exclude_none=True)
 
+    if validated.projectId:
+        platform_service.require_current_user_project_access(validated.projectId)
+    if validated.changed and not confirm:
+        raise HTTPException(status_code=502, detail="L'agent a signalé une écriture sans confirmation.")
+
     if validated.changed and validated.projectId:
         # Mandatory post-write check: never trust an external agent's
         # self-reported success without re-reading and auditing the actual
@@ -145,8 +171,12 @@ def run_llm_assistant(
         try:
             _log.info("Running post-write audit for project_id=%s", validated.projectId)
             audit = audit_persisted_project(validated.projectId)
-        except (ValueError, KeyError, TypeError, OSError, ValidationError) as exc:
+        except (ValueError, KeyError, TypeError, OSError, ValidationError, HTTPException) as exc:
             _log.warning("Post-write audit failed for project_id=%s: %s", validated.projectId, exc)
+            result["message"] = (
+                "L'agent a signalé des modifications, mais leur validation a échoué. "
+                "Le résultat ne peut pas être considéré comme réussi."
+            )
             result["steps"] = [
                 *result.get("steps", []),
                 "Audit post-écriture impossible : état du projet introuvable ou invalide "
@@ -154,6 +184,10 @@ def run_llm_assistant(
             ]
         else:
             if not audit["ok"]:
+                result["message"] = (
+                    "Des modifications ont été enregistrées, mais l'audit a détecté des anomalies. "
+                    "Le résultat ne peut pas être considéré comme réussi."
+                )
                 _log.warning(
                     "Post-write audit detected issues for project_id=%s: issue_count=%s",
                     validated.projectId,

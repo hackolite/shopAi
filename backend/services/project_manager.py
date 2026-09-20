@@ -3,8 +3,10 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 import re
 import shutil
+import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +16,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from models.project import ProjectSettings
+from services.reference_templates import REFERENCE_PROJECT_IDS
 
 _log = logging.getLogger(__name__)
 
@@ -67,16 +70,21 @@ def _normalize_data(data: Any) -> Any:
 
 
 def _safe_project_path(project_id: str, filename: str) -> Path:
-    """Construct a safe, fully-controlled path from STORAGE_ROOT + validated components.
-
-    Both ``project_id`` and ``filename`` are validated against strict allowlists before
-    being joined to STORAGE_ROOT, so the resulting path cannot escape the storage tree.
-    ``project_id`` must match ``^[A-Za-z0-9_-]{1,64}$`` (no slashes, no dots, no traversal
-    sequences), and ``filename`` must be one of the hard-coded ``_ALLOWED_FILENAMES``.
-    """
+    """Select an existing storage directory and an allowlisted filename for writing."""
     _validate_project_id(project_id)
     _validate_filename(filename)
-    return STORAGE_ROOT / project_id / filename
+    root = STORAGE_ROOT.resolve()
+    for directory in STORAGE_ROOT.iterdir():
+        if directory.name != project_id or not directory.is_dir():
+            continue
+        resolved = directory.resolve()
+        if directory.is_symlink() or resolved.parent != root:
+            raise HTTPException(status_code=400, detail="Invalid project path")
+        # Use filesystem entries and literal allowlist values, not request paths.
+        for allowed_filename in _ALLOWED_FILENAMES:
+            if allowed_filename == filename:
+                return resolved / allowed_filename
+    raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
 
 
 def _json_error_location(exc: json.JSONDecodeError) -> str:
@@ -92,7 +100,7 @@ def _read_json(project_id: str, filename: str) -> Any:
     if not path.exists():
         return None
     try:
-        with path.open(encoding="utf-8") as handle:
+        with path.open(encoding="utf-8-sig") as handle:
             content = handle.read()
     except (OSError, UnicodeDecodeError) as exc:
         _log.warning("Failed to read %s/%s (%s): %s", project_id, filename, path, exc)
@@ -157,10 +165,22 @@ def _read_json(project_id: str, filename: str) -> Any:
 
 
 def _write_json(project_id: str, filename: str, data: Any) -> None:
-    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
-    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
-    with path.open("w", encoding="utf-8") as handle:  # lgtm[py/path-injection]
-        json.dump(_normalize_data(data), handle, indent=2, ensure_ascii=False)
+    path = _safe_project_path(project_id, filename)
+    content = json.dumps(_normalize_data(data), indent=2, ensure_ascii=False, allow_nan=False)
+    temporary_path: Path | None = None
+    try:
+        # Replace only a complete file; close it first for Windows compatibility.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, suffix=".tmp", delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def _touch_project_metadata(project_id: str) -> None:
@@ -197,6 +217,10 @@ def list_cad_projects() -> list[dict[str, Any]]:
         if not entry.is_dir():
             continue
         project_id = entry.name
+        # Legacy template symlinks can be checked out as plain text on Windows.
+        # Templates are not tenant projects and are loaded from storage/templates.
+        if project_id in REFERENCE_PROJECT_IDS:
+            continue
         try:
             _validate_project_id(project_id)
         except HTTPException:

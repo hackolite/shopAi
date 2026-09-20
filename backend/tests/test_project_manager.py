@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+from fastapi import HTTPException
+
 import services.project_manager as pm
 
 
@@ -165,3 +168,81 @@ def test_list_cad_projects_recovers_with_json_array_suffix(tmp_path) -> None:
         "recovered-array-suffix-project",
         "valid-project",
     ]
+
+
+def test_windows_template_link_placeholders_are_not_projects(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path)
+    for project_id in pm.REFERENCE_PROJECT_IDS:
+        directory = tmp_path / project_id
+        directory.mkdir()
+        (directory / "project.json").write_text(
+            f"../../templates/{project_id}/project.json", encoding="utf-8",
+        )
+    pm.create_project("owned", "Mon projet")
+    assert [item["id"] for item in pm.list_cad_projects()] == ["owned"]
+    assert "Invalid JSON" not in caplog.text
+
+
+def test_metadata_accepts_windows_utf8_bom(tmp_path, monkeypatch):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path)
+    pm.create_project("owned", "Mon projet")
+    (tmp_path / "owned" / "project.json").write_text(
+        json.dumps({"id": "owned", "name": "Mon projet"}), encoding="utf-8-sig",
+    )
+    assert pm.get_project_metadata("owned")["name"] == "Mon projet"
+
+
+def test_invalid_save_preserves_previous_json(tmp_path, monkeypatch):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path)
+    pm.create_project("owned", "Mon projet")
+    path = tmp_path / "owned" / "scene.json"
+    previous = path.read_bytes()
+    with pytest.raises(TypeError):
+        pm.save_project_file("owned", "scene.json", {"invalid": object()})
+    assert path.read_bytes() == previous
+    assert not list(path.parent.glob("*.tmp"))
+
+
+def test_failed_replace_preserves_previous_json(tmp_path, monkeypatch):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path)
+    pm.create_project("owned", "Mon projet")
+    path = tmp_path / "owned" / "scene.json"
+    previous = path.read_bytes()
+
+    def fail_replace(*args):
+        raise OSError("File locked")
+
+    monkeypatch.setattr(pm.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="File locked"):
+        pm.save_project_file("owned", "scene.json", {"store": {}})
+    assert path.read_bytes() == previous
+    assert not list(path.parent.glob("*.tmp"))
+
+
+@pytest.mark.parametrize("project_id,filename", [
+    ("../outside", "scene.json"),
+    ("owned", "../scene.json"),
+    ("owned", "unexpected.json"),
+])
+def test_atomic_write_rejects_untrusted_path_components(tmp_path, monkeypatch, project_id, filename):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path)
+    pm.create_project("owned", "Mon projet")
+    with pytest.raises(HTTPException) as error:
+        pm.save_project_file(project_id, filename, {})
+    assert error.value.status_code == 400
+
+
+def test_atomic_write_rejects_linked_project_directory(tmp_path, monkeypatch):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path / "projects")
+    pm.create_project("owned", "Mon projet")
+    directory = pm.STORAGE_ROOT / "owned"
+    linked = pm.STORAGE_ROOT / "linked"
+    try:
+        linked.symlink_to(directory, target_is_directory=True)
+    except OSError:
+        pytest.skip("Directory symlinks are unavailable on this system")
+    previous = (directory / "scene.json").read_bytes()
+    with pytest.raises(HTTPException) as error:
+        pm.save_project_file("linked", "scene.json", {})
+    assert error.value.status_code == 400
+    assert (directory / "scene.json").read_bytes() == previous

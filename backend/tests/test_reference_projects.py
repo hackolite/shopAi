@@ -2,7 +2,7 @@
 carrefour_express_aeroport).
 
 Ces projets sont livrés uniquement sous forme de fichiers JSON committés dans
-``backend/storage/projects/`` — il n'existe plus de script de génération.
+``backend/storage/templates/`` — il n'existe plus de script de génération.
 Les tests valident directement les fichiers, en particulier la règle métier :
 toute allée de circulation doit faire au moins 1 m (100 cm) de large, sinon
 les piétons ne peuvent pas passer.
@@ -30,7 +30,7 @@ MIN_FACING_OVERLAP_CM = 10.0
 
 
 def _load(project_id: str, filename: str) -> dict:
-    return json.loads((_STORAGE / "projects" / project_id / filename).read_text(encoding="utf-8"))
+    return json.loads((_STORAGE / "templates" / project_id / filename).read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module", params=_PROJECT_IDS)
@@ -95,7 +95,7 @@ def _region_is_blocked(
 
 
 def test_project_files_exist(project_id: str) -> None:
-    project_dir = _STORAGE / "projects" / project_id
+    project_dir = _STORAGE / "templates" / project_id
     for filename in ("project.json", "scene.json", "catalog.json", "planograms.json"):
         assert (project_dir / filename).exists(), filename
 

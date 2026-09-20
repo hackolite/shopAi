@@ -87,9 +87,10 @@ function llmStatusIndicator(status: LlmAssistantStatus) {
 }
 
 function llmStatusAnnouncement(status: LlmAssistantStatus): string {
-  return shouldUseLlmPath(status)
-    ? 'Provider LLM disponible.'
-    : llmStatusIndicator(status).detail ?? 'Le mode local prend automatiquement le relais.';
+  if (shouldUseLlmPath(status)) return 'Provider LLM disponible.';
+  return [status.message, llmStatusIndicator(status).detail]
+    .filter(Boolean)
+    .join(' ');
 }
 
 export default function StudioAssistant({ projectId, onProjectCreated, onSave }: Props) {

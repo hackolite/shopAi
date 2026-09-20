@@ -179,14 +179,15 @@ lui-même :
   client (pour éviter tout SSRF) :
   - `STUDIO_LLM_WEBHOOK_URL` : URL de votre orchestrateur (obligatoire pour
     activer ce mode) ;
-  - `STUDIO_LLM_WEBHOOK_TOKEN` : jeton optionnel envoyé en
-    en-tête HTTP `Authorization` (schéma Bearer) à votre orchestrateur ;
   - `STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS` : délai d'attente (défaut 30 s,
     borné à 120 s).
 - le backend transmet `{"projectId", "prompt", "confirm"}` à votre webhook,
   ainsi que le cookie de session ShopAI de l'utilisateur courant (en-tête
   `X-ShopAI-Session`), pour que votre orchestrateur puisse rappeler l'API
-  REST du dépôt authentifié en tant que cet utilisateur ;
+  REST du dépôt authentifié en tant que cet utilisateur, sans secret partagé
+  supplémentaire ni header `Authorization`. Le backend vérifie la session en base,
+  son expiration et les droits sur le tenant/projet. L'orchestrateur fourni lit
+  le projet autorisé avant tout appel fournisseur et revalide l'accès à la confirmation ;
 - la réponse de votre orchestrateur doit respecter exactement le même
   contrat que l'assistant intégré : `message`, `requiresConfirmation`,
   `changed`, `projectId` (optionnel), `steps` (optionnel) — tout champ

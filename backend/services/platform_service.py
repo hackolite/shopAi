@@ -30,7 +30,6 @@ from services.reference_templates import (
 
 SESSION_COOKIE_NAME = "shopai_session"
 SESSION_HEADER_NAME = "X-ShopAI-Session"
-_WEBHOOK_TOKEN_ENV = "STUDIO_LLM_WEBHOOK_TOKEN"
 SESSION_DURATION_DAYS = 14
 OAUTH_STATE_TTL_SECONDS = 600
 _SUPPORTED_OAUTH_PROVIDERS = {"google", "github"}
@@ -752,22 +751,7 @@ def logout_session(token: str | None) -> None:
 
 
 def _resolve_forwarded_session_token(request: Request) -> str | None:
-    token = request.headers.get(SESSION_HEADER_NAME)
-    if not token:
-        return None
-    expected_webhook_token = os.getenv(_WEBHOOK_TOKEN_ENV, "").strip()
-    if not expected_webhook_token:
-        return None
-    authorization = request.headers.get("Authorization", "")
-    prefix = "Bearer "
-    if not authorization.startswith(prefix):
-        return None
-    provided_webhook_token = authorization[len(prefix):].strip()
-    if not provided_webhook_token:
-        return None
-    if not hmac.compare_digest(provided_webhook_token, expected_webhook_token):
-        return None
-    return token
+    return request.headers.get(SESSION_HEADER_NAME) or None
 
 
 def _request_uses_forwarded_session(request: Request) -> bool:

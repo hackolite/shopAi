@@ -32,7 +32,8 @@ def run(awaitable):
 @pytest.fixture
 def settings(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "none")
-    monkeypatch.setenv("WEBHOOK_AUTH_TOKEN", "test-orchestrator-shared-key")
+    monkeypatch.delenv("WEBHOOK_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("STUDIO_LLM_WEBHOOK_TOKEN", raising=False)
     agent_module._pending.clear()
     return load_settings()
 
@@ -168,13 +169,13 @@ def test_confirm_without_preview_does_not_plan(settings, fake_backend):
     assert fake_backend == []
 
 
-@pytest.mark.parametrize("session,secret,status", [(None, "configured", 401), ("session", None, 503)])
-def test_missing_credentials_fail_before_any_callback(settings, fake_backend, session, secret, status):
+@pytest.mark.parametrize("session", [None, "", "   "])
+def test_missing_session_fails_before_any_callback(settings, fake_backend, session):
     with pytest.raises(HTTPException) as error:
-        run(ShopAIOrchestrator(replace(settings, webhook_auth_token=secret)).run(
+        run(ShopAIOrchestrator(settings).run(
             WebhookRequest(projectId="current", prompt="Create"), session,
         ))
-    assert error.value.status_code == status
+    assert error.value.status_code == 401
     assert not fake_backend
 
 
@@ -185,7 +186,7 @@ def test_callbacks_authenticated_and_writes_never_retry(settings, monkeypatch, s
 
     def handler(request):
         calls.append(request)
-        assert request.headers["Authorization"] == "Bearer " + settings.webhook_auth_token
+        assert "Authorization" not in request.headers
         assert request.headers["X-ShopAI-Session"] == "session"
         return httpx.Response(status, json={"detail": "failure"})
 
@@ -508,11 +509,213 @@ def test_failed_first_modification_reports_uncertainty(settings, fake_backend, m
     assert result.changed is changed and result.projectId == "current"
 
 
-def test_webhook_fails_closed_when_secret_not_configured(settings):
-    orchestrator_app.dependency_overrides[get_settings] = lambda: replace(settings, webhook_auth_token=None)
+@pytest.mark.parametrize("session", [None, "", "   "])
+def test_webhook_requires_session_before_planning(settings, monkeypatch, session):
+    monkeypatch.setattr(LLMPlanner, "build_plan", lambda *a: pytest.fail("Must authenticate before LLM"))
+    orchestrator_app.dependency_overrides[get_settings] = lambda: settings
     try:
         with TestClient(orchestrator_app) as client:
-            assert client.post("/webhook/llm", json={"projectId": "p", "prompt": "Create"}).status_code == 503
+            headers = {} if session is None else {"X-ShopAI-Session": session}
+            assert client.post("/webhook/llm", headers=headers, json={"projectId": "p", "prompt": "Create"}).status_code == 401
+    finally:
+        orchestrator_app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def authenticated_backend(monkeypatch, tmp_path):
+    from main import app
+    from services import project_manager as pm
+
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path / "projects")
+    real_client = httpx.AsyncClient
+    calls = []
+    with TestClient(app) as backend:
+        response = backend.post("/api/platform/auth/register", json={
+            "name": "Owner", "email": f"{uuid4().hex}@example.com", "password": "orchestrator-test-password",
+        })
+        assert response.status_code == 200
+        session = backend.cookies.get("shopai_session")
+        project_id = backend.post("/api/cad/projects/", json={"name": "Private"}).json()["id"]
+
+        def handler(request):
+            calls.append((request.method, request.url.path))
+            assert request.url.host == "localhost"
+            assert "Authorization" not in request.headers
+            response = backend.request(request.method, request.url.path, content=request.content, headers=dict(request.headers))
+            return httpx.Response(response.status_code, content=response.content)
+
+        monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+        yield backend, session, project_id, calls
+
+
+@pytest.mark.parametrize("kind,status", [("invalid", 401), ("expired", 401), ("cross-tenant", 403)])
+def test_webhook_validates_database_session_and_tenant_before_llm(
+    settings, authenticated_backend, monkeypatch, kind, status,
+):
+    from main import app
+    from services import platform_service
+
+    backend, session, project_id, calls = authenticated_backend
+    if kind == "invalid":
+        session = "unknown-session"
+    elif kind == "expired":
+        with platform_service._connect() as conn:
+            conn.execute("UPDATE sessions SET expires_at = ? WHERE token = ?", ("2000-01-01T00:00:00+00:00", session))
+            conn.commit()
+    else:
+        with TestClient(app) as outsider:
+            assert outsider.post("/api/platform/auth/register", json={
+                "name": "Outsider", "email": f"{uuid4().hex}@example.com", "password": "orchestrator-test-password",
+            }).status_code == 200
+            session = outsider.cookies.get("shopai_session")
+    monkeypatch.setattr(LLMPlanner, "build_plan", lambda *a: pytest.fail("Unauthorized provider call"))
+    orchestrator_app.dependency_overrides[get_settings] = lambda: replace(settings, llm_provider="openai")
+    try:
+        with TestClient(orchestrator_app) as client:
+            response = client.post("/webhook/llm", headers={"X-ShopAI-Session": session}, json={
+                "projectId": project_id, "prompt": "Create a store",
+            })
+        assert response.status_code == status, response.text
+        assert calls == [("GET", f"/api/cad/projects/{project_id}/scene")]
+    finally:
+        orchestrator_app.dependency_overrides.clear()
+
+
+def test_webhook_without_shared_secret_logs_safe_stages(settings, authenticated_backend, monkeypatch, caplog):
+    _, session, project_id, calls = authenticated_backend
+    private_prompt = "private-prompt-do-not-log"
+    private_key = "private-provider-key-do-not-log"
+
+    async def plan(self, *args):
+        assert calls[0] == ("GET", f"/api/cad/projects/{project_id}/scene")
+        return OrchestrationPlan(intent="layout-create", store={"width": 1000, "depth": 1000, "height": 400})
+
+    monkeypatch.setattr(LLMPlanner, "build_plan", plan)
+    orchestrator_app.dependency_overrides[get_settings] = lambda: replace(
+        settings, llm_provider="openai", openai_api_key=private_key,
+    )
+    caplog.set_level("INFO", logger="uvicorn.error")
+    try:
+        with TestClient(orchestrator_app) as client:
+            response = client.post("/webhook/llm", headers={"X-ShopAI-Session": session}, json={
+                "projectId": project_id, "prompt": private_prompt,
+            })
+        assert response.status_code == 200, response.text
+        assert response.json()["requiresConfirmation"]
+        assert all(method == "GET" for method, _ in calls)
+        for stage in ("webhook started", "Project access validated", "Planning started provider=openai",
+                      "Planning completed", "Preview ready", "webhook completed status=200", "duration_ms="):
+            assert stage in caplog.text
+        for secret in (private_prompt, private_key, session, response.json()["confirmationToken"]):
+            assert secret not in caplog.text
+    finally:
+        orchestrator_app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("kind,status", [("revoked", 401), ("expired", 401), ("cross-tenant", 403)])
+def test_confirmation_revalidates_access_before_writes(settings, authenticated_backend, monkeypatch, kind, status):
+    from services import platform_service
+
+    backend, session, project_id, calls = authenticated_backend
+    payload = WebhookRequest(projectId=project_id, prompt="Créer implantation", category="layout-create")
+    preview = run(ShopAIOrchestrator(settings).run(payload, session))
+    calls.clear()
+    monkeypatch.setattr(LLMPlanner, "build_plan", lambda *a: pytest.fail("Confirmation must never call LLM"))
+    if kind == "revoked":
+        platform_service.logout_session(session)
+    elif kind == "expired":
+        with platform_service._connect() as conn:
+            conn.execute("UPDATE sessions SET expires_at = ? WHERE token = ?", ("2000-01-01T00:00:00+00:00", session))
+            conn.commit()
+    else:
+        original = platform_service.require_current_user_project_access
+
+        def reject(project):
+            if project == project_id:
+                raise HTTPException(403, "Access revoked")
+            return original(project)
+
+        monkeypatch.setattr(platform_service, "require_current_user_project_access", reject)
+    confirm = payload.model_copy(update={"confirm": True, "confirmationToken": preview.confirmationToken})
+    with pytest.raises(HTTPException) as error:
+        run(ShopAIOrchestrator(settings).run(confirm, session))
+    assert error.value.status_code == status
+    assert calls == [("GET", f"/api/cad/projects/{project_id}/scene")]
+    assert preview.confirmationToken not in agent_module._pending
+
+
+@pytest.mark.parametrize("failure", ["transport", "status", "plan"])
+def test_provider_failures_do_not_leak_payloads(settings, fake_backend, monkeypatch, caplog, failure):
+    private = "private-provider-payload-do-not-log"
+
+    async def fail(self, *args):
+        if failure == "transport":
+            raise httpx.ConnectError(private)
+        if failure == "status":
+            response = httpx.Response(429, text=private, request=httpx.Request("POST", "https://provider.invalid"))
+            raise httpx.HTTPStatusError(private, request=response.request, response=response)
+        raise ValueError(private)
+
+    monkeypatch.setattr(LLMPlanner, "build_plan", fail)
+    caplog.set_level("INFO", logger="uvicorn.error")
+    with pytest.raises(HTTPException) as error:
+        run(ShopAIOrchestrator(settings).run(WebhookRequest(projectId="current", prompt=private), "session"))
+    assert error.value.status_code == (422 if failure == "plan" else 502)
+    assert private not in caplog.text
+    assert private not in error.value.detail
+    assert "error_class=" in caplog.text
+    assert all(method == "GET" for method, _, _ in fake_backend)
+
+
+@pytest.mark.parametrize("failure", ["transport", "status"])
+def test_callback_failures_are_safe(settings, monkeypatch, caplog, failure):
+    real_client = httpx.AsyncClient
+    private = "private-backend-body-do-not-log"
+
+    def handler(request):
+        if failure == "transport":
+            raise httpx.ConnectError(private)
+        return httpx.Response(503, json={"detail": private})
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    caplog.set_level("INFO", logger="uvicorn.error")
+    with pytest.raises(BackendApiError) as error:
+        run(BackendTools(settings, "private-session-do-not-log").health_check())
+    assert private not in str(error.value)
+    assert private not in caplog.text
+    assert "private-session-do-not-log" not in caplog.text
+    assert ("error_class=ConnectError" if failure == "transport" else "status=503") in caplog.text
+
+
+def test_confirmation_invalid_state_is_safe(settings, fake_backend, monkeypatch, caplog):
+    payload = WebhookRequest(projectId="current", prompt="Créer implantation", category="layout-create")
+    preview = run(ShopAIOrchestrator(settings).run(payload, "session"))
+    fake_backend.clear()
+
+    async def invalid_state(*a):
+        raise ValueError("private-invalid-state-do-not-log")
+
+    monkeypatch.setattr(agent_module, "read_state", invalid_state)
+    caplog.set_level("INFO", logger="uvicorn.error")
+    with pytest.raises(HTTPException) as error:
+        run(ShopAIOrchestrator(settings).run(payload.model_copy(update={
+            "confirm": True, "confirmationToken": preview.confirmationToken,
+        }), "session"))
+    assert error.value.status_code == 422
+    assert "private-invalid-state-do-not-log" not in caplog.text
+    assert "private-invalid-state-do-not-log" not in error.value.detail
+    assert not fake_backend
+
+
+def test_webhook_rejects_client_backend_url(settings, monkeypatch):
+    monkeypatch.setattr(LLMPlanner, "build_plan", lambda *a: pytest.fail("Untrusted URL must not reach LLM"))
+    orchestrator_app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        with TestClient(orchestrator_app) as client:
+            response = client.post("/webhook/llm", headers={"X-ShopAI-Session": "session"}, json={
+                "projectId": "current", "prompt": "Create", "backend_base_url": "https://untrusted.invalid",
+            })
+        assert response.status_code == 422
     finally:
         orchestrator_app.dependency_overrides.clear()
 
@@ -523,7 +726,6 @@ def test_real_backend_creation_modification_and_assortment(settings, monkeypatch
     from services.studio_assistant import audit_persisted_project
 
     monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path / "projects")
-    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_TOKEN", settings.webhook_auth_token)
     real_client = httpx.AsyncClient
     with TestClient(app) as backend:
         response = backend.post("/api/platform/auth/register", json={
@@ -535,7 +737,7 @@ def test_real_backend_creation_modification_and_assortment(settings, monkeypatch
 
         def handler(request):
             assert request.headers["X-ShopAI-Session"] == session
-            assert request.headers["Authorization"] == "Bearer " + settings.webhook_auth_token
+            assert "Authorization" not in request.headers
             response = backend.request(request.method, request.url.path, content=request.content, headers=dict(request.headers))
             return httpx.Response(response.status_code, content=response.content, headers=response.headers)
 

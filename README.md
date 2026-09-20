@@ -93,10 +93,12 @@ Résultat :
 Ce que doit faire le développeur pour que ce flux UI soit possible :
 
 1. Configurer le backend avec `STUDIO_LLM_WEBHOOK_URL` (obligatoire pour le mode LLM).
-2. Configurer le même secret `STUDIO_LLM_WEBHOOK_TOKEN` sur le backend et
-   `WEBHOOK_AUTH_TOKEN` sur l'orchestrateur fourni. Les callbacks transmettent
-   `X-ShopAI-Session` **et** le secret dans un header `Authorization` de type Bearer ; un header de
-   session invalide est refusé, jamais traité comme une création anonyme.
+2. Démarrer l'orchestrateur et configurer uniquement son fournisseur et sa clé API
+   pour utiliser un LLM. **Aucun secret partagé à créer ou à copier entre services.**
+   Le backend transmet automatiquement la session dans `X-ShopAI-Session`.
+   Les callbacks vérifient sa validité/expiration en base et l'accès au projet/tenant
+   avant tout appel payant au fournisseur. Une session invalide est refusée,
+   jamais traitée comme une création anonyme.
    Ajuster si nécessaire `STUDIO_LLM_WEBHOOK_TIMEOUT_SECONDS`.
 3. Implémenter un webhook orchestrateur qui reçoit :
    `{"projectId","prompt","confirm","category","confirmationToken"}`.
@@ -112,6 +114,12 @@ Ce que doit faire le développeur pour que ce flux UI soit possible :
 Le backend vérifie l'accès au projet retourné et audite les écritures annoncées.
 Un audit en échec remplace le message de succès par un avertissement explicite ;
 il ne constitue pas un rollback. `changed` indique des écritures, pas leur validité.
+
+Pour le lancement le plus simple sous **PowerShell**, voir les
+[deux commandes de démarrage des services](orchestrator/README.md#lancement-simple-sous-powershell).
+Les logs INFO Uvicorn affichent étapes, fournisseur, statuts et durées, sans prompts,
+sessions, clés API ni jetons de confirmation. Les erreurs 401/403/503 donnent une
+explication sûre et une piste de diagnostic, jamais le corps brut d'une réponse amont.
 
 #### Diagnostic Windows et projets refusés (403)
 

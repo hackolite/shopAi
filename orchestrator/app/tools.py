@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,8 @@ import httpx
 
 from .config import Settings
 from .schemas import OrchestrationPlan, ProductSpec
+
+_log = logging.getLogger("uvicorn.error.shopai.tools")
 
 
 _FACEABLE_TYPES = {
@@ -43,18 +47,23 @@ class BackendTools:
         payload: Any | None = None,
         retries: int | None = None,
     ) -> Any:
-        if not self.session_cookie or not self.settings.webhook_auth_token:
-            raise BackendApiError(401, "Session and webhook authentication are required", method, path)
+        if not self.session_cookie or not self.session_cookie.strip():
+            raise BackendApiError(401, "ShopAI session is required", method, path)
         max_retries = max(1, retries if retries is not None else self.settings.max_retries) if method == "GET" else 1
         url = f"{self.settings.backend_base_url}{path}"
         headers: dict[str, str] = {"Accept": "application/json"}
         headers["X-ShopAI-Session"] = self.session_cookie
-        headers["Authorization"] = "Bearer " + self.settings.webhook_auth_token
 
         for attempt in range(max_retries):
+            started = time.monotonic()
+            _log.info("Backend callback started method=%s attempt=%d", method, attempt + 1)
             try:
                 async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds) as client:
                     response = await client.request(method, url, json=payload, headers=headers)
+                _log.info(
+                    "Backend callback completed method=%s status=%d duration_ms=%.0f",
+                    method, response.status_code, (time.monotonic() - started) * 1000,
+                )
                 if response.status_code < 400:
                     if not response.text.strip():
                         return None
@@ -63,19 +72,19 @@ class BackendTools:
                     except ValueError as exc:
                         raise BackendApiError(502, "Invalid backend JSON response", method, path) from exc
 
-                detail = response.text
-                try:
-                    detail = str(response.json().get("detail", detail))
-                except ValueError:
-                    pass
-                error = BackendApiError(response.status_code, detail, method, path)
+                _log.warning("Backend callback rejected method=%s status=%d", method, response.status_code)
+                error = BackendApiError(response.status_code, "Backend request rejected", method, path)
 
                 if response.status_code >= 500 and attempt < max_retries - 1:
                     continue
                 raise error
             except httpx.HTTPError as exc:
+                _log.warning(
+                    "Backend callback transport failure method=%s error_class=%s duration_ms=%.0f",
+                    method, type(exc).__name__, (time.monotonic() - started) * 1000,
+                )
                 if attempt == max_retries - 1:
-                    raise BackendApiError(502, f"Backend unreachable: {exc}", method, path) from exc
+                    raise BackendApiError(502, "Backend unreachable", method, path) from exc
         raise BackendApiError(500, "Unknown backend error", method, path)
 
     async def health_check(self) -> Any:

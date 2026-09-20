@@ -65,7 +65,7 @@ cp .env.example .env
 cd /home/runner/work/shopAi/shopAi/orchestrator
 source .venv/bin/activate
 set -a; source .env; set +a
-uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload --log-level info
 ```
 
 Health check orchestrateur:
@@ -80,19 +80,58 @@ Dans le process backend (`/home/runner/work/shopAi/shopAi/backend`), configure:
 
 ```bash
 export STUDIO_LLM_WEBHOOK_URL="http://localhost:8010/webhook/llm"
-export STUDIO_LLM_WEBHOOK_TOKEN="change-me"
 ```
 
 Puis dans l'orchestrateur (`.env`):
 
 ```bash
-WEBHOOK_AUTH_TOKEN=change-me
 BACKEND_BASE_URL=http://localhost:8000
 ```
 
-Le backend transmet aussi `X-ShopAI-Session` au webhook. Chaque callback reprend cette
-session **et** le secret `WEBHOOK_AUTH_TOKEN` dans le header `Authorization`. Les deux valeurs
-sont obligatoires; sans secret configuré, le webhook refuse les requêtes.
+Le backend transmet automatiquement `X-ShopAI-Session` au webhook. Chaque callback
+reprend uniquement cette session : **aucun secret partagé à configurer**, aucun header
+`Authorization` entre les deux services. La session reste un identifiant sensible :
+ne pas la journaliser, utiliser HTTPS hors du poste local.
+Le webhook exige une session et lit d'abord le projet via le backend, qui vérifie
+la session en base, son expiration et l'accès au tenant/projet. Un appel direct non
+autorisé ne déclenche donc aucun appel fournisseur. Les URL restent configurées
+côté serveur uniquement; elles ne sont jamais fournies par le navigateur.
+
+### Lancement simple sous PowerShell
+
+Depuis la racine du dépôt, dans **deux terminaux**, avec les dépendances déjà installées
+dans leurs environnements Python respectifs (`python -m pip install -r requirements.txt`
+dans chaque dossier après activation de son environnement).
+
+Terminal backend :
+
+```powershell
+cd backend
+$env:STUDIO_LLM_WEBHOOK_URL = "http://localhost:8010/webhook/llm"
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --log-level info
+```
+
+Terminal orchestrateur (exemple OpenAI) :
+
+```powershell
+cd orchestrator
+$env:LLM_PROVIDER = "openai"
+$env:OPENAI_API_KEY = [System.Net.NetworkCredential]::new("", (Read-Host "Clé OpenAI" -AsSecureString)).Password
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --log-level info
+```
+
+`BACKEND_BASE_URL` vaut déjà `http://localhost:8000`. Remplacer le fournisseur et la
+variable de clé pour Anthropic, xAI ou OpenRouter. Pour tester sans fournisseur :
+`$env:LLM_PROVIDER = "none"` (mode déterministe, pas de modifications libres).
+Puis se connecter dans ShopAI, ouvrir le projet, activer l'agent externe et demander
+un aperçu. La session circule automatiquement; rien à copier manuellement.
+
+Ces commandes utilisent les variables PowerShell et n'ont pas besoin de `.env`.
+Pour le backend, `python -m uvicorn main:app --env-file .env --port 8000 --log-level info`
+est aussi possible si le fichier existe : sa dépendance `uvicorn[standard]` inclut
+`python-dotenv`. L'orchestrateur utilise Uvicorn sans cet extra : copier `.env.example`
+ne charge pas automatiquement le fichier; utiliser les variables ci-dessus sous
+PowerShell, ou `source .env` comme dans l'exemple Bash.
 
 ### Intentions prises en charge
 
@@ -128,21 +167,23 @@ opérations résolues (IDs, produits, coordonnées), sans rappeler le LLM. Un pr
 modifié entre-temps exige un nouvel aperçu.
 
 Les jetons signés sont opaques, à usage unique et valables dix minutes. Ils ne
-contiennent ni secret ni session. Les plans sont conservés en mémoire (128 maximum):
+contiennent ni secret ni session. La clé de signature est générée aléatoirement
+dans le processus : rien à configurer ni à transmettre. La confirmation reste liée
+au projet, prompt, catégorie et session; elle revalide l'accès et l'état avant écriture.
+Les plans sont conservés en mémoire (128 maximum):
 utiliser un seul worker, ou une affinité de routage. Un redémarrage/autre worker
 invalide l'aperçu et impose d'en générer un nouveau; il ne relance jamais le plan.
 
 ## Exemples d'appel
 
-Dans ces exemples, `AUTHORIZATION_HEADER` contient la valeur complète du header
-d'authentification, construite avec le secret partagé.
+Ces appels manuels de diagnostic exigent une session ShopAI valide et un projet
+accessible à cette session. Dans le studio, ils sont entièrement automatiques.
 
 ### Preview (sans écriture)
 
 ```bash
 curl -X POST http://localhost:8010/webhook/llm \
   -H 'Content-Type: application/json' \
-  -H "Authorization: $AUTHORIZATION_HEADER" \
   -H 'X-ShopAI-Session: <session-cookie-value>' \
   -d '{
     "projectId": "demo",
@@ -156,7 +197,6 @@ curl -X POST http://localhost:8010/webhook/llm \
 ```bash
 curl -X POST http://localhost:8010/webhook/llm \
   -H 'Content-Type: application/json' \
-  -H "Authorization: $AUTHORIZATION_HEADER" \
   -H 'X-ShopAI-Session: <session-cookie-value>' \
   -d '{
     "projectId": "demo",
@@ -168,6 +208,10 @@ curl -X POST http://localhost:8010/webhook/llm \
 
 ## Notes d'erreurs
 
+- **401** : session absente, invalide ou expirée; se reconnecter et refaire un aperçu.
+- **403** : compte/tenant sans accès au projet; vérifier le projet sélectionné.
+- **503** : service indisponible ou trop d'aperçus en attente; vérifier les services
+  et réessayer plus tard.
 - **409/422**: arrêt sans décalage, remplacement de paramètres ni répétition.
 - **timeouts/réseau**: lectures réessayées de manière bornée; aucune écriture
   réessayée, même après une réponse perdue.
@@ -180,6 +224,16 @@ curl -X POST http://localhost:8010/webhook/llm \
 - Une panne fournisseur, une clé absente ou un plan invalide ne bascule jamais
   vers un magasin générique.
 
+### Logs
+
+Le niveau INFO est visible avec Uvicorn sans configuration additionnelle. Les deux
+terminaux montrent début/fin, lectures backend, accès validé, fournisseur, planification,
+aperçu, exécution confirmée et audit post-écriture côté backend, avec statuts et durées.
+Les avertissements réseau indiquent la classe d'erreur et les erreurs HTTP leur statut.
+Ni prompts, sessions, clés, headers d'autorisation, jetons de confirmation, corps de
+réponse ni messages bruts d'exception ne sont journalisés par ce workflow.
+Ne pas activer de traces HTTP détaillées contenant les headers ou corps en production.
+
 ## Variables d'environnement
 
 - `BACKEND_BASE_URL`
@@ -189,7 +243,6 @@ curl -X POST http://localhost:8010/webhook/llm \
 - `XAI_API_KEY`, `XAI_MODEL`
 - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`
 - `OPENROUTER_HTTP_REFERER`, `OPENROUTER_APP_TITLE` (optionnels)
-- `WEBHOOK_AUTH_TOKEN`
 - `REQUEST_TIMEOUT_SECONDS`
 - `MAX_RETRIES`
 - `COLLISION_MAX_RETRIES`, `COLLISION_OFFSET_CM` (compatibilité de configuration;

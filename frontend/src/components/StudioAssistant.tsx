@@ -220,9 +220,8 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
           <div
             aria-live="polite"
             aria-atomic="true"
-            className="absolute h-px w-px overflow-hidden whitespace-nowrap [clip:rect(0,0,0,0)]"
           >
-            <span role="status">{llmAnnouncement}</span>
+            <span role="status" className="sr-only">{llmAnnouncement}</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-gray-300">
             {shouldUseLlmPath(llmStatus)

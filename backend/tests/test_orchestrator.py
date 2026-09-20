@@ -304,6 +304,40 @@ def test_xai_retries_without_forced_tool_choice_on_bad_request(settings, monkeyp
     assert "tool_choice" not in seen[1]
 
 
+def test_provider_parses_fenced_tool_arguments_and_intent_alias(settings, monkeypatch):
+    real_client = httpx.AsyncClient
+
+    def handler(request):
+        return httpx.Response(200, json={"choices": [{"message": {"tool_calls": [{
+            "function": {
+                "name": "build_store_plan",
+                "arguments": """```json
+{"intent":"layout_modify","furniture":[{"action":"update","id":"shelf","position":[400,0,200]}]}
+```""",
+            },
+        }]}}]})
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    planner = LLMPlanner(replace(settings, llm_provider="xai", xai_api_key="test-provider-key"))
+    assert run(planner.build_plan("Move shelf", "layout-modify")).intent == "layout-modify"
+
+
+def test_provider_parses_python_literal_arguments(settings, monkeypatch):
+    real_client = httpx.AsyncClient
+
+    def handler(request):
+        return httpx.Response(200, json={"choices": [{"message": {"tool_calls": [{
+            "function": {
+                "name": "build_store_plan",
+                "arguments": "{'intent':'layout-modify','furniture':[{'action':'update','id':'shelf','position':[400,0,200]}]}",
+            },
+        }]}}]})
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    planner = LLMPlanner(replace(settings, llm_provider="xai", xai_api_key="test-provider-key"))
+    assert run(planner.build_plan("Move shelf", "layout-modify")).intent == "layout-modify"
+
+
 def test_offline_modifications_are_explicitly_unsupported(settings):
     with pytest.raises(ValueError):
         run(LLMPlanner(settings).build_plan("Modifier le magasin"))

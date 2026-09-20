@@ -282,6 +282,28 @@ def test_provider_tool_call_compatibility(settings, monkeypatch, provider, host)
     assert len(seen) == 1
 
 
+def test_xai_retries_without_forced_tool_choice_on_bad_request(settings, monkeypatch):
+    import json
+
+    real_client = httpx.AsyncClient
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        if len(seen) == 1:
+            return httpx.Response(400, json={"error": {"message": "unsupported tool_choice"}}, request=request)
+        return httpx.Response(200, json={"choices": [{"message": {"tool_calls": [{
+            "function": {"name": "build_store_plan", "arguments": _modify_plan().model_dump_json()},
+        }]}}]})
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    planner = LLMPlanner(replace(settings, llm_provider="xai", xai_api_key="test-provider-key"))
+    assert run(planner.build_plan("Move shelf", "layout-modify")).intent == "layout-modify"
+    assert len(seen) == 2
+    assert seen[0]["tool_choice"]["function"]["name"] == "build_store_plan"
+    assert "tool_choice" not in seen[1]
+
+
 def test_offline_modifications_are_explicitly_unsupported(settings):
     with pytest.raises(ValueError):
         run(LLMPlanner(settings).build_plan("Modifier le magasin"))

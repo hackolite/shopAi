@@ -101,6 +101,7 @@ class LLMPlanner:
             api_base_url="https://api.x.ai/v1",
             model=self.settings.xai_model,
             api_key=self.settings.xai_api_key,
+            allow_tool_choice_fallback=True,
         )
 
     async def _openrouter_plan(self, user_prompt: str) -> dict[str, Any] | None:
@@ -125,19 +126,11 @@ class LLMPlanner:
         model: str,
         api_key: str | None,
         extra_headers: dict[str, str] | None = None,
+        allow_tool_choice_fallback: bool = False,
     ) -> dict[str, Any] | None:
         if not api_key:
             return None
-        payload = {
-            "model": model,
-            "temperature": 0,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "tools": [{"type": "function", "function": TOOL_SPEC}],
-            "tool_choice": {"type": "function", "function": {"name": TOOL_SPEC["name"]}},
-        }
+        payload = self._openai_compatible_payload(user_prompt, model=model, force_tool_choice=True)
         headers = {
             "Authorization": f"{''.join(['B','e','a','r','e','r'])} {api_key}",
             "Content-Type": "application/json",
@@ -145,8 +138,18 @@ class LLMPlanner:
         if extra_headers:
             headers.update(extra_headers)
         async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds) as client:
-            response = await client.post(f"{api_base_url}/chat/completions", json=payload, headers=headers)
-            response.raise_for_status()
+            try:
+                response = await client.post(f"{api_base_url}/chat/completions", json=payload, headers=headers)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if not allow_tool_choice_fallback or exc.response.status_code != 400:
+                    raise
+                response = await client.post(
+                    f"{api_base_url}/chat/completions",
+                    json=self._openai_compatible_payload(user_prompt, model=model, force_tool_choice=False),
+                    headers=headers,
+                )
+                response.raise_for_status()
             data = response.json()
 
         message = (data.get("choices") or [{}])[0].get("message") or {}
@@ -156,6 +159,20 @@ class LLMPlanner:
                 args = function_data.get("arguments") or "{}"
                 return json.loads(args)
         return None
+
+    def _openai_compatible_payload(self, user_prompt: str, *, model: str, force_tool_choice: bool) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": model,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "tools": [{"type": "function", "function": TOOL_SPEC}],
+        }
+        if force_tool_choice:
+            payload["tool_choice"] = {"type": "function", "function": {"name": TOOL_SPEC["name"]}}
+        return payload
 
     async def _anthropic_plan(self, user_prompt: str) -> dict[str, Any] | None:
         payload = {

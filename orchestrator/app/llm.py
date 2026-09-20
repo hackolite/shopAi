@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import logging
 from typing import Any
 
 import httpx
@@ -9,6 +10,8 @@ import httpx
 from .config import Settings
 from .prompts import SYSTEM_PROMPT, TOOL_SPEC
 from .schemas import Category, OrchestrationPlan, StoreDimensions
+
+_log = logging.getLogger("uvicorn.error.shopai.llm")
 
 _MODIFICATION = r"\b(modifi\w*|déplac\w*|deplac\w*|supprim\w*|agrandi\w*|élargi\w*|elargi\w*|réorgani\w*|reorgani\w*|renomm\w*|modify|move|remove|update|resize|rename|widen)\b"
 _CREATION = r"\b(créer|creer|crée|cree|create|nouveau|nouvelle|new|projet complet)\b"
@@ -142,14 +145,34 @@ class LLMPlanner:
                 response = await client.post(f"{api_base_url}/chat/completions", json=payload, headers=headers)
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
+                _log.warning(
+                    "Provider chat completion failed provider_base=%s status=%d model=%s forced_tool_choice=%s error_meta=%s",
+                    api_base_url,
+                    exc.response.status_code,
+                    model,
+                    True,
+                    self._http_error_meta(exc.response),
+                )
                 if not allow_tool_choice_fallback or exc.response.status_code != 400:
                     raise
+                _log.info("Retrying provider call without forced tool_choice provider_base=%s model=%s", api_base_url, model)
                 response = await client.post(
                     f"{api_base_url}/chat/completions",
                     json=self._openai_compatible_payload(user_prompt, model=model, force_tool_choice=False),
                     headers=headers,
                 )
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as retry_exc:
+                    _log.warning(
+                        "Provider retry failed provider_base=%s status=%d model=%s forced_tool_choice=%s error_meta=%s",
+                        api_base_url,
+                        retry_exc.response.status_code,
+                        model,
+                        False,
+                        self._http_error_meta(retry_exc.response),
+                    )
+                    raise
             data = response.json()
 
         message = (data.get("choices") or [{}])[0].get("message") or {}
@@ -173,6 +196,28 @@ class LLMPlanner:
         if force_tool_choice:
             payload["tool_choice"] = {"type": "function", "function": {"name": TOOL_SPEC["name"]}}
         return payload
+
+    @staticmethod
+    def _http_error_meta(response: httpx.Response) -> dict[str, Any]:
+        meta: dict[str, Any] = {
+            "content_type": response.headers.get("content-type"),
+            "request_id": response.headers.get("x-request-id"),
+            "response_bytes": len(response.content or b""),
+        }
+        try:
+            body = response.json()
+        except ValueError:
+            return meta
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict):
+                if error.get("type") is not None:
+                    meta["error_type"] = error.get("type")
+                if error.get("code") is not None:
+                    meta["error_code"] = error.get("code")
+                if error.get("param") is not None:
+                    meta["error_param"] = error.get("param")
+        return meta
 
     async def _anthropic_plan(self, user_prompt: str) -> dict[str, Any] | None:
         payload = {

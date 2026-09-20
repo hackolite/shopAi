@@ -89,10 +89,16 @@ class ShopAIOrchestrator:
             _log.warning("Project read rejected status=%d", exc.status_code)
             raise HTTPException(exc.status_code, "Impossible de lire le projet pour préparer le plan.") from exc
         except httpx.HTTPError as exc:
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else "unavailable"
+            try:
+                request_url = str(exc.request.url)
+            except RuntimeError:
+                request_url = "unavailable"
             _log.warning(
-                "Provider request failed provider=%s error_class=%s status=%s",
+                "Provider request failed provider=%s error_class=%s status=%s request_url=%s",
                 self.settings.llm_provider, type(exc).__name__,
-                exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else "unavailable",
+                status,
+                request_url,
             )
             raise HTTPException(502, "Le fournisseur LLM est indisponible; aucun plan de remplacement exécuté.") from exc
         except (ValueError, KeyError, TypeError, OSError) as exc:

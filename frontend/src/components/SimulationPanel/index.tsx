@@ -211,6 +211,7 @@ function WaypointEditor({
 export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const { scene } = useSceneStore();
   const zones = useZoneStore((state) => state.zones);
+  const zonesLoaded = useZoneStore((state) => state.zonesLoaded);
   const {
     config,
     patchConfig,
@@ -325,8 +326,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   const selectedSummary = result?.summary ?? null;
   const sceneWithZones = useMemo(
-    () => (scene ? { ...scene, store: { ...(scene.store ?? {}), zones } } : null),
-    [scene, zones],
+    () => {
+      if (!scene) return null;
+      const effectiveZones = zonesLoaded ? zones : (scene.store?.zones ?? []);
+      return { ...scene, store: { ...(scene.store ?? {}), zones: effectiveZones } };
+    },
+    [scene, zones, zonesLoaded],
   );
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;

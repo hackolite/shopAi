@@ -2707,10 +2707,12 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     gl.domElement.addEventListener('pointerup', handlePointerRelease);
     gl.domElement.addEventListener('pointercancel', handlePointerRelease);
     window.addEventListener('pointerup', handlePointerRelease);
+    window.addEventListener('pointercancel', handlePointerRelease);
     return () => {
       gl.domElement.removeEventListener('pointerup', handlePointerRelease);
       gl.domElement.removeEventListener('pointercancel', handlePointerRelease);
       window.removeEventListener('pointerup', handlePointerRelease);
+      window.removeEventListener('pointercancel', handlePointerRelease);
     };
   }, [finishFreehandDrawing, gl.domElement, polygonDraft]);
 

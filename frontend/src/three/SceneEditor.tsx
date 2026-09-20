@@ -349,6 +349,7 @@ function PlanogramFaceOverlay({
 }) {
   const { planogramDetails } = usePlanogramStore();
   const setSelection    = useSceneStore((state) => state.setSelection);
+  const selectZone      = useZoneStore((state) => state.selectZone);
   const selType         = useSceneStore((state) => state.selection.type);
   const selCells        = useSceneStore((state) => state.selection.cells);
   const selCellIds      = useSceneStore((state) => state.selection.cellIds);
@@ -541,6 +542,7 @@ function PlanogramFaceOverlay({
     const cell = planogram.cells.find((item) => item.row === row && item.col === col);
     if (!cell) return;
     event.stopPropagation();
+    selectZone(null);
 
     // Shift+click cumulates cells across every planogram; a plain click starts
     // a fresh selection with only the clicked cell.
@@ -576,7 +578,7 @@ function PlanogramFaceOverlay({
       cellIds: nextCells.map((ref) => ref.cellId),
       cells: nextCells,
     });
-  }, [planogram, selType, selCells, setSelection, setRequestOpenPlanogramId]);
+  }, [planogram, selType, selCells, setSelection, setRequestOpenPlanogramId, selectZone]);
 
   if (!texture || !planogram) return null;
 

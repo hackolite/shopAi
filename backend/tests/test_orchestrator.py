@@ -22,7 +22,7 @@ from orchestrator.app.llm import LLMPlanner
 from orchestrator.app.main import app as orchestrator_app, get_settings
 from orchestrator.app.schemas import OrchestrationPlan, WebhookRequest
 from orchestrator.app.tools import BackendApiError, BackendTools
-from orchestrator.app.workflow import compile_operations
+from orchestrator.app.workflow import Operation, compile_operations, fingerprint, validate_layout
 
 
 def run(awaitable):
@@ -306,6 +306,73 @@ def test_layout_modifications_do_not_create_projects(settings, state, library):
     assert not create
     assert len(operations) == 1 and operations[0].method == "PUT"
     assert state["scene"]["furniture"][0]["position"] == [200, 0, 200]
+
+
+def test_sequential_furniture_operations_keep_original_request_payloads(settings, state, library):
+    plan = OrchestrationPlan.model_validate({
+        "intent": "layout-modify",
+        "furniture": [
+            {
+                "action": "add", "id": "new-shelf", "libraryId": "gondola_double",
+                "position": [600, 0, 200],
+            },
+            {"action": "update", "id": "shelf", "position": [400, 0, 200]},
+            {"action": "update", "id": "new-shelf", "position": [200, 0, 200]},
+        ],
+    })
+    _, operations = compile_operations(BackendTools(settings, "session"), plan, state, library)
+    assert operations[0].payload["position"] == [600, 0, 200]
+    assert operations[1].payload["position"] == [400, 0, 200]
+    assert operations[2].payload["position"] == [200, 0, 200]
+    scene = copy.deepcopy(state["scene"])
+    for operation in operations:
+        if operation.method == "POST":
+            scene["furniture"].append(copy.deepcopy(operation.payload))
+        else:
+            identifier = operation.path.rsplit("/", 1)[-1]
+            item = next(item for item in scene["furniture"] if item["id"] == identifier)
+            item.update(copy.deepcopy(operation.payload))
+        validate_layout(scene)
+
+
+def test_operation_copies_nested_payload_data():
+    payload = {"position": [100, 0, 200], "dimensions": {"width": 120}}
+    operation = Operation("POST", "/scene/furniture", payload, "Add furniture")
+    payload["position"][0] = 900
+    payload["dimensions"]["width"] = 1000
+    assert operation.payload == {"position": [100, 0, 200], "dimensions": {"width": 120}}
+
+
+def test_gondola_fingerprint_ignores_only_derived_cell_ids(state):
+    state["planograms"] = [{
+        "id": "planogram",
+        "gondola": {"id": "gondola", "placements": [{"ean": "1234567890123"}]},
+        "cells": [{"id": "generated-first", "ean": "1234567890123", "row": 0, "col": 0}],
+    }]
+    original_hash = fingerprint(state)
+    regenerated = copy.deepcopy(state)
+    regenerated["planograms"][0]["cells"][0]["id"] = "generated-again"
+    assert fingerprint(regenerated) == original_hash
+    assert state["planograms"][0]["cells"][0]["id"] == "generated-first"
+    regenerated["planograms"][0]["cells"][0]["ean"] = "different-product"
+    assert fingerprint(regenerated) != original_hash
+    regenerated = copy.deepcopy(state)
+    regenerated["planograms"][0]["gondola"]["placements"][0]["ean"] = "different-product"
+    assert fingerprint(regenerated) != original_hash
+    regenerated = copy.deepcopy(state)
+    regenerated["planograms"][0]["gondola"]["placements"][0]["cellId"] = "persisted-cell-id"
+    assert fingerprint(regenerated) != original_hash
+
+
+def test_legacy_planogram_fingerprint_preserves_persisted_cell_ids(state):
+    state["planograms"] = [{
+        "id": "planogram",
+        "gondola": None,
+        "cells": [{"id": "persisted-first", "ean": "1234567890123", "row": 0, "col": 0}],
+    }]
+    original_hash = fingerprint(state)
+    state["planograms"][0]["cells"][0]["id"] = "persisted-second"
+    assert fingerprint(state) != original_hash
 
 
 def test_layout_creation_explicitly_clears_seeded_catalog(settings, state, library):

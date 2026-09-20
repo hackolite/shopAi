@@ -22,9 +22,20 @@ class Operation:
     payload: dict[str, Any] | None
     description: str
 
+    def __post_init__(self) -> None:
+        # Later simulated operations must not rewrite an earlier request body.
+        object.__setattr__(self, "payload", copy.deepcopy(self.payload))
+
 
 def fingerprint(state: dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(state, sort_keys=True, allow_nan=False).encode()).hexdigest()
+    normalized = copy.deepcopy(state)
+    for planogram in normalized.get("planograms", []):
+        if planogram.get("gondola"):
+            # The backend may generate fresh IDs for derived legacy cells on
+            # each read. Keep the persisted gondola and all cell semantics.
+            for cell in planogram.get("cells", []):
+                cell.pop("id", None)
+    return hashlib.sha256(json.dumps(normalized, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
 async def read_state(tools: BackendTools, project_id: str) -> dict[str, Any]:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from fastapi import HTTPException
 
 import services.project_manager as pm
 
@@ -216,3 +217,32 @@ def test_failed_replace_preserves_previous_json(tmp_path, monkeypatch):
         pm.save_project_file("owned", "scene.json", {"store": {}})
     assert path.read_bytes() == previous
     assert not list(path.parent.glob("*.tmp"))
+
+
+@pytest.mark.parametrize("project_id,filename", [
+    ("../outside", "scene.json"),
+    ("owned", "../scene.json"),
+    ("owned", "unexpected.json"),
+])
+def test_atomic_write_rejects_untrusted_path_components(tmp_path, monkeypatch, project_id, filename):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path)
+    pm.create_project("owned", "Mon projet")
+    with pytest.raises(HTTPException) as error:
+        pm.save_project_file(project_id, filename, {})
+    assert error.value.status_code == 400
+
+
+def test_atomic_write_rejects_linked_project_directory(tmp_path, monkeypatch):
+    monkeypatch.setattr(pm, "STORAGE_ROOT", tmp_path / "projects")
+    pm.create_project("owned", "Mon projet")
+    directory = pm.STORAGE_ROOT / "owned"
+    linked = pm.STORAGE_ROOT / "linked"
+    try:
+        linked.symlink_to(directory, target_is_directory=True)
+    except OSError:
+        pytest.skip("Directory symlinks are unavailable on this system")
+    previous = (directory / "scene.json").read_bytes()
+    with pytest.raises(HTTPException) as error:
+        pm.save_project_file("linked", "scene.json", {})
+    assert error.value.status_code == 400
+    assert (directory / "scene.json").read_bytes() == previous

@@ -70,16 +70,21 @@ def _normalize_data(data: Any) -> Any:
 
 
 def _safe_project_path(project_id: str, filename: str) -> Path:
-    """Construct a safe, fully-controlled path from STORAGE_ROOT + validated components.
-
-    Both ``project_id`` and ``filename`` are validated against strict allowlists before
-    being joined to STORAGE_ROOT, so the resulting path cannot escape the storage tree.
-    ``project_id`` must match ``^[A-Za-z0-9_-]{1,64}$`` (no slashes, no dots, no traversal
-    sequences), and ``filename`` must be one of the hard-coded ``_ALLOWED_FILENAMES``.
-    """
+    """Select an existing storage directory and an allowlisted filename for writing."""
     _validate_project_id(project_id)
     _validate_filename(filename)
-    return STORAGE_ROOT / project_id / filename
+    root = STORAGE_ROOT.resolve()
+    for directory in STORAGE_ROOT.iterdir():
+        if directory.name != project_id or not directory.is_dir():
+            continue
+        resolved = directory.resolve()
+        if directory.is_symlink() or resolved.parent != root:
+            raise HTTPException(status_code=400, detail="Invalid project path")
+        # Use filesystem entries and literal allowlist values, not request paths.
+        for allowed_filename in _ALLOWED_FILENAMES:
+            if allowed_filename == filename:
+                return resolved / allowed_filename
+    raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
 
 
 def _json_error_location(exc: json.JSONDecodeError) -> str:
@@ -160,20 +165,19 @@ def _read_json(project_id: str, filename: str) -> Any:
 
 
 def _write_json(project_id: str, filename: str, data: Any) -> None:
-    # Path is safe: project_id validated by regex (no traversal chars), filename from allowlist.
-    path = _safe_project_path(project_id, filename)  # lgtm[py/path-injection]
+    path = _safe_project_path(project_id, filename)
     content = json.dumps(_normalize_data(data), indent=2, ensure_ascii=False, allow_nan=False)
     temporary_path: Path | None = None
     try:
         # Replace only a complete file; close it first for Windows compatibility.
-        with tempfile.NamedTemporaryFile(  # lgtm[py/path-injection]
+        with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", dir=path.parent, suffix=".tmp", delete=False,
         ) as handle:
             temporary_path = Path(handle.name)
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary_path, path)  # lgtm[py/path-injection]
+        os.replace(temporary_path, path)
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)

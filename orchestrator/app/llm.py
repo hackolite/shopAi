@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import ast
 import logging
 from typing import Any
 
@@ -16,6 +17,14 @@ _log = logging.getLogger("uvicorn.error.shopai.llm")
 _MODIFICATION = r"\b(modifi\w*|déplac\w*|deplac\w*|supprim\w*|agrandi\w*|élargi\w*|elargi\w*|réorgani\w*|reorgani\w*|renomm\w*|modify|move|remove|update|resize|rename|widen)\b"
 _CREATION = r"\b(créer|creer|crée|cree|create|nouveau|nouvelle|new|projet complet)\b"
 _PROJECT = r"\b(magasin|store|project|projet|supermarché|supermarche|supermarket|implantation|layout)\b"
+_CODE_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
+_INTENT_ALIASES = {
+    "layout_create": "layout-create",
+    "layout_modify": "layout-modify",
+    "assortment_full": "assortment-full",
+    "assortment_modify": "assortment-modify",
+    "build-complete-store": "build_complete_store",
+}
 
 
 class LLMPlanner:
@@ -179,19 +188,47 @@ class LLMPlanner:
         for call in message.get("tool_calls", []):
             function_data = call.get("function") or {}
             if function_data.get("name") == "build_store_plan":
-                args = function_data.get("arguments") or "{}"
-                if isinstance(args, str):
-                    return json.loads(args)
-                if isinstance(args, dict):
-                    return args
+                parsed = self._parse_plan_payload(function_data.get("arguments"))
+                if parsed is not None:
+                    return parsed
         function_call = message.get("function_call") or {}
         if function_call.get("name") == "build_store_plan":
-            args = function_call.get("arguments") or "{}"
-            if isinstance(args, str):
-                return json.loads(args)
-            if isinstance(args, dict):
-                return args
+            parsed = self._parse_plan_payload(function_call.get("arguments"))
+            if parsed is not None:
+                return parsed
         return None
+
+    def _parse_plan_payload(self, raw: Any) -> dict[str, Any] | None:
+        if isinstance(raw, dict):
+            return self._normalize_provider_plan(raw)
+        if not isinstance(raw, str):
+            return None
+        text = raw.strip()
+        if not text:
+            return None
+        variants = [text]
+        if text.startswith("```"):
+            variants.append(_CODE_FENCE_PATTERN.sub("", text).strip())
+        for candidate in variants:
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                try:
+                    parsed = ast.literal_eval(candidate)
+                except (ValueError, SyntaxError):
+                    continue
+            if isinstance(parsed, dict):
+                return self._normalize_provider_plan(parsed)
+        return None
+
+    def _normalize_provider_plan(self, plan: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(plan)
+        intent = normalized.get("intent")
+        if isinstance(intent, str):
+            alias = _INTENT_ALIASES.get(intent.strip().lower())
+            if alias:
+                normalized["intent"] = alias
+        return normalized
 
     def _openai_compatible_payload(self, user_prompt: str, *, model: str, force_tool_choice: bool) -> dict[str, Any]:
         tool_spec = {

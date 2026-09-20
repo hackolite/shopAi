@@ -3211,7 +3211,11 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
   // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
-  const lockSceneNavigation = Boolean(selectedFurnitureId || selectedZoneId || selectedWaypointId);
+  const lockSceneNavigation = Boolean(
+    selectedZoneId
+    || selectedWaypointId
+    || (selectedFurnitureId && activeTool !== 'select' && activeTool !== 'measure')
+  );
   const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure' && !polygonDraft;
   // Show furniture resize handles in scale mode for resizable furniture types.
   const showFurnitureResize =

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.config import Settings
-from app.llm import LLMPlanner
+from orchestrator.app.config import Settings
+from orchestrator.app.llm import LLMPlanner
 
 
 def _settings() -> Settings:

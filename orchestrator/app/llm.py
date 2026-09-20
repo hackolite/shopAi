@@ -42,7 +42,7 @@ class LLMPlanner:
         ))
         if provider_plan is None:
             raise ValueError("Le fournisseur LLM n'a pas retourné de plan exploitable (clé ou appel d'outil manquant).")
-        plan = OrchestrationPlan.model_validate(provider_plan)
+        plan = OrchestrationPlan.model_validate(self._normalize_provider_plan(provider_plan))
         if category not in {None, "freestyle"} and plan.intent != category:
             raise ValueError("Le plan LLM ne respecte pas la catégorie demandée.")
         if plan.intent in {"layout-create", "build_complete_store"}:

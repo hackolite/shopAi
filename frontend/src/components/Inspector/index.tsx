@@ -680,7 +680,7 @@ function zoneTypeLabel(zone: FloorZone): string {
   if (zone.type === 'entrance') return 'Entrée';
   if (zone.type === 'exit') return 'Sortie';
   if (zone.type === 'supply') return 'Fournitures';
-  return 'Zone interdite';
+  return 'Dessin au sol';
 }
 
 function zoneShapeLabel(zone: FloorZone): string {
@@ -732,15 +732,20 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
               />
             </div>
             {isRotatable && (
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 w-16 shrink-0">Rotation</label>
-                <input
-                  type="number"
-                  step={5}
-                  value={zone.rotationDeg ?? 0}
-                  onChange={(event) => save({ ...zone, rotationDeg: Number(event.target.value) || 0 })}
-                  className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
-                />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-16 shrink-0">Rotation sol</label>
+                  <input
+                    type="number"
+                    step={5}
+                    value={zone.rotationDeg ?? 0}
+                    onChange={(event) => save({ ...zone, rotationDeg: Number(event.target.value) || 0 })}
+                    className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+                  />
+                </div>
+                <p className="pl-[4.5rem] text-[11px] text-gray-500">
+                  Pour pivoter ce dessin au sol, modifiez cet angle.
+                </p>
               </div>
             )}
           </>

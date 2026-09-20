@@ -3211,6 +3211,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // 'select' and 'translate' both use translate mode; 'rotate' uses rotate mode.
   // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
+  const lockSceneNavigation = Boolean(selectedFurnitureId || selectedZoneId || selectedWaypointId);
   const showTransform       = hasSelection && activeTool !== 'scale' && activeTool !== 'measure' && !polygonDraft;
   // Show furniture resize handles in scale mode for resizable furniture types.
   const showFurnitureResize =
@@ -3303,8 +3304,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         <OrbitControls
           makeDefault
           target={initialOrbitTarget.current}
-          enabled={!isResizeDragging && !selectedWaypointId}
-          enableRotate={!isResizeDragging && !selectedWaypointId && !bevMode}
+          enabled={!isResizeDragging && !lockSceneNavigation}
+          enableRotate={!isResizeDragging && !lockSceneNavigation && !bevMode}
           maxPolarAngle={bevMode ? BEV_MAX_POLAR_ANGLE : Math.PI}
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}

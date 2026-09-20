@@ -99,7 +99,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [llmAnnouncement, setLlmAnnouncement] = useState('Prétest LLM en attente…');
+  const [llmAnnouncement, setLlmAnnouncement] = useState('');
   const [llmStatus, setLlmStatus] = useState<LlmAssistantStatus>({
     enabled: false,
     reachable: false,
@@ -119,7 +119,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setCategory(null);
     setConfirmation(null);
     setError(null);
-    setLlmAnnouncement('Prétest LLM en attente…');
+    setLlmAnnouncement('');
   }, [projectId]);
 
   useEffect(() => {

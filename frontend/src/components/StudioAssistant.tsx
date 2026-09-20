@@ -218,10 +218,11 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
             </div>
           </div>
           <div
+            role="status"
             aria-live="polite"
             aria-atomic="true"
           >
-            <span role="status" className="sr-only">{llmAnnouncement}</span>
+            <span className="sr-only">{llmAnnouncement}</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-gray-300">
             {shouldUseLlmPath(llmStatus)

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
 import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
@@ -324,9 +324,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
-  const sceneWithZones = scene
-    ? { ...scene, store: { ...scene.store, zones } }
-    : null;
+  const sceneWithZones = useMemo(
+    () => (scene ? { ...scene, store: { ...scene.store, zones } } : null),
+    [scene, zones],
+  );
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
   const datasetModeActive = Boolean(selectedPedestrianDatasetId || appliedPedestrianDataset || pedestrianLoadedIntoSession);

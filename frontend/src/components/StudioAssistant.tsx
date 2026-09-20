@@ -201,6 +201,11 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
               </span>
             </div>
           </div>
+          <p role="status" aria-live="polite" className="sr-only">
+            {shouldUseLlmPath(llmStatus)
+              ? 'Provider LLM disponible.'
+              : llmIndicator.detail ?? "Le mode local prend automatiquement le relais."}
+          </p>
           <p className="mt-3 text-sm leading-relaxed text-gray-300">
             {shouldUseLlmPath(llmStatus)
               ? "Le prompt part directement vers l'orchestrateur LLM configuré côté serveur."

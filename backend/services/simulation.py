@@ -10,6 +10,7 @@ try:
 except ImportError:  # pragma: no cover - handled at runtime
     jps = None
 
+from shapely import affinity
 from shapely.geometry import GeometryCollection, MultiPolygon, Point, Polygon
 
 from models.project import (
@@ -363,6 +364,7 @@ def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None
     z = float(getattr(zone, "z", 0.0))
     width = max(0.0, float(getattr(zone, "width", 0.0)))
     depth = max(0.0, float(getattr(zone, "depth", 0.0)))
+    rotation_deg = float(getattr(zone, "rotationDeg", 0.0) or 0.0)
     if shape == "polygon":
         raw_points = getattr(zone, "points", None) or []
         if len(raw_points) < 3:
@@ -401,6 +403,9 @@ def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None
         )
     if polygon.is_empty:
         return None
+    if abs(rotation_deg) > 1e-6 and shape != "circle":
+        origin = (_cm_to_m(x + width / 2.0), _cm_to_m(z + depth / 2.0))
+        polygon = affinity.rotate(polygon, rotation_deg, origin=origin, use_radians=False)
     clipped = polygon.intersection(store_polygon).buffer(0)
     if clipped.is_empty:
         return None

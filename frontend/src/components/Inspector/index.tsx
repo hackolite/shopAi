@@ -696,6 +696,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
   const { scene } = useSceneStore();
   const isSupply = zone.type === 'supply';
   const isForbidden = zone.type === 'forbidden';
+  const isRotatable = isForbidden && zone.shape !== 'circle';
   const pointCount = zone.points?.length ?? 0;
 
   const save = (updated: FloorZone) => {
@@ -720,15 +721,29 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
           />
         </div>
         {isForbidden && (
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 w-16 shrink-0">Couleur</label>
-            <input
-              type="color"
-              value={zone.color ?? '#ef4444'}
-              onChange={(event) => save({ ...zone, color: event.target.value })}
-              className="h-9 w-14 rounded border border-gray-700 bg-gray-800 p-1"
-            />
-          </div>
+          <>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 w-16 shrink-0">Couleur</label>
+              <input
+                type="color"
+                value={zone.color ?? '#ef4444'}
+                onChange={(event) => save({ ...zone, color: event.target.value })}
+                className="h-9 w-14 rounded border border-gray-700 bg-gray-800 p-1"
+              />
+            </div>
+            {isRotatable && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500 w-16 shrink-0">Rotation</label>
+                <input
+                  type="number"
+                  step={5}
+                  value={zone.rotationDeg ?? 0}
+                  onChange={(event) => save({ ...zone, rotationDeg: Number(event.target.value) || 0 })}
+                  className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
       {isSupply && (
@@ -788,7 +803,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
         )}
         {isForbidden && (
           <div className="rounded-lg border border-red-900 bg-red-950/20 px-2 py-2 text-[11px] leading-snug text-red-200">
-            Cette forme ferme une zone au sol et y interdit l’entrée des piétons.
+            Ce dessin au sol est un obstacle piéton : les agents le contournent comme un mobilier.
           </div>
         )}
       </div>

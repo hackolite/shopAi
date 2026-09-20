@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { zoneShape, zoneSupportsResizeHandles } from './floorZones';
+import { zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from './floorZones';
 import type { FloorZone } from '../types/cad';
 
 function zone(partial: Partial<FloorZone>): FloorZone {
@@ -18,6 +18,7 @@ function zone(partial: Partial<FloorZone>): FloorZone {
 describe('floorZones helpers', () => {
   it('defaults missing shapes to rectangle', () => {
     expect(zoneShape(zone({}))).toBe('rectangle');
+    expect(zoneRotationDeg(zone({}))).toBe(0);
   });
 
   it('keeps resize handles for bounded shapes but not free polygons', () => {
@@ -28,5 +29,20 @@ describe('floorZones helpers', () => {
       shape: 'polygon',
       points: [{ x: 0, z: 0 }, { x: 100, z: 0 }, { x: 0, z: 100 }],
     }))).toBe(false);
+    expect(zoneSupportsResizeHandles(zone({ shape: 'rectangle', rotationDeg: 15 }))).toBe(false);
+  });
+
+  it('rotates bounded floor drawings around their center', () => {
+    expect(zoneOutlinePointsCm(zone({
+      shape: 'rectangle',
+      width: 200,
+      depth: 100,
+      rotationDeg: 90,
+    }))).toEqual([
+      { x: 150, z: -50 },
+      { x: 150, z: 150 },
+      { x: 50, z: 150 },
+      { x: 50, z: -50 },
+    ]);
   });
 });

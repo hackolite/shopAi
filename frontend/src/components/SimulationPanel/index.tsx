@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
 import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
@@ -11,6 +11,7 @@ import {
 } from '../../engine/simulationConstraint';
 import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
+import { useZoneStore } from '../../store/zoneStore';
 import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore, type HeatmapMode } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useAssetStore } from '../../store/assetStore';
@@ -209,6 +210,8 @@ function WaypointEditor({
 
 export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const { scene } = useSceneStore();
+  const zones = useZoneStore((state) => state.zones);
+  const zonesLoaded = useZoneStore((state) => state.zonesLoaded);
   const {
     config,
     patchConfig,
@@ -322,6 +325,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
+  const sceneWithZones = useMemo(
+    () => {
+      if (!scene) return null;
+      const effectiveZones = zonesLoaded ? zones : (scene.store?.zones ?? []);
+      return { ...scene, store: { ...(scene.store ?? {}), zones: effectiveZones } };
+    },
+    [scene, zones, zonesLoaded],
+  );
   const pedestrianLoadedIntoSession = Boolean(liveSessionId) && pedestrianLoadedSessionId === liveSessionId;
   const pedestrianCsvLoaded = pedestrianLoadedIntoSession && playing;
   const datasetModeActive = Boolean(selectedPedestrianDatasetId || appliedPedestrianDataset || pedestrianLoadedIntoSession);
@@ -361,15 +372,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [isStale, projectId]);
 
   const runSimulation = useCallback(async () => {
-    if (!projectId || !scene) return;
+    if (!projectId || !sceneWithZones) return;
     setRunning(true);
     setPedestrianDatasetError(null);
     try {
       if (liveSessionId) {
         await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
       }
-      const signature = snapshotSimulationInput(scene, config);
-      const live = await cadApi.startLiveSimulation(projectId, scene, config);
+      const signature = snapshotSimulationInput(sceneWithZones, config);
+      const live = await cadApi.startLiveSimulation(projectId, sceneWithZones, config);
       if (isStale(projectId)) {
         // The user switched project while the session was starting: drop it
         // instead of showing another project's agents.
@@ -426,7 +437,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     loadPedestriansIntoSession,
     pedestrianImport,
     projectId,
-    scene,
+    sceneWithZones,
     selectWaypoint,
     setInvalidWaypointIds,
     setInvalidWaypointSuggestion,
@@ -736,8 +747,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [applyPedestrianDataset, pedestrianLoadedIntoSession, projectId, selectedPedestrianDatasetId, setPedestrianImport]);
 
   useEffect(() => {
-    if (!projectId || !liveSessionId || !scene || !playing) return;
-    const signature = snapshotSimulationInput(scene, config);
+    if (!projectId || !liveSessionId || !sceneWithZones || !playing) return;
+    const signature = snapshotSimulationInput(sceneWithZones, config);
     if (lastSimulationSignature.current === null) {
       lastSimulationSignature.current = signature;
       return;
@@ -746,7 +757,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (updateTimer.current) clearTimeout(updateTimer.current);
     updateTimer.current = setTimeout(() => {
       void cadApi
-        .updateLiveSimulation(projectId, liveSessionId, scene, config)
+        .updateLiveSimulation(projectId, liveSessionId, sceneWithZones, config)
         .then((live) => {
           if (isStale(projectId)) return;
           setResult(live.result);
@@ -780,7 +791,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [config, handleLostSession, isStale, liveSessionId, playing, projectId, scene, selectWaypoint, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
+  }, [config, handleLostSession, isStale, liveSessionId, playing, projectId, sceneWithZones, selectWaypoint, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
 
   // Stop the backend live session when the panel unmounts *or* when the user
   // switches project, so the previous project's session does not keep running

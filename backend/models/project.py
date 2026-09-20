@@ -237,6 +237,7 @@ class FloorZone(CADBaseModel):
     z: float
     width: float
     depth: float
+    rotationDeg: float = 0.0
     rows: int | None = None
     cols: int | None = None
     shape: ZoneShapeEnum = ZoneShapeEnum.rectangle

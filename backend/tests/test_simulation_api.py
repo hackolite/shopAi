@@ -241,6 +241,33 @@ def test_forbidden_floor_polygon_is_removed_from_walkable_geometry() -> None:
     assert not walkable.covers(Point(5.0, 5.0))
 
 
+def test_rotated_forbidden_rectangle_is_removed_from_walkable_geometry() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "blocked-rotated",
+            "type": "forbidden",
+            "label": "Dessin tourné",
+            "shape": "rectangle",
+            "color": "#ef4444",
+            "x": 450.0,
+            "z": 450.0,
+            "width": 100.0,
+            "depth": 200.0,
+            "rotationDeg": 45.0,
+        }
+    ]
+
+    walkable = simulation_service._build_walkable_geometry(simulation_service.SceneData.model_validate(scene))
+
+    assert not walkable.covers(Point(5.0, 5.0))
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

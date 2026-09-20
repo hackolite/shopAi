@@ -144,65 +144,65 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
 
       <div className="flex-1" />
 
-      {/* ── Center: Tools ── */}
-      <div className="flex items-center gap-1">
-        {TOOLS.map((tool) => (
-          <button
-            key={tool.id}
-            title={tool.title}
-            onClick={() => setActiveTool(tool.id)}
-            className={[
-              'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',
-              activeTool === tool.id
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
-            ].join(' ')}
-          >
-            <span className="text-sm">{tool.icon}</span>
-            <span className="hidden sm:inline">{tool.label}</span>
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-2 py-1.5">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">Manipulation</p>
+          <div className="flex items-center gap-1">
+            {TOOLS.map((tool) => (
+              <button
+                key={tool.id}
+                title={tool.title}
+                onClick={() => setActiveTool(tool.id)}
+                className={[
+                  'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',
+                  activeTool === tool.id
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
+                ].join(' ')}
+              >
+                <span className="text-sm">{tool.icon}</span>
+                <span className="hidden sm:inline">{tool.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-      {/* ── Separator ── */}
-      <div className="h-5 w-px bg-gray-800" />
-
-      {/* ── BEV toggle ── */}
-      {(viewMode === '3d' || viewMode === 'split') && (
-        <button
-          title="Vue de dessus (Bird's Eye View)"
-          onClick={() => setBevMode(!bevMode)}
-          className={[
-            'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
-            bevMode
-              ? 'bg-indigo-600 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
-          ].join(' ')}
-        >
-          <span>🔭</span>
-          <span className="hidden sm:inline">BEV</span>
-        </button>
-      )}
-
-      {/* ── Separator ── */}
-      <div className="h-5 w-px bg-gray-800" />
-
-      {/* ── View Mode ── */}
-      <div className="flex items-center rounded overflow-hidden border border-gray-800">
-        {VIEW_MODES.map((mode) => (
-          <button
-            key={mode.id}
-            onClick={() => setViewMode(mode.id)}
-            className={[
-              'px-3 py-1 text-xs font-medium transition-colors',
-              viewMode === mode.id
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
-            ].join(' ')}
-          >
-            {mode.label}
-          </button>
-        ))}
+        <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-2 py-1.5">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">Vue</p>
+          <div className="flex items-center gap-2">
+            {(viewMode === '3d' || viewMode === 'split') && (
+              <button
+                title="Vue de dessus (Bird's Eye View)"
+                onClick={() => setBevMode(!bevMode)}
+                className={[
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+                  bevMode
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
+                ].join(' ')}
+              >
+                <span>🔭</span>
+                <span className="hidden sm:inline">BEV</span>
+              </button>
+            )}
+            <div className="flex items-center rounded overflow-hidden border border-gray-800">
+              {VIEW_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => setViewMode(mode.id)}
+                  className={[
+                    'px-3 py-1 text-xs font-medium transition-colors',
+                    viewMode === mode.id
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
+                  ].join(' ')}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1" />

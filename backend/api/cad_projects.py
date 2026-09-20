@@ -39,7 +39,7 @@ from services.live_simulation import live_simulation_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
 from services.studio_assistant import run_studio_assistant
-from services.llm_assistant import llm_assistant_enabled, run_llm_assistant
+from services.llm_assistant import llm_assistant_status, run_llm_assistant
 from services.project_manager import (
     create_project,
     delete_project,
@@ -290,7 +290,7 @@ def studio_assistant(project_id: str, payload: StudioAssistantPayload):
 def studio_assistant_llm_status(project_id: str):
     """Whether a server-configured external LLM agent webhook is available."""
     platform_service.require_current_user_project_access(project_id)
-    return {"enabled": llm_assistant_enabled()}
+    return llm_assistant_status()
 
 
 @router.post("/{project_id}/assistant/llm", response_model=StudioAssistantResponse, response_model_exclude_none=True)

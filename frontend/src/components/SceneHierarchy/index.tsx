@@ -152,7 +152,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
     useSceneStore();
   const { planograms, setPlanograms, setPlanogramDetail } = usePlanogramStore();
   const catalogProducts = useCatalogStore((s) => s.products);
-  const { addZone, zones } = useZoneStore();
+  const { addZone, zones, polygonDraft, startPolygonDrawing, cancelPolygonDrawing } = useZoneStore();
 
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [library, setLibrary] = useState<FurnitureDefinition[]>([]);
@@ -364,45 +364,103 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
         )}
       </div>
 
-      {/* Zone buttons (Entrée / Sortie / Fournitures) */}
-      <div className="border-t border-gray-800 p-2 shrink-0 space-y-1">
-        <p className="text-xs text-gray-600 uppercase tracking-wider font-semibold mb-1">Zones</p>
-        <button
-          title="Ajouter / sélectionner la zone Entrée"
-          onClick={() => addZone('entrance', storeW, storeD)}
-          className={[
-            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors',
-            hasEntrance
-              ? 'bg-green-800/60 text-green-300 border border-green-700'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700',
-          ].join(' ')}
-        >
-          <span>🟢</span>
-          <span>Entrée</span>
-          {hasEntrance && <span className="ml-auto text-green-500 text-xs">✓</span>}
-        </button>
-        <button
-          title="Ajouter / sélectionner la zone Sortie sans achat"
-          onClick={() => addZone('exit', storeW, storeD)}
-          className={[
-            'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors',
-            hasExit
-              ? 'bg-orange-800/60 text-orange-300 border border-orange-700'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700',
-          ].join(' ')}
-        >
-          <span>🟠</span>
-          <span>Sortie</span>
-          {hasExit && <span className="ml-auto text-orange-400 text-xs">✓</span>}
-        </button>
-        <button
-          title="Ajouter une zone de fournitures"
-          onClick={() => addZone('supply', storeW, storeD)}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700"
-        >
-          <span>🟣</span>
-          <span>Fournitures</span>
-        </button>
+      <div className="border-t border-gray-800 p-2 shrink-0 space-y-3">
+        <section className="space-y-2 rounded-xl border border-gray-800 bg-gray-900/40 p-2">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">Zones métier</p>
+              <p className="mt-1 text-[11px] text-gray-400">Entrées, sorties et réserves métier.</p>
+            </div>
+          </div>
+          <div className="grid gap-1">
+            <button
+              title="Ajouter / sélectionner la zone Entrée"
+              onClick={() => addZone('entrance', storeW, storeD)}
+              className={[
+                'w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium transition-colors',
+                hasEntrance
+                  ? 'bg-green-800/60 text-green-300 border border-green-700'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700',
+              ].join(' ')}
+            >
+              <span>🟢</span>
+              <span>Entrée</span>
+              {hasEntrance && <span className="ml-auto text-green-500 text-xs">✓</span>}
+            </button>
+            <button
+              title="Ajouter / sélectionner la zone Sortie sans achat"
+              onClick={() => addZone('exit', storeW, storeD)}
+              className={[
+                'w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium transition-colors',
+                hasExit
+                  ? 'bg-orange-800/60 text-orange-300 border border-orange-700'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700',
+              ].join(' ')}
+            >
+              <span>🟠</span>
+              <span>Sortie</span>
+              {hasExit && <span className="ml-auto text-orange-400 text-xs">✓</span>}
+            </button>
+            <button
+              title="Ajouter une zone de fournitures"
+              onClick={() => addZone('supply', storeW, storeD)}
+              className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-dashed border-gray-700"
+            >
+              <span>🟣</span>
+              <span>Fournitures</span>
+            </button>
+          </div>
+        </section>
+        <section className="space-y-2 rounded-xl border border-gray-800 bg-gray-900/40 p-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">Dessin au sol</p>
+            <p className="mt-1 text-[11px] text-gray-400">
+              Zones fermées interdites d’accès, colorées et manipulables dans la scène.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => addZone('forbidden', storeW, storeD, { shape: 'rectangle' })}
+              className="rounded-lg border border-dashed border-red-800 px-2 py-2 text-left text-xs font-medium text-red-200 transition-colors hover:bg-red-950/30"
+            >
+              ▭ Rectangle
+            </button>
+            <button
+              type="button"
+              onClick={() => addZone('forbidden', storeW, storeD, { shape: 'circle' })}
+              className="rounded-lg border border-dashed border-red-800 px-2 py-2 text-left text-xs font-medium text-red-200 transition-colors hover:bg-red-950/30"
+            >
+              ◯ Cercle
+            </button>
+            <button
+              type="button"
+              onClick={() => addZone('forbidden', storeW, storeD, { shape: 'diamond' })}
+              className="rounded-lg border border-dashed border-red-800 px-2 py-2 text-left text-xs font-medium text-red-200 transition-colors hover:bg-red-950/30"
+            >
+              ◇ Losange
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (polygonDraft) cancelPolygonDrawing();
+                else startPolygonDrawing();
+              }}
+              className={`rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors ${
+                polygonDraft
+                  ? 'border-red-500 bg-red-950/40 text-red-200'
+                  : 'border-dashed border-red-800 text-red-200 hover:bg-red-950/30'
+              }`}
+            >
+              ✏️ Polygone libre
+            </button>
+          </div>
+          {polygonDraft && (
+            <p className="rounded-lg border border-red-900 bg-red-950/30 px-2 py-2 text-[11px] leading-snug text-red-200">
+              Mode polygone actif : cliquez point par point sur la grille puis recliquez près du premier point pour fermer la zone.
+            </p>
+          )}
+        </section>
       </div>
     </div>
   );

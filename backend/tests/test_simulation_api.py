@@ -208,6 +208,39 @@ def test_run_simulation_with_default_waypoints() -> None:
     assert any(waypoint["waypointType"] == "exit" for waypoint in payload["waypoints"])
 
 
+def test_forbidden_floor_polygon_is_removed_from_walkable_geometry() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "blocked-poly",
+            "type": "forbidden",
+            "label": "Zone interdite libre",
+            "shape": "polygon",
+            "color": "#ef4444",
+            "x": 400.0,
+            "z": 400.0,
+            "width": 200.0,
+            "depth": 200.0,
+            "points": [
+                {"x": 400.0, "z": 400.0},
+                {"x": 600.0, "z": 400.0},
+                {"x": 600.0, "z": 600.0},
+                {"x": 400.0, "z": 600.0},
+            ],
+        }
+    ]
+
+    walkable = simulation_service._build_walkable_geometry(simulation_service.SceneData.model_validate(scene))
+
+    assert walkable.covers(Point(1.0, 1.0))
+    assert not walkable.covers(Point(5.0, 5.0))
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

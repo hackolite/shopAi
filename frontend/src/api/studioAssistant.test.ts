@@ -70,4 +70,15 @@ describe('studio assistant API', () => {
       prompt: 'Déplace le meuble', confirm: true, category: 'layout-modify', confirmationToken: 'approved-plan',
     });
   });
+
+  it('returns the richer LLM preflight status payload', async () => {
+    const result = {
+      enabled: true,
+      reachable: true,
+      status: 'ready',
+      message: 'Provider LLM détecté et joignable.',
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(result))));
+    await expect(cadApi.getLlmAssistantStatus('current')).resolves.toEqual(result);
+  });
 });

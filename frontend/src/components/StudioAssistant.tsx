@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cadApi } from '../api/cad';
-import type { AssistantCategory } from '../api/cad';
+import type { AssistantCategory, LlmAssistantStatus } from '../api/cad';
+import { shouldUseLlmPath } from '../engine/assistantRouting';
 
 interface Props {
   projectId: string;
@@ -73,8 +74,12 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [llmAvailable, setLlmAvailable] = useState(false);
-  const [useLlm, setUseLlm] = useState(false);
+  const [llmStatus, setLlmStatus] = useState<LlmAssistantStatus>({
+    enabled: false,
+    reachable: false,
+    status: 'missing',
+    message: 'Prétest LLM en attente…',
+  });
   const endRef = useRef<HTMLDivElement>(null);
   const generatedProject = useRef<string | null>(null);
   const activeProject = useRef(projectId);
@@ -87,15 +92,28 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     setCategory(null);
     setConfirmation(null);
     setError(null);
-    setUseLlm(false);
   }, [projectId]);
 
   useEffect(() => {
     let cancelled = false;
-    setLlmAvailable(false);
+    setLlmStatus({
+      enabled: false,
+      reachable: false,
+      status: 'missing',
+      message: 'Prétest LLM en cours…',
+    });
     cadApi.getLlmAssistantStatus(projectId)
-      .then((status) => { if (!cancelled) setLlmAvailable(status.enabled); })
-      .catch(() => { if (!cancelled) setLlmAvailable(false); });
+      .then((status) => { if (!cancelled) setLlmStatus(status); })
+      .catch((cause) => {
+        if (!cancelled) {
+          setLlmStatus({
+            enabled: false,
+            reachable: false,
+            status: 'error',
+            message: cause instanceof Error ? cause.message : 'Prétest LLM impossible',
+          });
+        }
+      });
     return () => { cancelled = true; };
   }, [projectId]);
 
@@ -107,7 +125,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     if (!text.trim() || !category || busy) return;
     const confirm = pending !== undefined;
     const sourceId = projectId;
-    const viaLlm = pending?.viaLlm ?? (useLlm && llmAvailable);
+    const viaLlm = pending?.viaLlm ?? shouldUseLlmPath(llmStatus);
     const requestCategory = pending?.category ?? category;
     setBusy(true);
     setError(null);
@@ -151,23 +169,50 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     <section aria-label="Assistant d’implantation" className="flex h-full flex-col text-base">
       <div className="border-b border-gray-700 p-5">
         <h2 className="text-lg font-semibold">Assistant d’implantation</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-300">
-          {useLlm && llmAvailable
-            ? "Mode agent LLM externe : le prompt est relayé à l'orchestrateur configuré côté serveur."
-            : 'Assistant local basé sur les modèles Carrefour, sans IA externe.'}
-          {' '}Une implantation complète inclut mobilier, catalogue et produits.
-          Le résultat s’ouvre en 3D dès sa création et reste enregistré.
-        </p>
-        {llmAvailable && (
-          <label className="mt-3 flex items-center gap-2 text-sm text-cyan-200">
-            <input type="checkbox" checked={useLlm} disabled={busy}
-              onChange={(event) => {
-                setUseLlm(event.target.checked);
-                setConfirmation(null);
-              }} />
-            Utiliser l’agent LLM externe configuré côté serveur
-          </label>
-        )}
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="rounded-2xl border border-cyan-900/70 bg-gray-900/70 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-200">
+                Mode par défaut
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${
+                shouldUseLlmPath(llmStatus)
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'bg-red-500/15 text-red-300'
+              }`}>
+                {shouldUseLlmPath(llmStatus) ? 'LLM actif' : 'Fallback local'}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-gray-300">
+              {shouldUseLlmPath(llmStatus)
+                ? "Le prompt part désormais directement vers l'orchestrateur LLM configuré côté serveur."
+                : "Le prétest LLM a détecté une indisponibilité : l'assistant local reprend automatiquement le relais."}
+              {' '}Une implantation complète inclut mobilier, catalogue et produits.
+              Le résultat s’ouvre en 3D dès sa création et reste enregistré.
+            </p>
+          </div>
+          <div className={`rounded-2xl border p-4 ${
+            shouldUseLlmPath(llmStatus)
+              ? 'border-emerald-800 bg-emerald-950/20'
+              : 'border-red-900 bg-red-950/30'
+          }`}>
+            <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${
+              shouldUseLlmPath(llmStatus) ? 'text-emerald-300' : 'text-red-300'
+            }`}>
+              Prétest provider LLM
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-200">{llmStatus.message}</p>
+            {!shouldUseLlmPath(llmStatus) ? (
+              <p className="mt-2 text-xs font-medium text-red-300">
+                Critique : vérifiez immédiatement la configuration et la disponibilité du provider.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs font-medium text-emerald-300">
+                Provider validé avant envoi : les requêtes LLM peuvent partir.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <fieldset className="mb-5 rounded-xl border border-gray-600 p-4">

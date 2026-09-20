@@ -33,6 +33,13 @@ export interface StudioAssistantResponse {
   confirmationToken?: string;
 }
 
+export interface LlmAssistantStatus {
+  enabled: boolean;
+  reachable: boolean;
+  status: 'ready' | 'missing' | 'unreachable' | 'error';
+  message: string;
+}
+
 export type AssistantCategory =
   | 'layout-modify'
   | 'layout-create'
@@ -79,7 +86,7 @@ export const cadApi = {
       body: JSON.stringify({ prompt, confirm, ...options }),
     }),
   getLlmAssistantStatus: (id: string) =>
-    request<{ enabled: boolean }>(`${BASE}/${id}/assistant/llm/status`),
+    request<LlmAssistantStatus>(`${BASE}/${id}/assistant/llm/status`),
   listProjects: () => request<{ projects: ProjectListItem[] }>(BASE),
   getProject: (id: string) => request<ProjectMeta>(`${BASE}/${id}`),
   createProject: (

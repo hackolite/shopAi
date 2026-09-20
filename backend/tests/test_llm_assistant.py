@@ -42,7 +42,70 @@ def test_status_reports_disabled_without_env(studio, monkeypatch: pytest.MonkeyP
     monkeypatch.delenv("STUDIO_LLM_WEBHOOK_URL", raising=False)
     response = client.get(f"/api/cad/projects/{project_id}/assistant/llm/status")
     assert response.status_code == 200
-    assert response.json() == {"enabled": False}
+    assert response.json() == {
+        "enabled": False,
+        "reachable": False,
+        "status": "missing",
+        "message": "Provider LLM introuvable : variable serveur STUDIO_LLM_WEBHOOK_URL absente.",
+    }
+
+
+def test_status_preflight_reports_ready_when_webhook_responds(studio, monkeypatch: pytest.MonkeyPatch):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+
+    def fake_get(url, timeout=None):
+        assert url == "http://agent.invalid/webhook"
+        return httpx.Response(405)
+
+    monkeypatch.setattr(llm_assistant.httpx, "get", fake_get)
+    response = client.get(f"/api/cad/projects/{project_id}/assistant/llm/status")
+    assert response.status_code == 200
+    assert response.json() == {
+        "enabled": True,
+        "reachable": True,
+        "status": "ready",
+        "message": "Provider LLM détecté et joignable.",
+    }
+
+
+def test_status_preflight_reports_unreachable_on_transport_error(studio, monkeypatch: pytest.MonkeyPatch):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+
+    def fake_get(url, timeout=None):
+        raise httpx.ConnectError("boom")
+
+    monkeypatch.setattr(llm_assistant.httpx, "get", fake_get)
+    response = client.get(f"/api/cad/projects/{project_id}/assistant/llm/status")
+    assert response.status_code == 200
+    assert response.json() == {
+        "enabled": True,
+        "reachable": False,
+        "status": "unreachable",
+        "message": (
+            "Provider LLM configuré mais injoignable. Vérifiez l'orchestrateur, "
+            "le réseau et l'URL du webhook."
+        ),
+    }
+
+
+def test_status_preflight_reports_error_on_unexpected_http_status(studio, monkeypatch: pytest.MonkeyPatch):
+    client, project_id = studio
+    monkeypatch.setenv("STUDIO_LLM_WEBHOOK_URL", "http://agent.invalid/webhook")
+
+    def fake_get(url, timeout=None):
+        return httpx.Response(500)
+
+    monkeypatch.setattr(llm_assistant.httpx, "get", fake_get)
+    response = client.get(f"/api/cad/projects/{project_id}/assistant/llm/status")
+    assert response.status_code == 200
+    assert response.json() == {
+        "enabled": True,
+        "reachable": False,
+        "status": "error",
+        "message": "Provider LLM détecté mais le prétest a échoué (HTTP 500).",
+    }
 
 
 def test_llm_endpoint_rejects_when_not_configured(studio, monkeypatch: pytest.MonkeyPatch):

@@ -10,7 +10,7 @@ try:
 except ImportError:  # pragma: no cover - handled at runtime
     jps = None
 
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import GeometryCollection, MultiPolygon, Point, Polygon
 
 from models.project import (
     FurnitureInstance,
@@ -355,6 +355,63 @@ def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> 
     return clipped if isinstance(clipped, Polygon) else None
 
 
+def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None:
+    if getattr(zone, "type", None) != "forbidden":
+        return None
+    shape = getattr(zone, "shape", "rectangle")
+    x = float(getattr(zone, "x", 0.0))
+    z = float(getattr(zone, "z", 0.0))
+    width = max(0.0, float(getattr(zone, "width", 0.0)))
+    depth = max(0.0, float(getattr(zone, "depth", 0.0)))
+    if shape == "polygon":
+        raw_points = getattr(zone, "points", None) or []
+        if len(raw_points) < 3:
+            return None
+        points = [(_cm_to_m(float(point.x)), _cm_to_m(float(point.z))) for point in raw_points]
+        polygon = Polygon(points)
+    elif shape == "circle":
+        center = Point(_cm_to_m(x + width / 2.0), _cm_to_m(z + depth / 2.0))
+        radius_x_m = _cm_to_m(width / 2.0)
+        radius_z_m = _cm_to_m(depth / 2.0)
+        polygon = center.buffer(1.0, quad_segs=32)
+        polygon = Polygon([
+            (
+                center.x + (px - center.x) * radius_x_m,
+                center.y + (py - center.y) * radius_z_m,
+            )
+            for px, py in polygon.exterior.coords
+        ])
+    elif shape == "diamond":
+        polygon = Polygon(
+            [
+                (_cm_to_m(x + width / 2.0), _cm_to_m(z)),
+                (_cm_to_m(x + width), _cm_to_m(z + depth / 2.0)),
+                (_cm_to_m(x + width / 2.0), _cm_to_m(z + depth)),
+                (_cm_to_m(x), _cm_to_m(z + depth / 2.0)),
+            ]
+        )
+    else:
+        polygon = Polygon(
+            [
+                (_cm_to_m(x), _cm_to_m(z)),
+                (_cm_to_m(x + width), _cm_to_m(z)),
+                (_cm_to_m(x + width), _cm_to_m(z + depth)),
+                (_cm_to_m(x), _cm_to_m(z + depth)),
+            ]
+        )
+    if polygon.is_empty:
+        return None
+    clipped = polygon.intersection(store_polygon).buffer(0)
+    if clipped.is_empty:
+        return None
+    if isinstance(clipped, GeometryCollection):
+        polygons = [geom for geom in clipped.geoms if isinstance(geom, Polygon)]
+        if not polygons:
+            return None
+        clipped = MultiPolygon(polygons) if len(polygons) > 1 else polygons[0]
+    return clipped if isinstance(clipped, (Polygon, MultiPolygon)) else None
+
+
 def _build_walkable_geometry(scene: SceneData) -> Polygon:
     store = scene.store
     store_x_m = _cm_to_m(float(store.position[0]))
@@ -372,6 +429,10 @@ def _build_walkable_geometry(scene: SceneData) -> Polygon:
     walkable = store_polygon
     for furniture in scene.furniture:
         obstacle = _furniture_polygon(furniture, store_polygon)
+        if obstacle is not None:
+            walkable = walkable.difference(obstacle)
+    for zone in getattr(store, "zones", []) or []:
+        obstacle = _zone_polygon(zone, store_polygon)
         if obstacle is not None:
             walkable = walkable.difference(obstacle)
     walkable = walkable.buffer(0)

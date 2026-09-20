@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cadApi } from '../api/cad';
 import type { AssistantCategory, LlmAssistantStatus } from '../api/cad';
+import { shouldUseLlmPath } from '../engine/assistantRouting';
 
 interface Props {
   projectId: string;
@@ -124,7 +125,7 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
     if (!text.trim() || !category || busy) return;
     const confirm = pending !== undefined;
     const sourceId = projectId;
-    const viaLlm = pending?.viaLlm ?? (llmStatus.enabled && llmStatus.reachable);
+    const viaLlm = pending?.viaLlm ?? shouldUseLlmPath(llmStatus);
     const requestCategory = pending?.category ?? category;
     setBusy(true);
     setError(null);
@@ -175,15 +176,15 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
                 Mode par défaut
               </span>
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${
-                llmStatus.enabled && llmStatus.reachable
+                shouldUseLlmPath(llmStatus)
                   ? 'bg-emerald-500/15 text-emerald-300'
                   : 'bg-red-500/15 text-red-300'
               }`}>
-                {llmStatus.enabled && llmStatus.reachable ? 'LLM actif' : 'Fallback local'}
+                {shouldUseLlmPath(llmStatus) ? 'LLM actif' : 'Fallback local'}
               </span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-gray-300">
-              {llmStatus.enabled && llmStatus.reachable
+              {shouldUseLlmPath(llmStatus)
                 ? "Le prompt part désormais directement vers l'orchestrateur LLM configuré côté serveur."
                 : "Le prétest LLM a détecté une indisponibilité : l'assistant local reprend automatiquement le relais."}
               {' '}Une implantation complète inclut mobilier, catalogue et produits.
@@ -191,17 +192,17 @@ export default function StudioAssistant({ projectId, onProjectCreated, onSave }:
             </p>
           </div>
           <div className={`rounded-2xl border p-4 ${
-            llmStatus.enabled && llmStatus.reachable
+            shouldUseLlmPath(llmStatus)
               ? 'border-emerald-800 bg-emerald-950/20'
               : 'border-red-900 bg-red-950/30'
           }`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${
-              llmStatus.enabled && llmStatus.reachable ? 'text-emerald-300' : 'text-red-300'
+              shouldUseLlmPath(llmStatus) ? 'text-emerald-300' : 'text-red-300'
             }`}>
               Prétest provider LLM
             </p>
             <p className="mt-2 text-sm leading-relaxed text-gray-200">{llmStatus.message}</p>
-            {!llmStatus.enabled || !llmStatus.reachable ? (
+            {!shouldUseLlmPath(llmStatus) ? (
               <p className="mt-2 text-xs font-medium text-red-300">
                 Critique : vérifiez immédiatement la configuration et la disponibilité du provider.
               </p>

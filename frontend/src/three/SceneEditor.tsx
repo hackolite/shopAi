@@ -2698,7 +2698,7 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
   const w = store.dimensions.width * CM_TO_UNIT;
   const d = store.dimensions.depth * CM_TO_UNIT;
   const drawY = GRID_Y_OFFSET + 0.025;
-  const closeThreshold = GRID_CELL_CM * 0.75;
+  const closeThreshold = GRID_CELL_CM;
 
   const snapPoint = (value: THREE.Vector3): FloorZonePoint => ({
     x: snapToCell(value.x / CM_TO_UNIT, store.position?.[0] ?? 0),

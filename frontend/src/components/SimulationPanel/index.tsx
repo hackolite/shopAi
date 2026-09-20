@@ -328,6 +328,11 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const simulationModeLabel = !config.enabled
     ? 'Simulation désactivée'
     : datasetModeActive ? 'Dataset piétons & paniers' : 'JuPedSim';
+  const simulationModeBadge = !config.enabled
+    ? { label: 'Désactivée', className: 'bg-gray-500/15 text-gray-300' }
+    : datasetModeActive
+      ? { label: 'Piloté par dataset', className: 'bg-cyan-500/15 text-cyan-200' }
+      : { label: 'Piloté par JuPedSim', className: 'bg-emerald-500/15 text-emerald-300' };
   // New waypoints are dropped at the bottom-left corner of the grid so they are
   // always visible right where the store starts.
   const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);
@@ -829,10 +834,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">Mode de simulation</p>
                 <p className="mt-1 text-sm font-medium text-gray-100">{simulationModeLabel}</p>
               </div>
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${
-                datasetModeActive ? 'bg-cyan-500/15 text-cyan-200' : 'bg-emerald-500/15 text-emerald-300'
-              }`}>
-                {datasetModeActive ? 'Piloté par dataset' : 'Piloté par JuPedSim'}
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${simulationModeBadge.className}`}>
+                {simulationModeBadge.label}
               </span>
             </div>
             <p className="mt-2 text-[11px] leading-snug text-gray-400">

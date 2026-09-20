@@ -180,10 +180,25 @@ class LLMPlanner:
             function_data = call.get("function") or {}
             if function_data.get("name") == "build_store_plan":
                 args = function_data.get("arguments") or "{}"
+                if isinstance(args, str):
+                    return json.loads(args)
+                if isinstance(args, dict):
+                    return args
+        function_call = message.get("function_call") or {}
+        if function_call.get("name") == "build_store_plan":
+            args = function_call.get("arguments") or "{}"
+            if isinstance(args, str):
                 return json.loads(args)
+            if isinstance(args, dict):
+                return args
         return None
 
     def _openai_compatible_payload(self, user_prompt: str, *, model: str, force_tool_choice: bool) -> dict[str, Any]:
+        tool_spec = {
+            "name": TOOL_SPEC["name"],
+            "description": TOOL_SPEC["description"],
+            "parameters": self._openai_compatible_parameters_schema(TOOL_SPEC["parameters"]),
+        }
         payload: dict[str, Any] = {
             "model": model,
             "temperature": 0,
@@ -191,11 +206,60 @@ class LLMPlanner:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            "tools": [{"type": "function", "function": TOOL_SPEC}],
+            "tools": [{"type": "function", "function": tool_spec}],
         }
         if force_tool_choice:
             payload["tool_choice"] = {"type": "function", "function": {"name": TOOL_SPEC["name"]}}
         return payload
+
+    def _openai_compatible_parameters_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
+        defs = schema.get("$defs") if isinstance(schema.get("$defs"), dict) else {}
+        return self._sanitize_schema_node(schema, defs)
+
+    def _sanitize_schema_node(self, node: Any, defs: dict[str, Any]) -> Any:
+        if isinstance(node, list):
+            return [self._sanitize_schema_node(item, defs) for item in node]
+        if not isinstance(node, dict):
+            return node
+
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            key = ref.split("/")[-1]
+            target = defs.get(key)
+            if isinstance(target, dict):
+                merged = {k: v for k, v in node.items() if k != "$ref"}
+                return self._sanitize_schema_node({**target, **merged}, defs)
+
+        sanitized: dict[str, Any] = {}
+        for key, value in node.items():
+            if key in {"$defs", "$schema", "title", "default", "examples"}:
+                continue
+            if key in {"anyOf", "oneOf"} and isinstance(value, list):
+                options = [
+                    self._sanitize_schema_node(item, defs)
+                    for item in value
+                    if not (isinstance(item, dict) and item.get("type") == "null")
+                ]
+                if not options:
+                    continue
+                if len(options) == 1:
+                    single = options[0]
+                    if isinstance(single, dict):
+                        for single_key, single_value in single.items():
+                            sanitized[single_key] = single_value
+                    continue
+                sanitized[key] = options
+                continue
+            sanitized[key] = self._sanitize_schema_node(value, defs)
+
+        if "prefixItems" in sanitized:
+            prefix_items = sanitized.pop("prefixItems")
+            if isinstance(prefix_items, list) and prefix_items:
+                sanitized["items"] = self._sanitize_schema_node(prefix_items[0], defs)
+                sanitized["minItems"] = max(int(sanitized.get("minItems", 0)), len(prefix_items))
+                sanitized["maxItems"] = min(int(sanitized.get("maxItems", len(prefix_items))), len(prefix_items))
+
+        return sanitized
 
     @staticmethod
     def _http_error_meta(response: httpx.Response) -> dict[str, Any]:
@@ -217,6 +281,12 @@ class LLMPlanner:
                     meta["error_code"] = error.get("code")
                 if error.get("param") is not None:
                     meta["error_param"] = error.get("param")
+                if error.get("message") is not None:
+                    meta["error_message"] = error.get("message")
+            elif isinstance(error, str):
+                meta["error_message"] = error
+            elif body.get("message") is not None:
+                meta["error_message"] = body.get("message")
         return meta
 
     async def _anthropic_plan(self, user_prompt: str) -> dict[str, Any] | None:

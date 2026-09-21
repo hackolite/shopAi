@@ -35,6 +35,7 @@ function PreviewScene({ scene }: { scene: Scene }) {
   const storeDepth = scene.store.dimensions.depth * CM_TO_UNIT;
   const storeHeight = scene.store.dimensions.height * CM_TO_UNIT;
   const maxSpan = Math.max(storeWidth, storeDepth, 1);
+  const storeOutlineGeometry = useMemo(() => new THREE.BoxGeometry(storeWidth, 0.02, storeDepth), [storeDepth, storeWidth]);
   const target = useMemo(
     () => new THREE.Vector3(storeOriginX + storeWidth / 2, 0, storeOriginZ + storeDepth / 2),
     [storeDepth, storeOriginX, storeOriginZ, storeWidth],
@@ -61,7 +62,7 @@ function PreviewScene({ scene }: { scene: Scene }) {
       </mesh>
 
       <lineSegments position={[storeOriginX + storeWidth / 2, 0.001, storeOriginZ + storeDepth / 2]}>
-        <edgesGeometry args={[new THREE.BoxGeometry(storeWidth, 0.02, storeDepth)]} />
+        <edgesGeometry args={[storeOutlineGeometry]} />
         <lineBasicMaterial color="#60a5fa" />
       </lineSegments>
 
@@ -76,7 +77,7 @@ function PreviewScene({ scene }: { scene: Scene }) {
         return (
           <mesh
             key={furniture.id}
-            position={[center.x * CM_TO_UNIT, y, center.z * CM_TO_UNIT]}
+            position={[storeOriginX + center.x * CM_TO_UNIT, y, storeOriginZ + center.z * CM_TO_UNIT]}
             rotation={[0, (furniture.rotation[1] ?? 0) * Math.PI / 180, 0]}
           >
             <boxGeometry args={[width, renderedHeight, depth]} />

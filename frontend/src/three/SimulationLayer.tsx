@@ -66,6 +66,7 @@ function WaypointMarker({
   maxXCm,
   minZCm,
   maxZCm,
+  setSceneNavigationDragging,
 }: {
   id: string;
   label: string;
@@ -80,6 +81,7 @@ function WaypointMarker({
   maxXCm: number;
   minZCm: number;
   maxZCm: number;
+  setSceneNavigationDragging: (dragging: boolean) => void;
 }) {
   const { gl, raycaster, camera } = useThree();
   const groupRef = useRef<THREE.Group>(null);
@@ -118,7 +120,8 @@ function WaypointMarker({
       try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* noop */ }
       pointerIdRef.current = null;
     }
-  }, [gl]);
+    setSceneNavigationDragging(false);
+  }, [gl, setSceneNavigationDragging]);
 
   useEffect(() => () => endDrag(), [endDrag]);
 
@@ -155,6 +158,7 @@ function WaypointMarker({
         };
         historyCapturedRef.current = false;
         pointerIdRef.current = event.pointerId;
+        setSceneNavigationDragging(true);
         try { gl.domElement.setPointerCapture(event.pointerId); } catch { /* noop */ }
         const onMove = (moveEvent: PointerEvent) => {
           const dragState = dragStateRef.current;
@@ -588,7 +592,11 @@ function SuggestedWaypointMarker({
   );
 }
 
-export function SimulationLayer() {
+export function SimulationLayer({
+  setSceneNavigationDragging,
+}: {
+  setSceneNavigationDragging: (dragging: boolean) => void;
+}) {
   const scene = useSceneStore((state) => state.scene);
   const config = useSimulationStore((state) => state.config);
   const invalidWaypointIds = useSimulationStore((state) => state.invalidWaypointIds);
@@ -872,6 +880,7 @@ export function SimulationLayer() {
           maxXCm={maxXCm}
           minZCm={minZCm}
           maxZCm={maxZCm}
+          setSceneNavigationDragging={setSceneNavigationDragging}
         />
       ))}
       {showHeatmap && heatmapMode === 'traffic' && analytics?.heatmap && (

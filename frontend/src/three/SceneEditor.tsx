@@ -1011,7 +1011,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
       const q = obj.quaternion;
       const rotYRad = 2 * Math.atan2(q.y, q.w);
       const newRotY = rotYRad * (180 / Math.PI);
-      const snappedRotY = Math.round(newRotY / 90) * 90;
+      const snappedRotY = Math.round(newRotY);
       const updated = {
         ...furniture,
         rotation: [furniture.rotation[0], snappedRotY, furniture.rotation[2]] as [number, number, number],
@@ -1033,7 +1033,7 @@ function TransformProxy({ furniture, transformTarget, mode, projectId }: Transfo
     <TransformControls
       object={transformTarget}
       mode={mode}
-      rotationSnap={Math.PI / 2}
+      rotationSnap={Math.PI / 180}
       onObjectChange={magnetiseTarget}
       onMouseUp={handleMouseUp}
     />
@@ -3260,7 +3260,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           isSelected={storeBoundarySelected}
           onSelect={handleSelectBoundary}
         />
-        <SimulationLayer />
+        <SimulationLayer setSceneNavigationDragging={setIsResizeDragging} />
         <FloorZoneLayer />
         <PolygonDraftTool store={scene.store} />
         <MeasureTool store={scene.store} />

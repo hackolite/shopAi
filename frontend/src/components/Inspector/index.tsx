@@ -275,7 +275,7 @@ function FurnitureInspector({ furniture, projectId, onOpenPlanogram }: Furniture
   };
 
   const setRotY = (v: number) => {
-   const snapped = Math.round(v / 90) * 90;
+   const snapped = Math.round(v);
    const r = [...furniture.rotation] as [number, number, number];
    r[1] = snapped;
    save({ ...furniture, rotation: r });

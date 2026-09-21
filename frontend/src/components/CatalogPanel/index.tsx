@@ -156,6 +156,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [availableCatalogsError, setAvailableCatalogsError] = useState<string | null>(null);
   const [isApplyingCatalog, setIsApplyingCatalog] = useState(false);
+  const latestCatalogApplyRequestRef = useRef(0);
 
   const displayed =
     selectedCategory === 'All'
@@ -182,25 +183,35 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   }, []);
 
   useEffect(() => {
+    latestCatalogApplyRequestRef.current += 1;
     setSelectedWorkspaceCatalogId('');
     setCatalogError(null);
     setIsApplyingCatalog(false);
   }, [projectId]);
 
   const handleWorkspaceCatalogChange = async (catalogId: string) => {
+    const requestId = latestCatalogApplyRequestRef.current + 1;
+    latestCatalogApplyRequestRef.current = requestId;
     setSelectedWorkspaceCatalogId(catalogId);
     setCatalogError(null);
-    if (!projectId || !catalogId) return;
+    if (!projectId || !catalogId) {
+      setIsApplyingCatalog(false);
+      return;
+    }
     setIsApplyingCatalog(true);
     try {
       await cadApi.loadTenantCatalog(projectId, catalogId);
       const catalog = await cadApi.getCatalog(projectId);
+      if (latestCatalogApplyRequestRef.current !== requestId) return;
       setProducts(catalog.products);
     } catch (error) {
+      if (latestCatalogApplyRequestRef.current !== requestId) return;
       console.error('Failed to load workspace catalog:', error);
       setCatalogError('Impossible d’appliquer ce catalogue au projet.');
     } finally {
-      setIsApplyingCatalog(false);
+      if (latestCatalogApplyRequestRef.current === requestId) {
+        setIsApplyingCatalog(false);
+      }
     }
   };
 

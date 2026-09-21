@@ -584,7 +584,7 @@ export default function App() {
                           <span>{project.checkoutSimulations} scénarios</span>
                         </div>
                         <div className="hub-project-actions">
-                          <button type="button" disabled={busy} onClick={() => handleDuplicateProject(project)} aria-label={`Cloner le projet ${project.name}`}>
+                          <button type="button" disabled={busy || nameDialog !== null} onClick={() => handleDuplicateProject(project)} aria-label={`Cloner le projet ${project.name}`}>
                             Cloner
                           </button>
                           <button type="button" disabled={busy} onClick={() => void handleDownloadProjectZip(project.id, project.name)} aria-label={`Télécharger le projet ${project.name}`}>

@@ -10,6 +10,8 @@ import {
   type PlatformUser,
 } from './api/platform';
 import StudioApp from './StudioApp';
+import NameDialog from './components/NameDialog';
+import ProjectSceneThumbnail from './components/ProjectSceneThumbnail';
 import './App.css';
 
 type AuthMode = 'login' | 'signup';
@@ -65,6 +67,13 @@ export default function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [activeTab, setActiveTab] = useState<HubTab>('projects');
   const [studioProjectId, setStudioProjectId] = useState<string | null>(null);
+  const [nameDialog, setNameDialog] = useState<{
+    title: string;
+    label: string;
+    defaultValue?: string;
+    confirmLabel?: string;
+    onConfirm: (name: string) => void;
+  } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -203,6 +212,23 @@ export default function App() {
     await cadApi.exportProjectZip(projectId, projectName);
     setStatusMessage('Téléchargement du projet lancé.');
   });
+
+  const handleDuplicateProject = (project: PlatformProjectSummary) => {
+    setNameDialog({
+      title: 'Cloner le projet',
+      label: 'Nom du projet cloné',
+      defaultValue: `${project.name} (copie)`,
+      confirmLabel: 'Cloner',
+      onConfirm: (name) => {
+        setNameDialog(null);
+        void runAction(async () => {
+          await cadApi.duplicateProject(project.id, name);
+          await loadAuthenticatedData();
+          setStatusMessage('Projet cloné.');
+        });
+      },
+    });
+  };
 
   const handleCreateStoreLayout = () => runAction(async () => {
     if (!layoutName.trim()) return;
@@ -548,6 +574,7 @@ export default function App() {
                   {projects.length === 0 ? <div className="hub-empty"><h3>Votre premier projet commence ici</h3><p>Donnez-lui un nom ci-dessus, puis aménagez votre magasin dans le studio.</p></div> : (
                     <ul className="hub-project-grid">
                       {projects.map((project) => <li className="hub-project-card" key={project.id}>
+                        <ProjectSceneThumbnail projectId={project.id} projectName={project.name} />
                         <span className="hub-project-icon" aria-hidden="true">▦</span>
                         <h3>{project.name}</h3>
                         <p className="hub-small hub-muted">Mis à jour le {formatDate(project.updatedAt)}</p>
@@ -556,9 +583,14 @@ export default function App() {
                           <span>{project.planograms} planogrammes</span>
                           <span>{project.checkoutSimulations} scénarios</span>
                         </div>
-                        <button type="button" disabled={busy} onClick={() => void handleDownloadProjectZip(project.id, project.name)} aria-label={`Télécharger le projet ${project.name}`}>
-                          Télécharger
-                        </button>
+                        <div className="hub-project-actions">
+                          <button type="button" disabled={busy || nameDialog !== null} onClick={() => handleDuplicateProject(project)} aria-label={`Cloner le projet ${project.name}`}>
+                            Cloner
+                          </button>
+                          <button type="button" disabled={busy} onClick={() => void handleDownloadProjectZip(project.id, project.name)} aria-label={`Télécharger le projet ${project.name}`}>
+                            Télécharger
+                          </button>
+                        </div>
                         <button type="button" disabled={busy} onClick={() => openStudio(project)} aria-label={`Ouvrir ${project.name} dans le studio`}>Ouvrir le studio <span aria-hidden="true">↗</span></button>
                         <button
                           type="button"
@@ -784,6 +816,16 @@ export default function App() {
               </div>
             </main>
           </>
+        )}
+        {nameDialog && (
+          <NameDialog
+            title={nameDialog.title}
+            label={nameDialog.label}
+            defaultValue={nameDialog.defaultValue}
+            confirmLabel={nameDialog.confirmLabel}
+            onConfirm={nameDialog.onConfirm}
+            onCancel={() => setNameDialog(null)}
+          />
         )}
         <footer className="hub-footer">ShopAI · Concevez votre magasin, à votre rythme.</footer>
       </div>

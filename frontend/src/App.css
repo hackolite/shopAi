@@ -80,9 +80,31 @@ body {
 .hub-create-project button { min-height: 48px; }
 .hub-project-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 24px; }
 .hub-project-card { padding: 28px; border: 1px solid #1f2937; border-radius: 16px; background: #111827; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; overflow-wrap: anywhere; min-width: 0; }
+.hub-project-thumbnail {
+  width: 100%;
+  height: 180px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #1f2937;
+  background: #0f172a;
+}
+.hub-project-thumbnail canvas { display: block; width: 100% !important; height: 100% !important; }
+.hub-project-thumbnail-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: #93c5fd;
+  text-align: center;
+}
+.hub-project-thumbnail-fallback span { font-size: 24px; }
 .hub-project-icon { width: 48px; height: 48px; border-radius: 12px; background: #111c3a; color: #60a5fa; display: grid; place-items: center; font-size: 30px; }
 .hub-project-details { display: flex; flex-wrap: wrap; gap: 6px 16px; color: #9ca3af; font-size: 14px; padding: 8px 0 14px; }
-.hub-project-card button { margin-top: auto; width: 100%; }
+.hub-project-actions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hub-project-actions button { margin-top: 0; }
+.hub-project-card > button { margin-top: auto; width: 100%; }
 .hub-empty { padding: 36px 28px; margin-top: 20px; border: 1px dashed #374151; border-radius: 14px; color: #9ca3af; background: #111827; }
 .hub-empty h3 { color: #e5e7eb; margin-bottom: 10px; }
 .hub-two-column { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; align-items: start; }

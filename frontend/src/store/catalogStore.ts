@@ -1,6 +1,18 @@
 import { create } from 'zustand';
 import type { CADProduct } from '../types/cad';
 
+function filterProducts(products: CADProduct[], query: string): CADProduct[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return products;
+  return products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(normalizedQuery) ||
+      product.brand.toLowerCase().includes(normalizedQuery) ||
+      product.category.toLowerCase().includes(normalizedQuery) ||
+      product.ean.includes(query.trim()),
+  );
+}
+
 interface CatalogState {
   products: CADProduct[];
   searchQuery: string;
@@ -26,22 +38,17 @@ export const useCatalogStore = create<CatalogState>((set) => ({
   recentlyUsedEans: [],
   loading: false,
 
-  setProducts: (products) => set({ products, filteredProducts: products }),
+  setProducts: (products) =>
+    set((state) => ({
+      products,
+      filteredProducts: filterProducts(products, state.searchQuery),
+      selectedEan: products.some((product) => product.ean === state.selectedEan) ? state.selectedEan : null,
+    })),
   setSearchQuery: (query) =>
     set((state) => {
-      const normalizedQuery = query.trim().toLowerCase();
-
       return {
         searchQuery: query,
-        filteredProducts: normalizedQuery
-          ? state.products.filter(
-              (product) =>
-                product.name.toLowerCase().includes(normalizedQuery) ||
-                product.brand.toLowerCase().includes(normalizedQuery) ||
-                product.category.toLowerCase().includes(normalizedQuery) ||
-                product.ean.includes(query.trim()),
-            )
-          : state.products,
+        filteredProducts: filterProducts(state.products, query),
       };
     }),
   selectProduct: (ean) => set({ selectedEan: ean }),

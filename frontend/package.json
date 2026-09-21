@@ -23,8 +23,10 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/react-test-renderer": "^19.3.0",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
+    "react-test-renderer": "^19.2.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.10"

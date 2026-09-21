@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCatalogStore } from '../../store/catalogStore';
 import { cadApi } from '../../api/cad';
+import { platformApi } from '../../api/platform';
 import type { CADProduct } from '../../types/cad';
+import type { PlatformCatalogWorkspace } from '../../api/platform';
 
 const CATEGORIES = ['All', 'Épicerie', 'Boissons', 'Frais', 'Hygiène', 'Bébé', 'Promotion'];
 
@@ -149,6 +151,13 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
     setSearchQuery, selectProduct, setProducts, products, loading,
   } = useCatalogStore();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [availableCatalogs, setAvailableCatalogs] = useState<PlatformCatalogWorkspace[]>([]);
+  const [selectedWorkspaceCatalogId, setSelectedWorkspaceCatalogId] = useState('');
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [availableCatalogsError, setAvailableCatalogsError] = useState<string | null>(null);
+  const [isApplyingCatalog, setIsApplyingCatalog] = useState(false);
+  const latestCatalogListRequestRef = useRef(0);
+  const latestCatalogApplyRequestRef = useRef(0);
 
   const displayed =
     selectedCategory === 'All'
@@ -160,10 +169,96 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
     setProducts(updated);
   };
 
+  useEffect(() => {
+    const requestId = latestCatalogListRequestRef.current + 1;
+    latestCatalogListRequestRef.current = requestId;
+    setAvailableCatalogsError(null);
+    platformApi
+      .listCatalogs()
+      .then((response) => {
+        if (latestCatalogListRequestRef.current !== requestId) return;
+        setAvailableCatalogs(response.catalogs);
+        setAvailableCatalogsError(null);
+      })
+      .catch((error) => {
+        if (latestCatalogListRequestRef.current !== requestId) return;
+        console.error('Failed to list workspace catalogs:', error);
+        setAvailableCatalogs([]);
+        setAvailableCatalogsError('Impossible de charger les catalogues workspace pour le moment.');
+      });
+  }, [projectId]);
+
+  useEffect(() => {
+    latestCatalogApplyRequestRef.current += 1;
+    setSelectedWorkspaceCatalogId('');
+    setCatalogError(null);
+    setIsApplyingCatalog(false);
+    setProducts([]);
+  }, [projectId, setProducts]);
+
+  const handleWorkspaceCatalogChange = async (catalogId: string) => {
+    const previousCatalogId = selectedWorkspaceCatalogId;
+    const requestId = latestCatalogApplyRequestRef.current + 1;
+    latestCatalogApplyRequestRef.current = requestId;
+    setSelectedWorkspaceCatalogId(catalogId);
+    setCatalogError(null);
+    if (!projectId || !catalogId) {
+      setProducts([]);
+      setIsApplyingCatalog(false);
+      return;
+    }
+    setIsApplyingCatalog(true);
+    try {
+      await cadApi.loadTenantCatalog(projectId, catalogId);
+      const catalog = await cadApi.getCatalog(projectId);
+      if (latestCatalogApplyRequestRef.current !== requestId) return;
+      setProducts(catalog.products);
+    } catch (error) {
+      if (latestCatalogApplyRequestRef.current !== requestId) return;
+      console.error('Failed to load workspace catalog:', error);
+      setSelectedWorkspaceCatalogId(previousCatalogId);
+      setCatalogError('Impossible d’appliquer ce catalogue au projet.');
+    } finally {
+      if (latestCatalogApplyRequestRef.current === requestId) {
+        setIsApplyingCatalog(false);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
+      <div className="p-2 border-b border-gray-800 shrink-0 space-y-2">
+        <div>
+          <label htmlFor="workspace-catalog-select" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            Catalogue workspace
+          </label>
+          {availableCatalogs.length > 0 ? (
+            <select
+              id="workspace-catalog-select"
+              value={selectedWorkspaceCatalogId}
+              onChange={(event) => void handleWorkspaceCatalogChange(event.target.value)}
+              disabled={!projectId || isApplyingCatalog}
+              className="w-full rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Choisir un catalogue…</option>
+              {availableCatalogs.map((catalog) => (
+                <option key={catalog.id} value={catalog.id}>
+                  {catalog.name} ({catalog.productCount} produits)
+                </option>
+              ))}
+            </select>
+          ) : availableCatalogsError ? (
+            <p className="text-[11px] text-red-400">{availableCatalogsError}</p>
+          ) : (
+            <p className="text-[11px] text-gray-500">
+              Aucun catalogue workspace disponible. Importez-en un depuis l’espace de travail &rarr; Catalogues.
+            </p>
+          )}
+          {isApplyingCatalog && <p className="mt-1 text-[11px] text-gray-400">Application du catalogue au projet…</p>}
+          {catalogError && <p className="mt-1 text-[11px] text-red-400">{catalogError}</p>}
+        </div>
+
       {/* Search bar */}
-      <div className="p-2 border-b border-gray-800 shrink-0">
         <div className="relative">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
           <input
@@ -205,16 +300,12 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
         ))}
       </div>
 
-      {/* Count + workspace guidance */}
+      {/* Count */}
       <div className="px-3 py-1 text-xs text-gray-600 border-b border-gray-800 shrink-0">
         <div>
           {displayed.length} produits
           {selectedEan && <span className="ml-2 text-blue-400">• Sélectionné: {selectedEan}</span>}
         </div>
-        <p className="mt-1 text-[11px] text-gray-500">
-          Les catalogues se gèrent dans le workspace : importez-les dans l’onglet
-          Catalogues puis sélectionnez-en un à la création du projet.
-        </p>
       </div>
 
       {/* Product list */}

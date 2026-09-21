@@ -85,7 +85,7 @@ describe('ProjectSceneThumbnail', () => {
 
     let renderer!: ReactTestRenderer;
     await act(async () => {
-      renderer = create(<ProjectSceneThumbnail projectId="p1" projectName="Projet A" />);
+      renderer = create(<ProjectSceneThumbnail projectId="p2" projectName="Projet A" />);
       await flushPromises();
     });
 

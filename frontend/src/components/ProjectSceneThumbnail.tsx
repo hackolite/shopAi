@@ -7,6 +7,7 @@ import { furnitureCentreCm } from '../engine/gridSnap';
 import type { Scene } from '../types/cad';
 
 const FLOOR_Y = -0.01;
+const scenePreviewCache = new Map<string, Promise<Scene>>();
 
 function getFurnitureColor(type: string, mounted: boolean): string {
   if (!mounted) return '#475569';
@@ -97,13 +98,16 @@ export default memo(function ProjectSceneThumbnail({ projectId, projectName }: {
     let cancelled = false;
     setStatus('loading');
     setScene(null);
-    void cadApi.getScene(projectId)
+    const request = scenePreviewCache.get(projectId) ?? cadApi.getScene(projectId);
+    scenePreviewCache.set(projectId, request);
+    void request
       .then((nextScene) => {
         if (cancelled) return;
         setScene(nextScene);
         setStatus('ready');
       })
       .catch(() => {
+        scenePreviewCache.delete(projectId);
         if (cancelled) return;
         setStatus('error');
       });

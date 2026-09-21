@@ -190,6 +190,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   }, [projectId]);
 
   const handleWorkspaceCatalogChange = async (catalogId: string) => {
+    const previousCatalogId = selectedWorkspaceCatalogId;
     const requestId = latestCatalogApplyRequestRef.current + 1;
     latestCatalogApplyRequestRef.current = requestId;
     setSelectedWorkspaceCatalogId(catalogId);
@@ -207,6 +208,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
     } catch (error) {
       if (latestCatalogApplyRequestRef.current !== requestId) return;
       console.error('Failed to load workspace catalog:', error);
+      setSelectedWorkspaceCatalogId(previousCatalogId);
       setCatalogError('Impossible d’appliquer ce catalogue au projet.');
     } finally {
       if (latestCatalogApplyRequestRef.current === requestId) {

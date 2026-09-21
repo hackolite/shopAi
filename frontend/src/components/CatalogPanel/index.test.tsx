@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 import type { CADProduct } from '../../types/cad';
 import { useCatalogStore } from '../../store/catalogStore';
 import CatalogPanel from './index';
@@ -28,8 +28,19 @@ function flushPromises(): Promise<void> {
   return Promise.resolve().then(() => undefined);
 }
 
+function makeProduct(partial: Partial<CADProduct> & Pick<CADProduct, 'ean' | 'name' | 'brand' | 'category'>): CADProduct {
+  return {
+    widthCm: 1,
+    depthCm: 1,
+    heightCm: 1,
+    weightG: 1,
+    imageUrl: '',
+    ...partial,
+  };
+}
+
 function paragraphTexts(renderer: ReactTestRenderer): string[] {
-  return renderer.root.findAllByType('p').map((node) => node.children.join(''));
+  return renderer.root.findAllByType('p').map((node: ReactTestInstance) => node.children.join(''));
 }
 
 describe('CatalogPanel', () => {
@@ -100,10 +111,10 @@ describe('CatalogPanel', () => {
     });
     getCatalog
       .mockResolvedValueOnce({
-        products: [{ ean: '222', name: 'Produit B', brand: 'B', category: 'Boissons' } satisfies CADProduct],
+        products: [makeProduct({ ean: '222', name: 'Produit B', brand: 'B', category: 'Boissons' })],
       })
       .mockResolvedValueOnce({
-        products: [{ ean: '111', name: 'Produit A', brand: 'A', category: 'Épicerie' } satisfies CADProduct],
+        products: [makeProduct({ ean: '111', name: 'Produit A', brand: 'A', category: 'Épicerie' })],
       });
 
     let renderer!: ReactTestRenderer;
@@ -126,7 +137,7 @@ describe('CatalogPanel', () => {
 
     expect(renderer.root.findByType('select').props.value).toBe('cat-2');
     expect(useCatalogStore.getState().products).toEqual([
-      { ean: '222', name: 'Produit B', brand: 'B', category: 'Boissons' },
+      makeProduct({ ean: '222', name: 'Produit B', brand: 'B', category: 'Boissons' }),
     ]);
   });
 
@@ -139,7 +150,7 @@ describe('CatalogPanel', () => {
     });
     loadTenantCatalog.mockResolvedValue(undefined);
     getCatalog.mockResolvedValue({
-      products: [{ ean: '111', name: 'Produit A', brand: 'A', category: 'Épicerie' } satisfies CADProduct],
+      products: [makeProduct({ ean: '111', name: 'Produit A', brand: 'A', category: 'Épicerie' })],
     });
 
     let renderer!: ReactTestRenderer;

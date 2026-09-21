@@ -113,7 +113,6 @@ export default memo(function ProjectSceneThumbnail({ projectId, projectName }: {
     <div className="hub-project-thumbnail" aria-label={`Aperçu 3D du projet ${projectName}`}>
       {status === 'ready' && scene ? (
         <Canvas
-          frameloop="demand"
           camera={{ position: [4, 4, 4], fov: 34, near: 0.1, far: 200 }}
           gl={{ antialias: true }}
         >

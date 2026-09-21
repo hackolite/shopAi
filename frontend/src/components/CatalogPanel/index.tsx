@@ -154,6 +154,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   const [availableCatalogs, setAvailableCatalogs] = useState<PlatformCatalogWorkspace[]>([]);
   const [selectedWorkspaceCatalogId, setSelectedWorkspaceCatalogId] = useState('');
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [availableCatalogsError, setAvailableCatalogsError] = useState<string | null>(null);
   const [isApplyingCatalog, setIsApplyingCatalog] = useState(false);
 
   const displayed =
@@ -169,8 +170,15 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   useEffect(() => {
     platformApi
       .listCatalogs()
-      .then((response) => setAvailableCatalogs(response.catalogs))
-      .catch(() => undefined);
+      .then((response) => {
+        setAvailableCatalogs(response.catalogs);
+        setAvailableCatalogsError(null);
+      })
+      .catch((error) => {
+        console.error('Failed to list workspace catalogs:', error);
+        setAvailableCatalogs([]);
+        setAvailableCatalogsError('Impossible de charger les catalogues workspace pour le moment.');
+      });
   }, []);
 
   useEffect(() => {
@@ -190,7 +198,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
       setProducts(catalog.products);
     } catch (error) {
       console.error('Failed to load workspace catalog:', error);
-      setCatalogError(error instanceof Error ? error.message : 'Erreur chargement catalogue');
+      setCatalogError('Impossible d’appliquer ce catalogue au projet.');
     } finally {
       setIsApplyingCatalog(false);
     }
@@ -218,6 +226,8 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
                 </option>
               ))}
             </select>
+          ) : availableCatalogsError ? (
+            <p className="text-[11px] text-red-400">{availableCatalogsError}</p>
           ) : (
             <p className="text-[11px] text-gray-500">
               Aucun catalogue workspace disponible. Importez-en un depuis l’espace de travail &rarr; Catalogues.

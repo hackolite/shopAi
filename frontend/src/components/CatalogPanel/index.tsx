@@ -169,6 +169,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   };
 
   useEffect(() => {
+    setAvailableCatalogsError(null);
     platformApi
       .listCatalogs()
       .then((response) => {
@@ -180,14 +181,15 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
         setAvailableCatalogs([]);
         setAvailableCatalogsError('Impossible de charger les catalogues workspace pour le moment.');
       });
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     latestCatalogApplyRequestRef.current += 1;
     setSelectedWorkspaceCatalogId('');
     setCatalogError(null);
     setIsApplyingCatalog(false);
-  }, [projectId]);
+    setProducts([]);
+  }, [projectId, setProducts]);
 
   const handleWorkspaceCatalogChange = async (catalogId: string) => {
     const previousCatalogId = selectedWorkspaceCatalogId;

@@ -135,6 +135,7 @@ describe('CatalogPanel', () => {
       await flushPromises();
     });
 
+    expect(getCatalog).toHaveBeenCalledTimes(2);
     expect(renderer.root.findByType('select').props.value).toBe('cat-2');
     expect(useCatalogStore.getState().products).toEqual([
       makeProduct({ ean: '222', name: 'Produit B', brand: 'B', category: 'Boissons' }),

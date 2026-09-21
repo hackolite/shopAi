@@ -175,4 +175,69 @@ describe('CatalogPanel', () => {
     expect(renderer.root.findByType('select').props.value).toBe('cat-1');
     expect(paragraphTexts(renderer)).toContain('Impossible d’appliquer ce catalogue au projet.');
   });
+
+  it('clears the loaded products when the selection is cleared', async () => {
+    listCatalogs.mockResolvedValue({
+      catalogs: [
+        { id: 'cat-1', name: 'Catalogue A', productCount: 12 },
+      ],
+    });
+    loadTenantCatalog.mockResolvedValue(undefined);
+    getCatalog.mockResolvedValue({
+      products: [makeProduct({ ean: '111', name: 'Produit A', brand: 'A', category: 'Épicerie' })],
+    });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(<CatalogPanel projectId="project-1" />);
+      await flushPromises();
+    });
+
+    await act(async () => {
+      void renderer.root.findByType('select').props.onChange({ target: { value: 'cat-1' } });
+      await flushPromises();
+    });
+    expect(useCatalogStore.getState().products).toHaveLength(1);
+
+    await act(async () => {
+      void renderer.root.findByType('select').props.onChange({ target: { value: '' } });
+      await flushPromises();
+    });
+
+    expect(renderer.root.findByType('select').props.value).toBe('');
+    expect(useCatalogStore.getState().products).toEqual([]);
+  });
+
+  it('ignores stale workspace catalog list responses after a project switch', async () => {
+    let resolveFirstList!: (value: { catalogs: { id: string; name: string; productCount: number }[] }) => void;
+    listCatalogs
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveFirstList = resolve;
+      }))
+      .mockResolvedValueOnce({
+        catalogs: [{ id: 'cat-2', name: 'Catalogue récent', productCount: 8 }],
+      });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(<CatalogPanel projectId="project-1" />);
+      await flushPromises();
+    });
+
+    await act(async () => {
+      renderer.update(<CatalogPanel projectId="project-2" />);
+      await flushPromises();
+    });
+
+    expect(renderer.root.findAllByType('option')[1].children.join('')).toContain('Catalogue récent');
+
+    await act(async () => {
+      resolveFirstList({
+        catalogs: [{ id: 'cat-1', name: 'Catalogue obsolète', productCount: 4 }],
+      });
+      await flushPromises();
+    });
+
+    expect(renderer.root.findAllByType('option')[1].children.join('')).toContain('Catalogue récent');
+  });
 });

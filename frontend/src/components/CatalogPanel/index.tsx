@@ -156,6 +156,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [availableCatalogsError, setAvailableCatalogsError] = useState<string | null>(null);
   const [isApplyingCatalog, setIsApplyingCatalog] = useState(false);
+  const latestCatalogListRequestRef = useRef(0);
   const latestCatalogApplyRequestRef = useRef(0);
 
   const displayed =
@@ -169,14 +170,18 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
   };
 
   useEffect(() => {
+    const requestId = latestCatalogListRequestRef.current + 1;
+    latestCatalogListRequestRef.current = requestId;
     setAvailableCatalogsError(null);
     platformApi
       .listCatalogs()
       .then((response) => {
+        if (latestCatalogListRequestRef.current !== requestId) return;
         setAvailableCatalogs(response.catalogs);
         setAvailableCatalogsError(null);
       })
       .catch((error) => {
+        if (latestCatalogListRequestRef.current !== requestId) return;
         console.error('Failed to list workspace catalogs:', error);
         setAvailableCatalogs([]);
         setAvailableCatalogsError('Impossible de charger les catalogues workspace pour le moment.');
@@ -198,6 +203,7 @@ export default function CatalogPanel({ projectId }: CatalogPanelProps) {
     setSelectedWorkspaceCatalogId(catalogId);
     setCatalogError(null);
     if (!projectId || !catalogId) {
+      setProducts([]);
       setIsApplyingCatalog(false);
       return;
     }

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import App from './App';
 
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 const {
   bootstrap,
   getSession,
@@ -95,6 +97,10 @@ function flushPromises(): Promise<void> {
   return Promise.resolve().then(() => undefined);
 }
 
+function hasText(renderer: ReactTestRenderer, text: string): boolean {
+  return renderer.root.findAll((node) => typeof node.type === 'string' && node.children.join('') === text).length > 0;
+}
+
 function makeDashboard(projectNames: string[]) {
   return {
     user: { id: 'u1', tenantId: 't1', name: 'Alice', email: 'alice@example.com', createdAt: '', updatedAt: '' },
@@ -150,14 +156,14 @@ describe('App workspace project cards', () => {
     });
 
     expect(renderer.root.findAllByProps({ children: 'Cloner' })).toHaveLength(1);
-    expect(renderer.root.findByProps({ children: 'Aperçu 3D Projet A' })).toBeTruthy();
+    expect(hasText(renderer, 'Aperçu 3D Projet A')).toBe(true);
 
     await act(async () => {
       renderer.root.findByProps({ children: 'Cloner' }).props.onClick();
       await flushPromises();
     });
 
-    expect(renderer.root.findByProps({ children: 'Projet A (copie)' })).toBeTruthy();
+    expect(hasText(renderer, 'Projet A (copie)')).toBe(true);
 
     await act(async () => {
       renderer.root.findByProps({ children: 'Confirmer duplication' }).props.onClick();
@@ -167,7 +173,7 @@ describe('App workspace project cards', () => {
 
     expect(duplicateProject).toHaveBeenCalledWith('p1', 'Projet A clone');
     expect(getDashboard).toHaveBeenCalledTimes(2);
-    expect(renderer.root.findByProps({ children: 'Projet cloné.' })).toBeTruthy();
-    expect(renderer.root.findByProps({ children: 'Projet A clone' })).toBeTruthy();
+    expect(hasText(renderer, 'Projet cloné.')).toBe(true);
+    expect(hasText(renderer, 'Projet A clone')).toBe(true);
   });
 });

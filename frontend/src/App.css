@@ -104,7 +104,7 @@ body {
 .hub-project-details { display: flex; flex-wrap: wrap; gap: 6px 16px; color: #9ca3af; font-size: 14px; padding: 8px 0 14px; }
 .hub-project-actions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .hub-project-actions button { margin-top: 0; }
-.hub-project-card button { margin-top: auto; width: 100%; }
+.hub-project-card > button { margin-top: auto; width: 100%; }
 .hub-empty { padding: 36px 28px; margin-top: 20px; border: 1px dashed #374151; border-radius: 14px; color: #9ca3af; background: #111827; }
 .hub-empty h3 { color: #e5e7eb; margin-bottom: 10px; }
 .hub-two-column { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; align-items: start; }

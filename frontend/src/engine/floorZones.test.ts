@@ -93,4 +93,30 @@ describe('floorZones helpers', () => {
     }));
     expect(outline.length).toBeGreaterThan(4);
   });
+
+  it('keeps smooth drawings inside the store boundary', () => {
+    const points = [
+      { x: 0, z: 0 },
+      { x: 150, z: 0 },
+      { x: 150, z: 150 },
+      { x: 0, z: 150 },
+    ];
+    expect(floorZoneValidationError(points, {
+      storeWidth: 150,
+      storeDepth: 150,
+      pathMode: 'smooth',
+    })).toBeNull();
+    const outline = zoneOutlinePointsCm(zone({
+      shape: 'polygon',
+      pathMode: 'smooth',
+      points,
+    }), {
+      storeWidth: 150,
+      storeDepth: 150,
+    });
+    expect(Math.min(...outline.map((point) => point.x))).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...outline.map((point) => point.x))).toBeLessThanOrEqual(150);
+    expect(Math.min(...outline.map((point) => point.z))).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...outline.map((point) => point.z))).toBeLessThanOrEqual(150);
+  });
 });

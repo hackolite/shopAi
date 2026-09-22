@@ -108,6 +108,10 @@ def _load_persisted(project_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     }
     if any(snapshot[name] is None for name in _FILES):
         raise ValueError("Incomplete persisted project")
+    snapshot["scene"] = project_manager.load_validated_scene(
+        project_id,
+        project_name=metadata.get("name", project_id),
+    ).model_dump(mode="json")
     snapshot["planograms"] = snapshot["planograms"]["planograms"]
     _validate_snapshot(snapshot)
     return metadata, snapshot

@@ -881,9 +881,9 @@ def require_current_user_project_access(project_id: str) -> None:
 
 def _load_owned_project_snapshot(project_id: str) -> dict[str, Any]:
     metadata = project_manager.get_project_metadata(project_id)
-    scene = SceneData.model_validate(
-        project_manager.load_project_file(project_id, "scene.json")
-        or {"store": {}, "furniture": []}
+    scene = project_manager.load_validated_scene(
+        project_id,
+        project_name=metadata.get("name", project_id),
     )
     catalog_raw = project_manager.load_project_file(project_id, "catalog.json") or {"products": []}
     products = catalog_raw.get("products", []) if isinstance(catalog_raw, dict) else []
@@ -1050,9 +1050,9 @@ def get_agent_capability_report(project_id: str | None = None) -> dict[str, Any]
         return report
     require_current_user_project_access(project_id)
     metadata = project_manager.get_project_metadata(project_id)
-    scene = SceneData.model_validate(
-        project_manager.load_project_file(project_id, "scene.json")
-        or {"store": {}, "furniture": []}
+    scene = project_manager.load_validated_scene(
+        project_id,
+        project_name=metadata.get("name", project_id),
     )
     catalog = project_manager.load_project_file(project_id, "catalog.json") or {"products": []}
     planograms_raw = project_manager.load_project_file(project_id, "planograms.json") or {"planograms": []}

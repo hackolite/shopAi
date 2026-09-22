@@ -896,6 +896,34 @@ def test_create_project_from_layout_defaults_sparse_legacy_zones() -> None:
     assert zone["depth"] == 1000.0
 
 
+def test_dashboard_and_scene_endpoint_normalize_legacy_sparse_zone_aliases() -> None:
+    client = _make_client()
+    _register(client, name="Legacy Zone Viewer", email="legacy-zone-viewer@example.com")
+
+    project_response = client.post("/api/cad/projects/", json={"name": "Projet legacy zone"})
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    scene = pm.load_project_file(project_id, "scene.json")
+    scene["store"]["zones"] = [{"id": "zone-nord-ouest", "widthCm": 900, "lengthCm": 700}]
+    pm.save_project_file(project_id, "scene.json", scene)
+
+    dashboard = client.get("/api/platform/dashboard")
+    assert dashboard.status_code == 200, dashboard.text
+    project_ids = {item["id"] for item in dashboard.json()["projects"]}
+    assert project_id in project_ids
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    zone = scene_response.json()["store"]["zones"][0]
+    assert zone["type"] == "forbidden"
+    assert zone["label"] == "Zone interdite"
+    assert zone["x"] == 0.0
+    assert zone["z"] == 0.0
+    assert zone["width"] == 900.0
+    assert zone["depth"] == 700.0
+
+
 def test_simulation_import_json_persists_scenarios() -> None:
     client = _make_client()
     _register(client, name="Simulation Importer", email="simulation-importer@example.com")

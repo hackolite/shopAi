@@ -23,6 +23,10 @@
     "optional": []
   },
   "entities": {
+    "scenarios": {
+      "containerType": "array",
+      "itemType": "scenario"
+    },
     "scenario": {
       "required": [],
       "optional": [

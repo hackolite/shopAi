@@ -31,6 +31,14 @@
     "optional": []
   },
   "entities": {
+    "plans": {
+      "containerType": "array",
+      "itemType": "plan"
+    },
+    "anomalies": {
+      "containerType": "array",
+      "itemType": "anomaly"
+    },
     "plan": {
       "required": [
         "pedestrianId",

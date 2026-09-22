@@ -49,15 +49,18 @@
       ],
       "optional": [
         "radiusCm",
-        {
-          "field": "optional",
-          "description": "Boolean waypoint payload field meaning the waypoint can be skipped by an agent."
-        },
+        "optional",
         "visitProbability",
         "retentionSeconds",
         "visionAngleDeg",
         "visionRangeCm"
-      ]
+      ],
+      "fieldDetails": {
+        "optional": {
+          "type": "boolean",
+          "description": "Boolean waypoint payload field meaning the waypoint can be skipped by an agent."
+        }
+      }
     }
   },
   "aiHints": [

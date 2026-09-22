@@ -49,7 +49,10 @@
       ],
       "optional": [
         "radiusCm",
-        "optional",
+        {
+          "field": "optional",
+          "description": "Boolean waypoint payload field meaning the waypoint can be skipped by an agent."
+        },
         "visitProbability",
         "retentionSeconds",
         "visionAngleDeg",

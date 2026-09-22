@@ -17,6 +17,10 @@
     "optional": []
   },
   "entities": {
+    "textures": {
+      "containerType": "array",
+      "itemType": "texture"
+    },
     "texture": {
       "required": [],
       "optional": [],

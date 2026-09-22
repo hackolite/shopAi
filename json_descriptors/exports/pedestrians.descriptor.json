@@ -16,7 +16,7 @@
       "endpoint": "POST /api/cad/projects/{project_id}/simulation/import-pedestrians"
     },
     {
-      "type": "workspace-copy",
+      "type": "project-endpoint-copy",
       "endpoint": "POST /api/cad/projects/{project_id}/simulation/load-pedestrian-dataset"
     }
   ],

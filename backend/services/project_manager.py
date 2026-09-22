@@ -324,7 +324,7 @@ def normalize_scene_snapshot(scene: Any, name: str) -> dict[str, Any]:
     normalized_scene.update(scene)
     normalized_scene["store"] = merged_store
     normalized_scene["furniture"] = scene.get("furniture", [])
-    return SceneData.model_validate(normalized_scene).model_dump(mode="json")
+    return SceneData.model_validate(normalized_scene).model_dump()
 
 
 def ensure_project_exists(project_id: str) -> None:

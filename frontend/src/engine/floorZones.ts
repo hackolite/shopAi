@@ -42,6 +42,46 @@ export function floorShapePlanePointCm(
   return [point.x - center.x, center.z - point.z];
 }
 
+interface StoreBoundsCm {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+interface StoreBoundsOptions {
+  storeWidth?: number;
+  storeDepth?: number;
+  storeX?: number;
+  storeZ?: number;
+}
+
+function storeBoundsCm(options?: StoreBoundsOptions): StoreBoundsCm | null {
+  if (options?.storeWidth == null || options.storeDepth == null) return null;
+  const minX = options.storeX ?? 0;
+  const minZ = options.storeZ ?? 0;
+  return {
+    minX,
+    maxX: minX + options.storeWidth,
+    minZ,
+    maxZ: minZ + options.storeDepth,
+  };
+}
+
+function clampPointToStore(point: FloorZonePoint, bounds: StoreBoundsCm | null): FloorZonePoint {
+  if (!bounds) return { x: point.x, z: point.z };
+  return {
+    x: Math.max(bounds.minX, Math.min(bounds.maxX, point.x)),
+    z: Math.max(bounds.minZ, Math.min(bounds.maxZ, point.z)),
+  };
+}
+
+function pushDistinctPoint(target: FloorZonePoint[], point: FloorZonePoint) {
+  const previous = target[target.length - 1];
+  if (previous && Math.abs(previous.x - point.x) < 1e-6 && Math.abs(previous.z - point.z) < 1e-6) return;
+  target.push(point);
+}
+
 function rotatePoint(point: FloorZonePoint, center: FloorZonePoint, angleDeg: number): FloorZonePoint {
   if (Math.abs(angleDeg) < 1e-6) return point;
   const angle = (angleDeg * Math.PI) / 180;
@@ -80,7 +120,11 @@ function catmullRomPoint(
   };
 }
 
-function smoothClosedPoints(points: FloorZonePoint[], samplesPerSegment = 10): FloorZonePoint[] {
+function smoothClosedPoints(
+  points: FloorZonePoint[],
+  samplesPerSegment = 10,
+  bounds: StoreBoundsCm | null = null,
+): FloorZonePoint[] {
   if (points.length < 3) return points.map((point) => ({ x: point.x, z: point.z }));
   const sampled: FloorZonePoint[] = [];
   for (let index = 0; index < points.length; index += 1) {
@@ -88,10 +132,10 @@ function smoothClosedPoints(points: FloorZonePoint[], samplesPerSegment = 10): F
     const p1 = points[index];
     const p2 = points[(index + 1) % points.length];
     const p3 = points[(index + 2) % points.length];
-    sampled.push({ x: p1.x, z: p1.z });
+    pushDistinctPoint(sampled, clampPointToStore(p1, bounds));
     if (p1.corner || p2.corner) continue;
     for (let step = 1; step < samplesPerSegment; step += 1) {
-      sampled.push(catmullRomPoint(p0, p1, p2, p3, step / samplesPerSegment));
+      pushDistinctPoint(sampled, clampPointToStore(catmullRomPoint(p0, p1, p2, p3, step / samplesPerSegment), bounds));
     }
   }
   return sampled;
@@ -108,17 +152,14 @@ export function floorZoneValidationError(
   },
 ): string | null {
   if (points.length < 3) return 'Ajoutez au moins 3 points pour fermer la zone.';
+  const bounds = storeBoundsCm(options);
   const outline = (options?.pathMode ?? 'linear') === 'smooth'
-    ? smoothClosedPoints(points)
+    ? smoothClosedPoints(points, 10, bounds)
     : points.map((point) => ({ x: point.x, z: point.z }));
   if (outline.length < 3) return 'La zone doit contenir au moins 3 points distincts.';
-  if (options?.storeWidth != null && options?.storeDepth != null) {
-    const minX = options.storeX ?? 0;
-    const minZ = options.storeZ ?? 0;
-    const maxX = minX + options.storeWidth;
-    const maxZ = minZ + options.storeDepth;
+  if (bounds) {
     const outOfBounds = outline.some((point) =>
-      point.x < minX || point.x > maxX || point.z < minZ || point.z > maxZ,
+      point.x < bounds.minX || point.x > bounds.maxX || point.z < bounds.minZ || point.z > bounds.maxZ,
     );
     if (outOfBounds) return 'La zone doit rester à l’intérieur du magasin.';
   }
@@ -161,9 +202,10 @@ export function floorZoneValidationError(
   return null;
 }
 
-export function zoneOutlinePointsCm(zone: FloorZone): FloorZonePoint[] {
+export function zoneOutlinePointsCm(zone: FloorZone, options?: StoreBoundsOptions): FloorZonePoint[] {
   const shape = zoneShape(zone);
   const center = zoneCenterCm(zone);
+  const bounds = storeBoundsCm(options);
   const basePoints: FloorZonePoint[] =
     shape === 'circle'
       ? Array.from({ length: 48 }, (_, index) => {
@@ -183,7 +225,7 @@ export function zoneOutlinePointsCm(zone: FloorZone): FloorZonePoint[] {
         : shape === 'polygon' && zone.points && zone.points.length >= 3
           ? (
             zonePathMode(zone) === 'smooth'
-              ? smoothClosedPoints(zone.points)
+              ? smoothClosedPoints(zone.points, 10, bounds)
               : zone.points.map((point) => ({ x: point.x, z: point.z }))
           )
           : [

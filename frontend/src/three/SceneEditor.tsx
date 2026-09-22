@@ -1709,17 +1709,24 @@ const ZONE_COLORS: Record<string, { fill: string; border: string }> = {
 };
 const ZONE_HANDLE_Y = GRID_Y_OFFSET + 0.06;
 
-function zoneLocalFootprint(zone: FloorZone): [number, number][] {
+function zoneLocalFootprint(
+  zone: FloorZone,
+  storeBounds?: { storeWidth?: number; storeDepth?: number; storeX?: number; storeZ?: number },
+): [number, number][] {
   const center = zoneCenterCm(zone);
-  return zoneOutlinePointsCm(zone).map((point) => [
+  return zoneOutlinePointsCm(zone, storeBounds).map((point) => [
     (point.x - center.x) * CM_TO_UNIT,
     (point.z - center.z) * CM_TO_UNIT,
   ]);
 }
 
-function zoneWorldOutline(zone: FloorZone, y: number): [number, number, number][] {
+function zoneWorldOutline(
+  zone: FloorZone,
+  y: number,
+  storeBounds?: { storeWidth?: number; storeDepth?: number; storeX?: number; storeZ?: number },
+): [number, number, number][] {
   const center = zoneCenterCm(zone);
-  const points = zoneLocalFootprint(zone).map(([x, z]) => [
+  const points = zoneLocalFootprint(zone, storeBounds).map(([x, z]) => [
     center.x * CM_TO_UNIT + x,
     y,
     center.z * CM_TO_UNIT + z,
@@ -1727,9 +1734,12 @@ function zoneWorldOutline(zone: FloorZone, y: number): [number, number, number][
   return points.length > 0 ? [...points, points[0]] : points;
 }
 
-function zoneShapeGeometry(zone: FloorZone): THREE.Shape {
+function zoneShapeGeometry(
+  zone: FloorZone,
+  storeBounds?: { storeWidth?: number; storeDepth?: number; storeX?: number; storeZ?: number },
+): THREE.Shape {
   const center = zoneCenterCm(zone);
-  const points = zoneOutlinePointsCm(zone).map((point) => {
+  const points = zoneOutlinePointsCm(zone, storeBounds).map((point) => {
     const [x, planeY] = floorShapePlanePointCm(point, center);
     return [x * CM_TO_UNIT, planeY * CM_TO_UNIT] as const;
   });
@@ -1754,7 +1764,7 @@ function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
 // ─── Floor zone mesh (movable) ────────────────────────────────────────────────
 function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds } = useZoneStore();
-  const { selectFurniture } = useSceneStore();
+  const { selectFurniture, scene } = useSceneStore();
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
@@ -1778,10 +1788,20 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const mounted = zoneMounted(zone);
   const whiteEdgeColor = mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
   const baseOpacity = zone.opacity ?? 0.32;
+  const storeBounds = useMemo(() => (
+    scene?.store
+      ? {
+          storeWidth: scene.store.dimensions.width,
+          storeDepth: scene.store.dimensions.depth,
+          storeX: scene.store.position?.[0] ?? 0,
+          storeZ: scene.store.position?.[2] ?? 0,
+        }
+      : undefined
+  ), [scene?.store]);
   const fillOpacity = mounted
     ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
     : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
-  const shapeGeometry = useMemo(() => zoneShapeGeometry(zone), [zone]);
+  const shapeGeometry = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
   const extrudedGeometry = useMemo(
     () => (mounted
       ? new THREE.ExtrudeGeometry(shapeGeometry, {
@@ -1877,8 +1897,19 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   };
 
   const lineY = y + 0.001;
-  const borderPts = zoneWorldOutline(zone, lineY);
-  const topBorderPts = zoneWorldOutline(zone, lineY + extrudedHeight);
+  const borderPts = useMemo(() => zoneWorldOutline(zone, lineY, storeBounds), [zone, lineY, storeBounds]);
+  const topBorderPts = useMemo(
+    () => zoneWorldOutline(zone, lineY + extrudedHeight, storeBounds),
+    [zone, lineY, extrudedHeight, storeBounds],
+  );
+  const verticalEdgePts = useMemo(
+    () => (mounted
+      ? borderPts.slice(0, -1).map(([x, , z]) => (
+          [[x, lineY, z], [x, lineY + extrudedHeight, z]] as [number, number, number][]
+        ))
+      : []),
+    [borderPts, extrudedHeight, lineY, mounted],
+  );
   const bx = zone.x * CM_TO_UNIT;
   const bz = zone.z * CM_TO_UNIT;
 
@@ -1961,6 +1992,14 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             color={whiteEdgeColor}
             lineWidth={isSelected ? 3 : 2}
           />
+          {verticalEdgePts.map((points, index) => (
+            <Line
+              key={`zone-vertical-edge-${zone.id}-${index}`}
+              points={points}
+              color={whiteEdgeColor}
+              lineWidth={isSelected ? 2.5 : 1.5}
+            />
+          ))}
         </>
       )}
 

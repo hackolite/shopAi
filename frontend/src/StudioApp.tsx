@@ -20,7 +20,7 @@ import SimulationPanel from './components/SimulationPanel';
 import StudioAssistant from './components/StudioAssistant';
 import type { ImportFormat } from './components/ImportDialog';
 import type { ExportFormat } from './components/ExportDialog';
-import { useZoneStore } from './store/zoneStore';
+import { useZoneStore, type FloorZone } from './store/zoneStore';
 import { useProjectStore } from './store/projectStore';
 import { resetProjectStores } from './store/projectSwitch';
 import type { FurnitureInstance, Planogram } from './types/cad';
@@ -32,6 +32,7 @@ const DEFAULT_PROJECT = 'retail_cad';
 const LAST_PROJECT_STORAGE_KEY = 'shopai.lastProjectId';
 /** Offset in cm applied to X and Z when pasting a copied gondola. */
 const PASTE_OFFSET_CM = 150;
+const ZONE_PASTE_OFFSET_CM = 150;
 
 function readStoredProjectId(): string {
   try {
@@ -75,7 +76,16 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const { setProducts }               = useCatalogStore();
   const { setPlanograms, setPlanogramDetail, requestOpenPlanogramId, setRequestOpenPlanogramId } = usePlanogramStore();
   const { viewMode, setViewMode, setActiveTool, recording } = useUIStore();
-  const { setZones, selectedZoneId, zones } = useZoneStore();
+  const {
+    setZones,
+    selectedZoneId,
+    selectedZoneIds,
+    zones,
+    zoneClipboard,
+    setZoneClipboard,
+    addExistingZones,
+    removeZones,
+  } = useZoneStore();
   const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
   const simulationConfig = useSimulationStore((state) => state.config);
@@ -464,12 +474,48 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     setPlanograms(planoData.planograms);
   }, [clipboard, projectId, scene, addFurniture, selectFurniture, toggleFurnitureSelection, setPlanograms, setPlanogramDetail]);
 
+  const copySelectedZones = useCallback(() => {
+    const ids = selectedZoneIds.size > 0
+      ? [...selectedZoneIds]
+      : selectedZoneId ? [selectedZoneId] : [];
+    const items = ids
+      .map((id) => zones.find((zone) => zone.id === id) ?? null)
+      .filter((zone): zone is FloorZone => zone != null && zone.type === 'forbidden')
+      .map((zone) => ({
+        ...zone,
+        points: zone.points?.map((point) => ({ ...point })),
+      }));
+    if (items.length > 0) setZoneClipboard({ items });
+  }, [selectedZoneId, selectedZoneIds, setZoneClipboard, zones]);
+
+  const pasteZoneClipboard = useCallback(() => {
+    if (!zoneClipboard || zoneClipboard.items.length === 0) return;
+    const pastedZones = zoneClipboard.items.map((zone) => ({
+      ...zone,
+      id: crypto.randomUUID(),
+      x: zone.x + ZONE_PASTE_OFFSET_CM,
+      z: zone.z + ZONE_PASTE_OFFSET_CM,
+      points: zone.points?.map((point) => ({
+        ...point,
+        x: point.x + ZONE_PASTE_OFFSET_CM,
+        z: point.z + ZONE_PASTE_OFFSET_CM,
+      })),
+    }));
+    addExistingZones(pastedZones);
+  }, [addExistingZones, zoneClipboard]);
+
   // ── Delete selected furniture ─────────────────────────────────────────────
   const deleteSelected = useCallback(() => {
-    if (!selectedFurnitureId) return;
-    removeFurniture(selectedFurnitureId);
-    cadApi.deleteFurniture(projectId, selectedFurnitureId).catch(console.error);
-  }, [selectedFurnitureId, removeFurniture, projectId]);
+    if (selectedFurnitureId) {
+      removeFurniture(selectedFurnitureId);
+      cadApi.deleteFurniture(projectId, selectedFurnitureId).catch(console.error);
+      return;
+    }
+    const zoneIds = selectedZoneIds.size > 0
+      ? [...selectedZoneIds]
+      : selectedZoneId ? [selectedZoneId] : [];
+    if (zoneIds.length > 0) removeZones(zoneIds);
+  }, [selectedFurnitureId, removeFurniture, projectId, removeZones, selectedZoneId, selectedZoneIds]);
 
   // ── Export ───────────────────────────────────────────────────────────────
   const exportProject = useCallback(() => {
@@ -590,19 +636,21 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault();
-        copySelected();
+        if (selectedZoneIds.size > 0 || selectedZoneId) copySelectedZones();
+        else copySelected();
         return;
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault();
-        void pasteClipboard();
+        if (zoneClipboard?.items.length) pasteZoneClipboard();
+        else void pasteClipboard();
         return;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, pasteClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, selectedFurnitureId, selectedZoneId, simulationHistoryLength, rightTab, saveProject]);
+  }, [selectFurniture, selectSimulationWaypoint, deleteSelected, copySelected, copySelectedZones, pasteClipboard, pasteZoneClipboard, setActiveTool, undo, undoSimulation, selectedWaypointId, selectedFurnitureId, selectedZoneId, selectedZoneIds, simulationHistoryLength, rightTab, saveProject, zoneClipboard]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

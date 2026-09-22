@@ -314,6 +314,7 @@ class FloorZone(CADBaseModel):
     cols: int | None = None
     shape: ZoneShapeEnum = ZoneShapeEnum.rectangle
     color: str | None = None
+    opacity: float = 0.32
     points: list[FloorZonePoint] | None = None
     pathMode: Literal["linear", "smooth"] = "linear"
     mounted: bool = False

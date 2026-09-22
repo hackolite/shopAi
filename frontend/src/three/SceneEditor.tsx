@@ -1753,7 +1753,7 @@ function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
 
 // ─── Floor zone mesh (movable) ────────────────────────────────────────────────
 function FloorZoneMesh({ zone }: { zone: FloorZone }) {
-  const { selectZone, updateZone, selectedZoneId } = useZoneStore();
+  const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds } = useZoneStore();
   const { selectFurniture } = useSceneStore();
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
@@ -1763,7 +1763,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const gridOriginRef = useRef(gridOrigin);
   gridOriginRef.current = gridOrigin;
 
-  const isSelected = selectedZoneId === zone.id;
+  const isSelected = selectedZoneIds.has(zone.id) || selectedZoneId === zone.id;
   const W = zone.width  * CM_TO_UNIT;
   const D = zone.depth  * CM_TO_UNIT;
   const zoneCenter = zoneCenterCm(zone);
@@ -1775,8 +1775,13 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const palette = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
   const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
   const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
-  const shapeGeometry = useMemo(() => zoneShapeGeometry(zone), [zone]);
   const mounted = zoneMounted(zone);
+  const whiteEdgeColor = mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
+  const baseOpacity = zone.opacity ?? 0.32;
+  const fillOpacity = mounted
+    ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
+    : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
+  const shapeGeometry = useMemo(() => zoneShapeGeometry(zone), [zone]);
   const extrudedGeometry = useMemo(
     () => (mounted
       ? new THREE.ExtrudeGeometry(shapeGeometry, {
@@ -1848,6 +1853,11 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (activeTool === 'measure') return;
     e.stopPropagation();
+    if (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey) {
+      toggleZoneSelection(zone.id);
+      selectFurniture(null);
+      return;
+    }
     selectZone(zone.id);
     selectFurniture(null);
     if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, e.clientX, e.clientY, _ndc.current, dragStart.current)) return;
@@ -1923,7 +1933,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         <meshBasicMaterial
           color={fillColor}
           transparent
-          opacity={mounted ? 0.18 : (isSelected ? 0.55 : hovered ? 0.45 : 0.32)}
+          opacity={fillOpacity}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
@@ -1941,14 +1951,14 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             <meshStandardMaterial
               color={fillColor}
               transparent
-              opacity={isSelected ? 0.42 : hovered ? 0.34 : 0.26}
+              opacity={Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
               roughness={0.85}
               metalness={0.05}
             />
           </mesh>
           <Line
             points={topBorderPts}
-            color={isSelected ? '#ffffff' : borderColor}
+            color={whiteEdgeColor}
             lineWidth={isSelected ? 3 : 2}
           />
         </>
@@ -1957,7 +1967,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       {/* Border outline */}
       <Line
         points={borderPts}
-        color={isSelected ? '#ffffff' : borderColor}
+        color={whiteEdgeColor}
         lineWidth={isSelected ? 3 : 2}
       />
 
@@ -2123,7 +2133,7 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
 
 // ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
 function FloorZoneLayer() {
-  const { zones, selectedZoneId } = useZoneStore();
+  const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
@@ -2134,7 +2144,7 @@ function FloorZoneLayer() {
       {zones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
-      {selectedZone && zoneSupportsResizeHandles(selectedZone) && (
+      {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (
         <FloorZoneResizeHandles zone={selectedZone} />
       )}
     </>
@@ -3198,7 +3208,7 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
-  const { zones, selectedZoneId, removeZone, selectZone, polygonDraft } = useZoneStore();
+  const { zones, selectedZoneId, selectedZoneIds, selectZone, polygonDraft } = useZoneStore();
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
 
@@ -3253,19 +3263,6 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     }
   }, [selectedFurnitureId, selectedZoneId, selectedWaypointId, selectWaypoint]);
 
-  // Delete selected zone with the Delete/Backspace key
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedZoneId && !selectedFurnitureId) {
-        removeZone(selectedZoneId);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedZoneId, selectedFurnitureId, removeZone]);
-
   if (!scene) return null;
 
   // Selected mounted furniture (has TransformProxy + FurnitureResizeHandles)
@@ -3294,7 +3291,8 @@ function SceneContent({ projectId }: { projectId: string | null }) {
   // Scale mode shows 3D resize handles for resizable furniture types (wall, partition, register).
   const hasSelection        = selectedFurniture != null && transformTarget != null;
   const lockSceneNavigation = Boolean(
-    selectedZone?.type === 'forbidden'
+    selectedZoneIds.size > 0
+    || selectedZone?.type === 'forbidden'
     || selectedWaypointId
     || (selectedFurnitureId && activeTool !== 'select' && activeTool !== 'measure')
   );

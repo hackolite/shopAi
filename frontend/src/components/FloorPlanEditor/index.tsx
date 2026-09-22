@@ -222,7 +222,7 @@ function FurnitureRect({ furniture, isSelected, onSelect, onMoveStart, onResizeS
 interface ZoneRectProps {
   zone: FloorZone;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (event: React.MouseEvent<SVGRectElement>) => void;
   onMoveStart: (e: React.PointerEvent, zone: FloorZone) => void;
   onResizeStart: (e: React.PointerEvent, zone: FloorZone, handle: Handle) => void;
 }
@@ -251,8 +251,12 @@ function ZoneRect({ zone, isSelected, onSelect, onMoveStart, onResizeStart }: Zo
         stroke={fill}
         strokeWidth={isSelected ? 2 : 1.5}
         style={{ cursor: 'move' }}
-        onClick={(e) => { e.stopPropagation(); onSelect(); }}
-        onPointerDown={(e) => { e.stopPropagation(); onMoveStart(e, zone); }}
+        onClick={(e) => { e.stopPropagation(); onSelect(e); }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          if (e.ctrlKey || e.metaKey) return;
+          onMoveStart(e, zone);
+        }}
       />
       {zone.width > 30 && zone.depth > 12 && (
         <text
@@ -292,7 +296,7 @@ interface FloorPlanEditorProps {
 export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const { scene, selectedFurnitureId, selectFurniture, updateFurniture } = useSceneStore();
-  const { zones, selectedZoneId, selectZone, updateZone } = useZoneStore();
+  const { zones, selectedZoneId, selectedZoneIds, selectZone, toggleZoneSelection, updateZone } = useZoneStore();
 
   const [drag, setDrag] = useState<DragState | null>(null);
   // Live preview positions during drag (avoids re-renders via store for each mousemove)
@@ -529,8 +533,12 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
           <ZoneRect
             key={zone.id}
             zone={zone}
-            isSelected={zone.id === selectedZoneId}
-            onSelect={() => { selectZone(zone.id); selectFurniture(null); }}
+            isSelected={selectedZoneIds.has(zone.id) || zone.id === selectedZoneId}
+            onSelect={(event) => {
+              if (event.ctrlKey || event.metaKey) toggleZoneSelection(zone.id);
+              else selectZone(zone.id);
+              selectFurniture(null);
+            }}
             onMoveStart={handleZoneMoveStart}
             onResizeStart={handleZoneResizeStart}
           />

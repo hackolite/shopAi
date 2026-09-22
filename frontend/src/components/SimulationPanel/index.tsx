@@ -383,6 +383,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const selectedSummary = result?.summary ?? null;
   const waypointSystems = config.waypointSystems ?? [];
   const activeWaypointSystem = waypointSystems.find((system) => system.id === config.activeWaypointSystemId) ?? null;
+  const runtimeConfig = useMemo(() => buildRuntimeSimulationConfig(config), [config]);
+  const allConfiguredWaypoints = runtimeConfig.waypoints;
   const sceneWithZones = useMemo(
     () => {
       if (!scene) return null;
@@ -438,7 +440,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       if (liveSessionId) {
         await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
       }
-      const runtimeConfig = buildRuntimeSimulationConfig(config);
       const signature = snapshotSimulationInput(sceneWithZones, runtimeConfig);
       const live = await cadApi.startLiveSimulation(projectId, sceneWithZones, runtimeConfig);
       if (isStale(projectId)) {
@@ -470,7 +471,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setResult(null);
       const correction = extractConstraintCorrection(error);
       const point = correction ? null : extractConstraintPoint(error);
-      const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, config.waypoints) : null);
+      const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, allConfiguredWaypoints) : null);
       const suggestedPosition =
         correction
         && correction.waypointId
@@ -491,7 +492,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setRunning(false);
     }
   }, [
-    config,
+    allConfiguredWaypoints,
     isStale,
     liveSessionId,
     loadPedestriansIntoSession,
@@ -809,7 +810,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !sceneWithZones || !playing) return;
-    const runtimeConfig = buildRuntimeSimulationConfig(config);
     const signature = snapshotSimulationInput(sceneWithZones, runtimeConfig);
     if (lastSimulationSignature.current === null) {
       lastSimulationSignature.current = signature;
@@ -838,7 +838,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           // the session alive and highlight the offending waypoint instead.
           const correction = extractConstraintCorrection(error);
           const point = correction ? null : extractConstraintPoint(error);
-          const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, config.waypoints) : null);
+          const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, allConfiguredWaypoints) : null);
           if (invalidWaypointId) {
             setInvalidWaypointIds([invalidWaypointId]);
             setInvalidWaypointSuggestion(
@@ -853,7 +853,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [config, handleLostSession, isStale, liveSessionId, playing, projectId, sceneWithZones, selectWaypoint, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
+  }, [allConfiguredWaypoints, handleLostSession, isStale, liveSessionId, playing, projectId, runtimeConfig, sceneWithZones, selectWaypoint, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
 
   // Stop the backend live session when the panel unmounts *or* when the user
   // switches project, so the previous project's session does not keep running

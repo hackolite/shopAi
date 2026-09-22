@@ -42,12 +42,15 @@ describe('project switch cleanup', () => {
     useZoneStore.getState().addZone('entrance', 1000, 800);
     expect(useZoneStore.getState().zones).toHaveLength(1);
     expect(useZoneStore.getState().zonesLoaded).toBe(true);
+    useZoneStore.getState().setZoneClipboard({ items: useZoneStore.getState().zones });
 
     useZoneStore.getState().reset();
 
     const next = useZoneStore.getState();
     expect(next.zones).toEqual([]);
     expect(next.selectedZoneId).toBeNull();
+    expect(next.selectedZoneIds.size).toBe(0);
+    expect(next.zoneClipboard).toBeNull();
     // zonesLoaded must go back to false so the zone auto-save stays disabled
     // until the new project's zones have been loaded.
     expect(next.zonesLoaded).toBe(false);

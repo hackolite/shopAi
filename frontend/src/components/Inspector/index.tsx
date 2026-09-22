@@ -754,6 +754,45 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
                 </p>
               </div>
             )}
+            <label className="flex items-center justify-between text-xs text-gray-300">
+              <span className="text-gray-500">Monté en 3D</span>
+              <input
+                type="checkbox"
+                checked={zone.mounted === true}
+                onChange={(event) => save({ ...zone, mounted: event.target.checked })}
+                className="accent-blue-500"
+              />
+            </label>
+            {zone.mounted === true && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500 w-16 shrink-0">Hauteur</label>
+                <input
+                  type="number"
+                  min={1}
+                  step={5}
+                  value={zone.heightCm ?? 120}
+                  onChange={(event) => save({ ...zone, heightCm: Math.max(1, Number(event.target.value) || 1) })}
+                  className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500 w-16 shrink-0">Opacité</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={zone.opacity ?? 0.32}
+                  onChange={(event) => save({ ...zone, opacity: Number(event.target.value) })}
+                  className="flex-1 accent-blue-500"
+                />
+                <span className="w-10 text-right text-[11px] text-gray-400">
+                  {Math.round((zone.opacity ?? 0.32) * 100)}%
+                </span>
+              </div>
+            </div>
             {isPolygon && (
               <>
                 <label className="flex items-center gap-2 text-xs text-gray-300">
@@ -767,28 +806,6 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
                     <option value="smooth">Courbe lissée</option>
                   </select>
                 </label>
-                <label className="flex items-center justify-between text-xs text-gray-300">
-                  <span className="text-gray-500">Monté en 3D</span>
-                  <input
-                    type="checkbox"
-                    checked={zone.mounted === true}
-                    onChange={(event) => save({ ...zone, mounted: event.target.checked })}
-                    className="accent-blue-500"
-                  />
-                </label>
-                {zone.mounted === true && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-500 w-16 shrink-0">Hauteur</label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={5}
-                      value={zone.heightCm ?? 120}
-                      onChange={(event) => save({ ...zone, heightCm: Math.max(1, Number(event.target.value) || 1) })}
-                      className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
-                    />
-                  </div>
-                )}
               </>
             )}
           </>

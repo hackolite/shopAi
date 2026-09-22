@@ -721,6 +721,130 @@ def test_project_import_snapshot_normalizes_dimension_and_face_aliases() -> None
     assert planogram.json()["face"] == "front"
 
 
+def test_create_project_from_layout_normalizes_zone_and_directional_face_aliases() -> None:
+    client = _make_client()
+    _register(client, name="Layout Alias Seeder", email="layout-alias@example.com")
+
+    layout_response = client.post(
+        "/api/platform/store-layouts",
+        json={
+            "name": "Layout alias",
+            "payload": {
+                "scene": {
+                    "store": {
+                        "id": "store-layout-alias",
+                        "name": "Alias Store",
+                        "position": [0, 0, 0],
+                        "rotation": [0, 0, 0],
+                        "dimensions": {"width": 5000, "depth": 3000, "height": 400},
+                        "zones": [
+                            {
+                                "id": "zone-sud-front",
+                                "type": "entrance",
+                                "label": "Zone sud",
+                                "x": 0,
+                                "z": 0,
+                                "widthCm": 1000,
+                                "lengthCm": 1000,
+                            },
+                            {
+                                "id": "zone-nord",
+                                "type": "exit",
+                                "label": "Zone nord",
+                                "x": 200,
+                                "z": 300,
+                                "Width": 500,
+                                "DEPTH": 700,
+                            },
+                        ],
+                    },
+                    "furniture": [
+                        {
+                            "id": "fixture-1",
+                            "name": "Facing mer",
+                            "type": "shelf",
+                            "libraryId": "shelf",
+                            "position": [0, 0, 0],
+                            "rotation": [0, 0, 0],
+                            "dimensions": {"width": 120, "depth": 60, "height": 180},
+                            "faces": {"south_sea_view": "plano-bayview-terrace"},
+                        },
+                        {
+                            "id": "fixture-2",
+                            "name": "Charging",
+                            "type": "shelf",
+                            "libraryId": "shelf",
+                            "position": [200, 0, 0],
+                            "rotation": [0, 0, 0],
+                            "dimensions": {"width": 120, "depth": 60, "height": 180},
+                            "faces": {"north_charging": "plano-charging-hub"},
+                        },
+                    ],
+                },
+                "planograms": [],
+            },
+        },
+    )
+    assert layout_response.status_code == 200, layout_response.text
+    layout_id = layout_response.json()["id"]
+
+    project_response = client.post(
+        "/api/cad/projects/",
+        json={"name": "Projet alias", "storeLayoutId": layout_id},
+    )
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    assert scene["store"]["zones"][0]["width"] == 1000.0
+    assert scene["store"]["zones"][0]["depth"] == 1000.0
+    assert scene["store"]["zones"][1]["width"] == 500.0
+    assert scene["store"]["zones"][1]["depth"] == 700.0
+    assert scene["furniture"][0]["faces"]["front"] == "plano-bayview-terrace"
+    assert scene["furniture"][1]["faces"]["back"] == "plano-charging-hub"
+
+
+def test_store_layout_rejects_conflicting_zone_dimension_aliases() -> None:
+    client = _make_client()
+    _register(client, name="Layout Conflict Seeder", email="layout-conflict@example.com")
+
+    response = client.post(
+        "/api/platform/store-layouts",
+        json={
+            "name": "Layout conflict",
+            "payload": {
+                "scene": {
+                    "store": {
+                        "id": "store-conflict",
+                        "name": "Conflict Store",
+                        "position": [0, 0, 0],
+                        "rotation": [0, 0, 0],
+                        "dimensions": {"width": 5000, "depth": 3000, "height": 400},
+                        "zones": [
+                            {
+                                "id": "zone-conflict",
+                                "type": "entrance",
+                                "label": "Zone conflict",
+                                "x": 0,
+                                "z": 0,
+                                "width": 900,
+                                "widthCm": 1000,
+                                "depth": 1000,
+                            }
+                        ],
+                    },
+                    "furniture": [],
+                },
+                "planograms": [],
+            },
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert "conflicting aliases for width" in response.text
+
+
 def test_simulation_import_json_persists_scenarios() -> None:
     client = _make_client()
     _register(client, name="Simulation Importer", email="simulation-importer@example.com")

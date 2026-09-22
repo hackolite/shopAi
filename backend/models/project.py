@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import re
 from enum import Enum
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 _FACE_VALUES = ("front", "back", "left", "right", "top", "bottom")
 _FACE_ALIASES = {
     "waterfront": "front",
     "roadside": "back",
+}
+_CARDINAL_FACE_ALIASES = {
+    "north": "back",
+    "south": "front",
+    "east": "right",
+    "west": "left",
 }
 _DIMENSION_ALIASES = {
     "width": "width",
@@ -54,7 +61,21 @@ class CADBaseModel(BaseModel):
             face = str(value.value).strip().lower()
         else:
             face = str(value).strip().lower()
-        return _FACE_ALIASES.get(face, face)
+        alias = _FACE_ALIASES.get(face)
+        if alias is not None:
+            return alias
+        if face in _FACE_VALUES:
+            return face
+        tokens = [token for token in re.split(r"[^a-z0-9]+", face) if token]
+        if not tokens:
+            return face
+        leading_token = tokens[0]
+        if leading_token in _FACE_VALUES:
+            return leading_token
+        mapped = _CARDINAL_FACE_ALIASES.get(leading_token)
+        if mapped is not None:
+            return mapped
+        return face
 
 
 class Face(str, Enum):
@@ -287,6 +308,39 @@ class FloorZone(CADBaseModel):
     pathMode: Literal["linear", "smooth"] = "linear"
     mounted: bool = False
     heightCm: float = 120.0
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_dimension_aliases(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        for canonical_key in ("width", "depth"):
+            matched_values = [
+                (str(raw_key).strip().lower(), raw_value)
+                for raw_key, raw_value in value.items()
+                if _DIMENSION_ALIASES.get(str(raw_key).strip().lower()) == canonical_key
+            ]
+            if not matched_values:
+                continue
+            canonical_values = [raw_value for key, raw_value in matched_values if key == canonical_key]
+            alias_values = [raw_value for key, raw_value in matched_values if key != canonical_key]
+            if canonical_values:
+                canonical_value = float(canonical_values[0])
+                if any(float(alias) != canonical_value for alias in alias_values):
+                    raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
+                if any(
+                    float(candidate) != canonical_value
+                    for candidate in canonical_values[1:]
+                ):
+                    raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
+                normalized[canonical_key] = canonical_values[0]
+            else:
+                first_alias = float(alias_values[0])
+                if any(float(alias) != first_alias for alias in alias_values[1:]):
+                    raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
+                normalized[canonical_key] = alias_values[0]
+        return normalized
 
 
 class Store(CADBaseModel):

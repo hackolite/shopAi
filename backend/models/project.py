@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import re
 from enum import Enum
 from typing import Any, Literal, Optional
@@ -328,17 +327,17 @@ class FloorZone(CADBaseModel):
             alias_values = [raw_value for key, raw_value in matched_values if key != canonical_key]
             if canonical_values:
                 canonical_value = float(canonical_values[0])
-                if any(not math.isclose(float(alias), canonical_value) for alias in alias_values):
+                if any(float(alias) != canonical_value for alias in alias_values):
                     raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
                 if any(
-                    not math.isclose(float(candidate), canonical_value)
+                    float(candidate) != canonical_value
                     for candidate in canonical_values[1:]
                 ):
                     raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
                 normalized[canonical_key] = canonical_values[0]
             else:
                 first_alias = float(alias_values[0])
-                if any(not math.isclose(float(alias), first_alias) for alias in alias_values[1:]):
+                if any(float(alias) != first_alias for alias in alias_values[1:]):
                     raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
                 normalized[canonical_key] = alias_values[0]
         return normalized

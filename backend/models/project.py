@@ -314,17 +314,22 @@ class FloorZone(CADBaseModel):
             return value
         normalized = dict(value)
         for canonical_key in ("width", "depth"):
-            aliases = [
-                raw_value
+            alias_values = [
+                float(raw_value)
                 for raw_key, raw_value in value.items()
                 if _DIMENSION_ALIASES.get(str(raw_key).strip().lower()) == canonical_key
+                and str(raw_key).strip().lower() != canonical_key
             ]
-            if not aliases:
+            if canonical_key in value:
+                canonical_value = float(value[canonical_key])
+                if any(alias != canonical_value for alias in alias_values):
+                    raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
+            elif alias_values:
+                if len(set(alias_values)) > 1:
+                    raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
+                normalized[canonical_key] = alias_values[0]
+            else:
                 continue
-            if len({float(item) for item in aliases}) > 1:
-                raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
-            if canonical_key not in normalized:
-                normalized[canonical_key] = aliases[0]
         return normalized
 
 

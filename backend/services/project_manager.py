@@ -296,6 +296,37 @@ def create_project(id: str, name: str) -> dict[str, Any]:
     return metadata
 
 
+def _default_scene_payload(name: str) -> dict[str, Any]:
+    return {
+        "store": {
+            "id": str(uuid4()),
+            "name": name,
+            "position": [0.0, 0.0, 0.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
+            "walls": [],
+        },
+        "furniture": [],
+    }
+
+
+def normalize_scene_snapshot(scene: Any, name: str) -> dict[str, Any]:
+    base = _default_scene_payload(name)
+    if not isinstance(scene, dict):
+        scene = {}
+    store_raw = scene.get("store")
+    if isinstance(store_raw, dict):
+        merged_store = dict(base["store"])
+        merged_store.update(store_raw)
+    else:
+        merged_store = dict(base["store"])
+    normalized_scene = dict(base)
+    normalized_scene.update(scene)
+    normalized_scene["store"] = merged_store
+    normalized_scene["furniture"] = scene.get("furniture", [])
+    return SceneData.model_validate(normalized_scene).model_dump(mode="json")
+
+
 def ensure_project_exists(project_id: str) -> None:
     if _find_existing_project(project_id) is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
@@ -331,24 +362,22 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     timestamp = _utc_now()
     metadata = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
 
-    scene_snapshot = snapshot.get("scene", {
-        "store": {
-            "id": str(uuid4()),
-            "name": name,
-            "position": [0.0, 0.0, 0.0],
-            "rotation": [0.0, 0.0, 0.0],
-            "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
-            "walls": [],
-        },
-        "furniture": [],
-    })
+    scene_snapshot = snapshot.get("scene", _default_scene_payload(name))
     planogram_snapshot = snapshot.get("planograms", [])
     try:
-        scene_snapshot = SceneData.model_validate(scene_snapshot).model_dump(mode="json")
-        planogram_snapshot = [
-            Planogram.model_validate(item).model_dump(mode="json")
-            for item in planogram_snapshot
-        ]
+        SceneData.model_validate(scene_snapshot)
+    except (TypeError, ValidationError) as exc:
+        try:
+            scene_snapshot = normalize_scene_snapshot(scene_snapshot, name)
+        except (TypeError, ValidationError) as normalized_exc:
+            raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {normalized_exc}") from normalized_exc
+    try:
+        validated_planograms = [Planogram.model_validate(item) for item in planogram_snapshot]
+        if not all(isinstance(item, dict) for item in planogram_snapshot):
+            planogram_snapshot = [
+                item.model_dump(mode="json", exclude_none=True)
+                for item in validated_planograms
+            ]
     except (TypeError, ValidationError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {exc}") from exc
 

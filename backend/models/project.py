@@ -50,7 +50,10 @@ class CADBaseModel(BaseModel):
 
     @staticmethod
     def _normalize_face_name(value: Any) -> str:
-        face = str(value).strip().lower()
+        if isinstance(value, Enum):
+            face = str(value.value).strip().lower()
+        else:
+            face = str(value).strip().lower()
         return _FACE_ALIASES.get(face, face)
 
 

@@ -1260,9 +1260,9 @@ def _normalize_store_layout_payload(payload: dict[str, Any] | None) -> dict[str,
     if isinstance(planograms_raw, dict):
         planograms_raw = planograms_raw.get("planograms", [])
     try:
-        scene = SceneData.model_validate(scene_raw).model_dump(mode="json")
+        scene = project_manager.normalize_scene_snapshot(scene_raw, "Store layout")
         planograms = [
-            Planogram.model_validate(item).model_dump(mode="json")
+            Planogram.model_validate(item).model_dump(mode="json", exclude_none=True)
             for item in planograms_raw
         ]
     except (TypeError, ValidationError) as exc:

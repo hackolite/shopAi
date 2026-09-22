@@ -46,4 +46,23 @@ describe('simulationStore waypoint systems', () => {
     expect(state.config.waypointSystems?.[0].waypoints[0]?.id).toBe(firstWaypointId);
     expect(state.config.waypointSystems?.[1].waypoints[0]?.type).toBe('exit');
   });
+
+  it('switches and removes waypoint systems while keeping active waypoints in sync', () => {
+    const store = useSimulationStore.getState();
+    store.addWaypoint('entry', { x: 100, z: 100 });
+    const firstSystemId = useSimulationStore.getState().config.activeWaypointSystemId as string;
+
+    useSimulationStore.getState().addWaypointSystem();
+    useSimulationStore.getState().addWaypoint('exit', { x: 400, z: 400 });
+    const secondSystemId = useSimulationStore.getState().config.activeWaypointSystemId as string;
+
+    useSimulationStore.getState().selectWaypointSystem(firstSystemId);
+    expect(useSimulationStore.getState().config.waypoints[0]?.type).toBe('entry');
+
+    useSimulationStore.getState().removeWaypointSystem(firstSystemId);
+    const nextState = useSimulationStore.getState();
+    expect(nextState.config.activeWaypointSystemId).toBe(secondSystemId);
+    expect(nextState.config.waypoints[0]?.type).toBe('exit');
+    expect(nextState.config.waypointSystems).toHaveLength(1);
+  });
 });

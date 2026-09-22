@@ -1929,7 +1929,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         />
       </mesh>
 
-      {mounted && zone.type === 'forbidden' && extrudedGeometry && (
+      {mounted && extrudedGeometry && (
         <>
           <mesh
             position={[cx, y, cz]}

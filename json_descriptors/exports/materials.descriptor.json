@@ -1,0 +1,52 @@
+{
+  "id": "materials-json",
+  "exportFileName": "materials.json",
+  "description": "Material library exported inside project ZIPs.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "materials.json"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "materials"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "materials": {
+      "containerType": "array",
+      "itemType": "material"
+    },
+    "material": {
+      "required": [
+        "id",
+        "name",
+        "type",
+        "color"
+      ],
+      "optional": [
+        "roughness",
+        "metalness"
+      ],
+      "allowedTypeValues": [
+        "wood",
+        "metal",
+        "glass",
+        "plastic",
+        "solid_color",
+        "texture"
+      ]
+    }
+  },
+  "aiHints": [
+    "Furniture instances reference material ids through materialId.",
+    "Material payloads are currently flat and lightweight."
+  ],
+  "examplePaths": [
+    "backend/storage/projects/retail_cad/materials.json"
+  ]
+}

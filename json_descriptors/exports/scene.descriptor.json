@@ -1,0 +1,83 @@
+{
+  "id": "scene-json",
+  "exportFileName": "scene.json",
+  "description": "Store geometry and furniture instances exported inside the project ZIP and embedded in reusable store layouts.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "scene.json"
+    },
+    {
+      "type": "embedded-payload",
+      "endpoint": "GET /api/platform/store-layouts/{layout_id}/download",
+      "embeddedIn": "retail-layout.json"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "store",
+      "furniture"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "furniture": {
+      "containerType": "array",
+      "itemType": "furnitureItem"
+    },
+    "store": {
+      "required": [
+        "id",
+        "name",
+        "position",
+        "rotation",
+        "dimensions"
+      ],
+      "optional": [
+        "walls",
+        "floorColor",
+        "wallColor",
+        "zones"
+      ],
+      "notes": [
+        "position and rotation are 3-number arrays.",
+        "dimensions must contain width, depth and height in centimeters.",
+        "zones contains entry/exit/supply/forbidden floor zones."
+      ]
+    },
+    "furnitureItem": {
+      "required": [
+        "id",
+        "name",
+        "type",
+        "libraryId",
+        "position",
+        "rotation",
+        "dimensions"
+      ],
+      "optional": [
+        "materialId",
+        "visible",
+        "locked",
+        "mounted",
+        "parentId",
+        "childIds",
+        "faces"
+      ],
+      "notes": [
+        "position is the minimum corner of the furniture bounding box in centimeters.",
+        "faces is a map keyed by front/back/left/right/top/bottom whose values are planogram ids or null.",
+        "scene.json stores only planogram ids per furniture face; the full planogram objects live in planograms.json and the denormalized placement payload lives in retail-layout.json under furniture[].placements[]."
+      ]
+    }
+  },
+  "aiHints": [
+    "All spatial values are centimeters.",
+    "Scene geometry is separated from product data; products live in catalog.json and planograms.json."
+  ],
+  "examplePaths": [
+    "backend/storage/projects/retail_cad/scene.json"
+  ]
+}

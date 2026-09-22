@@ -1,0 +1,111 @@
+{
+  "id": "retail-layout-json",
+  "exportFileName": "retail-layout.json",
+  "description": "Unified denormalized store-layout export combining scene geometry and planogram placements.",
+  "exportChannels": [
+    {
+      "type": "direct-download",
+      "endpoint": "GET /api/cad/projects/{project_id}/export/retail-layout",
+      "fileNamePattern": "{safe_name}_retail_layout.json"
+    },
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "retail-layout.json"
+    },
+    {
+      "type": "direct-download",
+      "endpoint": "GET /api/platform/store-layouts/{layout_id}/download",
+      "fileNamePattern": "{safe_name}_retail_layout.json"
+    }
+  ],
+  "importChannels": [
+    {
+      "type": "project-import",
+      "endpoint": "POST /api/cad/projects/import/retail-layout"
+    },
+    {
+      "type": "workspace-import",
+      "endpoint": "POST /api/platform/store-layouts/import-json"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "version",
+      "projectId",
+      "projectName",
+      "exportedAt",
+      "unit",
+      "store",
+      "furniture"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "store": {
+      "required": [
+        "id",
+        "name",
+        "dimensions",
+        "zones"
+      ],
+      "optional": []
+    },
+    "furniture": {
+      "containerType": "array",
+      "itemType": "furnitureItem"
+    },
+    "furnitureItem": {
+      "required": [
+        "id",
+        "name",
+        "type",
+        "libraryId",
+        "position",
+        "rotation",
+        "dimensions",
+        "placements"
+      ],
+      "optional": []
+    },
+    "placement": {
+      "required": [
+        "face",
+        "planogramId",
+        "planogramName",
+        "rows",
+        "cols",
+        "widthCm",
+        "heightCm",
+        "slots"
+      ],
+      "optional": [
+        "colWidthsCm",
+        "rowHeightsCm",
+        "cellWidthOverrides",
+        "cellHeightOverrides",
+        "rowColCounts",
+        "mergedSpans",
+        "gondola"
+      ]
+    },
+    "slot": {
+      "required": [
+        "cellId",
+        "ean",
+        "row",
+        "col",
+        "rotation",
+        "absolutePositionCm"
+      ],
+      "optional": []
+    }
+  },
+  "aiHints": [
+    "This is the best single-file format for an AI that must understand both layout and product placements.",
+    "absolutePositionCm is the computed center position of each product slot in store coordinates.",
+    "unit is currently cm and should remain consistent across store, furniture and slot positions."
+  ],
+  "examplePaths": []
+}

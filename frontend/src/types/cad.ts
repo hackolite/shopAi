@@ -74,6 +74,8 @@ export interface FloorZone {
   shape?: ZoneShape;
   /** Fill color used for custom floor drawings. */
   color?: string;
+  /** Fill opacity for the floor drawing, between 0 and 1. */
+  opacity?: number;
   /** Closed polygon points in store coordinates (cm), only used for polygon drawings. */
   points?: FloorZonePoint[];
   /** Rendering mode for free-form floor drawings. */

@@ -74,6 +74,7 @@ _SCENE: dict = {
                 "rotationDeg": 0.0,
                 "shape": "polygon",
                 "color": "#ef4444",
+                "opacity": 0.45,
                 "pathMode": "smooth",
                 "mounted": True,
                 "heightCm": 160.0,
@@ -184,6 +185,7 @@ def test_build_retail_layout_includes_store_zones() -> None:
     layout = build_retail_layout("proj-zones", _SCENE, _PLANOGRAMS)
     assert layout["store"]["zones"][0]["label"] == "Zone sol"
     assert layout["store"]["zones"][0]["mounted"] is True
+    assert layout["store"]["zones"][0]["opacity"] == pytest.approx(0.45)
 
 
 # ---------------------------------------------------------------------------

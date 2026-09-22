@@ -54,6 +54,18 @@ function mixHex(base: string, target: string, ratio: number): string {
   ] as [number, number, number]);
 }
 
+export function visibleWaypointSystems(config: import('../types/cad').SimulationConfig) {
+  if (config.waypointSystems && config.waypointSystems.length > 0) {
+    return config.waypointSystems;
+  }
+  return [{
+    id: config.activeWaypointSystemId ?? 'default',
+    label: 'JuPedSim principal',
+    color: '#3b82f6',
+    waypoints: config.waypoints,
+  }];
+}
+
 function waypointPalette(accentColor: string, type: 'entry' | 'transit' | 'exit') {
   if (type === 'entry') {
     return {
@@ -904,21 +916,18 @@ export function SimulationLayer({
     if (!waypoint || !invalidWaypointIds.includes(waypoint.id)) return null;
     return { xCm: invalidWaypointSuggestion.xCm, zCm: invalidWaypointSuggestion.zCm };
   }, [config.waypoints, invalidWaypointIds, invalidWaypointSuggestion]);
-  const activeSystemColor = useMemo(() => (
-    config.waypointSystems?.find((system) => system.id === config.activeWaypointSystemId)?.color
-    ?? '#3b82f6'
-  ), [config.activeWaypointSystemId, config.waypointSystems]);
+  const renderedWaypointSystems = useMemo(() => visibleWaypointSystems(config), [config]);
 
   if (!config.enabled) return null;
 
   return (
     <>
-      {config.waypoints.map((waypoint) => (
+      {renderedWaypointSystems.flatMap((system) => system.waypoints.map((waypoint) => (
         <WaypointMarker
-          key={waypoint.id}
+          key={`${system.id}-${waypoint.id}`}
           {...waypoint}
           invalid={invalidWaypointIds.includes(waypoint.id)}
-          accentColor={activeSystemColor}
+          accentColor={system.color}
           canDrag={canDrag}
           minXCm={minXCm}
           maxXCm={maxXCm}
@@ -926,7 +935,7 @@ export function SimulationLayer({
           maxZCm={maxZCm}
           setSceneNavigationDragging={setSceneNavigationDragging}
         />
-      ))}
+      )))}
       {showHeatmap && heatmapMode === 'traffic' && analytics?.heatmap && (
         <HeatmapOverlay heatmap={analytics.heatmap} />
       )}

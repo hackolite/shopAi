@@ -845,6 +845,57 @@ def test_store_layout_rejects_conflicting_zone_dimension_aliases() -> None:
     assert "conflicting aliases for width" in response.text
 
 
+def test_create_project_from_layout_defaults_sparse_legacy_zones() -> None:
+    client = _make_client()
+    _register(client, name="Sparse Zone Seeder", email="sparse-zone@example.com")
+
+    layout_response = client.post(
+        "/api/platform/store-layouts",
+        json={
+            "name": "Sparse zone layout",
+            "payload": {
+                "scene": {
+                    "store": {
+                        "id": "store-sparse-zone",
+                        "name": "Sparse Zone Store",
+                        "position": [0, 0, 0],
+                        "rotation": [0, 0, 0],
+                        "dimensions": {"width": 5000, "depth": 3000, "height": 400},
+                        "zones": [
+                            {
+                                "id": "zone-centre-hotel",
+                                "widthCm": 1200,
+                                "lengthCm": 1000,
+                            }
+                        ],
+                    },
+                    "furniture": [],
+                },
+                "planograms": [],
+            },
+        },
+    )
+    assert layout_response.status_code == 200, layout_response.text
+    layout_id = layout_response.json()["id"]
+
+    project_response = client.post(
+        "/api/cad/projects/",
+        json={"name": "Projet sparse zone", "storeLayoutId": layout_id},
+    )
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    zone = scene_response.json()["store"]["zones"][0]
+    assert zone["type"] == "forbidden"
+    assert zone["label"] == "Zone interdite"
+    assert zone["x"] == 0.0
+    assert zone["z"] == 0.0
+    assert zone["width"] == 1200.0
+    assert zone["depth"] == 1000.0
+
+
 def test_simulation_import_json_persists_scenarios() -> None:
     client = _make_client()
     _register(client, name="Simulation Importer", email="simulation-importer@example.com")

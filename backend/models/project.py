@@ -285,6 +285,16 @@ class ZoneShapeEnum(str, Enum):
     polygon = "polygon"
 
 
+def _default_zone_label(zone_type: "ZoneTypeEnum") -> str:
+    if zone_type == ZoneTypeEnum.entrance:
+        return "Entrée"
+    if zone_type == ZoneTypeEnum.exit:
+        return "Sortie sans achat"
+    if zone_type == ZoneTypeEnum.supply:
+        return "Fournitures"
+    return "Zone interdite"
+
+
 class FloorZonePoint(CADBaseModel):
     x: float
     z: float
@@ -340,6 +350,13 @@ class FloorZone(CADBaseModel):
                 if any(float(alias) != first_alias for alias in alias_values[1:]):
                     raise ValueError(f"Zone dimensions contain conflicting aliases for {canonical_key}")
                 normalized[canonical_key] = alias_values[0]
+        if "type" not in normalized or normalized["type"] in (None, ""):
+            normalized["type"] = ZoneTypeEnum.forbidden.value
+        zone_type = ZoneTypeEnum(str(normalized["type"]).strip().lower())
+        if "label" not in normalized or normalized["label"] in (None, ""):
+            normalized["label"] = _default_zone_label(zone_type)
+        normalized.setdefault("x", 0.0)
+        normalized.setdefault("z", 0.0)
         return normalized
 
 

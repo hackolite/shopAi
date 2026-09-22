@@ -51,6 +51,7 @@ from services.project_manager import (
     import_project_from_zip,
     list_cad_projects,
     load_project_file,
+    load_validated_scene,
     save_project_file,
 )
 
@@ -160,17 +161,7 @@ class SimulationLiveTickPayload(BaseModel):
 def _load_scene(project_id: str) -> SceneData:
     platform_service.require_current_user_project_access(project_id)
     ensure_project_exists(project_id)
-    return SceneData.model_validate(load_project_file(project_id, "scene.json") or {
-        "store": {
-            "id": project_id,
-            "name": project_id,
-            "position": [0.0, 0.0, 0.0],
-            "rotation": [0.0, 0.0, 0.0],
-            "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
-            "walls": [],
-        },
-        "furniture": [],
-    })
+    return load_validated_scene(project_id)
 
 
 def _save_scene(project_id: str, scene: SceneData) -> None:

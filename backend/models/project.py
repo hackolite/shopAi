@@ -352,7 +352,11 @@ class FloorZone(CADBaseModel):
                 normalized[canonical_key] = alias_values[0]
         if "type" not in normalized or normalized["type"] in (None, ""):
             normalized["type"] = ZoneTypeEnum.forbidden.value
-        zone_type = ZoneTypeEnum(str(normalized["type"]).strip().lower())
+        raw_zone_type = normalized["type"]
+        if isinstance(raw_zone_type, Enum):
+            raw_zone_type = raw_zone_type.value
+        zone_type = ZoneTypeEnum(str(raw_zone_type).strip().lower())
+        normalized["type"] = zone_type.value
         if "label" not in normalized or normalized["label"] in (None, ""):
             normalized["label"] = _default_zone_label(zone_type)
         normalized.setdefault("x", 0.0)

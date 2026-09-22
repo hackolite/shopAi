@@ -327,6 +327,16 @@ def normalize_scene_snapshot(scene: Any, name: str) -> dict[str, Any]:
     return SceneData.model_validate(normalized_scene).model_dump()
 
 
+def load_validated_scene(project_id: str, project_name: str | None = None) -> SceneData:
+    if project_name in (None, ""):
+        metadata = load_project_file(project_id, "project.json") or {"name": project_id}
+        project_name = str(metadata.get("name") or project_id)
+    scene_raw = _canonicalize_scene_aliases(
+        load_project_file(project_id, "scene.json") or _default_scene_payload(project_name)
+    )
+    return SceneData.model_validate(normalize_scene_snapshot(scene_raw, project_name))
+
+
 def _canonicalize_scene_aliases(scene: Any) -> Any:
     if not isinstance(scene, dict):
         return scene

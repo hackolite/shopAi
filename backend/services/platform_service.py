@@ -1255,8 +1255,10 @@ def _store_layout_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
 
 def _normalize_store_layout_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     raw_payload = payload or {"scene": {"store": {}, "furniture": []}, "planograms": []}
-    scene_raw = raw_payload.get("scene", {"store": {}, "furniture": []})
-    planograms_raw = raw_payload.get("planograms", [])
+    scene_raw = project_manager._canonicalize_scene_aliases(
+        raw_payload.get("scene", {"store": {}, "furniture": []})
+    )
+    planograms_raw = project_manager._canonicalize_planogram_aliases(raw_payload.get("planograms", []))
     if isinstance(planograms_raw, dict):
         planograms_raw = planograms_raw.get("planograms", [])
     try:

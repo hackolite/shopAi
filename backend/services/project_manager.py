@@ -16,7 +16,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from models.project import Planogram, ProjectSettings, SceneData
+from models.project import CADBaseModel, Planogram, ProjectSettings, SceneData
 from services.reference_templates import REFERENCE_PROJECT_IDS
 
 _log = logging.getLogger(__name__)
@@ -327,6 +327,39 @@ def normalize_scene_snapshot(scene: Any, name: str) -> dict[str, Any]:
     return SceneData.model_validate(normalized_scene).model_dump()
 
 
+def _canonicalize_scene_aliases(scene: Any) -> Any:
+    if not isinstance(scene, dict):
+        return scene
+    canonical = json.loads(json.dumps(scene))
+    store = canonical.get("store")
+    if isinstance(store, dict) and isinstance(store.get("dimensions"), dict):
+        store["dimensions"] = CADBaseModel._validate_dimensions(store["dimensions"])
+    for item in canonical.get("furniture", []) or []:
+        if not isinstance(item, dict):
+            continue
+        if isinstance(item.get("dimensions"), dict):
+            item["dimensions"] = CADBaseModel._validate_dimensions(item["dimensions"])
+        if isinstance(item.get("faces"), dict):
+            faces: dict[str, Any] = {}
+            for face_name, planogram_id in item["faces"].items():
+                canonical_face = CADBaseModel._normalize_face_name(face_name)
+                if canonical_face in faces and faces[canonical_face] != planogram_id:
+                    raise ValueError(f"Duplicate furniture face alias for {canonical_face}")
+                faces[canonical_face] = planogram_id
+            item["faces"] = faces
+    return canonical
+
+
+def _canonicalize_planogram_aliases(planograms: Any) -> Any:
+    if not isinstance(planograms, list):
+        return planograms
+    canonical = json.loads(json.dumps(planograms))
+    for item in canonical:
+        if isinstance(item, dict) and "face" in item:
+            item["face"] = CADBaseModel._normalize_face_name(item["face"])
+    return canonical
+
+
 def ensure_project_exists(project_id: str) -> None:
     if _find_existing_project(project_id) is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
@@ -366,12 +399,14 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     planogram_snapshot = snapshot.get("planograms", [])
     try:
         SceneData.model_validate(scene_snapshot)
+        scene_snapshot = _canonicalize_scene_aliases(scene_snapshot)
     except (TypeError, ValidationError) as exc:
         try:
             scene_snapshot = normalize_scene_snapshot(scene_snapshot, name)
         except (TypeError, ValidationError) as normalized_exc:
             raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {normalized_exc}") from normalized_exc
     try:
+        planogram_snapshot = _canonicalize_planogram_aliases(planogram_snapshot)
         validated_planograms = [Planogram.model_validate(item) for item in planogram_snapshot]
         if not all(isinstance(item, dict) for item in planogram_snapshot):
             planogram_snapshot = [

@@ -7,6 +7,7 @@ import type {
   SimulationConfig,
   SimulationResult,
   SimulationWaypoint,
+  SimulationWaypointSystem,
 } from '../types/cad';
 import type { JourneyMetricId } from '../engine/journeyMetrics';
 import type { YieldMetricId } from '../engine/yieldMetrics';
@@ -20,6 +21,14 @@ export const DEFAULT_WAYPOINT_RADIUS_CM = 120;
 /** Fallback position (cm) used when the store geometry is unknown. */
 const DEFAULT_WAYPOINT_X_CM = 200;
 const DEFAULT_WAYPOINT_Z_CM = 200;
+export const WAYPOINT_SYSTEM_COLORS = [
+  '#3b82f6',
+  '#22c55e',
+  '#f97316',
+  '#a855f7',
+  '#ec4899',
+  '#14b8a6',
+] as const;
 
 function normalizeWaypoint(waypoint: SimulationWaypoint): SimulationWaypoint {
   return {
@@ -29,11 +38,72 @@ function normalizeWaypoint(waypoint: SimulationWaypoint): SimulationWaypoint {
   };
 }
 
+function cloneWaypoints(waypoints: SimulationWaypoint[]): SimulationWaypoint[] {
+  return waypoints.map((waypoint) => ({ ...normalizeWaypoint(waypoint) }));
+}
+
+function defaultWaypointSystemLabel(index: number): string {
+  return index === 0 ? 'JuPedSim principal' : `JuPedSim ${index + 1}`;
+}
+
+function normalizeWaypointSystem(system: SimulationWaypointSystem, index: number): SimulationWaypointSystem {
+  return {
+    id: system.id || crypto.randomUUID(),
+    label: system.label?.trim() || defaultWaypointSystemLabel(index),
+    color: system.color || WAYPOINT_SYSTEM_COLORS[index % WAYPOINT_SYSTEM_COLORS.length],
+    waypoints: cloneWaypoints(system.waypoints ?? []),
+  };
+}
+
+function withNormalizedSystems(config: SimulationConfig): {
+  systems: SimulationWaypointSystem[];
+  activeWaypointSystemId: string;
+} {
+  const systems = (config.waypointSystems ?? [])
+    .map((system, index) => normalizeWaypointSystem(system, index));
+  if (systems.length === 0) {
+    systems.push(normalizeWaypointSystem({
+      id: crypto.randomUUID(),
+      label: defaultWaypointSystemLabel(0),
+      color: WAYPOINT_SYSTEM_COLORS[0],
+      waypoints: config.waypoints ?? [],
+    }, 0));
+  }
+  const activeWaypointSystemId = systems.some((system) => system.id === config.activeWaypointSystemId)
+    ? (config.activeWaypointSystemId as string)
+    : systems[0].id;
+  return { systems, activeWaypointSystemId };
+}
+
+function syncActiveWaypointSystem(
+  config: SimulationConfig,
+  activeWaypointSystemId: string,
+  updater?: (system: SimulationWaypointSystem, index: number) => SimulationWaypointSystem,
+): SimulationConfig {
+  const normalized = withNormalizedSystems(config);
+  const nextSystems = normalized.systems.map((system, index) =>
+    system.id === activeWaypointSystemId && updater
+      ? normalizeWaypointSystem(updater(system, index), index)
+      : system,
+  );
+  const activeSystem = nextSystems.find((system) => system.id === activeWaypointSystemId) ?? nextSystems[0];
+  return {
+    ...config,
+    waypointSystems: nextSystems,
+    activeWaypointSystemId: activeSystem.id,
+    waypoints: cloneWaypoints(activeSystem.waypoints),
+  };
+}
+
 function normalizeConfig(config: SimulationConfig): SimulationConfig {
+  const { systems, activeWaypointSystemId } = withNormalizedSystems(config);
+  const activeSystem = systems.find((system) => system.id === activeWaypointSystemId) ?? systems[0];
   return {
     ...config,
     enabled: config.enabled !== false,
-    waypoints: (config.waypoints ?? []).map(normalizeWaypoint),
+    waypointSystems: systems,
+    activeWaypointSystemId,
+    waypoints: cloneWaypoints(activeSystem.waypoints),
   };
 }
 
@@ -92,6 +162,10 @@ interface SimulationState {
   /** Same as `pinnedJourneyMetrics` for the CA/marge (revenue) tiles. */
   pinnedRevenueMetrics: RevenueMetricId[];
   history: SimulationConfig[];
+  addWaypointSystem: () => void;
+  removeWaypointSystem: (id: string) => void;
+  selectWaypointSystem: (id: string) => void;
+  updateWaypointSystem: (id: string, patch: Partial<Pick<SimulationWaypointSystem, 'label' | 'color'>>) => void;
   /** Last pedestrian CSV imported for this project (basket import feature). */
   pedestrianImport: PedestrianImportResult | null;
   /** Stable agent id of the pedestrian clicked in the 3D scene, if any. */
@@ -142,7 +216,7 @@ interface SimulationState {
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
-  config: defaultSimulationConfig(),
+  config: normalizeConfig(defaultSimulationConfig()),
   result: null,
   analytics: null,
   showHeatmap: false,
@@ -180,9 +254,77 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   patchConfig: (patch) =>
     set((state) => ({
       history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
-      config: { ...state.config, ...patch },
+      config: normalizeConfig({ ...state.config, ...patch }),
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
+    })),
+  addWaypointSystem: () =>
+    set((state) => {
+      const normalized = withNormalizedSystems(state.config);
+      const index = normalized.systems.length;
+      const system: SimulationWaypointSystem = {
+        id: crypto.randomUUID(),
+        label: defaultWaypointSystemLabel(index),
+        color: WAYPOINT_SYSTEM_COLORS[index % WAYPOINT_SYSTEM_COLORS.length],
+        waypoints: [],
+      };
+      return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
+        config: normalizeConfig({
+          ...state.config,
+          waypointSystems: [...normalized.systems, system],
+          activeWaypointSystemId: system.id,
+          waypoints: [],
+        }),
+        selectedWaypointId: null,
+        invalidWaypointIds: [],
+        invalidWaypointSuggestion: null,
+      };
+    }),
+  removeWaypointSystem: (id) =>
+    set((state) => {
+      const normalized = withNormalizedSystems(state.config);
+      if (normalized.systems.length <= 1) return {};
+      const nextSystems = normalized.systems.filter((system) => system.id !== id);
+      const nextActiveId = normalized.activeWaypointSystemId === id
+        ? nextSystems[0].id
+        : normalized.activeWaypointSystemId;
+      const nextConfig = normalizeConfig({
+        ...state.config,
+        waypointSystems: nextSystems,
+        activeWaypointSystemId: nextActiveId,
+      });
+      return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
+        config: nextConfig,
+        selectedWaypointId: nextConfig.waypoints.some((waypoint) => waypoint.id === state.selectedWaypointId)
+          ? state.selectedWaypointId
+          : null,
+        invalidWaypointIds: [],
+        invalidWaypointSuggestion: null,
+      };
+    }),
+  selectWaypointSystem: (id) =>
+    set((state) => {
+      const nextConfig = normalizeConfig({ ...state.config, activeWaypointSystemId: id });
+      return {
+        config: nextConfig,
+        selectedWaypointId: nextConfig.waypoints.some((waypoint) => waypoint.id === state.selectedWaypointId)
+          ? state.selectedWaypointId
+          : null,
+        invalidWaypointIds: [],
+        invalidWaypointSuggestion: null,
+      };
+    }),
+  updateWaypointSystem: (id, patch) =>
+    set((state) => ({
+      history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
+      config: normalizeConfig({
+        ...state.config,
+        waypointSystems: withNormalizedSystems(state.config).systems.map((system) =>
+          system.id === id ? { ...system, ...patch } : system,
+        ),
+      }),
     })),
   addWaypoint: (type = 'transit', position) =>
     set((state) => {
@@ -207,35 +349,50 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         visionAngleDeg: 70,
         visionRangeCm: 220,
       };
+      const nextConfig = syncActiveWaypointSystem(state.config, state.config.activeWaypointSystemId ?? withNormalizedSystems(state.config).activeWaypointSystemId, (system) => ({
+      ...system,
+      waypoints: [...system.waypoints, waypoint],
+      }));
       return {
-        history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
-        config: { ...state.config, waypoints: [...state.config.waypoints, waypoint] },
-        selectedWaypointId: waypoint.id,
-        invalidWaypointIds: [],
-        invalidWaypointSuggestion: null,
+      history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
+      config: nextConfig,
+      selectedWaypointId: waypoint.id,
+      invalidWaypointIds: [],
+      invalidWaypointSuggestion: null,
       };
     }),
   updateWaypoint: (id, patch, options) =>
-    set((state) => ({
-      history: options?.recordHistory === false
-        ? state.history
-        : [...state.history.slice(-MAX_HISTORY + 1), state.config],
-      config: {
-        ...state.config,
-        waypoints: state.config.waypoints.map((waypoint) =>
-          waypoint.id === id ? { ...waypoint, ...patch } : waypoint,
-        ),
-      },
-      invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
-      invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
-    })),
+    set((state) => {
+      const nextConfig = syncActiveWaypointSystem(
+        state.config,
+        state.config.activeWaypointSystemId ?? withNormalizedSystems(state.config).activeWaypointSystemId,
+        (system) => ({
+          ...system,
+          waypoints: system.waypoints.map((waypoint) =>
+            waypoint.id === id ? { ...waypoint, ...patch } : waypoint,
+          ),
+        }),
+      );
+      return {
+        history: options?.recordHistory === false
+          ? state.history
+          : [...state.history.slice(-MAX_HISTORY + 1), state.config],
+        config: nextConfig,
+        invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
+        invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
+      };
+    }),
   removeWaypoint: (id) =>
     set((state) => ({
       history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
-      config: {
-        ...state.config,
-        waypoints: state.config.waypoints.filter((waypoint) => waypoint.id !== id),
-      },
+      config: syncActiveWaypointSystem(
+        state.config,
+        state.config.activeWaypointSystemId ?? withNormalizedSystems(state.config).activeWaypointSystemId,
+        (system) => ({
+          ...system,
+          waypoints: system.waypoints.filter((waypoint) => waypoint.id !== id),
+        }),
+      ),
       selectedWaypointId: state.selectedWaypointId === id ? null : state.selectedWaypointId,
       invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
       invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
@@ -318,7 +475,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     set((state) => ({ pickupPopups: state.pickupPopups.filter((popup) => popup.id !== id) })),
   reset: () =>
     set({
-      config: defaultSimulationConfig(),
+      config: normalizeConfig(defaultSimulationConfig()),
       result: null,
       analytics: null,
       running: false,

@@ -31,7 +31,16 @@ import {
   type GridOriginCm,
 } from '../engine/gridSnap';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
-import { floorShapePlanePointCm, zoneCenterCm, zoneOutlinePointsCm, zoneRotationDeg, zoneShape, zoneSupportsResizeHandles } from '../engine/floorZones';
+import {
+  floorShapePlanePointCm,
+  zoneCenterCm,
+  zoneHeightCm,
+  zoneMounted,
+  zoneOutlinePointsCm,
+  zoneRotationDeg,
+  zoneShape,
+  zoneSupportsResizeHandles,
+} from '../engine/floorZones';
 import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
@@ -1767,6 +1776,18 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
   const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone), [zone]);
+  const extrudedGeometry = useMemo(
+    () => new THREE.ExtrudeGeometry(shapeGeometry, {
+      depth: zoneHeightCm(zone) * CM_TO_UNIT,
+      bevelEnabled: false,
+      curveSegments: zone.shape === 'polygon' ? 24 : 12,
+    }),
+    [shapeGeometry, zone],
+  );
+  const mounted = zoneMounted(zone);
+  const extrudedHeight = zoneHeightCm(zone) * CM_TO_UNIT;
+
+  useEffect(() => () => extrudedGeometry.dispose(), [extrudedGeometry]);
 
   // Drag state (same pattern as ResizeHandles / FurnitureMesh)
   const isDragging   = useRef(false);
@@ -1845,6 +1866,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
 
   const lineY = y + 0.001;
   const borderPts = zoneWorldOutline(zone, lineY);
+  const topBorderPts = zoneWorldOutline(zone, lineY + extrudedHeight);
   const bx = zone.x * CM_TO_UNIT;
   const bz = zone.z * CM_TO_UNIT;
 
@@ -1899,11 +1921,36 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         <meshBasicMaterial
           color={fillColor}
           transparent
-          opacity={isSelected ? 0.55 : hovered ? 0.45 : 0.32}
+          opacity={mounted ? 0.18 : (isSelected ? 0.55 : hovered ? 0.45 : 0.32)}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
       </mesh>
+
+      {mounted && zone.type === 'forbidden' && (
+        <>
+          <mesh
+            position={[cx, y, cz]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            onPointerDown={handlePointerDown}
+            onClick={handleClick}
+          >
+            <primitive object={extrudedGeometry} attach="geometry" />
+            <meshStandardMaterial
+              color={fillColor}
+              transparent
+              opacity={isSelected ? 0.42 : hovered ? 0.34 : 0.26}
+              roughness={0.85}
+              metalness={0.05}
+            />
+          </mesh>
+          <Line
+            points={topBorderPts}
+            color={isSelected ? '#ffffff' : borderColor}
+            lineWidth={isSelected ? 3 : 2}
+          />
+        </>
+      )}
 
       {/* Border outline */}
       <Line
@@ -1918,7 +1965,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       {/* Label — 3D sprite so it is captured by canvas.captureStream */}
       <TextSprite3D
         text={zone.label}
-        position={[cx, y + 0.12, cz]}
+        position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
         scale={1.2}
       />
     </group>
@@ -2702,7 +2749,12 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
       appendPolygonPoint(snapPoint(previewEndRef.current));
     }
     if ((useZoneStore.getState().polygonDraft?.points.length ?? 0) >= 3) {
-      finishPolygonDrawing();
+      finishPolygonDrawing({
+        width: store.dimensions.width,
+        depth: store.dimensions.depth,
+        x: store.position?.[0] ?? 0,
+        z: store.position?.[2] ?? 0,
+      });
     } else {
       cancelPolygonDrawing();
     }
@@ -2738,7 +2790,12 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
       && polygonDraft.points.length >= 3
       && Math.hypot(point.x - first.x, point.z - first.z) <= closeThreshold
     ) {
-      finishPolygonDrawing();
+      finishPolygonDrawing({
+        width: store.dimensions.width,
+        depth: store.dimensions.depth,
+        x: store.position?.[0] ?? 0,
+        z: store.position?.[2] ?? 0,
+      });
       setPreviewEnd(null);
       return;
     }

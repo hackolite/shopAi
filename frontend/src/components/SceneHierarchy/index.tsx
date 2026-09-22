@@ -152,7 +152,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
     useSceneStore();
   const { planograms, setPlanograms, setPlanogramDetail } = usePlanogramStore();
   const catalogProducts = useCatalogStore((s) => s.products);
-  const { addZone, zones, polygonDraft, startPolygonDrawing, cancelPolygonDrawing } = useZoneStore();
+  const { addZone, zones, polygonDraft, polygonDraftError, startPolygonDrawing, cancelPolygonDrawing } = useZoneStore();
 
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [library, setLibrary] = useState<FurnitureDefinition[]>([]);
@@ -444,7 +444,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
               type="button"
               onClick={() => {
                 if (polygonDraft) cancelPolygonDrawing();
-                else startPolygonDrawing('polygon');
+                else startPolygonDrawing('polygon', undefined, 'linear');
               }}
               className={`rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors ${
                 polygonDraft
@@ -458,7 +458,7 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
               type="button"
               onClick={() => {
                 if (polygonDraft) cancelPolygonDrawing();
-                else startPolygonDrawing('freehand');
+                else startPolygonDrawing('freehand', undefined, 'smooth');
               }}
               className={`rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors ${
                 polygonDraft?.mode === 'freehand'
@@ -469,11 +469,17 @@ export default function SceneHierarchy({ projectId, onOpenPlanogram }: SceneHier
               🖊️ Dessin libre
             </button>
           </div>
-          {polygonDraft && (
-            <p className="rounded-lg border border-red-900 bg-red-950/30 px-2 py-2 text-[11px] leading-snug text-red-200">
-              {polygonDraft.mode === 'freehand'
-                ? 'Mode dessin libre actif : maintenez le clic et tracez une forme fermée sur le sol.'
-                : 'Mode polygone actif : cliquez point par point sur la grille puis recliquez près du premier point pour fermer la zone.'}
+          {(polygonDraft || polygonDraftError) && (
+            <p className={`rounded-lg border px-2 py-2 text-[11px] leading-snug ${
+              polygonDraftError
+                ? 'border-red-700 bg-red-950/40 text-red-200'
+                : 'border-red-900 bg-red-950/30 text-red-200'
+            }`}>
+              {polygonDraftError ?? (
+                polygonDraft?.mode === 'freehand'
+                  ? 'Mode courbe actif : maintenez le clic et tracez une forme fermée sur le sol.'
+                  : 'Mode point à point actif : cliquez sur la grille puis recliquez près du premier point pour fermer la zone.'
+              )}
             </p>
           )}
         </section>

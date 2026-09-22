@@ -62,6 +62,29 @@ _SCENE: dict = {
         "rotation": [0.0, 0.0, 0.0],
         "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
         "walls": [],
+        "zones": [
+            {
+                "id": str(uuid4()),
+                "type": "forbidden",
+                "label": "Zone sol",
+                "x": 400.0,
+                "z": 500.0,
+                "width": 600.0,
+                "depth": 500.0,
+                "rotationDeg": 0.0,
+                "shape": "polygon",
+                "color": "#ef4444",
+                "pathMode": "smooth",
+                "mounted": True,
+                "heightCm": 160.0,
+                "points": [
+                    {"x": 400.0, "z": 500.0},
+                    {"x": 900.0, "z": 550.0},
+                    {"x": 850.0, "z": 1000.0},
+                    {"x": 420.0, "z": 960.0},
+                ],
+            }
+        ],
     },
     "furniture": [
         {
@@ -157,6 +180,12 @@ def test_build_retail_layout_empty_scene() -> None:
     assert layout["furniture"] == []
 
 
+def test_build_retail_layout_includes_store_zones() -> None:
+    layout = build_retail_layout("proj-zones", _SCENE, _PLANOGRAMS)
+    assert layout["store"]["zones"][0]["label"] == "Zone sol"
+    assert layout["store"]["zones"][0]["mounted"] is True
+
+
 # ---------------------------------------------------------------------------
 # Unit tests: split_retail_layout
 # ---------------------------------------------------------------------------
@@ -205,6 +234,12 @@ def test_split_retail_layout_name_override() -> None:
     layout = build_retail_layout("proj-name", _SCENE, _PLANOGRAMS)
     scene_out, _ = split_retail_layout(layout, project_name="Nouveau Magasin")
     assert scene_out["store"]["name"] == "Nouveau Magasin"
+
+
+def test_split_retail_layout_round_trip_store_zones() -> None:
+    layout = build_retail_layout("proj-zones-rt", _SCENE, _PLANOGRAMS)
+    scene_out, _ = split_retail_layout(layout)
+    assert scene_out["store"]["zones"] == _SCENE["store"]["zones"]
 
 
 # ---------------------------------------------------------------------------

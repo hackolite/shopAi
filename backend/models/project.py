@@ -59,6 +59,13 @@ class SimulationWaypoint(CADBaseModel):
     visionRangeCm: float = 220.0
 
 
+class SimulationWaypointSystem(CADBaseModel):
+    id: str
+    label: str = "Système JuPedSim"
+    color: str = "#3b82f6"
+    waypoints: list[SimulationWaypoint] = Field(default_factory=list)
+
+
 class SimulationConfig(CADBaseModel):
     enabled: bool = True
     arrivalRatePerSecond: float = 0.25
@@ -68,6 +75,8 @@ class SimulationConfig(CADBaseModel):
     desiredSpeedMps: float = 1.25
     speedVariation: float = 0.2
     waypoints: list[SimulationWaypoint] = Field(default_factory=list)
+    waypointSystems: list[SimulationWaypointSystem] = Field(default_factory=list)
+    activeWaypointSystemId: str | None = None
 
 
 class SimulationAgentFrame(CADBaseModel):
@@ -227,6 +236,7 @@ class ZoneShapeEnum(str, Enum):
 class FloorZonePoint(CADBaseModel):
     x: float
     z: float
+    corner: bool | None = None
 
 
 class FloorZone(CADBaseModel):
@@ -243,6 +253,9 @@ class FloorZone(CADBaseModel):
     shape: ZoneShapeEnum = ZoneShapeEnum.rectangle
     color: str | None = None
     points: list[FloorZonePoint] | None = None
+    pathMode: Literal["linear", "smooth"] = "linear"
+    mounted: bool = False
+    heightCm: float = 120.0
 
 
 class Store(CADBaseModel):

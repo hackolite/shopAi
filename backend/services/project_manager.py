@@ -332,7 +332,7 @@ def load_validated_scene(project_id: str, project_name: str | None = None) -> Sc
         metadata = load_project_file(project_id, "project.json") or {"name": project_id}
         project_name = str(metadata.get("name") or project_id)
     scene_raw = _canonicalize_scene_aliases(
-        load_project_file(project_id, "scene.json") or {"store": {}, "furniture": []}
+        load_project_file(project_id, "scene.json") or _default_scene_payload(project_name)
     )
     return SceneData.model_validate(normalize_scene_snapshot(scene_raw, project_name))
 

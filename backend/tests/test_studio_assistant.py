@@ -321,6 +321,17 @@ def test_natural_audit_aliases_are_read_only(studio, prompt):
     assert client.get(f"/api/cad/projects/{project_id}/export").content == before
 
 
+def test_audit_normalizes_legacy_sparse_zone_aliases(studio):
+    client, project_id = studio
+    scene = pm.load_project_file(project_id, "scene.json")
+    scene["store"]["zones"] = [{"id": "zone-nord-ouest", "widthCm": 900, "lengthCm": 700}]
+    pm.save_project_file(project_id, "scene.json", scene)
+
+    result = _ask(client, project_id, "Vérifie cette implantation")
+    assert not result["changed"] and not result["requiresConfirmation"]
+    assert "Audit de l'état enregistré" in result["message"]
+
+
 def test_placement_recommendation_previews_then_applies_articles_one_by_one(studio):
     client, project_id = studio
     scene = pm.load_project_file(project_id, "scene.json")

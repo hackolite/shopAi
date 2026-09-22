@@ -11,7 +11,8 @@
     {
       "type": "embedded-payload",
       "endpoint": "GET /api/platform/store-layouts/{layout_id}/download",
-      "embeddedIn": "retail-layout.json placements"
+      "containingFile": "retail-layout.json",
+      "propertyPath": "furniture[].placements[]"
     }
   ],
   "rootSchema": {

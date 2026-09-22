@@ -14,8 +14,9 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
-from models.project import ProjectSettings
+from models.project import CADBaseModel, Planogram, ProjectSettings, SceneData
 from services.reference_templates import REFERENCE_PROJECT_IDS
 
 _log = logging.getLogger(__name__)
@@ -295,6 +296,82 @@ def create_project(id: str, name: str) -> dict[str, Any]:
     return metadata
 
 
+def _default_scene_payload(name: str) -> dict[str, Any]:
+    return {
+        "store": {
+            "id": str(uuid4()),
+            "name": name,
+            "position": [0.0, 0.0, 0.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
+            "walls": [],
+        },
+        "furniture": [],
+    }
+
+
+def normalize_scene_snapshot(scene: Any, name: str) -> dict[str, Any]:
+    base = _default_scene_payload(name)
+    if not isinstance(scene, dict):
+        scene = {}
+    store_raw = scene.get("store")
+    if isinstance(store_raw, dict):
+        merged_store = dict(base["store"])
+        merged_store.update(store_raw)
+    else:
+        merged_store = dict(base["store"])
+    normalized_scene = dict(base)
+    normalized_scene.update(scene)
+    normalized_scene["store"] = merged_store
+    normalized_scene["furniture"] = scene.get("furniture", [])
+    return SceneData.model_validate(normalized_scene).model_dump()
+
+
+def _canonicalize_scene_aliases(scene: Any) -> Any:
+    if not isinstance(scene, dict):
+        return scene
+    canonical = json.loads(json.dumps(scene))
+    store = canonical.get("store")
+    if isinstance(store, dict) and isinstance(store.get("dimensions"), dict):
+        store["dimensions"] = CADBaseModel._validate_dimensions(store["dimensions"])
+    for item in canonical.get("furniture", []) or []:
+        if not isinstance(item, dict):
+            continue
+        if isinstance(item.get("dimensions"), dict):
+            item["dimensions"] = CADBaseModel._validate_dimensions(item["dimensions"])
+        if isinstance(item.get("faces"), dict):
+            faces: dict[str, Any] = {}
+            for face_name, planogram_id in item["faces"].items():
+                canonical_face = CADBaseModel._normalize_face_name(face_name)
+                if canonical_face in faces and faces[canonical_face] != planogram_id:
+                    raise ValueError(f"Duplicate furniture face alias for {canonical_face}")
+                faces[canonical_face] = planogram_id
+            item["faces"] = faces
+    return canonical
+
+
+def _canonicalize_planogram_aliases(planograms: Any) -> Any:
+    if not isinstance(planograms, list):
+        return planograms
+    canonical = json.loads(json.dumps(planograms))
+    for item in canonical:
+        if isinstance(item, dict) and "face" in item:
+            item["face"] = CADBaseModel._normalize_face_name(item["face"])
+    return canonical
+
+
+def _project_validated_shape(validated: Any, template: Any) -> Any:
+    if isinstance(validated, dict) and isinstance(template, dict):
+        return {
+            key: _project_validated_shape(validated.get(key), value)
+            for key, value in template.items()
+            if key in validated
+        }
+    if isinstance(validated, list) and isinstance(template, list) and len(validated) == len(template):
+        return [_project_validated_shape(valid_item, template_item) for valid_item, template_item in zip(validated, template)]
+    return validated
+
+
 def ensure_project_exists(project_id: str) -> None:
     if _find_existing_project(project_id) is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
@@ -330,21 +407,32 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     timestamp = _utc_now()
     metadata = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
 
+    scene_snapshot = snapshot.get("scene", _default_scene_payload(name))
+    planogram_snapshot = snapshot.get("planograms", [])
+    scene_snapshot = _canonicalize_scene_aliases(scene_snapshot)
+    try:
+        validated_scene = SceneData.model_validate(scene_snapshot).model_dump(mode="json")
+        scene_snapshot = _project_validated_shape(validated_scene, scene_snapshot)
+    except (TypeError, ValidationError, ValueError) as exc:
+        try:
+            scene_snapshot = normalize_scene_snapshot(scene_snapshot, name)
+        except (TypeError, ValidationError, ValueError) as normalized_exc:
+            raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {normalized_exc}") from normalized_exc
+    try:
+        planogram_snapshot = _canonicalize_planogram_aliases(planogram_snapshot)
+        validated_planograms = [Planogram.model_validate(item) for item in planogram_snapshot]
+        planogram_snapshot = [
+            _project_validated_shape(item.model_dump(mode="json"), raw_item)
+            for item, raw_item in zip(validated_planograms, planogram_snapshot)
+        ]
+    except (TypeError, ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {exc}") from exc
+
     defaults: dict[str, Any] = {
         "project.json": metadata,
-        "scene.json": snapshot.get("scene", {
-            "store": {
-                "id": str(uuid4()),
-                "name": name,
-                "position": [0.0, 0.0, 0.0],
-                "rotation": [0.0, 0.0, 0.0],
-                "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
-                "walls": [],
-            },
-            "furniture": [],
-        }),
+        "scene.json": scene_snapshot,
         "catalog.json": snapshot.get("catalog", {"products": []}),
-        "planograms.json": {"planograms": snapshot.get("planograms", [])},
+        "planograms.json": {"planograms": planogram_snapshot},
         "materials.json": snapshot.get("materials", {"materials": []}),
         "settings.json": snapshot.get("settings", ProjectSettings().model_dump(mode="json")),
         "textures.json": {"textures": []},

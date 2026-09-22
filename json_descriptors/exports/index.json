@@ -2,65 +2,79 @@
   "version": "1.0",
   "purpose": "Machine-readable inventory of exported JSON file formats used by ShopAI.",
   "folder": "json_descriptors/exports",
+  "descriptorResolution": {
+    "descriptorFile": "relative to this index.json file",
+    "descriptorPathFromRepoRoot": "relative to the repository root"
+  },
   "formats": [
     {
       "id": "project-json",
       "exportFileName": "project.json",
-      "descriptorFile": "json_descriptors/exports/project.descriptor.json",
+      "descriptorFile": "project.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/project.descriptor.json",
       "category": "project-metadata"
     },
     {
       "id": "scene-json",
       "exportFileName": "scene.json",
-      "descriptorFile": "json_descriptors/exports/scene.descriptor.json",
+      "descriptorFile": "scene.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/scene.descriptor.json",
       "category": "layout-scene"
     },
     {
       "id": "catalog-json",
       "exportFileName": "catalog.json",
-      "descriptorFile": "json_descriptors/exports/catalog.descriptor.json",
+      "descriptorFile": "catalog.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/catalog.descriptor.json",
       "category": "catalog"
     },
     {
       "id": "planograms-json",
       "exportFileName": "planograms.json",
-      "descriptorFile": "json_descriptors/exports/planograms.descriptor.json",
+      "descriptorFile": "planograms.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/planograms.descriptor.json",
       "category": "planogram"
     },
     {
       "id": "materials-json",
       "exportFileName": "materials.json",
-      "descriptorFile": "json_descriptors/exports/materials.descriptor.json",
+      "descriptorFile": "materials.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/materials.descriptor.json",
       "category": "materials"
     },
     {
       "id": "settings-json",
       "exportFileName": "settings.json",
-      "descriptorFile": "json_descriptors/exports/settings.descriptor.json",
+      "descriptorFile": "settings.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/settings.descriptor.json",
       "category": "project-settings"
     },
     {
       "id": "textures-json",
       "exportFileName": "textures.json",
-      "descriptorFile": "json_descriptors/exports/textures.descriptor.json",
+      "descriptorFile": "textures.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/textures.descriptor.json",
       "category": "textures-reserved"
     },
     {
       "id": "pedestrians-json",
       "exportFileName": "pedestrians.json",
-      "descriptorFile": "json_descriptors/exports/pedestrians.descriptor.json",
+      "descriptorFile": "pedestrians.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/pedestrians.descriptor.json",
       "category": "pedestrian-dataset"
     },
     {
       "id": "retail-layout-json",
       "exportFileName": "retail-layout.json",
-      "descriptorFile": "json_descriptors/exports/retail-layout.descriptor.json",
+      "descriptorFile": "retail-layout.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/retail-layout.descriptor.json",
       "category": "unified-layout-export"
     },
     {
       "id": "simulation-json",
       "exportFileName": "simulation.json",
-      "descriptorFile": "json_descriptors/exports/simulation.descriptor.json",
+      "descriptorFile": "simulation.descriptor.json",
+      "descriptorPathFromRepoRoot": "json_descriptors/exports/simulation.descriptor.json",
       "category": "workspace-simulation"
     }
   ]

@@ -308,6 +308,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     set((state) => {
       const nextConfig = normalizeConfig({ ...state.config, activeWaypointSystemId: id });
       return {
+        history: [...state.history.slice(-MAX_HISTORY + 1), state.config],
         config: nextConfig,
         selectedWaypointId: nextConfig.waypoints.some((waypoint) => waypoint.id === state.selectedWaypointId)
           ? state.selectedWaypointId

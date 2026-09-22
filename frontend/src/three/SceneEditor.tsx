@@ -2751,12 +2751,13 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
       appendPolygonPoint(snapPoint(previewEndRef.current));
     }
     if ((useZoneStore.getState().polygonDraft?.points.length ?? 0) >= 3) {
-      finishPolygonDrawing({
+      const success = finishPolygonDrawing({
         width: store.dimensions.width,
         depth: store.dimensions.depth,
         x: store.position?.[0] ?? 0,
         z: store.position?.[2] ?? 0,
       });
+      if (!success) return;
     } else {
       cancelPolygonDrawing();
     }
@@ -2801,12 +2802,13 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
       && polygonDraft.points.length >= 3
       && Math.hypot(point.x - first.x, point.z - first.z) <= closeThreshold
     ) {
-      finishPolygonDrawing({
+      const success = finishPolygonDrawing({
         width: store.dimensions.width,
         depth: store.dimensions.depth,
         x: store.position?.[0] ?? 0,
         z: store.position?.[2] ?? 0,
       });
+      if (!success) return;
       setPreviewEnd(null);
       return;
     }

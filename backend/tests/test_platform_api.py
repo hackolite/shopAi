@@ -806,6 +806,45 @@ def test_create_project_from_layout_normalizes_zone_and_directional_face_aliases
     assert scene["furniture"][1]["faces"]["back"] == "plano-charging-hub"
 
 
+def test_store_layout_rejects_conflicting_zone_dimension_aliases() -> None:
+    client = _make_client()
+    _register(client, name="Layout Conflict Seeder", email="layout-conflict@example.com")
+
+    response = client.post(
+        "/api/platform/store-layouts",
+        json={
+            "name": "Layout conflict",
+            "payload": {
+                "scene": {
+                    "store": {
+                        "id": "store-conflict",
+                        "name": "Conflict Store",
+                        "position": [0, 0, 0],
+                        "rotation": [0, 0, 0],
+                        "dimensions": {"width": 5000, "depth": 3000, "height": 400},
+                        "zones": [
+                            {
+                                "id": "zone-conflict",
+                                "type": "entrance",
+                                "label": "Zone conflict",
+                                "x": 0,
+                                "z": 0,
+                                "width": 900,
+                                "widthCm": 1000,
+                                "depth": 1000,
+                            }
+                        ],
+                    },
+                    "furniture": [],
+                },
+                "planograms": [],
+            },
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert "conflicting aliases for width" in response.text
+
+
 def test_simulation_import_json_persists_scenarios() -> None:
     client = _make_client()
     _register(client, name="Simulation Importer", email="simulation-importer@example.com")

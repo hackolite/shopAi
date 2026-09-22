@@ -1776,18 +1776,20 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
   const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone), [zone]);
-  const extrudedGeometry = useMemo(
-    () => new THREE.ExtrudeGeometry(shapeGeometry, {
-      depth: zoneHeightCm(zone) * CM_TO_UNIT,
-      bevelEnabled: false,
-      curveSegments: zone.shape === 'polygon' ? 24 : 12,
-    }),
-    [shapeGeometry, zone],
-  );
   const mounted = zoneMounted(zone);
+  const extrudedGeometry = useMemo(
+    () => (mounted
+      ? new THREE.ExtrudeGeometry(shapeGeometry, {
+        depth: zoneHeightCm(zone) * CM_TO_UNIT,
+        bevelEnabled: false,
+        curveSegments: zone.shape === 'polygon' ? 24 : 12,
+      })
+      : null),
+    [mounted, shapeGeometry, zone],
+  );
   const extrudedHeight = zoneHeightCm(zone) * CM_TO_UNIT;
 
-  useEffect(() => () => extrudedGeometry.dispose(), [extrudedGeometry]);
+  useEffect(() => () => extrudedGeometry?.dispose(), [extrudedGeometry]);
 
   // Drag state (same pattern as ResizeHandles / FurnitureMesh)
   const isDragging   = useRef(false);
@@ -1927,7 +1929,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         />
       </mesh>
 
-      {mounted && zone.type === 'forbidden' && (
+      {mounted && zone.type === 'forbidden' && extrudedGeometry && (
         <>
           <mesh
             position={[cx, y, cz]}

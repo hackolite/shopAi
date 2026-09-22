@@ -112,11 +112,6 @@ export function floorZoneValidationError(
     ? smoothClosedPoints(points)
     : points.map((point) => ({ x: point.x, z: point.z }));
   if (outline.length < 3) return 'La zone doit contenir au moins 3 points distincts.';
-  const area = Math.abs(outline.reduce((sum, point, index) => {
-    const next = outline[(index + 1) % outline.length];
-    return sum + point.x * next.z - next.x * point.z;
-  }, 0)) / 2;
-  if (area < 10_000) return 'La zone est trop petite. Dessinez une surface plus grande.';
   if (options?.storeWidth != null && options?.storeDepth != null) {
     const minX = options.storeX ?? 0;
     const minZ = options.storeZ ?? 0;
@@ -168,6 +163,11 @@ export function floorZoneValidationError(
       }
     }
   }
+  const area = Math.abs(outline.reduce((sum, point, index) => {
+    const next = outline[(index + 1) % outline.length];
+    return sum + point.x * next.z - next.x * point.z;
+  }, 0)) / 2;
+  if (area < 10_000) return 'La zone est trop petite. Dessinez une surface plus grande.';
   return null;
 }
 

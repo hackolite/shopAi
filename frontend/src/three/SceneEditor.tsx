@@ -2760,7 +2760,16 @@ function PolygonDraftTool({ store }: { store: StoreConfig }) {
     }
     setPreviewEnd(null);
     previewEndRef.current = null;
-  }, [appendPolygonPoint, cancelPolygonDrawing, finishPolygonDrawing, polygonDraft, snapPoint]);
+  }, [
+    appendPolygonPoint,
+    cancelPolygonDrawing,
+    finishPolygonDrawing,
+    polygonDraft,
+    snapPoint,
+    store.dimensions.depth,
+    store.dimensions.width,
+    store.position,
+  ]);
 
   useEffect(() => {
     if (!polygonDraft || polygonDraft.mode !== 'freehand') return;

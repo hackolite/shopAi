@@ -67,9 +67,9 @@ describe('floorZones helpers', () => {
   it('rejects self-intersecting floor drawings', () => {
     expect(floorZoneValidationError([
       { x: 0, z: 0 },
-      { x: 100, z: 100 },
-      { x: 0, z: 100 },
-      { x: 100, z: 0 },
+      { x: 200, z: 200 },
+      { x: 0, z: 200 },
+      { x: 200, z: 0 },
     ])).toContain('croise');
   });
 

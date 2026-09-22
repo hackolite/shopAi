@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { cadApi } from '../../api/cad';
 import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
@@ -78,6 +78,42 @@ function NumberField({
   );
 }
 
+type SimulationSectionId = 'config' | 'dataset' | 'waypoints' | 'analysis' | 'queues' | 'summary';
+
+function CollapsibleSection({
+  sectionId,
+  title,
+  collapsedSections,
+  setCollapsedSections,
+  children,
+  defaultOpen = true,
+  className = 'space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3',
+}: {
+  sectionId: SimulationSectionId;
+  title: string;
+  collapsedSections: Record<SimulationSectionId, boolean>;
+  setCollapsedSections: Dispatch<SetStateAction<Record<SimulationSectionId, boolean>>>;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  const collapsed = collapsedSections[sectionId] ?? !defaultOpen;
+  return (
+    <section className={className}>
+      <button
+        type="button"
+        onClick={() => setCollapsedSections((current) => ({ ...current, [sectionId]: !collapsed }))}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={!collapsed}
+      >
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">{title}</h4>
+        <span className="text-sm text-gray-500">{collapsed ? '▸' : '▾'}</span>
+      </button>
+      {!collapsed && children}
+    </section>
+  );
+}
+
 function persistSettings(projectId: string | null, config: SimulationConfig) {
   if (!projectId) return;
   cadApi.updateSettings(projectId, { simulation: config }).catch(console.error);
@@ -90,9 +126,11 @@ function snapshotSimulationInput(scene: object, config: SimulationConfig): strin
 function WaypointEditor({
   waypoint,
   invalid,
+  accentColor,
 }: {
   waypoint: SimulationWaypoint;
   invalid: boolean;
+  accentColor: string;
 }) {
   const { updateWaypoint, removeWaypoint, selectWaypoint, selectedWaypointId } = useSimulationStore();
   const selected = selectedWaypointId === waypoint.id;
@@ -107,9 +145,10 @@ function WaypointEditor({
         invalid
           ? 'border-red-500 bg-red-950/20'
           : selected
-            ? 'border-blue-500 bg-blue-950/20'
+            ? 'bg-blue-950/20'
             : 'border-gray-800 bg-gray-900/60',
       ].join(' ')}
+      style={selected && !invalid ? { borderColor: accentColor } : undefined}
       onClick={() => selectWaypoint(waypoint.id)}
     >
       <div className="flex items-center gap-2">
@@ -215,6 +254,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const {
     config,
     patchConfig,
+    addWaypointSystem,
+    removeWaypointSystem,
+    selectWaypointSystem,
+    updateWaypointSystem,
     addWaypoint,
     result,
     setResult,
@@ -278,6 +321,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
    */
   const [pedestrianLoadedSessionId, setPedestrianLoadedSessionId] = useState<string | null>(null);
   const lastSimulationSignature = useRef<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Record<SimulationSectionId, boolean>>({
+    config: false,
+    dataset: false,
+    waypoints: false,
+    analysis: false,
+    queues: false,
+    summary: false,
+  });
   /**
    * The live session currently running on the backend, together with the
    * project it belongs to.  Keeping the owning project alongside the id makes
@@ -325,6 +376,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   }, [config, projectId, loadedProjectId]);
 
   const selectedSummary = result?.summary ?? null;
+  const waypointSystems = config.waypointSystems ?? [];
+  const activeWaypointSystem = waypointSystems.find((system) => system.id === config.activeWaypointSystemId) ?? null;
   const sceneWithZones = useMemo(
     () => {
       if (!scene) return null;
@@ -840,7 +893,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Simulation flux piétons</h3>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto p-3">
-        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
+        <CollapsibleSection
+          sectionId="config"
+          title="Mode de simulation"
+          collapsedSections={collapsedSections}
+          setCollapsedSections={setCollapsedSections}
+        >
           <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -943,12 +1001,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                   : '▶ Lancer la simulation'}
             </button>
           )}
-        </section>
+        </CollapsibleSection>
 
-        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Dataset piétons &amp; paniers
-          </h4>
+        <CollapsibleSection
+          sectionId="dataset"
+          title="Dataset piétons & paniers"
+          collapsedSections={collapsedSections}
+          setCollapsedSections={setCollapsedSections}
+        >
           <p className="text-[11px] leading-snug text-gray-500">
             Choisissez un dataset déjà importé dans le workspace : il remplace aussitôt les piétons du projet et sera joué automatiquement au lancement.
           </p>
@@ -990,12 +1050,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               Prochain piéton entrant dans {formatSeconds(nextPedestrianCountdownSeconds)}
             </p>
           )}
-        </section>
+        </CollapsibleSection>
 
-
-        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
+        <CollapsibleSection
+          sectionId="waypoints"
+          title="Points de passage"
+          collapsedSections={collapsedSections}
+          setCollapsedSections={setCollapsedSections}
+        >
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Points de passage</h4>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => addWaypoint('entry', newWaypointPosition)}
@@ -1017,6 +1080,55 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               </button>
             </div>
           </div>
+          <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <select
+                value={activeWaypointSystem?.id ?? ''}
+                onChange={(event) => selectWaypointSystem(event.target.value)}
+                className="flex-1 rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
+              >
+                {waypointSystems.map((system) => (
+                  <option key={system.id} value={system.id}>
+                    {system.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => addWaypointSystem()}
+                className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-200 hover:bg-gray-700"
+              >
+                + JuPedSim
+              </button>
+              <button
+                type="button"
+                onClick={() => activeWaypointSystem && removeWaypointSystem(activeWaypointSystem.id)}
+                disabled={!activeWaypointSystem || waypointSystems.length <= 1}
+                className="rounded bg-gray-800 px-2 py-1 text-xs text-red-300 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Suppr.
+              </button>
+            </div>
+            {activeWaypointSystem && (
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <input
+                  type="text"
+                  value={activeWaypointSystem.label}
+                  onChange={(event) => updateWaypointSystem(activeWaypointSystem.id, { label: event.target.value })}
+                  className="min-w-0 rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs text-gray-200"
+                />
+                <input
+                  type="color"
+                  value={activeWaypointSystem.color}
+                  onChange={(event) => updateWaypointSystem(activeWaypointSystem.id, { color: event.target.value })}
+                  className="h-8 w-12 rounded border border-gray-700 bg-gray-900 p-1"
+                />
+              </div>
+            )}
+            <p className="text-[11px] text-gray-500">
+              Chaque système JuPedSim garde ses propres waypoints et sa propre couleur active.
+            </p>
+          </div>
           <p className="text-xs text-gray-500">
             Entrée = apparition, Sortie = disparition, Transit = passage intermédiaire avec temps de rétention.
           </p>
@@ -1031,6 +1143,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                   key={waypoint.id}
                   waypoint={waypoint}
                   invalid={invalidWaypointIds.includes(waypoint.id)}
+                  accentColor={activeWaypointSystem?.color ?? '#3b82f6'}
                 />
               ))
             )}
@@ -1040,10 +1153,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               </div>
             )}
           </div>
-        </section>
+        </CollapsibleSection>
 
-        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Analyse spatiale</h4>
+        <CollapsibleSection
+          sectionId="analysis"
+          title="Analyse spatiale"
+          collapsedSections={collapsedSections}
+          setCollapsedSections={setCollapsedSections}
+        >
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Heatmap au sol</span>
             <input
@@ -1091,11 +1208,16 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           <p className="text-xs text-gray-600">
             Les couches s'affichent dans la vue 3D pendant la simulation.
           </p>
-        </section>
+        </CollapsibleSection>
 
         {queueMetrics.length > 0 && (
-          <section className="space-y-2 rounded border border-sky-800/40 bg-sky-950/20 p-3 text-xs text-sky-100">
-            <h4 className="font-semibold uppercase tracking-wider text-sky-300">Temps d'attente par point</h4>
+          <CollapsibleSection
+            sectionId="queues"
+            title="Temps d'attente par point"
+            collapsedSections={collapsedSections}
+            setCollapsedSections={setCollapsedSections}
+            className="space-y-2 rounded border border-sky-800/40 bg-sky-950/20 p-3 text-xs text-sky-100"
+          >
             {queueMetrics.map((metrics) => (
               <div key={metrics.waypointId} className="space-y-1 rounded border border-sky-900/60 bg-sky-950/30 p-2">
                 <div className="flex items-center justify-between font-semibold">
@@ -1109,19 +1231,24 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 <div className="flex justify-between"><span>Clients servis</span><span>{metrics.completedWaits}</span></div>
               </div>
             ))}
-          </section>
+          </CollapsibleSection>
         )}
 
         {selectedSummary && (
-          <section className="space-y-2 rounded border border-emerald-800/40 bg-emerald-950/20 p-3 text-xs text-emerald-100">
-            <h4 className="font-semibold uppercase tracking-wider text-emerald-300">Résumé</h4>
+          <CollapsibleSection
+            sectionId="summary"
+            title="Résumé"
+            collapsedSections={collapsedSections}
+            setCollapsedSections={setCollapsedSections}
+            className="space-y-2 rounded border border-emerald-800/40 bg-emerald-950/20 p-3 text-xs text-emerald-100"
+          >
             <div className="flex justify-between"><span>Entrés</span><span>{selectedSummary.spawnedCustomers}</span></div>
             <div className="flex justify-between"><span>Sortis</span><span>{selectedSummary.completedCustomers}</span></div>
             <div className="flex justify-between"><span>Encore actifs</span><span>{selectedSummary.activeCustomers}</span></div>
             <div className="flex justify-between"><span>Charge moyenne waypoint</span><span>{selectedSummary.averageWaypointLoad.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Pic waypoint</span><span>{selectedSummary.maxWaypointLoad}</span></div>
             <div className="flex justify-between"><span>Rétention configurée moy. (s)</span><span>{selectedSummary.averageConfiguredRetentionSeconds.toFixed(2)}</span></div>
-          </section>
+          </CollapsibleSection>
         )}
       </div>
     </div>

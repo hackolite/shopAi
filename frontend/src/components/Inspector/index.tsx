@@ -690,6 +690,11 @@ function zoneShapeLabel(zone: FloorZone): string {
   return 'Rectangle';
 }
 
+function zonePathModeLabel(zone: FloorZone): string {
+  if (zone.pathMode === 'smooth') return 'Courbe';
+  return 'Linéaire';
+}
+
 // ─── Zone inspector ───────────────────────────────────────────────────────────
 function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string | null }) {
   const { updateZone } = useZoneStore();
@@ -698,6 +703,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
   const isForbidden = zone.type === 'forbidden';
   const isRotatable = isForbidden && zone.shape !== 'circle';
   const pointCount = zone.points?.length ?? 0;
+  const isPolygon = zone.shape === 'polygon';
 
   const save = (updated: FloorZone) => {
     updateZone(updated);
@@ -747,6 +753,43 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
                   Pour pivoter ce dessin au sol, modifiez cet angle.
                 </p>
               </div>
+            )}
+            {isPolygon && (
+              <>
+                <label className="flex items-center gap-2 text-xs text-gray-300">
+                  <span className="text-xs text-gray-500 w-16 shrink-0">Tracé</span>
+                  <select
+                    value={zone.pathMode ?? 'linear'}
+                    onChange={(event) => save({ ...zone, pathMode: event.target.value as FloorZone['pathMode'] })}
+                    className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="linear">Point à point</option>
+                    <option value="smooth">Courbe lissée</option>
+                  </select>
+                </label>
+                <label className="flex items-center justify-between text-xs text-gray-300">
+                  <span className="text-gray-500">Monté en 3D</span>
+                  <input
+                    type="checkbox"
+                    checked={zone.mounted === true}
+                    onChange={(event) => save({ ...zone, mounted: event.target.checked })}
+                    className="accent-blue-500"
+                  />
+                </label>
+                {zone.mounted === true && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500 w-16 shrink-0">Hauteur</label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={5}
+                      value={zone.heightCm ?? 120}
+                      onChange={(event) => save({ ...zone, heightCm: Math.max(1, Number(event.target.value) || 1) })}
+                      className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -801,14 +844,26 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
           </div>
         )}
         {zone.shape === 'polygon' && (
+          <>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Points</span>
+              <span>{pointCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Tracé</span>
+              <span>{zonePathModeLabel(zone)}</span>
+            </div>
+          </>
+        )}
+        {isForbidden && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Points</span>
-            <span>{pointCount}</span>
+            <span className="text-gray-500">Hauteur 3D</span>
+            <span>{zone.mounted === true ? `${zone.heightCm ?? 120} cm` : 'À plat'}</span>
           </div>
         )}
         {isForbidden && (
           <div className="rounded-lg border border-red-900 bg-red-950/20 px-2 py-2 text-[11px] leading-snug text-red-200">
-            Ce dessin au sol est un obstacle piéton : les agents le contournent comme un mobilier.
+            Ce dessin au sol est un obstacle piéton : les agents le contournent comme un mobilier, à plat ou monté.
           </div>
         )}
       </div>

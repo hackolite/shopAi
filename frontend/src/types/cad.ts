@@ -48,10 +48,12 @@ export interface FurnitureDefinition {
 // ─── Floor zones ──────────────────────────────────────────────────────────────
 export type ZoneType = 'entrance' | 'exit' | 'supply' | 'forbidden';
 export type ZoneShape = 'rectangle' | 'circle' | 'diamond' | 'polygon';
+export type ZonePathMode = 'linear' | 'smooth';
 
 export interface FloorZonePoint {
   x: number;
   z: number;
+  corner?: boolean;
 }
 
 export interface FloorZone {
@@ -74,6 +76,12 @@ export interface FloorZone {
   color?: string;
   /** Closed polygon points in store coordinates (cm), only used for polygon drawings. */
   points?: FloorZonePoint[];
+  /** Rendering mode for free-form floor drawings. */
+  pathMode?: ZonePathMode;
+  /** When true, the floor drawing is extruded vertically in the 3D scene. */
+  mounted?: boolean;
+  /** Extrusion height in cm for mounted floor drawings. */
+  heightCm?: number;
 }
 
 // ─── Store / Scene ────────────────────────────────────────────────────────────
@@ -102,6 +110,13 @@ export interface SimulationWaypoint {
   visionRangeCm: number;
 }
 
+export interface SimulationWaypointSystem {
+  id: string;
+  label: string;
+  color: string;
+  waypoints: SimulationWaypoint[];
+}
+
 export interface SimulationConfig {
   enabled: boolean;
   arrivalRatePerSecond: number;
@@ -111,6 +126,8 @@ export interface SimulationConfig {
   desiredSpeedMps: number;
   speedVariation: number;
   waypoints: SimulationWaypoint[];
+  waypointSystems?: SimulationWaypointSystem[];
+  activeWaypointSystemId?: string | null;
 }
 
 export interface SimulationAgentFrame {

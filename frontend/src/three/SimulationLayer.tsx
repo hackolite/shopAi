@@ -28,6 +28,54 @@ const TRAJECTORY_Y = 0.03;
 const TRAJECTORY_ACTIVE_OPACITY = 0.85;
 const TRAJECTORY_PAST_OPACITY = 0.35;
 
+function hexToRgb(color: string): [number, number, number] {
+  const normalized = color.replace('#', '');
+  const safe = normalized.length === 3
+    ? normalized.split('').map((chunk) => `${chunk}${chunk}`).join('')
+    : normalized.padEnd(6, '0').slice(0, 6);
+  return [
+    parseInt(safe.slice(0, 2), 16),
+    parseInt(safe.slice(2, 4), 16),
+    parseInt(safe.slice(4, 6), 16),
+  ];
+}
+
+function rgbToHex([r, g, b]: [number, number, number]): string {
+  return `#${[r, g, b].map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function mixHex(base: string, target: string, ratio: number): string {
+  const baseRgb = hexToRgb(base);
+  const targetRgb = hexToRgb(target);
+  return rgbToHex([
+    baseRgb[0] + (targetRgb[0] - baseRgb[0]) * ratio,
+    baseRgb[1] + (targetRgb[1] - baseRgb[1]) * ratio,
+    baseRgb[2] + (targetRgb[2] - baseRgb[2]) * ratio,
+  ] as [number, number, number]);
+}
+
+function waypointPalette(accentColor: string, type: 'entry' | 'transit' | 'exit') {
+  if (type === 'entry') {
+    return {
+      main: mixHex(accentColor, '#ffffff', 0.05),
+      ring: mixHex(accentColor, '#ffffff', 0.35),
+      emissive: mixHex(accentColor, '#000000', 0.45),
+    };
+  }
+  if (type === 'exit') {
+    return {
+      main: mixHex(accentColor, '#000000', 0.12),
+      ring: mixHex(accentColor, '#ffffff', 0.2),
+      emissive: mixHex(accentColor, '#000000', 0.55),
+    };
+  }
+  return {
+    main: accentColor,
+    ring: mixHex(accentColor, '#ffffff', 0.28),
+    emissive: mixHex(accentColor, '#000000', 0.52),
+  };
+}
+
 function clampCm(value: number, min: number, max: number): number {
   const rounded = Math.round(value);
   return Math.max(min, Math.min(max, rounded));
@@ -61,6 +109,7 @@ function WaypointMarker({
   type,
   optional,
   invalid,
+  accentColor,
   canDrag,
   minXCm,
   maxXCm,
@@ -76,6 +125,7 @@ function WaypointMarker({
   type: 'entry' | 'transit' | 'exit';
   optional: boolean;
   invalid: boolean;
+  accentColor: string;
   canDrag: boolean;
   minXCm: number;
   maxXCm: number;
@@ -90,6 +140,7 @@ function WaypointMarker({
   const updateWaypoint = useSimulationStore((state) => state.updateWaypoint);
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selected = selectedWaypointId === id;
+  const palette = waypointPalette(accentColor, type);
   const dragStateRef = useRef<{ pointerId: number; startXcm: number; startZcm: number; startHitXcm: number; startHitZcm: number } | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const historyCapturedRef = useRef(false);
@@ -200,26 +251,18 @@ function WaypointMarker({
             ? '#dc2626'
             : selected
               ? '#2563eb'
-              : type === 'entry'
-                ? '#15803d'
-                : type === 'exit'
-                  ? '#c2410c'
-                  : optional
-                    ? '#b45309'
-                    : '#0369a1'
+              : optional
+                ? mixHex(palette.main, '#f59e0b', 0.4)
+                : palette.main
         }
         emissive={
           invalid
             ? '#7f1d1d'
             : selected
               ? '#1e3a8a'
-              : type === 'entry'
-                ? '#14532d'
-                : type === 'exit'
-                  ? '#7c2d12'
-                  : optional
-                    ? '#78350f'
-                    : '#0c4a6e'
+              : optional
+                ? mixHex(palette.emissive, '#78350f', 0.35)
+                : palette.emissive
         }
         emissiveIntensity={0.6}
       />
@@ -232,13 +275,9 @@ function WaypointMarker({
               ? '#f87171'
               : selected
                 ? '#93c5fd'
-                : type === 'entry'
-                  ? '#4ade80'
-                  : type === 'exit'
-                    ? '#fdba74'
-                    : optional
-                      ? '#fbbf24'
-                      : '#67e8f9'
+                : optional
+                  ? mixHex(palette.ring, '#fbbf24', 0.45)
+                  : palette.ring
           }
           transparent
           opacity={0.85}
@@ -865,6 +904,10 @@ export function SimulationLayer({
     if (!waypoint || !invalidWaypointIds.includes(waypoint.id)) return null;
     return { xCm: invalidWaypointSuggestion.xCm, zCm: invalidWaypointSuggestion.zCm };
   }, [config.waypoints, invalidWaypointIds, invalidWaypointSuggestion]);
+  const activeSystemColor = useMemo(() => (
+    config.waypointSystems?.find((system) => system.id === config.activeWaypointSystemId)?.color
+    ?? '#3b82f6'
+  ), [config.activeWaypointSystemId, config.waypointSystems]);
 
   if (!config.enabled) return null;
 
@@ -875,6 +918,7 @@ export function SimulationLayer({
           key={waypoint.id}
           {...waypoint}
           invalid={invalidWaypointIds.includes(waypoint.id)}
+          accentColor={activeSystemColor}
           canDrag={canDrag}
           minXCm={minXCm}
           maxXCm={maxXCm}

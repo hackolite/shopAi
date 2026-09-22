@@ -233,6 +233,7 @@ def build_retail_layout(
             "id": store.get("id", ""),
             "name": store.get("name", ""),
             "dimensions": store_dims,
+            "zones": store.get("zones", []),
         },
         "furniture": furniture_items,
     }
@@ -358,6 +359,7 @@ def split_retail_layout(
             "height": 400.0,
         }),
         "walls": [],
+        "zones": store_raw.get("zones", []),
     }
 
     scene_dict: dict[str, Any] = {

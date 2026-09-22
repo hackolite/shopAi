@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { FloorZone, FloorZonePoint, ZoneShape, ZoneType } from '../types/cad';
+import { floorZoneValidationError } from '../engine/floorZones';
+import type { FloorZone, FloorZonePoint, ZonePathMode, ZoneShape, ZoneType } from '../types/cad';
 
 export type { FloorZone, FloorZonePoint, ZoneShape, ZoneType };
 
@@ -8,18 +9,23 @@ interface AddZoneOptions {
   color?: string;
   label?: string;
   points?: FloorZonePoint[];
+  pathMode?: ZonePathMode;
+  mounted?: boolean;
+  heightCm?: number;
 }
 
 interface PolygonDraft {
   mode: 'polygon' | 'freehand';
   color: string;
   points: FloorZonePoint[];
+  pathMode: ZonePathMode;
 }
 
 interface ZoneState {
   zones: FloorZone[];
   selectedZoneId: string | null;
   polygonDraft: PolygonDraft | null;
+  polygonDraftError: string | null;
   /** True once zones have been initialised from the backend scene. */
   zonesLoaded: boolean;
   /**
@@ -35,10 +41,10 @@ interface ZoneState {
   removeZone: (id: string) => void;
   updateZone: (zone: FloorZone) => void;
   selectZone: (id: string | null) => void;
-  startPolygonDrawing: (mode?: PolygonDraft['mode'], color?: string) => void;
+  startPolygonDrawing: (mode?: PolygonDraft['mode'], color?: string, pathMode?: ZonePathMode) => void;
   appendPolygonPoint: (point: FloorZonePoint) => void;
   removeLastPolygonPoint: () => void;
-  finishPolygonDrawing: () => void;
+  finishPolygonDrawing: (store?: { width: number; depth: number; x?: number; z?: number }) => boolean;
   cancelPolygonDrawing: () => void;
   /** Bulk-set zones when loading from the backend (marks zonesLoaded = true). */
   setZones: (zones: FloorZone[]) => void;
@@ -51,6 +57,7 @@ const DEFAULT_ZONE_DEPTH_CM = 100;
 const DEFAULT_SUPPLY_ROWS = 3;
 const DEFAULT_SUPPLY_COLS = 4;
 const DEFAULT_FORBIDDEN_COLOR = '#ef4444';
+const DEFAULT_ZONE_HEIGHT_CM = 120;
 /** Snap grid step in centimetres – matches the 1 m floor grid. */
 const SNAP_GRID_CM = 100;
 
@@ -91,7 +98,7 @@ function buildZone(
 ): FloorZone {
   const shape = options?.shape ?? 'rectangle';
   const points = options?.points
-    ? options.points.map((point) => ({ x: point.x, z: point.z }))
+    ? options.points.map((point) => ({ x: point.x, z: point.z, corner: point.corner }))
     : undefined;
   const polygonBox = points && points.length >= 3 ? polygonBounds(points) : null;
   const safeStoreWidth = storeWidth ?? DEFAULT_ZONE_WIDTH_CM * 2;
@@ -116,6 +123,9 @@ function buildZone(
     shape,
     color: options?.color ?? (type === 'forbidden' ? DEFAULT_FORBIDDEN_COLOR : undefined),
     points,
+    pathMode: options?.pathMode ?? (shape === 'polygon' ? 'linear' : undefined),
+    mounted: options?.mounted ?? false,
+    heightCm: options?.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
     ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),
   };
 }
@@ -124,6 +134,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
   zones: [],
   selectedZoneId: null,
   polygonDraft: null,
+  polygonDraftError: null,
   zonesLoaded: false,
 
   addZone: (type, storeWidth, storeDepth, options) => {
@@ -138,7 +149,12 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
     }
     const zone = buildZone(type, storeWidth, storeDepth, { ...options, shape });
 
-    set((state) => ({ zones: [...state.zones, zone], selectedZoneId: zone.id, polygonDraft: null }));
+    set((state) => ({
+      zones: [...state.zones, zone],
+      selectedZoneId: zone.id,
+      polygonDraft: null,
+      polygonDraftError: null,
+    }));
   },
 
   removeZone: (id) =>
@@ -149,14 +165,20 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
 
   updateZone: (zone) =>
     set((state) => ({
-      zones: state.zones.map((z) => (z.id === zone.id ? zone : z)),
+      zones: state.zones.map((z) => (z.id === zone.id ? {
+        ...zone,
+        mounted: zone.mounted ?? false,
+        heightCm: zone.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
+        pathMode: zone.pathMode ?? (zone.shape === 'polygon' ? 'linear' : undefined),
+      } : z)),
     })),
 
   selectZone: (id) => set({ selectedZoneId: id }),
 
-  startPolygonDrawing: (mode = 'polygon', color = DEFAULT_FORBIDDEN_COLOR) => set({
-    polygonDraft: { mode, color, points: [] },
+  startPolygonDrawing: (mode = 'polygon', color = DEFAULT_FORBIDDEN_COLOR, pathMode) => set({
+    polygonDraft: { mode, color, points: [], pathMode: pathMode ?? (mode === 'freehand' ? 'smooth' : 'linear') },
     selectedZoneId: null,
+    polygonDraftError: null,
   }),
 
   appendPolygonPoint: (point) => set((state) => ({
@@ -172,28 +194,62 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
           })(),
         }
       : state.polygonDraft,
+    polygonDraftError: null,
   })),
 
   removeLastPolygonPoint: () => set((state) => ({
     polygonDraft: state.polygonDraft
       ? { ...state.polygonDraft, points: state.polygonDraft.points.slice(0, -1) }
       : null,
+    polygonDraftError: null,
   })),
 
-  finishPolygonDrawing: () => {
+  finishPolygonDrawing: (store) => {
     const draft = get().polygonDraft;
-    if (!draft || draft.points.length < 3) return;
+    if (!draft) return false;
+    const validationError = floorZoneValidationError(draft.points, {
+      storeWidth: store?.width,
+      storeDepth: store?.depth,
+      storeX: store?.x,
+      storeZ: store?.z,
+      pathMode: draft.pathMode,
+    });
+    if (validationError) {
+      set({ polygonDraftError: validationError });
+      return false;
+    }
     const zone = buildZone('forbidden', undefined, undefined, {
       shape: 'polygon',
       color: draft.color,
       points: draft.points,
+      pathMode: draft.pathMode,
     });
-    set((state) => ({ zones: [...state.zones, zone], selectedZoneId: zone.id, polygonDraft: null }));
+    set((state) => ({
+      zones: [...state.zones, zone],
+      selectedZoneId: zone.id,
+      polygonDraft: null,
+      polygonDraftError: null,
+    }));
+    return true;
   },
 
-  cancelPolygonDrawing: () => set({ polygonDraft: null }),
+  cancelPolygonDrawing: () => set({ polygonDraft: null, polygonDraftError: null }),
 
-  setZones: (zones) => set({ zones, zonesLoaded: true }),
+  setZones: (zones) => set({
+    zones: zones.map((zone) => ({
+      ...zone,
+      mounted: zone.mounted ?? false,
+      heightCm: zone.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
+      pathMode: zone.pathMode ?? (zone.shape === 'polygon' ? 'linear' : undefined),
+    })),
+    zonesLoaded: true,
+  }),
 
-  reset: () => set({ zones: [], selectedZoneId: null, polygonDraft: null, zonesLoaded: false }),
+  reset: () => set({
+    zones: [],
+    selectedZoneId: null,
+    polygonDraft: null,
+    polygonDraftError: null,
+    zonesLoaded: false,
+  }),
 }));

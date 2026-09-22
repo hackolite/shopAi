@@ -360,6 +360,18 @@ def _canonicalize_planogram_aliases(planograms: Any) -> Any:
     return canonical
 
 
+def _project_validated_shape(validated: Any, template: Any) -> Any:
+    if isinstance(validated, dict) and isinstance(template, dict):
+        return {
+            key: _project_validated_shape(validated.get(key), value)
+            for key, value in template.items()
+            if key in validated
+        }
+    if isinstance(validated, list) and isinstance(template, list) and len(validated) == len(template):
+        return [_project_validated_shape(valid_item, template_item) for valid_item, template_item in zip(validated, template)]
+    return validated
+
+
 def ensure_project_exists(project_id: str) -> None:
     if _find_existing_project(project_id) is None:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found")
@@ -399,7 +411,8 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     planogram_snapshot = snapshot.get("planograms", [])
     scene_snapshot = _canonicalize_scene_aliases(scene_snapshot)
     try:
-        SceneData.model_validate(scene_snapshot)
+        validated_scene = SceneData.model_validate(scene_snapshot).model_dump(mode="json")
+        scene_snapshot = _project_validated_shape(validated_scene, scene_snapshot)
     except (TypeError, ValidationError) as exc:
         try:
             scene_snapshot = normalize_scene_snapshot(scene_snapshot, name)

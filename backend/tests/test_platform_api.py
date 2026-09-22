@@ -746,7 +746,16 @@ def test_create_project_from_layout_normalizes_zone_and_directional_face_aliases
                                 "z": 0,
                                 "widthCm": 1000,
                                 "lengthCm": 1000,
-                            }
+                            },
+                            {
+                                "id": "zone-nord",
+                                "type": "exit",
+                                "label": "Zone nord",
+                                "x": 200,
+                                "z": 300,
+                                "Width": 500,
+                                "DEPTH": 700,
+                            },
                         ],
                     },
                     "furniture": [
@@ -791,6 +800,8 @@ def test_create_project_from_layout_normalizes_zone_and_directional_face_aliases
     scene = scene_response.json()
     assert scene["store"]["zones"][0]["width"] == 1000.0
     assert scene["store"]["zones"][0]["depth"] == 1000.0
+    assert scene["store"]["zones"][1]["width"] == 500.0
+    assert scene["store"]["zones"][1]["depth"] == 700.0
     assert scene["furniture"][0]["faces"]["front"] == "plano-bayview-terrace"
     assert scene["furniture"][1]["faces"]["back"] == "plano-charging-hub"
 

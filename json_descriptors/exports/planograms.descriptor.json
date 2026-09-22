@@ -7,12 +7,6 @@
       "type": "zip-entry",
       "endpoint": "GET /api/cad/projects/{project_id}/export",
       "entryName": "planograms.json"
-    },
-    {
-      "type": "embedded-payload",
-      "endpoint": "GET /api/platform/store-layouts/{layout_id}/download",
-      "containingFile": "retail-layout.json",
-      "propertyPath": "furniture[].placements[]"
     }
   ],
   "rootSchema": {
@@ -66,7 +60,8 @@
   },
   "aiHints": [
     "Planogram cells reference products only by EAN; no product metadata is duplicated here.",
-    "When gondola is present, it is the richer boundary-based source of truth for that planogram."
+    "When gondola is present, it is the richer boundary-based source of truth for that planogram.",
+    "retail-layout.json is a denormalized derivative built from scene.json plus planograms.json; its furniture[].placements[] objects are not raw planogram records."
   ],
   "examplePaths": [
     "backend/storage/projects/retail_cad/planograms.json"

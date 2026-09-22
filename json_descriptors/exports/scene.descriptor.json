@@ -68,8 +68,8 @@
       ],
       "notes": [
         "position is the minimum corner of the furniture bounding box in centimeters.",
-        "faces is a map keyed by front/back/left/right/top/bottom with planogram ids or null.",
-        "scene.json stores only planogram references; the denormalized placement payload lives in retail-layout.json under furniture[].placements[]."
+        "faces is a map keyed by front/back/left/right/top/bottom whose values are planogram ids or null.",
+        "scene.json stores only planogram ids per furniture face; the full planogram objects live in planograms.json and the denormalized placement payload lives in retail-layout.json under furniture[].placements[]."
       ]
     }
   },

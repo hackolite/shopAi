@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import httpx
 from fastapi import HTTPException, Request, Response
+from pydantic import ValidationError
 
 import services.project_manager as project_manager
 from models.project import Catalog, Planogram, ProjectSettings, SceneData, SimulationConfig
@@ -1252,6 +1253,23 @@ def _store_layout_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def _normalize_store_layout_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    raw_payload = payload or {"scene": {"store": {}, "furniture": []}, "planograms": []}
+    scene_raw = raw_payload.get("scene", {"store": {}, "furniture": []})
+    planograms_raw = raw_payload.get("planograms", [])
+    if isinstance(planograms_raw, dict):
+        planograms_raw = planograms_raw.get("planograms", [])
+    try:
+        scene = SceneData.model_validate(scene_raw).model_dump(mode="json")
+        planograms = [
+            Planogram.model_validate(item).model_dump(mode="json")
+            for item in planograms_raw
+        ]
+    except (TypeError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid store layout payload: {exc}") from exc
+    return {"scene": scene, "planograms": planograms}
+
+
 def create_store_layout(
     name: str,
     description: str = "",
@@ -1275,7 +1293,7 @@ def create_store_layout(
             "planograms": []
         }
         payload = {"scene": scene_payload, "planograms": planograms_payload.get("planograms", [])}
-    payload = payload or {"scene": {"store": {}, "furniture": []}, "planograms": []}
+    payload = _normalize_store_layout_payload(payload)
     furniture_count = len(payload.get("scene", {}).get("furniture", []) or [])
     now = _utc_now()
     layout_id = str(uuid4())
@@ -1332,7 +1350,9 @@ def get_store_layout(layout_id: str) -> dict[str, Any]:
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail=f"Store layout '{layout_id}' not found")
-    return _store_layout_row_to_dict(row)
+    layout = _store_layout_row_to_dict(row)
+    layout["payload"] = _normalize_store_layout_payload(layout.get("payload"))
+    return layout
 
 
 def delete_store_layout(layout_id: str) -> dict[str, Any]:

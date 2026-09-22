@@ -14,8 +14,9 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
-from models.project import ProjectSettings
+from models.project import Planogram, ProjectSettings, SceneData
 from services.reference_templates import REFERENCE_PROJECT_IDS
 
 _log = logging.getLogger(__name__)
@@ -330,21 +331,32 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     timestamp = _utc_now()
     metadata = {"id": new_id, "name": name, "createdAt": timestamp, "updatedAt": timestamp}
 
+    scene_snapshot = snapshot.get("scene", {
+        "store": {
+            "id": str(uuid4()),
+            "name": name,
+            "position": [0.0, 0.0, 0.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
+            "walls": [],
+        },
+        "furniture": [],
+    })
+    planogram_snapshot = snapshot.get("planograms", [])
+    try:
+        scene_snapshot = SceneData.model_validate(scene_snapshot).model_dump(mode="json")
+        planogram_snapshot = [
+            Planogram.model_validate(item).model_dump(mode="json")
+            for item in planogram_snapshot
+        ]
+    except (TypeError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {exc}") from exc
+
     defaults: dict[str, Any] = {
         "project.json": metadata,
-        "scene.json": snapshot.get("scene", {
-            "store": {
-                "id": str(uuid4()),
-                "name": name,
-                "position": [0.0, 0.0, 0.0],
-                "rotation": [0.0, 0.0, 0.0],
-                "dimensions": {"width": 5000.0, "depth": 3000.0, "height": 400.0},
-                "walls": [],
-            },
-            "furniture": [],
-        }),
+        "scene.json": scene_snapshot,
         "catalog.json": snapshot.get("catalog", {"products": []}),
-        "planograms.json": {"planograms": snapshot.get("planograms", [])},
+        "planograms.json": {"planograms": planogram_snapshot},
         "materials.json": snapshot.get("materials", {"materials": []}),
         "settings.json": snapshot.get("settings", ProjectSettings().model_dump(mode="json")),
         "textures.json": {"textures": []},

@@ -564,6 +564,105 @@ def test_store_layout_import_json_uses_shopai_retail_layout_format() -> None:
     assert layout["payload"]["scene"]["furniture"][0]["id"] == "fixture-gondola-import"
 
 
+def test_store_layout_import_json_normalizes_dimension_and_face_aliases() -> None:
+    client = _make_client()
+    _register(client, name="Alias Importer", email="alias-importer@example.com")
+
+    layout_json = json.dumps(
+        {
+            "version": "1.0",
+            "projectId": "urban-waterfront",
+            "projectName": "Urban Waterfront",
+            "unit": "cm",
+            "store": {
+                "id": "store-urban",
+                "name": "Urban Waterfront",
+                "dimensions": {"widthCm": 60000, "lengthCm": 40000, "heightCm": 8000},
+                "zones": [],
+            },
+            "furniture": [
+                {
+                    "id": "fixture-mooring",
+                    "name": "Mooring nodes",
+                    "type": "urban-fixture",
+                    "libraryId": "urban-fixture",
+                    "position": {"x": 1000, "y": 0, "z": 2000},
+                    "rotation": {"x": 0, "y": 0, "z": 0},
+                    "dimensions": {"widthCm": 28000, "lengthCm": 1500, "heightCm": 300},
+                    "placements": [
+                        {
+                            "face": "waterfront",
+                            "planogramId": "plano-mooring-nodes",
+                            "planogramName": "Mooring nodes",
+                            "rows": 1,
+                            "cols": 1,
+                            "widthCm": 28000,
+                            "heightCm": 300,
+                            "slots": [],
+                        }
+                    ],
+                },
+                {
+                    "id": "fixture-bus-stop",
+                    "name": "Bus stop",
+                    "type": "urban-fixture",
+                    "libraryId": "urban-fixture",
+                    "position": {"x": 32000, "y": 0, "z": 5000},
+                    "rotation": {"x": 0, "y": 0, "z": 0},
+                    "dimensions": {"widthCm": 15000, "lengthCm": 12000, "heightCm": 250},
+                    "placements": [
+                        {
+                            "face": "roadside",
+                            "planogramId": "plano-bus-stops",
+                            "planogramName": "Bus stops",
+                            "rows": 1,
+                            "cols": 1,
+                            "widthCm": 15000,
+                            "heightCm": 250,
+                            "slots": [],
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+
+    import_response = client.post(
+        "/api/platform/store-layouts/import-json",
+        data={"name": "Implantation waterfront", "description": "Depuis image"},
+        files={"file": ("retail_layout.json", layout_json, "application/json")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    layout = import_response.json()
+    assert layout["payload"]["scene"]["store"]["dimensions"] == {
+        "width": 60000.0,
+        "depth": 40000.0,
+        "height": 8000.0,
+    }
+    assert layout["payload"]["scene"]["furniture"][0]["dimensions"] == {
+        "width": 28000.0,
+        "depth": 1500.0,
+        "height": 300.0,
+    }
+    assert layout["payload"]["scene"]["furniture"][0]["faces"]["front"] == "plano-mooring-nodes"
+    assert layout["payload"]["scene"]["furniture"][1]["faces"]["back"] == "plano-bus-stops"
+
+    project_response = client.post(
+        "/api/cad/projects/",
+        json={"name": "Projet waterfront", "storeLayoutId": layout["id"]},
+    )
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    assert scene["store"]["dimensions"] == {"width": 60000.0, "depth": 40000.0, "height": 8000.0}
+    assert scene["furniture"][0]["dimensions"] == {"width": 28000.0, "depth": 1500.0, "height": 300.0}
+    assert scene["furniture"][0]["faces"]["front"] == "plano-mooring-nodes"
+    assert scene["furniture"][1]["faces"]["back"] == "plano-bus-stops"
+
+
 def test_simulation_import_json_persists_scenarios() -> None:
     client = _make_client()
     _register(client, name="Simulation Importer", email="simulation-importer@example.com")

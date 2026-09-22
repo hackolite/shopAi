@@ -7,6 +7,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 _FACE_VALUES = ("front", "back", "left", "right", "top", "bottom")
+_FACE_ALIASES = {
+    "waterfront": "front",
+    "roadside": "back",
+}
+_DIMENSION_ALIASES = {
+    "width": "width",
+    "widthcm": "width",
+    "depth": "depth",
+    "depthcm": "depth",
+    "length": "depth",
+    "lengthcm": "depth",
+    "height": "height",
+    "heightcm": "height",
+}
 
 
 class CADBaseModel(BaseModel):
@@ -21,9 +35,23 @@ class CADBaseModel(BaseModel):
     @staticmethod
     def _validate_dimensions(value: dict[str, float]) -> dict[str, float]:
         required = {"width", "depth", "height"}
-        if set(value.keys()) != required:
+        normalized: dict[str, float] = {}
+        for key, raw_component in value.items():
+            canonical_key = _DIMENSION_ALIASES.get(str(key).strip().lower())
+            if canonical_key is None:
+                raise ValueError("dimensions must contain width, depth, and height")
+            component = float(raw_component)
+            if canonical_key in normalized and normalized[canonical_key] != component:
+                raise ValueError("dimensions contain conflicting aliases")
+            normalized[canonical_key] = component
+        if set(normalized.keys()) != required:
             raise ValueError("dimensions must contain width, depth, and height")
-        return {key: float(value[key]) for key in required}
+        return {key: normalized[key] for key in required}
+
+    @staticmethod
+    def _normalize_face_name(value: Any) -> str:
+        face = str(value).strip().lower()
+        return _FACE_ALIASES.get(face, face)
 
 
 class Face(str, Enum):
@@ -321,7 +349,12 @@ class FurnitureInstance(CADBaseModel):
     @field_validator("faces")
     @classmethod
     def validate_faces(cls, value: dict[str, str | None]) -> dict[str, str | None]:
-        normalized = {str(key): planogram_id for key, planogram_id in value.items()}
+        normalized: dict[str, str | None] = {}
+        for key, planogram_id in value.items():
+            canonical_face = cls._normalize_face_name(key)
+            if canonical_face in normalized and normalized[canonical_face] != planogram_id:
+                raise ValueError(f"Duplicate furniture face alias for {canonical_face}")
+            normalized[canonical_face] = planogram_id
         invalid = set(normalized) - set(_FACE_VALUES)
         if invalid:
             raise ValueError(f"Unknown furniture faces: {sorted(invalid)}")
@@ -370,6 +403,11 @@ class Planogram(CADBaseModel):
     mergedSpans: dict[str, int] | None = None
     # §6 — new boundary-based internal model; when present, is the source of truth.
     gondola: Optional[Any] = None
+
+    @field_validator("face", mode="before")
+    @classmethod
+    def validate_face(cls, value: Any) -> str:
+        return cls._normalize_face_name(value)
 
 
 class Product(CADBaseModel):

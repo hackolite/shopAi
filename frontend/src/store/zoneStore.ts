@@ -216,7 +216,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
           [...state.selectedZoneIds].filter((zoneId) => !idsToRemove.has(zoneId)),
         ),
       };
-    })),
+    }),
 
   updateZone: (zone) =>
     set((state) => ({

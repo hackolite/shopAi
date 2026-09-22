@@ -22,6 +22,10 @@
     "optional": []
   },
   "entities": {
+    "planograms": {
+      "containerType": "array",
+      "itemType": "planogram"
+    },
     "planogram": {
       "required": [
         "id",

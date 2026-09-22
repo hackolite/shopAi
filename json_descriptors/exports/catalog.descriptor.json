@@ -30,6 +30,10 @@
     "optional": []
   },
   "entities": {
+    "products": {
+      "containerType": "array",
+      "itemType": "product"
+    },
     "product": {
       "required": [
         "ean",

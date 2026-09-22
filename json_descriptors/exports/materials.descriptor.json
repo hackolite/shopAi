@@ -17,6 +17,10 @@
     "optional": []
   },
   "entities": {
+    "materials": {
+      "containerType": "array",
+      "itemType": "material"
+    },
     "material": {
       "required": [
         "id",

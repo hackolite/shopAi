@@ -23,6 +23,10 @@
     "optional": []
   },
   "entities": {
+    "furniture": {
+      "containerType": "array",
+      "itemType": "furnitureItem"
+    },
     "store": {
       "required": [
         "id",

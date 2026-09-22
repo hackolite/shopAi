@@ -413,20 +413,19 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     try:
         validated_scene = SceneData.model_validate(scene_snapshot).model_dump(mode="json")
         scene_snapshot = _project_validated_shape(validated_scene, scene_snapshot)
-    except (TypeError, ValidationError) as exc:
+    except (TypeError, ValidationError, ValueError) as exc:
         try:
             scene_snapshot = normalize_scene_snapshot(scene_snapshot, name)
-        except (TypeError, ValidationError) as normalized_exc:
+        except (TypeError, ValidationError, ValueError) as normalized_exc:
             raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {normalized_exc}") from normalized_exc
     try:
         planogram_snapshot = _canonicalize_planogram_aliases(planogram_snapshot)
         validated_planograms = [Planogram.model_validate(item) for item in planogram_snapshot]
-        if not all(isinstance(item, dict) for item in planogram_snapshot):
-            planogram_snapshot = [
-                item.model_dump(mode="json", exclude_none=True)
-                for item in validated_planograms
-            ]
-    except (TypeError, ValidationError) as exc:
+        planogram_snapshot = [
+            _project_validated_shape(item.model_dump(mode="json"), raw_item)
+            for item, raw_item in zip(validated_planograms, planogram_snapshot)
+        ]
+    except (TypeError, ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid project snapshot: {exc}") from exc
 
     defaults: dict[str, Any] = {

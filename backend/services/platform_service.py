@@ -1267,7 +1267,7 @@ def _normalize_store_layout_payload(payload: dict[str, Any] | None) -> dict[str,
             Planogram.model_validate(item).model_dump(mode="json", exclude_none=True)
             for item in planograms_raw
         ]
-    except (TypeError, ValidationError) as exc:
+    except (TypeError, ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid store layout payload: {exc}") from exc
     return {"scene": scene, "planograms": planograms}
 

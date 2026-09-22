@@ -397,9 +397,9 @@ def import_project(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
 
     scene_snapshot = snapshot.get("scene", _default_scene_payload(name))
     planogram_snapshot = snapshot.get("planograms", [])
+    scene_snapshot = _canonicalize_scene_aliases(scene_snapshot)
     try:
         SceneData.model_validate(scene_snapshot)
-        scene_snapshot = _canonicalize_scene_aliases(scene_snapshot)
     except (TypeError, ValidationError) as exc:
         try:
             scene_snapshot = normalize_scene_snapshot(scene_snapshot, name)

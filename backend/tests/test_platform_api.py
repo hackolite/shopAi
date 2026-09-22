@@ -663,6 +663,64 @@ def test_store_layout_import_json_normalizes_dimension_and_face_aliases() -> Non
     assert scene["furniture"][1]["faces"]["back"] == "plano-bus-stops"
 
 
+def test_project_import_snapshot_normalizes_dimension_and_face_aliases() -> None:
+    client = _make_client()
+    _register(client, name="Snapshot Importer", email="snapshot-importer@example.com")
+
+    response = client.post(
+        "/api/cad/projects/import",
+        json={
+            "name": "Projet snapshot waterfront",
+            "snapshot": {
+                "scene": {
+                    "store": {
+                        "id": "store-snapshot",
+                        "name": "Snapshot Store",
+                        "dimensions": {"widthCm": 12000, "lengthCm": 8000, "heightCm": 400},
+                    },
+                    "furniture": [
+                        {
+                            "id": "fixture-snapshot",
+                            "name": "Quai",
+                            "type": "urban-fixture",
+                            "libraryId": "urban-fixture",
+                            "position": [0, 0, 0],
+                            "rotation": [0, 0, 0],
+                            "dimensions": {"widthCm": 3000, "lengthCm": 2000, "heightCm": 20},
+                            "faces": {"waterfront": "plano-waterfront"},
+                        }
+                    ],
+                },
+                "planograms": [
+                    {
+                        "id": "plano-waterfront",
+                        "name": "Waterfront",
+                        "furnitureId": "fixture-snapshot",
+                        "face": "waterfront",
+                        "rows": 1,
+                        "cols": 1,
+                        "widthCm": 3000,
+                        "heightCm": 20,
+                        "cells": [],
+                    }
+                ],
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    project_id = response.json()["id"]
+
+    scene = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene.status_code == 200, scene.text
+    assert scene.json()["store"]["dimensions"] == {"width": 12000.0, "depth": 8000.0, "height": 400.0}
+    assert scene.json()["furniture"][0]["dimensions"] == {"width": 3000.0, "depth": 2000.0, "height": 20.0}
+    assert scene.json()["furniture"][0]["faces"]["front"] == "plano-waterfront"
+
+    planogram = client.get(f"/api/cad/projects/{project_id}/planograms/plano-waterfront")
+    assert planogram.status_code == 200, planogram.text
+    assert planogram.json()["face"] == "front"
+
+
 def test_simulation_import_json_persists_scenarios() -> None:
     client = _make_client()
     _register(client, name="Simulation Importer", email="simulation-importer@example.com")

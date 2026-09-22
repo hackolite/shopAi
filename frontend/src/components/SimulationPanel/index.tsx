@@ -12,7 +12,12 @@ import {
 import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
 import { useZoneStore } from '../../store/zoneStore';
-import { DEFAULT_WAYPOINT_RADIUS_CM, useSimulationStore, type HeatmapMode } from '../../store/simulationStore';
+import {
+  buildRuntimeSimulationConfig,
+  DEFAULT_WAYPOINT_RADIUS_CM,
+  useSimulationStore,
+  type HeatmapMode,
+} from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useAssetStore } from '../../store/assetStore';
 import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
@@ -433,8 +438,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       if (liveSessionId) {
         await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
       }
-      const signature = snapshotSimulationInput(sceneWithZones, config);
-      const live = await cadApi.startLiveSimulation(projectId, sceneWithZones, config);
+      const runtimeConfig = buildRuntimeSimulationConfig(config);
+      const signature = snapshotSimulationInput(sceneWithZones, runtimeConfig);
+      const live = await cadApi.startLiveSimulation(projectId, sceneWithZones, runtimeConfig);
       if (isStale(projectId)) {
         // The user switched project while the session was starting: drop it
         // instead of showing another project's agents.
@@ -803,7 +809,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
   useEffect(() => {
     if (!projectId || !liveSessionId || !sceneWithZones || !playing) return;
-    const signature = snapshotSimulationInput(sceneWithZones, config);
+    const runtimeConfig = buildRuntimeSimulationConfig(config);
+    const signature = snapshotSimulationInput(sceneWithZones, runtimeConfig);
     if (lastSimulationSignature.current === null) {
       lastSimulationSignature.current = signature;
       return;
@@ -812,7 +819,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (updateTimer.current) clearTimeout(updateTimer.current);
     updateTimer.current = setTimeout(() => {
       void cadApi
-        .updateLiveSimulation(projectId, liveSessionId, sceneWithZones, config)
+        .updateLiveSimulation(projectId, liveSessionId, sceneWithZones, runtimeConfig)
         .then((live) => {
           if (isStale(projectId)) return;
           setResult(live.result);

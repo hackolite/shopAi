@@ -1,0 +1,65 @@
+{
+  "id": "catalog-json",
+  "exportFileName": "catalog.json",
+  "description": "Normalized product catalog exported inside project ZIPs and downloadable from workspace catalogs.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "catalog.json"
+    },
+    {
+      "type": "direct-download",
+      "endpoint": "GET /api/platform/catalogs/{catalog_id}/download",
+      "fileNamePattern": "{safe_name}_catalog.json"
+    }
+  ],
+  "importCompatibility": {
+    "acceptedRoots": [
+      "{\"products\": [...]}",
+      "[normalized Product, ...]",
+      "[assortment rows using barcode/product_name, ...]"
+    ],
+    "normalization": "Exports are always normalized to {\"products\": Product[]}. "
+  },
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "products"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "product": {
+      "required": [
+        "ean",
+        "name",
+        "brand",
+        "category",
+        "widthCm",
+        "depthCm",
+        "heightCm",
+        "weightG"
+      ],
+      "optional": [
+        "subcategory",
+        "productRange",
+        "format",
+        "description",
+        "imageUrl",
+        "priceBuyEur",
+        "marginPct",
+        "priceSellEur"
+      ]
+    }
+  },
+  "aiHints": [
+    "EAN is the primary cross-file product key used by planogram cells.",
+    "Dimensions are centimeters and weightG is grams.",
+    "Exports use the normalized Product schema even when imports came from assortment-style rows."
+  ],
+  "examplePaths": [
+    "backend/storage/projects/retail_cad/catalog.json",
+    "assortment.json"
+  ]
+}

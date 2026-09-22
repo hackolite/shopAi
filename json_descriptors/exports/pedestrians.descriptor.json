@@ -1,0 +1,73 @@
+{
+  "id": "pedestrians-json",
+  "exportFileName": "pedestrians.json",
+  "description": "Resolved pedestrian basket dataset stored on projects and exported inside project ZIPs when present.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "pedestrians.json",
+      "presence": "optional"
+    }
+  ],
+  "importChannels": [
+    {
+      "type": "project-copy",
+      "endpoint": "POST /api/cad/projects/{project_id}/simulation/import-pedestrians"
+    },
+    {
+      "type": "workspace-copy",
+      "endpoint": "POST /api/cad/projects/{project_id}/simulation/load-pedestrian-dataset"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "pedestrianCount",
+      "rowCount",
+      "plans",
+      "anomalies"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "plan": {
+      "required": [
+        "pedestrianId",
+        "startUnixTs",
+        "speedMps",
+        "profile",
+        "items"
+      ],
+      "optional": []
+    },
+    "item": {
+      "required": [
+        "ean",
+        "found"
+      ],
+      "optional": [
+        "name",
+        "reasonNotFound",
+        "xCm",
+        "zCm",
+        "pickupDurationSeconds"
+      ]
+    },
+    "anomaly": {
+      "required": [
+        "reason"
+      ],
+      "optional": [
+        "rowNumber",
+        "pedestrianId",
+        "ean"
+      ]
+    }
+  },
+  "aiHints": [
+    "This is a resolved JSON dataset produced from pedestrian CSV imports.",
+    "xCm and zCm point to resolved pickup positions in store coordinates when found is true."
+  ],
+  "examplePaths": []
+}

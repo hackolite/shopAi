@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "purpose": "Machine-readable inventory of exported JSON file formats used by ShopAI.",
+  "folder": "json_descriptors/exports",
+  "formats": [
+    {
+      "id": "project-json",
+      "exportFileName": "project.json",
+      "descriptorFile": "project.descriptor.json",
+      "category": "project-metadata"
+    },
+    {
+      "id": "scene-json",
+      "exportFileName": "scene.json",
+      "descriptorFile": "scene.descriptor.json",
+      "category": "layout-scene"
+    },
+    {
+      "id": "catalog-json",
+      "exportFileName": "catalog.json",
+      "descriptorFile": "catalog.descriptor.json",
+      "category": "catalog"
+    },
+    {
+      "id": "planograms-json",
+      "exportFileName": "planograms.json",
+      "descriptorFile": "planograms.descriptor.json",
+      "category": "planogram"
+    },
+    {
+      "id": "materials-json",
+      "exportFileName": "materials.json",
+      "descriptorFile": "materials.descriptor.json",
+      "category": "materials"
+    },
+    {
+      "id": "settings-json",
+      "exportFileName": "settings.json",
+      "descriptorFile": "settings.descriptor.json",
+      "category": "project-settings"
+    },
+    {
+      "id": "textures-json",
+      "exportFileName": "textures.json",
+      "descriptorFile": "textures.descriptor.json",
+      "category": "textures-reserved"
+    },
+    {
+      "id": "pedestrians-json",
+      "exportFileName": "pedestrians.json",
+      "descriptorFile": "pedestrians.descriptor.json",
+      "category": "pedestrian-dataset"
+    },
+    {
+      "id": "retail-layout-json",
+      "exportFileName": "retail-layout.json",
+      "descriptorFile": "retail-layout.descriptor.json",
+      "category": "unified-layout-export"
+    },
+    {
+      "id": "simulation-json",
+      "exportFileName": "simulation.json",
+      "descriptorFile": "simulation.descriptor.json",
+      "category": "workspace-simulation"
+    }
+  ]
+}

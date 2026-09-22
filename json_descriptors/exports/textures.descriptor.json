@@ -1,0 +1,35 @@
+{
+  "id": "textures-json",
+  "exportFileName": "textures.json",
+  "description": "Reserved project texture payload exported inside project ZIPs.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "textures.json"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "textures"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "texture": {
+      "required": [],
+      "optional": [],
+      "notes": [
+        "No stricter schema is enforced yet; default exports use an empty array."
+      ]
+    }
+  },
+  "aiHints": [
+    "Treat this format as reserved/forward-compatible.",
+    "Do not assume the array is populated in current projects."
+  ],
+  "examplePaths": [
+    "backend/storage/projects/retail_cad/textures.json"
+  ]
+}

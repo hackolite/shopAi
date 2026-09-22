@@ -1,0 +1,69 @@
+{
+  "id": "planograms-json",
+  "exportFileName": "planograms.json",
+  "description": "Planogram definitions exported inside project ZIPs and reused when building retail-layout exports.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "planograms.json"
+    },
+    {
+      "type": "embedded-payload",
+      "endpoint": "GET /api/platform/store-layouts/{layout_id}/download",
+      "embeddedIn": "retail-layout.json placements"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "planograms"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "planogram": {
+      "required": [
+        "id",
+        "name",
+        "furnitureId",
+        "face",
+        "rows",
+        "cols",
+        "widthCm",
+        "heightCm",
+        "cells"
+      ],
+      "optional": [
+        "colWidthsCm",
+        "rowHeightsCm",
+        "cellWidthOverrides",
+        "cellHeightOverrides",
+        "rowColCounts",
+        "mergedSpans",
+        "gondola"
+      ]
+    },
+    "cell": {
+      "required": [
+        "id",
+        "ean",
+        "row",
+        "col"
+      ],
+      "optional": [
+        "rotation"
+      ],
+      "notes": [
+        "rotation is constrained to 0, 90, 180 or 270 degrees."
+      ]
+    }
+  },
+  "aiHints": [
+    "Planogram cells reference products only by EAN; no product metadata is duplicated here.",
+    "When gondola is present, it is the richer boundary-based source of truth for that planogram."
+  ],
+  "examplePaths": [
+    "backend/storage/projects/retail_cad/planograms.json"
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "id": "simulation-json",
+  "exportFileName": "simulation.json",
+  "description": "Workspace simulation-list export used for reusable checkout or scenario datasets.",
+  "exportChannels": [
+    {
+      "type": "direct-download",
+      "endpoint": "GET /api/platform/simulations/{simulation_id}/download",
+      "fileNamePattern": "{safe_name}_simulation.json"
+    }
+  ],
+  "importChannels": [
+    {
+      "type": "workspace-import",
+      "endpoint": "POST /api/platform/simulations/import-json"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "scenarios"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "scenario": {
+      "required": [],
+      "optional": [
+        "name"
+      ],
+      "notes": [
+        "Scenario objects are intentionally flexible; the platform only enforces that scenarios is a list."
+      ]
+    }
+  },
+  "aiHints": [
+    "A bare JSON array is accepted on import but exports are normalized to {\"scenarios\": [...]}",
+    "Keep scenario payloads self-contained because the backend does not enforce a richer schema yet."
+  ],
+  "examplePaths": []
+}

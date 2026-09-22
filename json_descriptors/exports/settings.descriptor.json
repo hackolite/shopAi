@@ -1,0 +1,67 @@
+{
+  "id": "settings-json",
+  "exportFileName": "settings.json",
+  "description": "Project-level editor and simulation settings exported inside project ZIPs.",
+  "exportChannels": [
+    {
+      "type": "zip-entry",
+      "endpoint": "GET /api/cad/projects/{project_id}/export",
+      "entryName": "settings.json"
+    }
+  ],
+  "rootSchema": {
+    "type": "object",
+    "required": [
+      "gridSize",
+      "snapEnabled",
+      "showGrid",
+      "unit",
+      "cameraMode",
+      "ambientLight",
+      "simulation"
+    ],
+    "optional": []
+  },
+  "entities": {
+    "simulation": {
+      "required": [
+        "enabled",
+        "arrivalRatePerSecond",
+        "durationSeconds",
+        "maxCustomers",
+        "randomSeed",
+        "desiredSpeedMps",
+        "speedVariation",
+        "waypoints",
+        "waypointSystems"
+      ],
+      "optional": [
+        "activeWaypointSystemId"
+      ]
+    },
+    "waypoint": {
+      "required": [
+        "id",
+        "label",
+        "type",
+        "x",
+        "z"
+      ],
+      "optional": [
+        "radiusCm",
+        "optional",
+        "visitProbability",
+        "retentionSeconds",
+        "visionAngleDeg",
+        "visionRangeCm"
+      ]
+    }
+  },
+  "aiHints": [
+    "unit defaults to cm and should stay aligned with scene geometry.",
+    "The nested simulation block is the source for checkout/live simulation settings."
+  ],
+  "examplePaths": [
+    "backend/storage/projects/retail_cad/settings.json"
+  ]
+}

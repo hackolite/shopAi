@@ -107,6 +107,17 @@ function normalizeConfig(config: SimulationConfig): SimulationConfig {
   };
 }
 
+export function buildRuntimeSimulationConfig(config: SimulationConfig): SimulationConfig {
+  const waypointSystems = config.waypointSystems ?? [];
+  if (waypointSystems.length === 0) {
+    return config;
+  }
+  return {
+    ...config,
+    waypoints: waypointSystems.flatMap((system) => cloneWaypoints(system.waypoints ?? [])),
+  };
+}
+
 export const defaultSimulationConfig = (): SimulationConfig => ({
   enabled: true,
   arrivalRatePerSecond: 0.25,

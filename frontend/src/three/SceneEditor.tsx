@@ -45,6 +45,10 @@ import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
 } from '../engine/furnitureMagnet';
+import {
+  floorClickWaypointPositionCm,
+  shouldPlaceWaypointOnFloorClick,
+} from '../engine/waypointPlacement';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m) — one grid cell. */
@@ -1099,19 +1103,23 @@ function StoreFloor({ store }: { store: StoreConfig }) {
     // drag over the floor is not a click, and deselecting here would unmount the
     // TransformControls gizmo in the middle of the user's gesture.
     if (isDragRelease(event)) return;
-    if (waypointPlacementType) {
-      const originXCm = store.position?.[0] ?? 0;
-      const originZCm = store.position?.[2] ?? 0;
-      const maxXCm = originXCm + store.dimensions.width;
-      const maxZCm = originZCm + store.dimensions.depth;
-      const xCm = Math.round(Math.max(originXCm, Math.min(maxXCm, event.point.x / CM_TO_UNIT)));
-      const zCm = Math.round(Math.max(originZCm, Math.min(maxZCm, event.point.z / CM_TO_UNIT)));
-      addWaypoint(waypointPlacementType, { x: xCm, z: zCm });
+    const selectionType = useSceneStore.getState().selection.type;
+    if (shouldPlaceWaypointOnFloorClick(selectionType, waypointPlacementType)) {
+      const { x, z } = floorClickWaypointPositionCm({
+        pointXUnit: event.point.x,
+        pointZUnit: event.point.z,
+        unitToCm: 1 / CM_TO_UNIT,
+        originXCm: store.position?.[0] ?? 0,
+        originZCm: store.position?.[2] ?? 0,
+        widthCm: store.dimensions.width,
+        depthCm: store.dimensions.depth,
+      });
+      addWaypoint(waypointPlacementType, { x, z });
       return;
     }
     // Keep an active product (planogram cell) selection: clicking the floor must
     // not clear it — products deselect one by one or by clicking outside the scene.
-    if (useSceneStore.getState().selection.type === 'planogram_cell') return;
+    if (selectionType === 'planogram_cell') return;
     selectFurniture(null);
     selectZone(null);
   };

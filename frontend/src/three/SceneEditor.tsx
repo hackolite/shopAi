@@ -45,6 +45,10 @@ import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
 } from '../engine/furnitureMagnet';
+import {
+  floorClickWaypointPositionCm,
+  shouldPlaceWaypointOnFloorClick,
+} from '../engine/waypointPlacement';
 
 // ─── Grid / snap constants ─────────────────────────────────────────────────────
 /** Snap grid step in centimetres (0.5 m) — one grid cell. */
@@ -70,7 +74,7 @@ function useGridOrigin(): GridOriginCm {
  */
 const GRID_FADE_MULTIPLIER = 1.8;
 /** Y offset of the Grid plane above the floor slab (avoids Z-fighting). */
-const GRID_Y_OFFSET = 0.005;
+const GRID_Y_OFFSET = 0.012;
 /** Shared up-vector reused across components to avoid per-render allocations. */
 const UP_VEC3 = new THREE.Vector3(0, 1, 0);
 
@@ -1081,6 +1085,8 @@ function HandleMesh({ position, axis, sign, cursor, onStartDrag }: HandleMeshPro
 function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
+  const addWaypoint = useSimulationStore((state) => state.addWaypoint);
+  const waypointPlacementType = useSimulationStore((state) => state.waypointPlacementType);
   const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
@@ -1097,9 +1103,23 @@ function StoreFloor({ store }: { store: StoreConfig }) {
     // drag over the floor is not a click, and deselecting here would unmount the
     // TransformControls gizmo in the middle of the user's gesture.
     if (isDragRelease(event)) return;
+    const selectionType = useSceneStore.getState().selection.type;
+    if (shouldPlaceWaypointOnFloorClick(selectionType, waypointPlacementType)) {
+      const { x, z } = floorClickWaypointPositionCm({
+        pointXUnit: event.point.x,
+        pointZUnit: event.point.z,
+        unitToCm: 1 / CM_TO_UNIT,
+        originXCm: store.position?.[0] ?? 0,
+        originZCm: store.position?.[2] ?? 0,
+        widthCm: store.dimensions.width,
+        depthCm: store.dimensions.depth,
+      });
+      addWaypoint(waypointPlacementType, { x, z });
+      return;
+    }
     // Keep an active product (planogram cell) selection: clicking the floor must
     // not clear it — products deselect one by one or by clicking outside the scene.
-    if (useSceneStore.getState().selection.type === 'planogram_cell') return;
+    if (selectionType === 'planogram_cell') return;
     selectFurniture(null);
     selectZone(null);
   };
@@ -3357,7 +3377,14 @@ function SceneContent({ projectId }: { projectId: string | null }) {
     <ResizeDragCtx.Provider value={setIsResizeDragging}>
       <MeshRegistryCtx.Provider value={registerGroup}>
         <ambientLight intensity={0.55} />
-        <directionalLight position={[15, 25, 15]} intensity={0.9} castShadow shadow-mapSize={[2048, 2048]} />
+        <directionalLight
+          position={[15, 25, 15]}
+          intensity={0.9}
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+          shadow-bias={-0.00035}
+          shadow-normalBias={0.02}
+        />
         <pointLight position={[25, 8, 15]} intensity={0.35} color="#cce8ff" />
         <pointLight position={[0,  8, 0]}  intensity={0.2}  color="#fff8e7" />
 

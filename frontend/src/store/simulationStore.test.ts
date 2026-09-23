@@ -86,4 +86,16 @@ describe('simulationStore waypoint systems', () => {
     expect(runtimeConfig.waypoints.some((waypoint) => waypoint.type === 'transit')).toBe(true);
     expect(runtimeConfig.waypoints.some((waypoint) => waypoint.type === 'exit')).toBe(true);
   });
+
+  it('keeps the selected waypoint placement mode until changed', () => {
+    const store = useSimulationStore.getState();
+    store.setWaypointPlacementType('entry');
+    expect(useSimulationStore.getState().waypointPlacementType).toBe('entry');
+
+    store.addWaypoint('entry', { x: 100, z: 100 });
+    expect(useSimulationStore.getState().waypointPlacementType).toBe('entry');
+
+    store.setWaypointPlacementType('exit');
+    expect(useSimulationStore.getState().waypointPlacementType).toBe('exit');
+  });
 });

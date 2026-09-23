@@ -9,12 +9,10 @@ import {
   hasDistinctConstraintSuggestion,
   pickClosestWaypointId,
 } from '../../engine/simulationConstraint';
-import { bottomLeftWaypointPosition } from '../../engine/placement';
 import { useSceneStore } from '../../store/sceneStore';
 import { useZoneStore } from '../../store/zoneStore';
 import {
   buildRuntimeSimulationConfig,
-  DEFAULT_WAYPOINT_RADIUS_CM,
   useSimulationStore,
   type HeatmapMode,
 } from '../../store/simulationStore';
@@ -263,7 +261,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     removeWaypointSystem,
     selectWaypointSystem,
     updateWaypointSystem,
-    addWaypoint,
     result,
     setResult,
     running,
@@ -291,6 +288,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setAgentBasket,
     setJourneyBaskets,
     pushPickupEvents,
+    waypointPlacementType,
+    setWaypointPlacementType,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -405,9 +404,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     : datasetModeActive
       ? { label: 'Piloté par dataset', className: 'bg-cyan-500/15 text-cyan-200' }
       : { label: 'Piloté par JuPedSim', className: 'bg-emerald-500/15 text-emerald-300' };
-  // New waypoints are dropped at the bottom-left corner of the grid so they are
-  // always visible right where the store starts.
-  const newWaypointPosition = bottomLeftWaypointPosition(scene?.store, DEFAULT_WAYPOINT_RADIUS_CM);
   const queueMetrics: WaypointMetrics[] = (result?.waypoints ?? []).filter(
     (metrics) => metrics.retentionSeconds > 0,
   );
@@ -1065,27 +1061,67 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           collapsedSections={collapsedSections}
           setCollapsedSections={setCollapsedSections}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1" role="group" aria-label="Mode de placement waypoint">
               <button
-                onClick={() => addWaypoint('entry', newWaypointPosition)}
-                className="rounded bg-gray-800 px-2 py-1 text-xs text-emerald-300 hover:bg-gray-700"
+                type="button"
+                onClick={() => setWaypointPlacementType('entry')}
+                aria-pressed={waypointPlacementType === 'entry'}
+                className={[
+                  'rounded px-2 py-1 text-xs transition-colors',
+                  waypointPlacementType === 'entry'
+                    ? 'bg-emerald-700 text-emerald-100 ring-1 ring-emerald-300/70'
+                    : 'bg-gray-800 text-emerald-300 hover:bg-gray-700',
+                ].join(' ')}
               >
-                + Entrée
+                Entrée
               </button>
               <button
-                onClick={() => addWaypoint('transit', newWaypointPosition)}
-                className="rounded bg-gray-800 px-2 py-1 text-xs text-blue-300 hover:bg-gray-700"
+                type="button"
+                onClick={() => setWaypointPlacementType('transit')}
+                aria-pressed={waypointPlacementType === 'transit'}
+                className={[
+                  'rounded px-2 py-1 text-xs transition-colors',
+                  waypointPlacementType === 'transit'
+                    ? 'bg-blue-700 text-blue-100 ring-1 ring-blue-300/70'
+                    : 'bg-gray-800 text-blue-300 hover:bg-gray-700',
+                ].join(' ')}
               >
-                + Transit
+                Waypoint
               </button>
               <button
-                onClick={() => addWaypoint('exit', newWaypointPosition)}
-                className="rounded bg-gray-800 px-2 py-1 text-xs text-orange-300 hover:bg-gray-700"
+                type="button"
+                onClick={() => setWaypointPlacementType('exit')}
+                aria-pressed={waypointPlacementType === 'exit'}
+                className={[
+                  'rounded px-2 py-1 text-xs transition-colors',
+                  waypointPlacementType === 'exit'
+                    ? 'bg-orange-700 text-orange-100 ring-1 ring-orange-300/70'
+                    : 'bg-gray-800 text-orange-300 hover:bg-gray-700',
+                ].join(' ')}
               >
-                + Sortie
+                Sortie
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaypointPlacementType(null)}
+                aria-pressed={waypointPlacementType === null}
+                className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-300 transition-colors hover:bg-gray-700"
+              >
+                Aucun
               </button>
             </div>
+            <p className="text-[11px] text-gray-500">
+              {waypointPlacementType === null
+                ? 'Sélectionnez Entrée, Waypoint ou Sortie, puis cliquez sur le sol 3D.'
+                : `Cliquez sur le sol 3D pour poser ${
+                  waypointPlacementType === 'entry'
+                    ? 'une entrée'
+                    : waypointPlacementType === 'exit'
+                      ? 'une sortie'
+                      : 'un waypoint'
+                }.`}
+            </p>
           </div>
           <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-2 space-y-2">
             <div className="flex items-center gap-2">

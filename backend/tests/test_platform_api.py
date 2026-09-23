@@ -663,6 +663,60 @@ def test_store_layout_import_json_normalizes_dimension_and_face_aliases() -> Non
     assert scene["furniture"][1]["faces"]["back"] == "plano-bus-stops"
 
 
+def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
+    client = _make_client()
+    _register(client, name="OSM Importer", email="osm-importer@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <bounds minlat="14.6000" minlon="-61.0800" maxlat="14.6010" maxlon="-61.0790"/>
+  <node id="1" lat="14.6009" lon="-61.0799"/>
+  <node id="2" lat="14.6009" lon="-61.0797"/>
+  <node id="3" lat="14.6007" lon="-61.0797"/>
+  <node id="4" lat="14.6007" lon="-61.0799"/>
+  <node id="5" lat="14.6006" lon="-61.0796"/>
+  <node id="6" lat="14.6006" lon="-61.0794"/>
+  <node id="7" lat="14.6004" lon="-61.0794"/>
+  <node id="8" lat="14.6004" lon="-61.0796"/>
+  <node id="9" lat="14.6003" lon="-61.0799"/>
+  <node id="10" lat="14.6003" lon="-61.0797"/>
+  <node id="11" lat="14.6001" lon="-61.0797"/>
+  <node id="12" lat="14.6001" lon="-61.0799"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="retail"/>
+    <tag k="height" v="9"/>
+  </way>
+  <way id="200">
+    <nd ref="5"/><nd ref="6"/><nd ref="7"/><nd ref="8"/><nd ref="5"/>
+    <tag k="building" v="warehouse"/>
+    <tag k="building:levels" v="2"/>
+  </way>
+  <way id="300">
+    <nd ref="9"/><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="9"/>
+    <tag k="building" v="hangar"/>
+  </way>
+</osm>
+"""
+    import_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "Fort de France OSM", "description": "Import test OSM"},
+        files={"file": ("fort_de_france.osm", osm_xml, "application/xml")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    payload = import_response.json()["payload"]
+    zones = payload["scene"]["store"]["zones"]
+    assert len(zones) == 3
+    assert payload["scene"]["furniture"] == []
+
+    zones_by_id = {zone["id"]: zone for zone in zones}
+    assert zones_by_id["building-100"]["color"] == "#2A9D8F"
+    assert zones_by_id["building-100"]["heightCm"] == 900.0
+    assert zones_by_id["building-200"]["color"] == "#4D908E"
+    assert zones_by_id["building-200"]["heightCm"] == 600.0
+    assert zones_by_id["building-300"]["color"] == "#9CA3AF"
+
+
 def test_project_import_snapshot_normalizes_dimension_and_face_aliases() -> None:
     client = _make_client()
     _register(client, name="Snapshot Importer", email="snapshot-importer@example.com")

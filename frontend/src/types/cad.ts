@@ -56,6 +56,25 @@ export interface FloorZonePoint {
   corner?: boolean;
 }
 
+export interface FloorZoneSource {
+  osmWayId?: string;
+  building?: string | null;
+  buildingType?: string | null;
+  buildingTypeRaw?: string | null;
+  semanticType?: string | null;
+  semanticSourceTag?: string | null;
+  semanticRawValue?: string | null;
+  geometryRole?: string | null;
+  isLikelyBuilding?: boolean;
+  buildingConfidence?: string | null;
+  heightSource?: string | null;
+  defaultHeightApplied?: boolean;
+  height?: string | null;
+  'building:levels'?: string | null;
+  name?: string | null;
+  tags?: Record<string, string>;
+}
+
 export interface FloorZone {
   id: string;
   type: ZoneType;
@@ -84,6 +103,8 @@ export interface FloorZone {
   mounted?: boolean;
   /** Extrusion height in cm for mounted floor drawings. */
   heightCm?: number;
+  /** Optional import/source metadata (e.g. OSM tags for imported buildings). */
+  source?: FloorZoneSource;
 }
 
 // ─── Store / Scene ────────────────────────────────────────────────────────────

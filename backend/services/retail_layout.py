@@ -17,6 +17,8 @@ import math
 from datetime import datetime, timezone
 from typing import Any
 
+from models.project import CADBaseModel
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -24,6 +26,37 @@ from typing import Any
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _store_dimensions_from_layout_store(
+    store_raw: dict[str, Any],
+) -> dict[str, float]:
+    raw_dimensions = store_raw.get("dimensions")
+    if isinstance(raw_dimensions, dict):
+        return CADBaseModel._validate_dimensions(raw_dimensions)
+
+    direct_dimensions = {
+        key: value
+        for key, value in store_raw.items()
+        if str(key).strip().lower() in {
+            "width",
+            "widthcm",
+            "depth",
+            "depthcm",
+            "length",
+            "lengthcm",
+            "height",
+            "heightcm",
+        }
+    }
+    if direct_dimensions:
+        return CADBaseModel._validate_dimensions(direct_dimensions)
+
+    return {
+        "width": 5000.0,
+        "depth": 3000.0,
+        "height": 400.0,
+    }
 
 
 def _slot_absolute_position(
@@ -353,11 +386,7 @@ def split_retail_layout(
         "name": store_name,
         "position": [0.0, 0.0, 0.0],
         "rotation": [0.0, 0.0, 0.0],
-        "dimensions": store_raw.get("dimensions", {
-            "width": 5000.0,
-            "depth": 3000.0,
-            "height": 400.0,
-        }),
+        "dimensions": _store_dimensions_from_layout_store(store_raw),
         "walls": [],
         "zones": store_raw.get("zones", []),
     }

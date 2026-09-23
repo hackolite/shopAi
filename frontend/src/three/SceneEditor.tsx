@@ -86,6 +86,7 @@ function projectedGridPixelsPerBaseCell(
   focusPoint: THREE.Vector3,
   cellWorldSize: number,
   cameraDir: THREE.Vector3,
+  cameraToFocus: THREE.Vector3,
 ): number {
   const viewportHeight = Math.max(1, viewportHeightPx);
   if (camera instanceof THREE.OrthographicCamera) {
@@ -93,9 +94,10 @@ function projectedGridPixelsPerBaseCell(
     return (cellWorldSize / Math.max(worldHeight, 1e-6)) * viewportHeight;
   }
   if (camera instanceof THREE.PerspectiveCamera) {
-    const distance = Math.max(camera.position.distanceTo(focusPoint), 1e-6);
-    const viewHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     camera.getWorldDirection(cameraDir);
+    cameraToFocus.copy(focusPoint).sub(camera.position);
+    const depth = Math.max(Math.abs(cameraToFocus.dot(cameraDir)), 1e-6);
+    const viewHeight = 2 * depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const incidence = Math.max(Math.abs(cameraDir.dot(UP_VEC3)), 0.18);
     return ((cellWorldSize / Math.max(viewHeight, 1e-6)) * viewportHeight) * incidence;
   }
@@ -1126,10 +1128,18 @@ function StoreFloor({ store }: { store: StoreConfig }) {
     [d, storeOriginX, storeOriginZ, w],
   );
   const cameraDirRef = useRef(new THREE.Vector3());
+  const cameraToFocusRef = useRef(new THREE.Vector3());
   const initialGridDisplay = useMemo(
     () => gridDisplaySpecForKeyCm(
       gridDisplayKeyCm(
-        projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, new THREE.Vector3()),
+        projectedGridPixelsPerBaseCell(
+          camera,
+          viewportHeightPx,
+          gridFocusPoint,
+          SNAP_UNIT,
+          new THREE.Vector3(),
+          new THREE.Vector3(),
+        ),
       ),
     ),
     [camera, gridFocusPoint, viewportHeightPx],
@@ -1140,7 +1150,14 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const syncGridDisplay = useCallback(() => {
     const next = gridDisplaySpecForKeyCm(
       gridDisplayKeyCm(
-        projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, cameraDirRef.current),
+        projectedGridPixelsPerBaseCell(
+          camera,
+          viewportHeightPx,
+          gridFocusPoint,
+          SNAP_UNIT,
+          cameraDirRef.current,
+          cameraToFocusRef.current,
+        ),
       ),
     );
     if (next.key === gridDisplayKeyRef.current) return;

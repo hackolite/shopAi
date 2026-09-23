@@ -142,7 +142,7 @@ def osm_xml_to_retail_layout(
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as exc:
-        raise ValueError(f"Invalid OSM XML file: {exc}") from exc
+        raise ValueError(str(exc)) from exc
 
     nodes: dict[str, dict[str, float]] = {}
     for node in root.findall("node"):

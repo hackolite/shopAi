@@ -8,6 +8,8 @@ from typing import Any
 from uuid import uuid4
 
 METERS_PER_LEVEL = 3.0
+DEFAULT_BUILDING_HEIGHT_CM = 1000.0
+MISSING_HEIGHT_BUILDING_COLOR = "#FF0000"
 DEFAULT_BUILDING_COLOR = "#9CA3AF"
 _HEIGHT_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$")
 
@@ -203,13 +205,20 @@ def osm_xml_to_retail_layout(
             continue
 
         height_cm, height_source = _parse_height_cm(tags)
+        missing_height = height_source is None
+        if missing_height:
+            height_cm = DEFAULT_BUILDING_HEIGHT_CM
         min_x = min(point["x"] for point in points)
         max_x = max(point["x"] for point in points)
         min_z = min(point["z"] for point in points)
         max_z = max(point["z"] for point in points)
 
         building_type, raw_building_type = _normalize_building_type(tags.get("building"))
-        color = BUILDING_TYPE_COLORS.get(building_type, DEFAULT_BUILDING_COLOR)
+        color = (
+            MISSING_HEIGHT_BUILDING_COLOR
+            if missing_height
+            else BUILDING_TYPE_COLORS.get(building_type, DEFAULT_BUILDING_COLOR)
+        )
 
         zone: dict[str, Any] = {
             "id": f"building-{osm_way_id}",
@@ -227,7 +236,7 @@ def osm_xml_to_retail_layout(
             "opacity": 1,
             "points": points,
             "pathMode": "linear",
-            "mounted": False,
+            "mounted": True,
             "heightCm": round(height_cm, 2),
             "_source": {
                 "osmWayId": osm_way_id,
@@ -235,6 +244,7 @@ def osm_xml_to_retail_layout(
                 "buildingType": building_type,
                 "buildingTypeRaw": raw_building_type,
                 "heightSource": height_source,
+                "defaultHeightApplied": missing_height,
             },
         }
         if tags.get("height") is not None:
@@ -286,7 +296,7 @@ def osm_xml_to_retail_layout(
             "buildingTypeColors": BUILDING_TYPE_COLORS,
             "heightPolicy": (
                 "explicit OSM height when available; otherwise building:levels × 3m; "
-                "0 when no source height information is available"
+                "default 10m when no source height information is available"
             ),
         },
         "store": {

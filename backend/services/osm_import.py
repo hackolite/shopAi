@@ -160,9 +160,18 @@ def osm_xml_to_retail_layout(
     if not building_node_coords:
         raise ValueError("Aucun bâtiment trouvé dans le fichier OSM.")
 
-    min_lat = min(node["lat"] for node in building_node_coords)
-    max_lat = max(node["lat"] for node in building_node_coords)
-    min_lon = min(node["lon"] for node in building_node_coords)
+    bounds = root.find("bounds")
+    if bounds is not None:
+        try:
+            min_lat = float(bounds.attrib["minlat"])
+            max_lat = float(bounds.attrib["maxlat"])
+            min_lon = float(bounds.attrib["minlon"])
+        except (KeyError, ValueError) as exc:
+            raise ValueError("Invalid OSM <bounds> attributes.") from exc
+    else:
+        min_lat = min(node["lat"] for node in building_node_coords)
+        max_lat = max(node["lat"] for node in building_node_coords)
+        min_lon = min(node["lon"] for node in building_node_coords)
     center_lat = (min_lat + max_lat) / 2.0
     meters_per_degree_lat = 111320.0
     meters_per_degree_lon = 111320.0 * cos(radians(center_lat))

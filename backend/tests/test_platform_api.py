@@ -744,6 +744,39 @@ def test_store_layout_import_osm_rejects_non_utf8_payload() -> None:
     assert response.json()["detail"] == "File must be UTF-8 encoded OSM XML text"
 
 
+def test_store_layout_import_osm_without_bounds_derives_extent_from_nodes() -> None:
+    client = _make_client()
+    _register(client, name="OSM No Bounds", email="osm-no-bounds@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <node id="1" lat="14.6009" lon="-61.0799"/>
+  <node id="2" lat="14.6009" lon="-61.0797"/>
+  <node id="3" lat="14.6007" lon="-61.0797"/>
+  <node id="4" lat="14.6007" lon="-61.0799"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="office"/>
+  </way>
+</osm>
+"""
+    response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM sans bounds", "description": "node-derived extents"},
+        files={"file": ("no-bounds.osm", osm_xml, "application/xml")},
+    )
+    assert response.status_code == 200, response.text
+
+    scene = response.json()["payload"]["scene"]
+    dims = scene["store"]["dimensions"]
+    zones = scene["store"]["zones"]
+    assert len(zones) == 1
+    assert dims["width"] > 0
+    assert dims["depth"] > 0
+    assert zones[0]["x"] == 0.0
+    assert zones[0]["z"] == 0.0
+
+
 def test_project_import_snapshot_normalizes_dimension_and_face_aliases() -> None:
     client = _make_client()
     _register(client, name="Snapshot Importer", email="snapshot-importer@example.com")

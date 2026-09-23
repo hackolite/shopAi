@@ -240,8 +240,24 @@ def osm_xml_to_retail_layout(
     if not buildings:
         raise ValueError("Aucun bâtiment trouvé dans le fichier OSM.")
 
-    global_width = max(building["x"] + building["width"] for building in buildings)
-    global_depth = max(building["z"] + building["depth"] for building in buildings)
+    global_min_x = min(building["x"] for building in buildings)
+    global_min_z = min(building["z"] for building in buildings)
+    global_max_x = max(building["x"] + building["width"] for building in buildings)
+    global_max_z = max(building["z"] + building["depth"] for building in buildings)
+
+    if global_min_x != 0 or global_min_z != 0:
+        for building in buildings:
+            building["x"] = round(building["x"] - global_min_x, 3)
+            building["z"] = round(building["z"] - global_min_z, 3)
+            if isinstance(building.get("points"), list):
+                for point in building["points"]:
+                    if not isinstance(point, dict):
+                        continue
+                    point["x"] = round(float(point.get("x", 0.0)) - global_min_x, 3)
+                    point["z"] = round(float(point.get("z", 0.0)) - global_min_z, 3)
+
+    global_width = global_max_x - global_min_x
+    global_depth = global_max_z - global_min_z
     generated_project_id = project_id or str(uuid4())
     generated_store_id = store_id or str(uuid4())
     timestamp = exported_at or datetime.now(timezone.utc).isoformat()

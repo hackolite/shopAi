@@ -1,9 +1,8 @@
 /**
  * Aggregated customer-journey metrics.
  *
- * Distance metrics (`totalDistanceM`, `averageDistanceM`) are computed only on
- * customers that completed the full path (entry + exit).
- * Time metrics keep aggregating all available customers.
+ * Distance and time metrics are computed only on customers that completed the
+ * full path (entry + exit).
  *
  * Pure functions so they can be unit-tested; consumed by the
  * « Waypoints & rendement » panel tiles and the recorded 3D HUD.
@@ -24,11 +23,11 @@ export interface JourneySummary {
   completedCustomerCount: number;
   /** Sum of the distance travelled by completed customers, in metres. */
   totalDistanceM: number;
-  /** Sum of the time spent in store by every customer, in seconds. */
+  /** Sum of the time spent in store by completed customers, in seconds. */
   totalTimeSeconds: number;
   /** Average distance travelled per completed customer, in metres (0 when none). */
   averageDistanceM: number;
-  /** Average time spent in store per customer, in seconds (0 when no customer). */
+  /** Average time spent in store per completed customer, in seconds (0 when none). */
   averageTimeSeconds: number;
 }
 
@@ -43,7 +42,7 @@ export const JOURNEY_METRIC_IDS: JourneyMetricId[] = [
 /**
  * Aggregate the customer journeys into plain sums and per-customer averages.
  * Totals are simple additions of rows.
- * Distance metrics use completed customers only; time metrics use all customers
+ * Distance and time metrics use completed customers only
  * (0 when the relevant denominator is empty, never NaN).
  */
 export function computeJourneySummary(customers: CustomerJourney[] | null | undefined): JourneySummary {
@@ -59,8 +58,8 @@ export function computeJourneySummary(customers: CustomerJourney[] | null | unde
     if (completedJourney) {
       completedCustomerCount += 1;
       if (Number.isFinite(customer.distanceCm)) totalDistanceCm += customer.distanceCm;
+      if (Number.isFinite(customer.totalTimeSeconds)) totalTimeSeconds += customer.totalTimeSeconds;
     }
-    if (Number.isFinite(customer.totalTimeSeconds)) totalTimeSeconds += customer.totalTimeSeconds;
   }
   const customerCount = list.length;
   const totalDistanceM = totalDistanceCm / 100;
@@ -70,7 +69,7 @@ export function computeJourneySummary(customers: CustomerJourney[] | null | unde
     totalDistanceM,
     totalTimeSeconds,
     averageDistanceM: completedCustomerCount > 0 ? totalDistanceM / completedCustomerCount : 0,
-    averageTimeSeconds: customerCount > 0 ? totalTimeSeconds / customerCount : 0,
+    averageTimeSeconds: completedCustomerCount > 0 ? totalTimeSeconds / completedCustomerCount : 0,
   };
 }
 

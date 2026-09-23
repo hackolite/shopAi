@@ -35,7 +35,7 @@ describe('computeJourneySummary', () => {
     }
   });
 
-  it('distance totals/averages only include clients that completed entry→exit', () => {
+  it('distance and time totals/averages only include clients that completed entry→exit', () => {
     const summary = computeJourneySummary([
       customer({ customerId: 1, distanceCm: 12_000, totalTimeSeconds: 60, exitTimeSeconds: 60, active: false }),
       customer({ customerId: 2, distanceCm: 8_000, totalTimeSeconds: 30, exitTimeSeconds: 30, active: false }),
@@ -44,9 +44,9 @@ describe('computeJourneySummary', () => {
     expect(summary.customerCount).toBe(3);
     expect(summary.completedCustomerCount).toBe(2);
     expect(summary.totalDistanceM).toBeCloseTo(200);
-    expect(summary.totalTimeSeconds).toBeCloseTo(180);
+    expect(summary.totalTimeSeconds).toBeCloseTo(90);
     expect(summary.averageDistanceM).toBeCloseTo(100);
-    expect(summary.averageTimeSeconds).toBeCloseTo(60);
+    expect(summary.averageTimeSeconds).toBeCloseTo(45);
   });
 
   it('ignores non-finite values without breaking the totals', () => {

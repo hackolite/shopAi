@@ -2,107 +2,99 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+
 from datetime import datetime, timezone
 from math import cos, radians
 from typing import Any
 from uuid import uuid4
 
 
-METERS_PER_LEVEL = 3.0
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
-DEFAULT_BUILDING_HEIGHT_CM = 1000.0
+METERS_PER_LEVEL = 3.0
+DEFAULT_BUILDING_HEIGHT_CM = 1000.0  # 10 m
+
 DEFAULT_BUILDING_COLOR = "#9CA3AF"
 
 KNOWN_HEIGHT_OPACITY = 0.62
 MISSING_HEIGHT_OPACITY = 0.32
 
+
 _HEIGHT_PATTERN = re.compile(
-    r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$"
+    r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$",
+    re.IGNORECASE,
 )
 
 
 # ============================================================
-# COULEURS
+# COULEURS PAR TYPE DE BÂTIMENT
 # ============================================================
 
-BUILDING_TYPE_COLORS: dict[str, str] = {
-
-    # Habitat
+BUILDING_TYPE_COLORS = {
     "residential": "#F4A261",
     "apartments": "#E9C46A",
     "house": "#F7B267",
 
-    # Commerce
     "commercial": "#457B9D",
     "retail": "#2A9D8F",
 
-    # Bureaux / industrie
     "office": "#577590",
+
     "industrial": "#6A994E",
     "warehouse": "#4D908E",
 
-    # Public
     "civic": "#1D3557",
     "school": "#90BE6D",
     "hospital": "#E76F51",
+
     "religious": "#9B5DE5",
 
-    # Services
     "garage": "#BC6C25",
-    "pharmacy": "#43AA8B",
-    "bank": "#577590",
 
-    # Restauration
-    "restaurant": "#E76F51",
-    "cafe": "#B56576",
-    "bar": "#6D597A",
-    "fast_food": "#F4A261",
-
-    # Transport
-    "station": "#343A40",
-    "transport": "#277DA1",
-
-    # Autres
-    "other": DEFAULT_BUILDING_COLOR,
+    "other": "#9CA3AF",
 }
 
 
 # ============================================================
-# TYPES DE BATIMENT OSM
+# NORMALISATION DES TYPES
 # ============================================================
 
-_BUILDING_TYPE_ALIASES: dict[str, str] = {
-
-    # Habitat
-    "detached": "house",
-    "semidetached_house": "house",
-    "terrace": "house",
-    "bungalow": "house",
-
+_BUILDING_TYPE_ALIASES = {
+    # Residential
     "residential": "residential",
     "apartments": "apartments",
+    "apartment": "apartments",
+
+    "detached": "house",
+    "semidetached_house": "house",
+    "semi-detached": "house",
+    "terrace": "house",
+    "terraced": "house",
+    "bungalow": "house",
     "house": "house",
 
-    # Commerce
+    # Commercial / retail
     "commercial": "commercial",
     "retail": "retail",
     "supermarket": "retail",
     "mall": "retail",
-    "department_store": "retail",
 
-    # Bureau
+    # Office
     "office": "office",
 
-    # Industrie
+    # Industrial
     "industrial": "industrial",
     "factory": "industrial",
     "warehouse": "warehouse",
 
-    # Public
+    # Civic / public
     "public": "civic",
     "government": "civic",
-    "train_station": "station",
-    "transportation": "transport",
+    "civic": "civic",
+    "train_station": "civic",
+    "transportation": "civic",
 
     # Education
     "school": "school",
@@ -110,12 +102,12 @@ _BUILDING_TYPE_ALIASES: dict[str, str] = {
     "university": "school",
     "kindergarten": "school",
 
-    # Santé
+    # Healthcare
     "hospital": "hospital",
     "clinic": "hospital",
     "doctors": "hospital",
 
-    # Religieux
+    # Religious
     "church": "religious",
     "cathedral": "religious",
     "mosque": "religious",
@@ -131,77 +123,6 @@ _BUILDING_TYPE_ALIASES: dict[str, str] = {
 }
 
 
-# ============================================================
-# AMENITY
-# ============================================================
-
-_AMENITY_TYPE_ALIASES: dict[str, str] = {
-
-    "school": "school",
-    "college": "school",
-    "university": "school",
-    "kindergarten": "school",
-
-    "hospital": "hospital",
-    "clinic": "hospital",
-    "doctors": "hospital",
-    "dentist": "hospital",
-
-    "pharmacy": "pharmacy",
-
-    "restaurant": "restaurant",
-    "cafe": "cafe",
-    "bar": "bar",
-    "fast_food": "fast_food",
-
-    "bank": "bank",
-
-    "library": "civic",
-    "townhall": "civic",
-    "police": "civic",
-    "fire_station": "civic",
-    "post_office": "civic",
-    "community_centre": "civic",
-}
-
-
-# ============================================================
-# SHOP
-# ============================================================
-
-_SHOP_TYPE_ALIASES: dict[str, str] = {
-
-    "supermarket": "retail",
-    "convenience": "retail",
-    "department_store": "retail",
-    "mall": "retail",
-
-    "clothes": "retail",
-    "shoes": "retail",
-    "electronics": "retail",
-    "computer": "retail",
-    "mobile_phone": "retail",
-
-    "furniture": "retail",
-    "hardware": "retail",
-    "doityourself": "retail",
-
-    "bakery": "retail",
-    "butcher": "retail",
-    "books": "retail",
-    "florist": "retail",
-    "beverages": "retail",
-    "beauty": "retail",
-    "hairdresser": "retail",
-    "jewelry": "retail",
-    "optician": "retail",
-}
-
-
-# ============================================================
-# VALEURS GENERIQUES
-# ============================================================
-
 _GENERIC_BUILDING_VALUES = {
     "yes",
     "building",
@@ -211,82 +132,25 @@ _GENERIC_BUILDING_VALUES = {
 
 
 # ============================================================
-# TYPES QUI PEUVENT INDIQUER UN BATIMENT
+# TYPES OSM NON-BÂTIMENTS
 # ============================================================
 
-_BUILDING_LIKE_AMENITIES = {
-    "school",
-    "college",
-    "university",
-    "kindergarten",
-
-    "hospital",
-    "clinic",
-    "doctors",
-    "dentist",
-
-    "pharmacy",
-    "bank",
-
-    "restaurant",
-    "cafe",
-    "bar",
-    "fast_food",
-
-    "library",
-    "townhall",
-    "police",
-    "fire_station",
-    "post_office",
-    "community_centre",
-}
-
-
-# ============================================================
-# TYPES QUI NE DOIVENT PAS ETRE CONSIDERES COMME BATIMENTS
-# ============================================================
-
-_NON_BUILDING_AMENITIES = {
+_NON_BUILDING_SEMANTIC_TYPES = {
+    "road",
+    "path",
+    "cycleway",
+    "footway",
+    "pedestrian",
     "parking",
-    "parking_space",
-    "fuel",
-    "bench",
-    "waste_basket",
-    "bicycle_parking",
-    "drinking_water",
-    "post_box",
-    "recycling",
-}
-
-
-# ============================================================
-# TYPES OSM PERTINENTS
-# ============================================================
-
-_RELEVANT_TAGS = {
-
-    "building",
-    "building:levels",
-    "height",
-
-    "amenity",
-    "shop",
-    "office",
-    "industrial",
-    "healthcare",
-
-    "highway",
-    "landuse",
-    "leisure",
-    "natural",
-
-    "waterway",
+    "park",
+    "garden",
+    "water",
     "railway",
-    "public_transport",
-
-    "tourism",
-    "man_made",
-    "power",
+    "station",
+    "sports",
+    "recreation",
+    "landuse",
+    "natural",
 }
 
 
@@ -294,755 +158,571 @@ _RELEVANT_TAGS = {
 # OUTILS
 # ============================================================
 
-def _safe_float(value: str) -> float:
-    return float(
-        value.strip().replace(",", ".")
+def _safe_float(value: str | None) -> float | None:
+    if value is None:
+        return None
+
+    try:
+        return float(value.strip())
+    except (ValueError, AttributeError):
+        return None
+
+
+def _normalize_building_type(value: str | None) -> str:
+    if not value:
+        return "other"
+
+    value = value.strip().lower()
+
+    return _BUILDING_TYPE_ALIASES.get(
+        value,
+        "other",
     )
 
 
-def _normalize_building_type(
-    raw_value: str | None,
-) -> tuple[str, str]:
+def _parse_height_cm(value: str | None) -> float | None:
+    """
+    Convertit :
+        10       -> 1000 cm
+        10m      -> 1000 cm
+        10 m     -> 1000 cm
+        1000cm   -> 1000 cm
+        1000 cm  -> 1000 cm
+    """
 
-    raw = (
-        raw_value or ""
-    ).strip().lower()
+    if not value:
+        return None
 
-    if not raw:
-        return "other", "other"
+    value = value.strip().lower()
 
-    token = raw.split(";", 1)[0].strip()
+    match = _HEIGHT_PATTERN.match(value)
 
-    mapped = _BUILDING_TYPE_ALIASES.get(token)
+    if not match:
+        return None
 
-    if mapped:
-        return mapped, token
+    number = float(match.group(1))
+    unit = match.group(2)
 
-    if token in _GENERIC_BUILDING_VALUES:
-        return "other", token
+    if unit == "cm":
+        return number
 
-    return "other", token
+    # OSM utilise généralement des mètres pour height.
+    # Sans unité explicite, on considère également des mètres.
+    return number * 100.0
+
+
+def _first_tag(tags: dict[str, str], *names: str) -> tuple[str | None, str | None]:
+    """
+    Retourne (nom_du_tag, valeur) pour le premier tag présent.
+    """
+
+    for name in names:
+        value = tags.get(name)
+
+        if value:
+            return name, value.strip().lower()
+
+    return None, None
 
 
 # ============================================================
-# CLASSIFICATION FONCTIONNELLE
+# CLASSIFICATION SÉMANTIQUE OSM
 # ============================================================
 
 def _classify_osm_type(
     tags: dict[str, str],
-) -> tuple[str, str, str]:
+) -> tuple[str, str | None, str | None]:
     """
     Retourne :
 
-    semantic_type
-    source_tag
-    raw_value
+        semantic_type
+        source_tag
+        raw_value
 
-    IMPORTANT :
-    building=yes n'est pas prioritaire sur shop/amenity/etc.
-    lorsqu'un tag fonctionnel plus précis existe.
+    Exemple :
+
+        building=yes + shop=supermarket
+
+    =>
+
+        retail
+        shop
+        supermarket
+
+    Alors que :
+
+        building=school
+
+    =>
+
+        school
+        building
+        school
     """
 
+    building = tags.get("building", "").strip().lower()
+
     # --------------------------------------------------------
-    # 1. BUILDING NON GENERIQUE
+    # 1. TYPE BUILDING EXPLICITE ET SPÉCIFIQUE
     # --------------------------------------------------------
 
-    building = (
-        tags.get("building", "")
-        .strip()
-        .lower()
-    )
+    if building and building not in _GENERIC_BUILDING_VALUES:
 
-    if building:
+        normalized = _normalize_building_type(building)
 
-        normalized = _BUILDING_TYPE_ALIASES.get(
-            building
-        )
-
-        if normalized:
-            return (
-                normalized,
-                "building",
-                building,
-            )
+        if normalized != "other":
+            return normalized, "building", building
 
     # --------------------------------------------------------
     # 2. SHOP
     # --------------------------------------------------------
 
-    shop = (
-        tags.get("shop", "")
-        .strip()
-        .lower()
-    )
+    shop = tags.get("shop", "").strip().lower()
 
     if shop:
 
-        normalized = _SHOP_TYPE_ALIASES.get(
-            shop,
-            "retail",
-        )
+        retail_values = {
+            "supermarket",
+            "hypermarket",
+            "convenience",
+            "department_store",
+            "mall",
+            "clothes",
+            "shoes",
+            "bakery",
+            "butcher",
+            "beverages",
+            "electronics",
+            "furniture",
+            "hardware",
+            "doityourself",
+            "mobile_phone",
+            "books",
+            "beauty",
+            "jewelry",
+            "sports",
+            "car",
+            "car_repair",
+            "fuel",
+        }
 
-        return (
-            normalized,
-            "shop",
-            shop,
-        )
+        if shop in retail_values:
+            return "retail", "shop", shop
+
+        return "commercial", "shop", shop
 
     # --------------------------------------------------------
     # 3. OFFICE
     # --------------------------------------------------------
 
-    office = (
-        tags.get("office", "")
-        .strip()
-        .lower()
-    )
+    office = tags.get("office", "").strip().lower()
 
     if office:
-        return (
-            "office",
-            "office",
-            office,
-        )
+        return "office", "office", office
 
     # --------------------------------------------------------
     # 4. INDUSTRIAL
     # --------------------------------------------------------
 
-    industrial = (
-        tags.get("industrial", "")
-        .strip()
-        .lower()
-    )
+    industrial = tags.get("industrial", "").strip().lower()
 
     if industrial:
-        return (
-            "industrial",
-            "industrial",
-            industrial,
-        )
+        if industrial in {
+            "warehouse",
+            "storage",
+            "distribution",
+        }:
+            return "warehouse", "industrial", industrial
+
+        return "industrial", "industrial", industrial
 
     # --------------------------------------------------------
     # 5. HEALTHCARE
     # --------------------------------------------------------
 
-    healthcare = (
-        tags.get("healthcare", "")
-        .strip()
-        .lower()
-    )
+    healthcare = tags.get("healthcare", "").strip().lower()
 
     if healthcare:
-        return (
-            "hospital",
-            "healthcare",
-            healthcare,
-        )
+        return "hospital", "healthcare", healthcare
 
     # --------------------------------------------------------
     # 6. AMENITY
     # --------------------------------------------------------
 
-    amenity = (
-        tags.get("amenity", "")
-        .strip()
-        .lower()
-    )
+    amenity = tags.get("amenity", "").strip().lower()
 
-    if amenity:
+    amenity_mapping = {
+        "school": "school",
+        "college": "school",
+        "university": "school",
+        "kindergarten": "school",
 
-        normalized = _AMENITY_TYPE_ALIASES.get(
-            amenity
-        )
+        "hospital": "hospital",
+        "clinic": "hospital",
 
-        if normalized:
-            return (
-                normalized,
-                "amenity",
-                amenity,
-            )
+        "place_of_worship": "religious",
+
+        "townhall": "civic",
+        "courthouse": "civic",
+        "community_centre": "civic",
+        "library": "civic",
+        "fire_station": "civic",
+        "police": "civic",
+    }
+
+    if amenity in amenity_mapping:
+        return amenity_mapping[amenity], "amenity", amenity
 
     # --------------------------------------------------------
-    # 7. BUILDING GENERIQUE
+    # 7. BÂTIMENT GÉNÉRIQUE
     # --------------------------------------------------------
 
     if building:
-        return (
-            "other",
-            "building",
-            building,
-        )
+        return "other", "building", building
 
     # --------------------------------------------------------
-    # 8. AUTRES TAGS
-    #
-    # Ils permettent de conserver l'objet dans la scène,
-    # mais ne le transforment pas automatiquement en bâtiment.
+    # 8. HIGHWAY
     # --------------------------------------------------------
 
-    if "highway" in tags:
-        return (
-            "road",
-            "highway",
-            tags["highway"],
-        )
+    highway = tags.get("highway", "").strip().lower()
 
-    if "railway" in tags:
+    if highway:
 
-        railway = tags["railway"].lower()
+        if highway in {"footway", "path"}:
+            return "path", "highway", highway
 
-        if railway in {
-            "station",
-            "halt",
+        if highway == "cycleway":
+            return "cycleway", "highway", highway
+
+        if highway == "pedestrian":
+            return "pedestrian", "highway", highway
+
+        return "road", "highway", highway
+
+    # --------------------------------------------------------
+    # 9. PARKING
+    # --------------------------------------------------------
+
+    parking = tags.get("parking", "").strip().lower()
+
+    if parking:
+        return "parking", "parking", parking
+
+    # --------------------------------------------------------
+    # 10. LEISURE / PARK
+    # --------------------------------------------------------
+
+    leisure = tags.get("leisure", "").strip().lower()
+
+    if leisure:
+
+        if leisure in {
+            "park",
+            "garden",
+            "nature_reserve",
         }:
-            return (
-                "station",
-                "railway",
-                railway,
-            )
+            return "park", "leisure", leisure
 
-        return (
-            "other",
-            "railway",
-            railway,
-        )
+        if leisure in {
+            "sports_centre",
+            "stadium",
+            "pitch",
+            "sports_hall",
+            "swimming_pool",
+            "fitness_centre",
+        }:
+            return "sports", "leisure", leisure
 
-    if "public_transport" in tags:
-        return (
-            "transport",
-            "public_transport",
-            tags["public_transport"],
-        )
-
-    if "waterway" in tags:
-        return (
-            "other",
-            "waterway",
-            tags["waterway"],
-        )
-
-    if "natural" in tags:
-        return (
-            "other",
-            "natural",
-            tags["natural"],
-        )
-
-    if "landuse" in tags:
-        return (
-            "other",
-            "landuse",
-            tags["landuse"],
-        )
-
-    if "leisure" in tags:
-        return (
-            "other",
-            "leisure",
-            tags["leisure"],
-        )
-
-    if "man_made" in tags:
-        return (
-            "other",
-            "man_made",
-            tags["man_made"],
-        )
-
-    if "power" in tags:
-        return (
-            "other",
-            "power",
-            tags["power"],
-        )
-
-    return (
-        "other",
-        "unknown",
-        "other",
-    )
-
-
-# ============================================================
-# ROLE GEOMETRIQUE / BATIMENT PROBABLE
-# ============================================================
-
-def _infer_geometry_role(
-    tags: dict[str, str],
-    closed: bool,
-) -> tuple[str, bool, float]:
-    """
-    Retourne :
-
-    geometry_role
-    is_likely_building
-    building_confidence
-    """
+        return "recreation", "leisure", leisure
 
     # --------------------------------------------------------
-    # 1. BUILDING EXPLICITE
+    # 11. NATURAL
     # --------------------------------------------------------
 
-    if "building" in tags:
+    natural = tags.get("natural", "").strip().lower()
 
-        return (
-            "building",
-            True,
-            1.0,
-        )
+    if natural:
 
-    # --------------------------------------------------------
-    # 2. SHOP
-    #
-    # Un shop sous forme de way fermé représente une
-    # surface commerciale. Ce n'est pas une certitude
-    # absolue sur la structure physique.
-    # --------------------------------------------------------
+        if natural in {
+            "water",
+            "bay",
+            "coastline",
+        }:
+            return "water", "natural", natural
 
-    shop = (
-        tags.get("shop", "")
-        .strip()
-        .lower()
-    )
-
-    if shop and closed:
-
-        return (
-            "commercial_area",
-            True,
-            0.72,
-        )
+        return "natural", "natural", natural
 
     # --------------------------------------------------------
-    # 3. OFFICE
+    # 12. LANDUSE
     # --------------------------------------------------------
 
-    office = (
-        tags.get("office", "")
-        .strip()
-        .lower()
-    )
+    landuse = tags.get("landuse", "").strip().lower()
 
-    if office and closed:
-
-        return (
-            "building",
-            True,
-            0.80,
-        )
+    if landuse:
+        return "landuse", "landuse", landuse
 
     # --------------------------------------------------------
-    # 4. INDUSTRIAL
+    # 13. RAILWAY
     # --------------------------------------------------------
 
-    industrial = (
-        tags.get("industrial", "")
-        .strip()
-        .lower()
-    )
+    railway = tags.get("railway", "").strip().lower()
 
-    if industrial and closed:
-
-        return (
-            "industrial_area",
-            True,
-            0.78,
-        )
-
-    # --------------------------------------------------------
-    # 5. HEALTHCARE
-    # --------------------------------------------------------
-
-    healthcare = (
-        tags.get("healthcare", "")
-        .strip()
-        .lower()
-    )
-
-    if healthcare and closed:
-
-        return (
-            "facility",
-            True,
-            0.75,
-        )
-
-    # --------------------------------------------------------
-    # 6. AMENITY
-    # --------------------------------------------------------
-
-    amenity = (
-        tags.get("amenity", "")
-        .strip()
-        .lower()
-    )
-
-    if amenity:
-
-        # Objets/surfaces qui ne sont pas des bâtiments.
-        if amenity in _NON_BUILDING_AMENITIES:
-
-            return (
-                "surface",
-                False,
-                1.0,
-            )
-
-        # Services pouvant correspondre à un bâtiment.
-        if (
-            amenity in _BUILDING_LIKE_AMENITIES
-            and closed
-        ):
-
-            return (
-                "facility",
-                True,
-                0.70,
-            )
-
-    # --------------------------------------------------------
-    # 7. HIGHWAY
-    # --------------------------------------------------------
-
-    if "highway" in tags:
-
-        return (
-            "line",
-            False,
-            1.0,
-        )
-
-    # --------------------------------------------------------
-    # 8. RAILWAY
-    # --------------------------------------------------------
-
-    if "railway" in tags:
-
-        railway = (
-            tags["railway"]
-            .strip()
-            .lower()
-        )
+    if railway:
 
         if railway in {
             "station",
             "halt",
-        } and closed:
+            "tram_stop",
+            "subway_entrance",
+        }:
+            return "station", "railway", railway
 
-            return (
-                "facility",
-                False,
-                0.85,
-            )
-
-        return (
-            "line",
-            False,
-            1.0,
-        )
+        return "railway", "railway", railway
 
     # --------------------------------------------------------
-    # 9. WATERWAY
+    # 14. PUBLIC TRANSPORT
     # --------------------------------------------------------
 
-    if "waterway" in tags:
+    public_transport = tags.get("public_transport", "").strip().lower()
 
-        return (
-            "line",
-            False,
-            1.0,
-        )
+    if public_transport:
+        return "station", "public_transport", public_transport
 
     # --------------------------------------------------------
-    # 10. SURFACES
+    # 15. MAN MADE
     # --------------------------------------------------------
 
-    if "natural" in tags:
+    man_made = tags.get("man_made", "").strip().lower()
 
-        return (
-            "surface",
-            False,
-            1.0,
-        )
-
-    if "landuse" in tags:
-
-        return (
-            "surface",
-            False,
-            1.0,
-        )
-
-    if "leisure" in tags:
-
-        return (
-            "surface",
-            False,
-            1.0,
-        )
-
-    # --------------------------------------------------------
-    # 11. TRANSPORT PUBLIC
-    # --------------------------------------------------------
-
-    if "public_transport" in tags:
-
-        if closed:
-
-            return (
-                "facility",
-                False,
-                0.75,
-            )
-
-        return (
-            "poi",
-            False,
-            0.90,
-        )
-
-    # --------------------------------------------------------
-    # 12. MAN MADE
-    # --------------------------------------------------------
-
-    if "man_made" in tags:
-
-        man_made = (
-            tags["man_made"]
-            .strip()
-            .lower()
-        )
+    if man_made:
 
         if man_made in {
             "tower",
             "water_tower",
-            "silo",
-            "chimney",
+            "communications_tower",
+            "mast",
         }:
+            return "other", "man_made", man_made
 
-            return (
-                "structure",
-                False,
-                0.95,
-            )
-
-        return (
-            "surface" if closed else "line",
-            False,
-            0.50,
-        )
+        return "other", "man_made", man_made
 
     # --------------------------------------------------------
-    # 13. POWER
+    # 16. POWER
     # --------------------------------------------------------
 
-    if "power" in tags:
+    power = tags.get("power", "").strip().lower()
 
-        return (
-            "structure",
-            False,
-            0.90,
-        )
+    if power:
+        return "other", "power", power
+
+    return "other", None, None
+
+
+# ============================================================
+# DÉTERMINATION : EST-CE PROBABLEMENT UN BÂTIMENT ?
+# ============================================================
+
+def _infer_building_status(
+    tags: dict[str, str],
+    semantic_type: str,
+    semantic_source_tag: str | None,
+    closed: bool,
+) -> tuple[bool, float, str]:
+    """
+    Retourne :
+
+        isLikelyBuilding
+        confidence
+        geometryRole
+    """
+
+    building = tags.get("building", "").strip().lower()
 
     # --------------------------------------------------------
-    # 14. FALLBACK
+    # BUILDING EXPLICITE
+    # --------------------------------------------------------
+
+    if building:
+
+        return True, 1.0, "building"
+
+    # --------------------------------------------------------
+    # SHOP
+    # --------------------------------------------------------
+
+    if tags.get("shop"):
+        if closed:
+            return True, 0.72, "commercial_area"
+
+        return False, 0.25, "poi"
+
+    # --------------------------------------------------------
+    # OFFICE
+    # --------------------------------------------------------
+
+    if tags.get("office"):
+        if closed:
+            return True, 0.80, "building"
+
+        return False, 0.25, "poi"
+
+    # --------------------------------------------------------
+    # INDUSTRIAL
+    # --------------------------------------------------------
+
+    if tags.get("industrial"):
+        if closed:
+            return True, 0.78, "industrial_area"
+
+        return False, 0.25, "poi"
+
+    # --------------------------------------------------------
+    # HEALTHCARE
+    # --------------------------------------------------------
+
+    if tags.get("healthcare"):
+        if closed:
+            return True, 0.75, "facility"
+
+        return False, 0.30, "poi"
+
+    # --------------------------------------------------------
+    # AMENITIES QUI SONT TYPiquement DES BÂTIMENTS
+    # --------------------------------------------------------
+
+    amenity = tags.get("amenity", "").strip().lower()
+
+    building_like_amenities = {
+        "school",
+        "college",
+        "university",
+        "kindergarten",
+        "hospital",
+        "clinic",
+        "townhall",
+        "courthouse",
+        "community_centre",
+        "library",
+        "fire_station",
+        "police",
+        "place_of_worship",
+    }
+
+    if amenity in building_like_amenities:
+
+        if closed:
+            return True, 0.70, "facility"
+
+        return False, 0.25, "poi"
+
+    # --------------------------------------------------------
+    # PARKING / PARK / WATER / ROUTES
+    # --------------------------------------------------------
+
+    if semantic_type in {
+        "road",
+        "path",
+        "cycleway",
+        "footway",
+        "pedestrian",
+        "parking",
+        "park",
+        "garden",
+        "water",
+        "railway",
+        "station",
+        "sports",
+        "recreation",
+        "landuse",
+        "natural",
+    }:
+        return False, 0.0, "surface"
+
+    # --------------------------------------------------------
+    # AUTRES OBJETS FERMÉS
     # --------------------------------------------------------
 
     if closed:
+        return False, 0.20, "surface"
 
-        return (
-            "surface",
-            False,
-            0.40,
-        )
-
-    return (
-        "line",
-        False,
-        0.40,
-    )
+    return False, 0.0, "poi"
 
 
 # ============================================================
-# HAUTEUR
-# ============================================================
-
-def _parse_height_cm(
-    tags: dict[str, str],
-) -> tuple[float, str | None]:
-
-    # --------------------------------------------------------
-    # 1. HEIGHT
-    # --------------------------------------------------------
-
-    raw_height = tags.get("height")
-
-    if raw_height:
-
-        candidate = (
-            raw_height
-            .strip()
-            .lower()
-            .replace(",", ".")
-        )
-
-        match = _HEIGHT_PATTERN.match(
-            candidate
-        )
-
-        if match:
-
-            number = float(
-                match.group(1)
-            )
-
-            unit = match.group(2)
-
-            if unit == "cm":
-
-                return (
-                    number,
-                    "OSM height",
-                )
-
-            return (
-                number * 100,
-                "OSM height",
-            )
-
-    # --------------------------------------------------------
-    # 2. BUILDING LEVELS
-    # --------------------------------------------------------
-
-    raw_levels = tags.get(
-        "building:levels"
-    )
-
-    if raw_levels:
-
-        try:
-            levels = _safe_float(
-                raw_levels
-            )
-        except ValueError:
-            levels = 0.0
-
-        if levels > 0:
-
-            return (
-                levels
-                * METERS_PER_LEVEL
-                * 100,
-                "OSM building:levels × 3m",
-            )
-
-    return (
-        0.0,
-        None,
-    )
-
-
-# ============================================================
-# CONVERSION
+# CONVERSION OSM XML -> RETAIL LAYOUT
 # ============================================================
 
 def osm_xml_to_retail_layout(
-    xml_text: str,
-    project_name: str,
-    project_id: str | None = None,
-    store_id: str | None = None,
-    exported_at: str | None = None,
+    osm_xml: str,
+    project_name: str = "OSM Import",
 ) -> dict[str, Any]:
 
-    try:
-
-        root = ET.fromstring(
-            xml_text
-        )
-
-    except ET.ParseError as exc:
-
-        raise ValueError(
-            str(exc)
-        ) from exc
+    root = ET.fromstring(osm_xml)
 
     # ========================================================
     # NODES
     # ========================================================
 
-    nodes: dict[
-        str,
-        dict[str, float]
-    ] = {}
+    nodes: dict[str, tuple[float, float]] = {}
 
     for node in root.findall("node"):
 
-        node_id = node.attrib.get(
-            "id"
-        )
-
-        lat = node.attrib.get(
-            "lat"
-        )
-
-        lon = node.attrib.get(
-            "lon"
-        )
+        node_id = node.attrib.get("id")
+        lat = _safe_float(node.attrib.get("lat"))
+        lon = _safe_float(node.attrib.get("lon"))
 
         if (
-            not node_id
-            or lat is None
-            or lon is None
+            node_id is not None
+            and lat is not None
+            and lon is not None
         ):
+            nodes[node_id] = (lat, lon)
+
+    # ========================================================
+    # BOUNDS OSM
+    # ========================================================
+
+    bounds_element = root.find("bounds")
+
+    min_lat = None
+    max_lat = None
+    min_lon = None
+    max_lon = None
+
+    if bounds_element is not None:
+
+        min_lat = _safe_float(
+            bounds_element.attrib.get("minlat")
+        )
+
+        max_lat = _safe_float(
+            bounds_element.attrib.get("maxlat")
+        )
+
+        min_lon = _safe_float(
+            bounds_element.attrib.get("minlon")
+        )
+
+        max_lon = _safe_float(
+            bounds_element.attrib.get("maxlon")
+        )
+
+    # ========================================================
+    # WAYS
+    # ========================================================
+
+    ways: list[dict[str, Any]] = []
+
+    for way in root.findall("way"):
+
+        way_id = way.attrib.get("id")
+
+        if way_id is None:
             continue
 
-        try:
-
-            nodes[node_id] = {
-                "lat": float(lat),
-                "lon": float(lon),
-            }
-
-        except ValueError:
-
-            continue
-
-    ways = list(
-        root.findall("way")
-    )
-
-    # ========================================================
-    # RECHERCHE DES OBJETS PERTINENTS
-    # ========================================================
-    #
-    # AVANT :
-    #
-    #     if "building" not in tags:
-    #         continue
-    #
-    # MAINTENANT :
-    #
-    # On conserve les ways qui peuvent représenter :
-    #
-    # - bâtiment
-    # - commerce
-    # - bureau
-    # - industrie
-    # - équipement
-    #
-    # mais aussi les autres éléments utiles à la scène.
-    #
-    # Les routes/parcs/etc. ne seront simplement pas
-    # considérés comme des bâtiments grâce à
-    # _infer_geometry_role().
-    # ========================================================
-
-    relevant_ways: list[
-        tuple[Any, dict[str, str]]
-    ] = []
-
-    for way in ways:
+        # ----------------------------------------------------
+        # TAGS
+        # ----------------------------------------------------
 
         tags: dict[str, str] = {}
 
@@ -1051,126 +731,165 @@ def osm_xml_to_retail_layout(
             key = tag.attrib.get("k")
             value = tag.attrib.get("v")
 
-            if (
-                key is not None
-                and value is not None
-            ):
-
+            if key and value is not None:
                 tags[key] = value
 
-        if not any(
-            key in tags
-            for key in _RELEVANT_TAGS
-        ):
-            continue
+        # ----------------------------------------------------
+        # NODES DU WAY
+        # ----------------------------------------------------
 
-        relevant_ways.append(
-            (way, tags)
-        )
-
-    # ========================================================
-    # COORDONNEES DE REFERENCE
-    # ========================================================
-
-    relevant_node_coords: list[
-        dict[str, float]
-    ] = []
-
-    for way, tags in relevant_ways:
+        node_refs: list[str] = []
 
         for nd in way.findall("nd"):
 
-            node_ref = nd.attrib.get(
-                "ref"
-            )
+            ref = nd.attrib.get("ref")
 
-            if not node_ref:
-                continue
+            if ref:
+                node_refs.append(ref)
 
-            node_data = nodes.get(
-                node_ref
-            )
+        coords: list[tuple[float, float]] = []
 
-            if node_data:
+        for ref in node_refs:
 
-                relevant_node_coords.append(
-                    node_data
-                )
+            if ref in nodes:
+                coords.append(nodes[ref])
 
-    if not relevant_node_coords:
+        if len(coords) < 2:
+            continue
 
+        # ----------------------------------------------------
+        # WAY FERMÉ
+        # ----------------------------------------------------
+
+        closed = (
+            len(node_refs) >= 4
+            and node_refs[0] == node_refs[-1]
+        )
+
+        # ====================================================
+        # CLASSIFICATION
+        # ====================================================
+
+        semantic_type, semantic_source_tag, semantic_raw_value = (
+            _classify_osm_type(tags)
+        )
+
+        (
+            is_likely_building,
+            building_confidence,
+            geometry_role,
+        ) = _infer_building_status(
+            tags=tags,
+            semantic_type=semantic_type,
+            semantic_source_tag=semantic_source_tag,
+            closed=closed,
+        )
+
+        # ====================================================
+        # IMPORTANT :
+        # LE MODÈLE SceneData N'ACCEPTE PAS shape="line"
+        #
+        # Les ways ouverts sont donc ignorés pour store.zones.
+        #
+        # On pourra plus tard créer un store.osmLines séparé
+        # si le modèle Pydantic est étendu.
+        # ====================================================
+
+        if not closed:
+            continue
+
+        # ====================================================
+        # COORDONNÉES DU WAY
+        # ====================================================
+
+        polygon_coords = list(coords)
+
+        # Retirer le dernier point s'il répète le premier.
+        if len(polygon_coords) >= 2:
+
+            if polygon_coords[0] == polygon_coords[-1]:
+                polygon_coords.pop()
+
+        if len(polygon_coords) < 3:
+            continue
+
+        # ====================================================
+        # EXTENT GLOBAL
+        # ====================================================
+
+        if polygon_coords:
+
+            way_lats = [
+                point[0]
+                for point in polygon_coords
+            ]
+
+            way_lons = [
+                point[1]
+                for point in polygon_coords
+            ]
+
+            if min_lat is None:
+                min_lat = min(way_lats)
+
+            if max_lat is None:
+                max_lat = max(way_lats)
+
+            if min_lon is None:
+                min_lon = min(way_lons)
+
+            if max_lon is None:
+                max_lon = max(way_lons)
+
+    # ========================================================
+    # FALLBACK SI PAS DE BOUNDS OSM
+    # ========================================================
+
+    if not nodes:
         raise ValueError(
-            "Aucun objet géométrique trouvé dans le fichier OSM."
+            "Aucun node OSM exploitable trouvé."
         )
 
-    # ========================================================
-    # BOUNDS
-    # ========================================================
-
-    bounds = root.find(
-        "bounds"
-    )
-
-    if bounds is not None:
-
-        try:
-
-            min_lat = float(
-                bounds.attrib["minlat"]
-            )
-
-            max_lat = float(
-                bounds.attrib["maxlat"]
-            )
-
-            min_lon = float(
-                bounds.attrib["minlon"]
-            )
-
-        except (
-            KeyError,
-            ValueError,
-        ) as exc:
-
-            raise ValueError(
-                "Invalid OSM <bounds> attributes."
-            ) from exc
-
-    else:
-
+    if min_lat is None:
         min_lat = min(
-            node["lat"]
-            for node in relevant_node_coords
+            lat
+            for lat, _ in nodes.values()
         )
 
+    if max_lat is None:
         max_lat = max(
-            node["lat"]
-            for node in relevant_node_coords
+            lat
+            for lat, _ in nodes.values()
         )
 
+    if min_lon is None:
         min_lon = min(
-            node["lon"]
-            for node in relevant_node_coords
+            lon
+            for _, lon in nodes.values()
         )
+
+    if max_lon is None:
+        max_lon = max(
+            lon
+            for _, lon in nodes.values()
+        )
+
+    # ========================================================
+    # PROJECTION LOCALE
+    # ========================================================
 
     center_lat = (
         min_lat + max_lat
     ) / 2.0
 
-    meters_per_degree_lat = 111320.0
+    meters_per_degree_lat = 111_320.0
 
     meters_per_degree_lon = (
-        111320.0
-        * cos(
-            radians(center_lat)
-        )
+        111_320.0
+        * cos(radians(center_lat))
     )
 
-    # ========================================================
-    # PROJECTION
-    # ========================================================
-
-    def geographic_to_local(
+    def project(
         lat: float,
         lon: float,
     ) -> tuple[float, float]:
@@ -1184,280 +903,359 @@ def osm_xml_to_retail_layout(
         ) * meters_per_degree_lat
 
         return (
-            x_m * 100,
-            z_m * 100,
+            x_m * 100.0,
+            z_m * 100.0,
         )
 
     # ========================================================
-    # OBJETS
+    # ZONES
     # ========================================================
 
-    buildings: list[
-        dict[str, Any]
-    ] = []
+    zones: list[dict[str, Any]] = []
 
-    for way, tags in relevant_ways:
+    building_count = 0
 
-        osm_way_id = way.attrib.get(
-            "id",
-            f"way-{len(buildings) + 1}",
-        )
+    # Reboucle sur les ways maintenant que la projection existe.
+    for way in root.findall("way"):
+
+        way_id = way.attrib.get("id")
+
+        if way_id is None:
+            continue
+
+        # ----------------------------------------------------
+        # TAGS
+        # ----------------------------------------------------
+
+        tags: dict[str, str] = {}
+
+        for tag in way.findall("tag"):
+
+            key = tag.attrib.get("k")
+            value = tag.attrib.get("v")
+
+            if key and value is not None:
+                tags[key] = value
 
         # ----------------------------------------------------
         # NODES
         # ----------------------------------------------------
 
-        node_refs = [
-            nd.attrib.get("ref")
-            for nd in way.findall("nd")
-        ]
+        node_refs = []
 
-        points: list[
-            dict[str, Any]
-        ] = []
+        for nd in way.findall("nd"):
 
-        projected_node_refs: list[str] = []
+            ref = nd.attrib.get("ref")
 
-        for node_ref in node_refs:
+            if ref:
+                node_refs.append(ref)
 
-            if not node_ref:
-                continue
-
-            node_data = nodes.get(
-                node_ref
-            )
-
-            if not node_data:
-                continue
-
-            x, z = geographic_to_local(
-                node_data["lat"],
-                node_data["lon"],
-            )
-
-            points.append(
-                {
-                    "x": round(x, 3),
-                    "z": round(z, 3),
-                    "corner": None,
-                }
-            )
-
-            projected_node_refs.append(
-                node_ref
-            )
-
-        if len(points) < 2:
+        if len(node_refs) < 3:
             continue
-
-        # ----------------------------------------------------
-        # POLYGONE FERME
-        # ----------------------------------------------------
 
         closed = (
-            len(projected_node_refs) >= 2
-            and projected_node_refs[0]
-            == projected_node_refs[-1]
+            len(node_refs) >= 4
+            and node_refs[0] == node_refs[-1]
         )
 
-        if closed:
+        # ----------------------------------------------------
+        # PAS DE LIGNES DANS store.zones
+        # ----------------------------------------------------
 
-            points.pop()
-
-        # Un way ouvert peut être une route, chemin,
-        # ligne ferroviaire, etc.
-        #
-        # Il faut au minimum 2 points.
-        if len(points) < 2:
+        if not closed:
             continue
 
-        # ----------------------------------------------------
+        coords = []
+
+        for ref in node_refs:
+
+            if ref in nodes:
+                coords.append(nodes[ref])
+
+        if len(coords) < 3:
+            continue
+
+        # Retire fermeture
+        if coords[0] == coords[-1]:
+            coords.pop()
+
+        if len(coords) < 3:
+            continue
+
+        # ====================================================
         # CLASSIFICATION
-        # ----------------------------------------------------
+        # ====================================================
 
         (
             semantic_type,
-            semantic_source,
+            semantic_source_tag,
             semantic_raw_value,
-        ) = _classify_osm_type(
-            tags
-        )
+        ) = _classify_osm_type(tags)
 
         (
-            geometry_role,
             is_likely_building,
             building_confidence,
-        ) = _infer_geometry_role(
-            tags,
-            closed,
+            geometry_role,
+        ) = _infer_building_status(
+            tags=tags,
+            semantic_type=semantic_type,
+            semantic_source_tag=semantic_source_tag,
+            closed=closed,
         )
 
-        # ----------------------------------------------------
+        # ====================================================
+        # PROJECTION DU POLYGONE
+        # ====================================================
+
+        points = []
+
+        for lat, lon in coords:
+
+            x_cm, z_cm = project(
+                lat,
+                lon,
+            )
+
+            points.append([
+                round(x_cm, 2),
+                round(z_cm, 2),
+            ])
+
+        if len(points) < 3:
+            continue
+
+        # ====================================================
+        # BOUNDING BOX
+        # ====================================================
+
+        xs = [
+            point[0]
+            for point in points
+        ]
+
+        zs = [
+            point[1]
+            for point in points
+        ]
+
+        min_x = min(xs)
+        max_x = max(xs)
+
+        min_z = min(zs)
+        max_z = max(zs)
+
+        x = (
+            min_x + max_x
+        ) / 2.0
+
+        z = (
+            min_z + max_z
+        ) / 2.0
+
+        width = max(
+            max_x - min_x,
+            1.0,
+        )
+
+        depth = max(
+            max_z - min_z,
+            1.0,
+        )
+
+        # ====================================================
         # HAUTEUR
+        # ====================================================
+
+        height_cm = None
+        height_source = None
+        default_height_applied = False
+
+        # ----------------------------------------------------
+        # 1. height
         # ----------------------------------------------------
 
-        height_cm, height_source = (
-            _parse_height_cm(tags)
-        )
+        raw_height = tags.get("height")
 
-        missing_height = (
-            height_source is None
-        )
+        if raw_height:
 
-        # Une hauteur par défaut uniquement pour les objets
-        # considérés comme bâtiments.
-        if missing_height:
+            parsed_height = _parse_height_cm(
+                raw_height
+            )
 
-            if is_likely_building:
+            if parsed_height is not None:
+
+                height_cm = parsed_height
+                height_source = "height"
+
+        # ----------------------------------------------------
+        # 2. building:levels
+        # ----------------------------------------------------
+
+        if (
+            height_cm is None
+            and is_likely_building
+        ):
+
+            raw_levels = tags.get(
+                "building:levels"
+            )
+
+            levels = _safe_float(
+                raw_levels
+            )
+
+            if levels is not None and levels > 0:
 
                 height_cm = (
-                    DEFAULT_BUILDING_HEIGHT_CM
+                    levels
+                    * METERS_PER_LEVEL
+                    * 100.0
                 )
 
-            else:
-
-                height_cm = 0.0
-
-        # ----------------------------------------------------
-        # BOUNDING BOX
-        # ----------------------------------------------------
-
-        min_x = min(
-            point["x"]
-            for point in points
-        )
-
-        max_x = max(
-            point["x"]
-            for point in points
-        )
-
-        min_z = min(
-            point["z"]
-            for point in points
-        )
-
-        max_z = max(
-            point["z"]
-            for point in points
-        )
+                height_source = (
+                    "building:levels"
+                )
 
         # ----------------------------------------------------
+        # 3. DEFAULT
+        # ----------------------------------------------------
+
+        if (
+            height_cm is None
+            and is_likely_building
+        ):
+
+            height_cm = (
+                DEFAULT_BUILDING_HEIGHT_CM
+            )
+
+            height_source = "default"
+
+            default_height_applied = True
+
+        # ----------------------------------------------------
+        # NON-BÂTIMENT
+        # ----------------------------------------------------
+
+        if not is_likely_building:
+
+            height_cm = 0.0
+            height_source = "not_a_building"
+
+        # ====================================================
         # COULEUR
-        # ----------------------------------------------------
-        #
-        # Pour un bâtiment explicite :
-        #
-        # building=yes + shop=supermarket
-        #
-        # => retail
-        #
-        # et non "other".
-        # ----------------------------------------------------
-
-        building_type = semantic_type
-
-        raw_building_type = (
-            semantic_raw_value
-        )
+        # ====================================================
 
         color = BUILDING_TYPE_COLORS.get(
-            building_type,
+            semantic_type,
             DEFAULT_BUILDING_COLOR,
         )
 
-        # ----------------------------------------------------
-        # OPACITE
-        # ----------------------------------------------------
+        # ====================================================
+        # OPACITÉ
+        # ====================================================
 
         if is_likely_building:
 
-            opacity = (
-                KNOWN_HEIGHT_OPACITY
-                if not missing_height
-                else MISSING_HEIGHT_OPACITY
-            )
-
-        else:
-
-            # Les surfaces/lines restent discrètes.
-            opacity = 0.35
-
-        # ----------------------------------------------------
-        # LABEL
-        # ----------------------------------------------------
-
-        label = tags.get(
-            "name"
-        )
-
-        if not label:
-
-            if is_likely_building:
-
-                label = (
-                    f"Bâtiment "
-                    f"{len(buildings) + 1:03d}"
-                )
+            if height_source in {
+                "height",
+                "building:levels",
+            }:
+                opacity = KNOWN_HEIGHT_OPACITY
 
             else:
+                opacity = MISSING_HEIGHT_OPACITY
 
-                label = (
-                    f"{semantic_type} "
-                    f"{len(buildings) + 1:03d}"
-                )
+        else:
+            opacity = 0.20
 
-        # ----------------------------------------------------
-        # TYPE DE SHAPE
-        # ----------------------------------------------------
+        # ====================================================
+        # LABEL
+        # ====================================================
 
-        shape = (
-            "polygon"
-            if closed
-            else "line"
+        name = (
+            tags.get("name")
+            or tags.get("official_name")
+            or tags.get("alt_name")
         )
 
-        # ----------------------------------------------------
+        if not name:
+
+            if semantic_type != "other":
+                name = semantic_type
+            else:
+                name = f"OSM {way_id}"
+
+        # ====================================================
+        # SOURCE OSM
+        # ====================================================
+
+        source_data: dict[str, Any] = {
+            "osmWayId": way_id,
+
+            # Classification originale
+            "building": tags.get("building"),
+
+            # Classification sémantique
+            "buildingType": semantic_type,
+            "buildingTypeRaw": tags.get("building"),
+
+            "semanticType": semantic_type,
+            "semanticSourceTag": semantic_source_tag,
+            "semanticRawValue": semantic_raw_value,
+
+            # Géométrie / inférence
+            "geometryRole": geometry_role,
+            "isLikelyBuilding": is_likely_building,
+            "buildingConfidence": building_confidence,
+
+            # Hauteur
+            "heightSource": height_source,
+            "defaultHeightApplied": default_height_applied,
+
+            # Tous les tags OSM
+            "tags": tags,
+        }
+
+        if raw_height:
+            source_data["height"] = raw_height
+
+        raw_levels = tags.get(
+            "building:levels"
+        )
+
+        if raw_levels:
+            source_data["building:levels"] = raw_levels
+
+        if "name" in tags:
+            source_data["name"] = tags["name"]
+
+        # ====================================================
         # ZONE
-        # ----------------------------------------------------
+        # ====================================================
 
-        zone: dict[str, Any] = {
-
-            "id": (
-                f"osm-{osm_way_id}"
-            ),
+        zone = {
+            "id": f"building-{way_id}",
 
             "type": "forbidden",
 
-            "label": label,
+            "label": name,
 
-            "x": round(
-                min_x,
-                3,
-            ),
+            "x": round(x, 2),
+            "z": round(z, 2),
 
-            "z": round(
-                min_z,
-                3,
-            ),
-
-            "width": round(
-                max_x - min_x,
-                3,
-            ),
-
-            "depth": round(
-                max_z - min_z,
-                3,
-            ),
+            "width": round(width, 2),
+            "depth": round(depth, 2),
 
             "rotationDeg": 0,
 
             "rows": None,
-
             "cols": None,
 
-            "shape": shape,
+            # IMPORTANT :
+            # SceneData accepte uniquement :
+            # rectangle / circle / diamond / polygon
+            "shape": "polygon",
 
             "color": color,
 
@@ -1474,354 +1272,164 @@ def osm_xml_to_retail_layout(
                 2,
             ),
 
-            # =================================================
-            # NOUVELLES INFORMATIONS
-            # =================================================
-
-            "semanticType": semantic_type,
-
-            "semanticSourceTag": (
-                semantic_source
-            ),
-
-            "semanticRawValue": (
-                semantic_raw_value
-            ),
-
-            "geometryRole": (
-                geometry_role
-            ),
-
-            "isLikelyBuilding": (
-                is_likely_building
-            ),
-
-            "buildingConfidence": (
-                building_confidence
-            ),
-
-            # =================================================
-            # SOURCE OSM
-            # =================================================
-
-            "_source": {
-
-                "osmWayId": (
-                    osm_way_id
-                ),
-
-                "building": (
-                    tags.get("building")
-                ),
-
-                "buildingType": (
-                    building_type
-                ),
-
-                "buildingTypeRaw": (
-                    raw_building_type
-                ),
-
-                "semanticSourceTag": (
-                    semantic_source
-                ),
-
-                "semanticRawValue": (
-                    semantic_raw_value
-                ),
-
-                "geometryRole": (
-                    geometry_role
-                ),
-
-                "isLikelyBuilding": (
-                    is_likely_building
-                ),
-
-                "buildingConfidence": (
-                    building_confidence
-                ),
-
-                "heightSource": (
-                    height_source
-                ),
-
-                "defaultHeightApplied": (
-                    missing_height
-                    and is_likely_building
-                ),
-
-                # Tous les tags OSM sont conservés.
-                "tags": tags,
-            },
+            "_source": source_data,
         }
 
-        # ----------------------------------------------------
-        # HAUTEUR SOURCE
-        # ----------------------------------------------------
+        zones.append(zone)
 
-        if tags.get("height") is not None:
+        if is_likely_building:
+            building_count += 1
 
-            zone["_source"]["height"] = (
-                tags["height"]
-            )
+    # ========================================================
+    # DIMENSIONS GLOBALES
+    # ========================================================
 
-        if tags.get(
-            "building:levels"
-        ) is not None:
+    all_x = []
+    all_z = []
 
-            zone["_source"][
-                "building:levels"
-            ] = tags[
-                "building:levels"
-            ]
+    for zone in zones:
 
-        # ----------------------------------------------------
-        # AJOUT
-        # ----------------------------------------------------
+        for point in zone["points"]:
 
-        buildings.append(
-            zone
+            all_x.append(point[0])
+            all_z.append(point[1])
+
+    if all_x:
+
+        scene_width = (
+            max(all_x)
+            - min(all_x)
+        )
+
+        scene_depth = (
+            max(all_z)
+            - min(all_z)
+        )
+
+    else:
+
+        scene_width = 0.0
+        scene_depth = 0.0
+
+    # Hauteur globale :
+    # on prend la hauteur maximale réellement rencontrée.
+
+    scene_height = 0.0
+
+    for zone in zones:
+
+        scene_height = max(
+            scene_height,
+            float(
+                zone.get(
+                    "heightCm",
+                    0.0,
+                )
+            ),
         )
 
     # ========================================================
-    # VERIFICATION
+    # PAYLOAD FINAL
     # ========================================================
 
-    if not buildings:
-
-        raise ValueError(
-            "Aucun objet pertinent trouvé dans le fichier OSM."
-        )
-
-    # ========================================================
-    # BOUNDS GLOBAUX
-    # ========================================================
-
-    global_min_x = min(
-        building["x"]
-        for building in buildings
-    )
-
-    global_min_z = min(
-        building["z"]
-        for building in buildings
-    )
-
-    global_max_x = max(
-        building["x"]
-        + building["width"]
-        for building in buildings
-    )
-
-    global_max_z = max(
-        building["z"]
-        + building["depth"]
-        for building in buildings
-    )
-
-    # ========================================================
-    # RECENTRAGE
-    # ========================================================
-
-    if (
-        global_min_x != 0
-        or global_min_z != 0
-    ):
-
-        for building in buildings:
-
-            building["x"] = round(
-                building["x"]
-                - global_min_x,
-                3,
-            )
-
-            building["z"] = round(
-                building["z"]
-                - global_min_z,
-                3,
-            )
-
-            if isinstance(
-                building.get("points"),
-                list,
-            ):
-
-                for point in building[
-                    "points"
-                ]:
-
-                    if not isinstance(
-                        point,
-                        dict,
-                    ):
-                        continue
-
-                    point["x"] = round(
-                        float(
-                            point.get(
-                                "x",
-                                0.0,
-                            )
-                        )
-                        - global_min_x,
-                        3,
-                    )
-
-                    point["z"] = round(
-                        float(
-                            point.get(
-                                "z",
-                                0.0,
-                            )
-                        )
-                        - global_min_z,
-                        3,
-                    )
-
-    # ========================================================
-    # DIMENSIONS
-    # ========================================================
-
-    global_width = (
-        global_max_x
-        - global_min_x
-    )
-
-    global_depth = (
-        global_max_z
-        - global_min_z
-    )
-
-    # ========================================================
-    # IDS
-    # ========================================================
-
-    generated_project_id = (
-        project_id
-        or str(uuid4())
-    )
-
-    generated_store_id = (
-        store_id
-        or str(uuid4())
-    )
-
-    timestamp = (
-        exported_at
-        or datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-
-    # ========================================================
-    # STATISTIQUES
-    # ========================================================
-
-    building_count = sum(
-        1
-        for building in buildings
-        if building[
-            "isLikelyBuilding"
-        ]
-    )
-
-    # ========================================================
-    # RESULTAT FINAL
-    # ========================================================
-
-    return {
-
+    payload = {
         "version": "1.0",
 
-        "projectId": (
-            generated_project_id
+        "projectId": str(
+            uuid4()
         ),
 
         "projectName": project_name,
 
-        "exportedAt": timestamp,
+        "exportedAt": datetime.now(
+            timezone.utc
+        ).isoformat(),
 
         "unit": "cm",
 
-        "source": {
+        # ====================================================
+        # SOURCE
+        # ====================================================
 
-            "format": (
-                "OpenStreetMap XML"
-            ),
+        "source": {
+            "format": "OpenStreetMap XML",
 
             "geometry": (
-                "OSM ways with semantic "
-                "tags"
+                "closed OSM ways with "
+                "semantic tags"
             ),
 
-            "buildingCount": (
-                building_count
-            ),
+            "buildingCount": building_count,
 
-            "objectCount": (
-                len(buildings)
-            ),
+            "objectCount": len(zones),
 
             "geometryPolicy": (
-                "OSM footprint node geometry "
-                "preserved; no simplification, "
-                "rotation, or non-uniform scaling"
+                "Closed ways are exported as "
+                "polygon zones. Open ways are "
+                "skipped because SceneData does "
+                "not support line zones."
             ),
 
             "colorPolicy": (
-                "deterministic color map by "
-                "semantic OSM function; "
-                "functional tags take precedence "
-                "over generic building=yes"
-            ),
-
-            "buildingInferencePolicy": (
-                "explicit building=* is treated "
-                "as a building; selected closed "
-                "shop, office, industrial, "
-                "healthcare and amenity ways "
-                "may be inferred as buildings "
-                "with an explicit confidence"
+                "Colors are derived from semantic "
+                "OSM building/function tags."
             ),
 
             "buildingTypeColors": (
                 BUILDING_TYPE_COLORS
             ),
 
-            "heightPolicy": (
-                "explicit OSM height when available; "
-                "otherwise building:levels × 3m; "
-                "default 10m when no source height "
-                "information is available for a "
-                "building-like object"
-            ),
+            "heightPolicy": {
+                "height": (
+                    "OSM height tag has priority."
+                ),
+                "building:levels": (
+                    "3 meters per level."
+                ),
+                "default": (
+                    "10 meters when a building "
+                    "has no height information."
+                ),
+                "nonBuilding": (
+                    "0 cm."
+                ),
+            },
         },
 
-        "store": {
+        # ====================================================
+        # STORE
+        # ====================================================
 
-            "id": generated_store_id,
+        "store": {
+            "id": str(
+                uuid4()
+            ),
 
             "name": project_name,
 
-            "dimensions": {
+            "width": round(
+                scene_width,
+                2,
+            ),
 
-                "width": round(
-                    global_width,
-                    3,
-                ),
+            "depth": round(
+                scene_depth,
+                2,
+            ),
 
-                "depth": round(
-                    global_depth,
-                    3,
-                ),
+            "height": round(
+                scene_height,
+                2,
+            ),
 
-                "height": 2500.0,
-            },
-
-            "zones": buildings,
+            "zones": zones,
         },
+
+        # ====================================================
+        # FURNITURE
+        # ====================================================
 
         "furniture": [],
     }
+
+    return payload

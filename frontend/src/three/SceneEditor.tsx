@@ -27,7 +27,6 @@ import {
   furnitureCentreCm,
   gridDisplayKeyCm,
   gridDisplaySpecForKeyCm,
-  gridDisplaySpecCm,
   gridPlaneSpec,
   snapSizeToCell,
   snapToCell,
@@ -1126,24 +1125,39 @@ function StoreFloor({ store }: { store: StoreConfig }) {
     () => new THREE.Vector3(storeOriginX + w / 2, GRID_Y_OFFSET, storeOriginZ + d / 2),
     [d, storeOriginX, storeOriginZ, w],
   );
-  const [gridDisplay, setGridDisplay] = useState(() => gridDisplaySpecCm(Number.POSITIVE_INFINITY));
-  const gridDisplayKeyRef = useRef(gridDisplay.key);
   const cameraDirRef = useRef(new THREE.Vector3());
+  const initialGridDisplay = useMemo(
+    () => gridDisplaySpecForKeyCm(
+      gridDisplayKeyCm(
+        projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, new THREE.Vector3()),
+      ),
+    ),
+    [camera, gridFocusPoint, viewportHeightPx],
+  );
+  const [gridDisplay, setGridDisplay] = useState(initialGridDisplay);
+  const gridDisplayKeyRef = useRef(initialGridDisplay.key);
+
+  const syncGridDisplay = useCallback(() => {
+    const next = gridDisplaySpecForKeyCm(
+      gridDisplayKeyCm(
+        projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, cameraDirRef.current),
+      ),
+    );
+    if (next.key === gridDisplayKeyRef.current) return;
+    gridDisplayKeyRef.current = next.key;
+    setGridDisplay(next);
+  }, [camera, gridFocusPoint, viewportHeightPx]);
 
   useEffect(() => {
-    const updateGridDisplay = () => {
-      const nextKey = gridDisplayKeyCm(
-        projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, cameraDirRef.current),
-      );
-      if (nextKey === gridDisplayKeyRef.current) return;
-      gridDisplayKeyRef.current = nextKey;
-      setGridDisplay(gridDisplaySpecForKeyCm(nextKey));
-    };
+    syncGridDisplay();
+    controls?.addEventListener?.('change', syncGridDisplay);
+    return () => controls?.removeEventListener?.('change', syncGridDisplay);
+  }, [controls, syncGridDisplay]);
 
-    updateGridDisplay();
-    controls?.addEventListener?.('change', updateGridDisplay);
-    return () => controls?.removeEventListener?.('change', updateGridDisplay);
-  }, [camera, controls, gridFocusPoint, viewportHeightPx]);
+  useFrame(() => {
+    if (controls) return;
+    syncGridDisplay();
+  });
 
   // <Grid> draws its lines at multiples of `cellSize` from the centre of its
   // plane: re-centre (and pad) the plane on the lattice anchored on the store

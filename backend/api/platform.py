@@ -401,7 +401,7 @@ async def create_store_layout_from_osm(
             project_name=name.strip() or None,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=f"Invalid OSM document: {exc}") from exc
     except (AttributeError, TypeError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid generated layout from OSM: {exc}") from exc
     payload = {"scene": scene_dict, "planograms": planograms_list}

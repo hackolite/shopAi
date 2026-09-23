@@ -114,12 +114,15 @@ def _parse_height_cm(tags: dict[str, str]) -> tuple[float, str | None]:
 def _compute_bounds(root: ET.Element, nodes: dict[str, dict[str, float]]) -> tuple[float, float, float, float]:
     bounds = root.find("bounds")
     if bounds is not None:
-        return (
-            float(bounds.attrib["minlat"]),
-            float(bounds.attrib["maxlat"]),
-            float(bounds.attrib["minlon"]),
-            float(bounds.attrib["maxlon"]),
-        )
+        try:
+            return (
+                float(bounds.attrib["minlat"]),
+                float(bounds.attrib["maxlat"]),
+                float(bounds.attrib["minlon"]),
+                float(bounds.attrib["maxlon"]),
+            )
+        except (KeyError, ValueError) as exc:
+            raise ValueError("Invalid OSM <bounds> attributes.") from exc
 
     if not nodes:
         raise ValueError("Impossible de déterminer les bounds OSM (no <bounds> and no nodes).")

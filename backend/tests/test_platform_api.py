@@ -717,6 +717,33 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert zones_by_id["building-300"]["color"] == "#9CA3AF"
 
 
+def test_store_layout_import_osm_rejects_invalid_xml() -> None:
+    client = _make_client()
+    _register(client, name="OSM Invalid XML", email="osm-invalid-xml@example.com")
+
+    invalid_xml = "<osm><way></osm>"
+    response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM invalide", "description": "broken xml"},
+        files={"file": ("invalid.osm", invalid_xml, "application/xml")},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"].startswith("Invalid OSM document:")
+
+
+def test_store_layout_import_osm_rejects_non_utf8_payload() -> None:
+    client = _make_client()
+    _register(client, name="OSM Invalid Encoding", email="osm-invalid-encoding@example.com")
+
+    response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM encodage invalide", "description": "bad encoding"},
+        files={"file": ("invalid.osm", b"\xff\xfe\x00\x00", "application/xml")},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == "File must be UTF-8 encoded OSM XML text"
+
+
 def test_project_import_snapshot_normalizes_dimension_and_face_aliases() -> None:
     client = _make_client()
     _register(client, name="Snapshot Importer", email="snapshot-importer@example.com")

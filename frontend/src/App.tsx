@@ -90,6 +90,9 @@ export default function App() {
   const [layoutJsonName, setLayoutJsonName] = useState('');
   const [layoutJsonDescription, setLayoutJsonDescription] = useState('');
   const [layoutJsonFile, setLayoutJsonFile] = useState<File | null>(null);
+  const [layoutOsmName, setLayoutOsmName] = useState('');
+  const [layoutOsmDescription, setLayoutOsmDescription] = useState('');
+  const [layoutOsmFile, setLayoutOsmFile] = useState<File | null>(null);
   const [catalogName, setCatalogName] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
   const [catalogProjectId, setCatalogProjectId] = useState('');
@@ -254,6 +257,16 @@ export default function App() {
     setStatusMessage('Implantation importée depuis le JSON ShopAI.');
   });
 
+  const handleImportStoreLayoutOsm = () => runAction(async () => {
+    if (!layoutOsmFile || !layoutOsmName.trim()) return;
+    await platformApi.importStoreLayoutOsm(layoutOsmFile, layoutOsmName.trim(), layoutOsmDescription.trim());
+    setLayoutOsmName('');
+    setLayoutOsmDescription('');
+    setLayoutOsmFile(null);
+    await loadAuthenticatedData();
+    setStatusMessage('Implantation importée depuis OSM.');
+  });
+
   const handleDeleteStoreLayout = (layoutId: string, layoutName: string) => runAction(async () => {
     if (!window.confirm(`Supprimer définitivement l’implantation « ${layoutName} » ?`)) return;
     await platformApi.deleteStoreLayout(layoutId);
@@ -389,6 +402,12 @@ export default function App() {
     setLayoutName('');
     setLayoutDescription('');
     setLayoutProjectId('');
+    setLayoutJsonName('');
+    setLayoutJsonDescription('');
+    setLayoutJsonFile(null);
+    setLayoutOsmName('');
+    setLayoutOsmDescription('');
+    setLayoutOsmFile(null);
     setCatalogName('');
     setCatalogDescription('');
     setCatalogProjectId('');
@@ -626,6 +645,14 @@ export default function App() {
                       <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setLayoutJsonFile(event.target.files?.[0] ?? null)} /></Field>
                       <p className="hub-small hub-muted">Format retail-layout JSON ShopAI (export « Retail Layout » du studio : store + furniture + planogrammes).</p>
                       <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
+                    </form>
+                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutOsm(); }}>
+                      <h3>Importer une implantation (OSM XML)</h3>
+                      <Field label="Nom de l’implantation"><input required value={layoutOsmName} onChange={(event) => setLayoutOsmName(event.target.value)} placeholder="Ex. Quartier centre-ville" /></Field>
+                      <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
+                      <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
+                      <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut et bâtiment en rouge.</p>
+                      <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
                     </form>
                     <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Implantations enregistrées">
                       {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (

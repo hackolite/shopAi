@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from models.project import PedestrianImportResult, PedestrianPickupPlan, PickupPlanItem
 from services import platform_service
 from services.catalog_import import parse_catalog_json
+from services.osm_import import osm_xml_to_retail_layout
 from services.pedestrian_import import parse_pedestrian_csv
 from services.retail_layout import build_retail_layout, split_retail_layout
 
@@ -370,6 +371,39 @@ async def create_store_layout_from_json(
         scene_dict, planograms_list = split_retail_layout(layout=layout, project_name=name.strip() or None)
     except (AttributeError, TypeError, KeyError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid ShopAI retail-layout document: {exc}") from exc
+    payload = {"scene": scene_dict, "planograms": planograms_list}
+    return platform_service.create_store_layout(
+        name=name,
+        description=description,
+        payload=payload,
+    )
+
+
+@router.post("/store-layouts/import-osm")
+async def create_store_layout_from_osm(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(""),
+) -> dict[str, Any]:
+    """Upload an OSM XML file and persist its buildings as a reusable store layout."""
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded OSM XML text") from exc
+    try:
+        retail_layout = osm_xml_to_retail_layout(
+            xml_text=text,
+            project_name=name.strip() or "Import OSM",
+        )
+        scene_dict, planograms_list = split_retail_layout(
+            layout=retail_layout,
+            project_name=name.strip() or None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid OSM document: {exc}") from exc
+    except (AttributeError, TypeError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid generated layout from OSM: {exc}") from exc
     payload = {"scene": scene_dict, "planograms": planograms_list}
     return platform_service.create_store_layout(
         name=name,

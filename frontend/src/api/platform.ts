@@ -328,6 +328,16 @@ export const platformApi = {
       body: form,
     });
   },
+  importStoreLayoutOsm: (file: File, name: string, description?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('name', name);
+    form.append('description', description ?? '');
+    return request<PlatformStoreLayout>('/api/platform/store-layouts/import-osm', {
+      method: 'POST',
+      body: form,
+    });
+  },
   getStoreLayout: (layoutId: string) =>
     request<PlatformStoreLayout>(`/api/platform/store-layouts/${encodeURIComponent(layoutId)}`),
   downloadStoreLayout: (layoutId: string, layoutName: string) =>

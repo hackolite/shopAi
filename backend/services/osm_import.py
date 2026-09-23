@@ -9,8 +9,9 @@ from uuid import uuid4
 
 METERS_PER_LEVEL = 3.0
 DEFAULT_BUILDING_HEIGHT_CM = 1000.0
-MISSING_HEIGHT_BUILDING_COLOR = "#FF0000"
 DEFAULT_BUILDING_COLOR = "#9CA3AF"
+KNOWN_HEIGHT_OPACITY = 0.62
+MISSING_HEIGHT_OPACITY = 0.32
 _HEIGHT_PATTERN = re.compile(r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$")
 
 BUILDING_TYPE_COLORS: dict[str, str] = {
@@ -223,11 +224,8 @@ def osm_xml_to_retail_layout(
         max_z = max(point["z"] for point in points)
 
         building_type, raw_building_type = _normalize_building_type(tags.get("building"))
-        color = (
-            MISSING_HEIGHT_BUILDING_COLOR
-            if missing_height
-            else BUILDING_TYPE_COLORS.get(building_type, DEFAULT_BUILDING_COLOR)
-        )
+        color = BUILDING_TYPE_COLORS.get(building_type, DEFAULT_BUILDING_COLOR)
+        opacity = KNOWN_HEIGHT_OPACITY if not missing_height else MISSING_HEIGHT_OPACITY
 
         zone: dict[str, Any] = {
             "id": f"building-{osm_way_id}",
@@ -246,6 +244,7 @@ def osm_xml_to_retail_layout(
             "points": points,
             "pathMode": "linear",
             "mounted": True,
+            "opacity": opacity,
             "heightCm": round(height_cm, 2),
             "_source": {
                 "osmWayId": osm_way_id,
@@ -303,7 +302,7 @@ def osm_xml_to_retail_layout(
             ),
             "colorPolicy": (
                 "deterministic color map by OSM building type; "
-                "missing-height buildings are forced to red"
+                "height-known buildings are rendered with higher opacity"
             ),
             "buildingTypeColors": BUILDING_TYPE_COLORS,
             "heightPolicy": (

@@ -711,12 +711,15 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
 
     zones_by_id = {zone["id"]: zone for zone in zones}
     assert zones_by_id["building-100"]["color"] == "#2A9D8F"
+    assert zones_by_id["building-100"]["opacity"] == 0.62
     assert zones_by_id["building-100"]["heightCm"] == 900.0
     assert zones_by_id["building-100"]["mounted"] is True
     assert zones_by_id["building-200"]["color"] == "#4D908E"
+    assert zones_by_id["building-200"]["opacity"] == 0.62
     assert zones_by_id["building-200"]["heightCm"] == 600.0
     assert zones_by_id["building-200"]["mounted"] is True
-    assert zones_by_id["building-300"]["color"] == "#FF0000"
+    assert zones_by_id["building-300"]["color"] == "#9CA3AF"
+    assert zones_by_id["building-300"]["opacity"] == 0.32
     assert zones_by_id["building-300"]["heightCm"] == 1000.0
     assert zones_by_id["building-300"]["mounted"] is True
     assert min(zone["x"] for zone in zones) == 0.0
@@ -782,7 +785,8 @@ def test_store_layout_import_osm_without_bounds_derives_extent_from_nodes() -> N
     assert zones[0]["x"] == 0.0
     assert zones[0]["z"] == 0.0
     assert zones[0]["heightCm"] == 1000.0
-    assert zones[0]["color"] == "#FF0000"
+    assert zones[0]["color"] == "#577590"
+    assert zones[0]["opacity"] == 0.32
     assert zones[0]["mounted"] is True
 
 

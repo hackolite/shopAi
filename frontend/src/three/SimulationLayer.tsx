@@ -392,7 +392,7 @@ function InstancedAgents({
   const coneThetaLength = THREE.MathUtils.degToRad(AGENT_VISION_ANGLE_DEG);
   const coneThetaStart = -coneThetaLength / 2;
   const envelopeOuter = ANTICOLLISION_RADIUS_CM * CM_TO_UNIT;
-  const envelopeInner = envelopeOuter * 0.82;
+  const envelopeInner = envelopeOuter * 0.76;
   const coneRange = AGENT_VISION_RANGE_CM * CM_TO_UNIT;
 
   // Tracks the previous agent count so we can zero-out tail slots that were
@@ -510,7 +510,7 @@ function InstancedAgents({
         {/* No `vertexColors` here: these geometries have no `color` attribute, and
             the flag would multiply by an unbound (black) attribute, erasing the
             per-instance colours.  setColorAt() is applied automatically. */}
-        <meshBasicMaterial transparent opacity={0.55} depthWrite={false} />
+        <meshBasicMaterial transparent opacity={0.88} depthTest={false} depthWrite={false} />
       </instancedMesh>
       <instancedMesh
         ref={bodyRef}

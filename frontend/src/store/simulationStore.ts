@@ -160,6 +160,7 @@ interface SimulationState {
   paused: boolean;
   liveSessionId: string | null;
   selectedWaypointId: string | null;
+  waypointPlacementType: SimulationWaypoint['type'] | null;
   invalidWaypointIds: string[];
   invalidWaypointSuggestion: { waypointId: string; xCm: number; zCm: number } | null;
   /**
@@ -194,6 +195,7 @@ interface SimulationState {
   updateWaypoint: (id: string, patch: Partial<SimulationWaypoint>, options?: { recordHistory?: boolean }) => void;
   removeWaypoint: (id: string) => void;
   selectWaypoint: (id: string | null) => void;
+  setWaypointPlacementType: (type: SimulationWaypoint['type'] | null) => void;
   undo: () => void;
   setResult: (result: SimulationResult | null) => void;
   setAnalytics: (analytics: SimulationAnalytics | null) => void;
@@ -238,6 +240,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   paused: false,
   liveSessionId: null,
   selectedWaypointId: null,
+  waypointPlacementType: null,
   invalidWaypointIds: [],
   invalidWaypointSuggestion: null,
   pinnedJourneyMetrics: [],
@@ -258,6 +261,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       paused: false,
       liveSessionId: null,
       selectedWaypointId: null,
+      waypointPlacementType: null,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       history: [],
@@ -410,6 +414,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
     })),
   selectWaypoint: (id) => set({ selectedWaypointId: id }),
+  setWaypointPlacementType: (type) => set({ waypointPlacementType: type }),
   undo: () =>
     set((state) => {
       if (state.history.length === 0) return {};
@@ -495,6 +500,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       paused: false,
       liveSessionId: null,
       selectedWaypointId: null,
+      waypointPlacementType: null,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       pinnedJourneyMetrics: [],

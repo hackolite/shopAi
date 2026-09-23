@@ -1113,6 +1113,10 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const addWaypoint = useSimulationStore((state) => state.addWaypoint);
   const waypointPlacementType = useSimulationStore((state) => state.waypointPlacementType);
   const camera = useThree((state) => state.camera);
+  const controls = useThree((state) => state.controls) as {
+    addEventListener?: (type: 'change', listener: () => void) => void;
+    removeEventListener?: (type: 'change', listener: () => void) => void;
+  } | null;
   const viewportHeightPx = useThree((state) => state.size.height);
   const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
@@ -1126,14 +1130,20 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const gridDisplayKeyRef = useRef(gridDisplay.key);
   const cameraDirRef = useRef(new THREE.Vector3());
 
-  useFrame(() => {
-    const nextKey = gridDisplayKeyCm(
-      projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, cameraDirRef.current),
-    );
-    if (nextKey === gridDisplayKeyRef.current) return;
-    gridDisplayKeyRef.current = nextKey;
-    setGridDisplay(gridDisplaySpecForKeyCm(nextKey));
-  });
+  useEffect(() => {
+    const updateGridDisplay = () => {
+      const nextKey = gridDisplayKeyCm(
+        projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, cameraDirRef.current),
+      );
+      if (nextKey === gridDisplayKeyRef.current) return;
+      gridDisplayKeyRef.current = nextKey;
+      setGridDisplay(gridDisplaySpecForKeyCm(nextKey));
+    };
+
+    updateGridDisplay();
+    controls?.addEventListener?.('change', updateGridDisplay);
+    return () => controls?.removeEventListener?.('change', updateGridDisplay);
+  }, [camera, controls, gridFocusPoint, viewportHeightPx]);
 
   // <Grid> draws its lines at multiples of `cellSize` from the centre of its
   // plane: re-centre (and pad) the plane on the lattice anchored on the store

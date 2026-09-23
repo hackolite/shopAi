@@ -42,8 +42,9 @@ export const JOURNEY_METRIC_IDS: JourneyMetricId[] = [
 
 /**
  * Aggregate the customer journeys into plain sums and per-customer averages.
- * Totals are simple additions of the rows; averages divide by the customer
- * count (0 when there is no customer, never NaN).
+ * Totals are simple additions of rows.
+ * Distance metrics use completed customers only; time metrics use all customers
+ * (0 when the relevant denominator is empty, never NaN).
  */
 export function computeJourneySummary(customers: CustomerJourney[] | null | undefined): JourneySummary {
   const list = customers ?? [];

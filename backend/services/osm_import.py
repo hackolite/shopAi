@@ -111,27 +111,6 @@ def _parse_height_cm(tags: dict[str, str]) -> tuple[float, str | None]:
     return 0.0, None
 
 
-def _compute_bounds(root: ET.Element, nodes: dict[str, dict[str, float]]) -> tuple[float, float, float, float]:
-    bounds = root.find("bounds")
-    if bounds is not None:
-        try:
-            return (
-                float(bounds.attrib["minlat"]),
-                float(bounds.attrib["maxlat"]),
-                float(bounds.attrib["minlon"]),
-                float(bounds.attrib["maxlon"]),
-            )
-        except (KeyError, ValueError) as exc:
-            raise ValueError("Invalid OSM <bounds> attributes.") from exc
-
-    if not nodes:
-        raise ValueError("Impossible de déterminer les bounds OSM (no <bounds> and no nodes).")
-
-    latitudes = [node["lat"] for node in nodes.values()]
-    longitudes = [node["lon"] for node in nodes.values()]
-    return min(latitudes), max(latitudes), min(longitudes), max(longitudes)
-
-
 def osm_xml_to_retail_layout(
     xml_text: str,
     project_name: str,
@@ -156,7 +135,32 @@ def osm_xml_to_retail_layout(
         except ValueError:
             continue
 
-    min_lat, max_lat, min_lon, max_lon = _compute_bounds(root, nodes)
+    ways = list(root.findall("way"))
+
+    building_node_coords: list[dict[str, float]] = []
+    for way in ways:
+        tags: dict[str, str] = {}
+        for tag in way.findall("tag"):
+            key = tag.attrib.get("k")
+            value = tag.attrib.get("v")
+            if key is not None and value is not None:
+                tags[key] = value
+        if "building" not in tags:
+            continue
+        for nd in way.findall("nd"):
+            node_ref = nd.attrib.get("ref")
+            if not node_ref:
+                continue
+            node_data = nodes.get(node_ref)
+            if node_data:
+                building_node_coords.append(node_data)
+
+    if not building_node_coords:
+        raise ValueError("Aucun bâtiment trouvé dans le fichier OSM.")
+
+    min_lat = min(node["lat"] for node in building_node_coords)
+    max_lat = max(node["lat"] for node in building_node_coords)
+    min_lon = min(node["lon"] for node in building_node_coords)
     center_lat = (min_lat + max_lat) / 2.0
     meters_per_degree_lat = 111320.0
     meters_per_degree_lon = 111320.0 * cos(radians(center_lat))
@@ -167,7 +171,7 @@ def osm_xml_to_retail_layout(
         return x_m * 100, z_m * 100
 
     buildings: list[dict[str, Any]] = []
-    for way in root.findall("way"):
+    for way in ways:
         tags: dict[str, str] = {}
         for tag in way.findall("tag"):
             key = tag.attrib.get("k")
@@ -180,6 +184,7 @@ def osm_xml_to_retail_layout(
         osm_way_id = way.attrib.get("id", f"way-{len(buildings) + 1}")
         node_refs = [nd.attrib.get("ref") for nd in way.findall("nd")]
         points: list[dict[str, Any]] = []
+        projected_node_refs: list[str] = []
         for node_ref in node_refs:
             if not node_ref:
                 continue
@@ -188,10 +193,11 @@ def osm_xml_to_retail_layout(
                 continue
             x, z = geographic_to_local(node_data["lat"], node_data["lon"])
             points.append({"x": round(x, 3), "z": round(z, 3), "corner": None})
+            projected_node_refs.append(node_ref)
 
         if len(points) < 3:
             continue
-        if points[-1] == points[0]:
+        if len(projected_node_refs) >= 2 and projected_node_refs[0] == projected_node_refs[-1]:
             points.pop()
         if len(points) < 3:
             continue

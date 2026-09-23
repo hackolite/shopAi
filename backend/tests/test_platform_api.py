@@ -715,6 +715,8 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert zones_by_id["building-200"]["color"] == "#4D908E"
     assert zones_by_id["building-200"]["heightCm"] == 600.0
     assert zones_by_id["building-300"]["color"] == "#9CA3AF"
+    assert min(zone["x"] for zone in zones) == 0.0
+    assert min(zone["z"] for zone in zones) == 0.0
 
 
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:

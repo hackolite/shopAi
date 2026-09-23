@@ -1062,10 +1062,11 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           setCollapsedSections={setCollapsedSections}
         >
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" role="group" aria-label="Mode de placement waypoint">
               <button
                 type="button"
                 onClick={() => setWaypointPlacementType('entry')}
+                aria-pressed={waypointPlacementType === 'entry'}
                 className={[
                   'rounded px-2 py-1 text-xs transition-colors',
                   waypointPlacementType === 'entry'
@@ -1078,6 +1079,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               <button
                 type="button"
                 onClick={() => setWaypointPlacementType('transit')}
+                aria-pressed={waypointPlacementType === 'transit'}
                 className={[
                   'rounded px-2 py-1 text-xs transition-colors',
                   waypointPlacementType === 'transit'
@@ -1090,6 +1092,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               <button
                 type="button"
                 onClick={() => setWaypointPlacementType('exit')}
+                aria-pressed={waypointPlacementType === 'exit'}
                 className={[
                   'rounded px-2 py-1 text-xs transition-colors',
                   waypointPlacementType === 'exit'
@@ -1102,6 +1105,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               <button
                 type="button"
                 onClick={() => setWaypointPlacementType(null)}
+                aria-pressed={waypointPlacementType === null}
                 className="rounded bg-gray-800 px-2 py-1 text-xs text-gray-300 transition-colors hover:bg-gray-700"
               >
                 Aucun

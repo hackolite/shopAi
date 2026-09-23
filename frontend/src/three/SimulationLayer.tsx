@@ -510,7 +510,7 @@ function InstancedAgents({
         {/* No `vertexColors` here: these geometries have no `color` attribute, and
             the flag would multiply by an unbound (black) attribute, erasing the
             per-instance colours.  setColorAt() is applied automatically. */}
-        <meshBasicMaterial transparent opacity={0.88} depthTest={false} depthWrite={false} />
+        <meshBasicMaterial transparent opacity={0.88} depthWrite={false} />
       </instancedMesh>
       <instancedMesh
         ref={bodyRef}

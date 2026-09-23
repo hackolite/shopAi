@@ -7,6 +7,7 @@ import {
   snapFurniturePositionCm,
   snapFurnitureCentreCm,
   gridPlaneSpec,
+  gridDisplaySpecCm,
 } from './gridSnap';
 
 describe('snapToCell', () => {
@@ -111,5 +112,36 @@ describe('gridPlaneSpec', () => {
     expect(Math.abs((centreCm - origin) % GRID_CELL_CM)).toBe(0);
     expect(centreCm - sizeCm / 2).toBeLessThanOrEqual(origin);
     expect(centreCm + sizeCm / 2).toBeGreaterThanOrEqual(origin + 1750);
+  });
+});
+
+describe('gridDisplaySpecCm', () => {
+  it('keeps the 0.5 m grid while a cell is still clearly visible', () => {
+    expect(gridDisplaySpecCm(12)).toEqual({
+      key: 'fine',
+      cellCm: GRID_CELL_CM,
+      sectionCm: GRID_CELL_CM * 10,
+    });
+  });
+
+  it('switches to 1 m cells before the fine grid starts shimmering', () => {
+    expect(gridDisplaySpecCm(6)).toEqual({
+      key: 'medium',
+      cellCm: GRID_CELL_CM * 2,
+      sectionCm: GRID_CELL_CM * 10,
+    });
+  });
+
+  it('keeps simplifying as the apparent cell size collapses', () => {
+    expect(gridDisplaySpecCm(4)).toEqual({
+      key: 'coarse',
+      cellCm: GRID_CELL_CM * 4,
+      sectionCm: GRID_CELL_CM * 20,
+    });
+    expect(gridDisplaySpecCm(2)).toEqual({
+      key: 'major',
+      cellCm: GRID_CELL_CM * 10,
+      sectionCm: GRID_CELL_CM * 20,
+    });
   });
 });

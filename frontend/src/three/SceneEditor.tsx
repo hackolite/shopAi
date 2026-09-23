@@ -25,6 +25,7 @@ import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording'
 import {
   GRID_CELL_CM,
   furnitureCentreCm,
+  gridDisplaySpecCm,
   gridPlaneSpec,
   snapSizeToCell,
   snapToCell,
@@ -77,6 +78,28 @@ const GRID_FADE_MULTIPLIER = 1.8;
 const GRID_Y_OFFSET = 0.012;
 /** Shared up-vector reused across components to avoid per-render allocations. */
 const UP_VEC3 = new THREE.Vector3(0, 1, 0);
+
+function projectedGridPixelsPerBaseCell(
+  camera: THREE.Camera,
+  viewportHeightPx: number,
+  focusPoint: THREE.Vector3,
+  cellWorldSize: number,
+): number {
+  const viewportHeight = Math.max(1, viewportHeightPx);
+  if (camera instanceof THREE.OrthographicCamera) {
+    const worldHeight = (camera.top - camera.bottom) / Math.max(camera.zoom, 1e-6);
+    return (cellWorldSize / Math.max(worldHeight, 1e-6)) * viewportHeight;
+  }
+  if (camera instanceof THREE.PerspectiveCamera) {
+    const distance = Math.max(camera.position.distanceTo(focusPoint), 1e-6);
+    const viewHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const cameraDir = new THREE.Vector3();
+    camera.getWorldDirection(cameraDir);
+    const incidence = Math.max(Math.abs(cameraDir.dot(UP_VEC3)), 0.18);
+    return ((cellWorldSize / Math.max(viewHeight, 1e-6)) * viewportHeight) * incidence;
+  }
+  return Number.POSITIVE_INFINITY;
+}
 
 /**
  * Maximum pointer travel (px between pointer-down and pointer-up) for a gesture
@@ -1087,16 +1110,33 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectZone } = useZoneStore();
   const addWaypoint = useSimulationStore((state) => state.addWaypoint);
   const waypointPlacementType = useSimulationStore((state) => state.waypointPlacementType);
+  const camera = useThree((state) => state.camera);
+  const viewportHeightPx = useThree((state) => state.size.height);
   const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
   const d = store.dimensions.depth  * CM_TO_UNIT;
+  const gridFocusPoint = useMemo(
+    () => new THREE.Vector3(storeOriginX + w / 2, GRID_Y_OFFSET, storeOriginZ + d / 2),
+    [d, storeOriginX, storeOriginZ, w],
+  );
+  const [gridDisplay, setGridDisplay] = useState(() => gridDisplaySpecCm(Number.POSITIVE_INFINITY));
+  const gridDisplayKeyRef = useRef(gridDisplay.key);
+
+  useFrame(() => {
+    const next = gridDisplaySpecCm(
+      projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT),
+    );
+    if (next.key === gridDisplayKeyRef.current) return;
+    gridDisplayKeyRef.current = next.key;
+    setGridDisplay(next);
+  });
 
   // <Grid> draws its lines at multiples of `cellSize` from the centre of its
   // plane: re-centre (and pad) the plane on the lattice anchored on the store
   // origin so the drawn cells match exactly where objects snap.
-  const gridX = gridPlaneSpec(store.position?.[0] ?? 0, store.dimensions.width);
-  const gridZ = gridPlaneSpec(store.position?.[2] ?? 0, store.dimensions.depth);
+  const gridX = gridPlaneSpec(store.position?.[0] ?? 0, store.dimensions.width, gridDisplay.cellCm);
+  const gridZ = gridPlaneSpec(store.position?.[2] ?? 0, store.dimensions.depth, gridDisplay.cellCm);
 
   const handleFloorClick = (event: ThreeEvent<MouseEvent>) => {
     // Never deselect on a drag release: ending an orbit/pan or a transform-gizmo
@@ -1132,14 +1172,14 @@ function StoreFloor({ store }: { store: StoreConfig }) {
         <meshStandardMaterial color={store.floorColor || '#1e2230'} />
       </mesh>
 
-      {/* Fine grid: 0.5 m cells matching the snap step, subtle blue tint */}
+      {/* Adaptive floor grid: coarsens on zoom-out / shallow orbit to reduce scintillation. */}
       <Grid
         position={[gridX.centreCm * CM_TO_UNIT, GRID_Y_OFFSET, gridZ.centreCm * CM_TO_UNIT]}
         args={[gridX.sizeCm * CM_TO_UNIT, gridZ.sizeCm * CM_TO_UNIT]}
-        cellSize={SNAP_UNIT}
-        cellThickness={1.2}
+        cellSize={gridDisplay.cellCm * CM_TO_UNIT}
+        cellThickness={gridDisplay.key === 'fine' ? 1.2 : 1}
         cellColor="#2e4d6e"
-        sectionSize={5.0}
+        sectionSize={gridDisplay.sectionCm * CM_TO_UNIT}
         sectionThickness={0.9}
         sectionColor="#2a4a6a"
         fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}

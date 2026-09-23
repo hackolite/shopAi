@@ -153,3 +153,32 @@ export function gridPlaneSpec(
   const pad = 2 * Math.abs(centre - rawCentre);
   return { sizeCm: clean(size + pad), centreCm: clean(centre) };
 }
+
+export interface GridDisplaySpecCm {
+  key: 'fine' | 'medium' | 'coarse' | 'major';
+  cellCm: number;
+  sectionCm: number;
+}
+
+/**
+ * Pick a coarser rendered floor grid when a 0.5 m cell would shrink below a few
+ * screen pixels. This reduces moiré / scintillation while zooming out or
+ * orbiting at a shallow angle.
+ */
+export function gridDisplaySpecCm(
+  pixelsPerBaseCell: number,
+  baseCellCm: number = GRID_CELL_CM,
+): GridDisplaySpecCm {
+  const base = baseCellCm > 0 ? baseCellCm : GRID_CELL_CM;
+  const pixels = Number.isFinite(pixelsPerBaseCell) ? pixelsPerBaseCell : Number.POSITIVE_INFINITY;
+  if (pixels < 2.5) {
+    return { key: 'major', cellCm: base * 10, sectionCm: base * 20 };
+  }
+  if (pixels < 4.5) {
+    return { key: 'coarse', cellCm: base * 4, sectionCm: base * 20 };
+  }
+  if (pixels < 8) {
+    return { key: 'medium', cellCm: base * 2, sectionCm: base * 10 };
+  }
+  return { key: 'fine', cellCm: base, sectionCm: base * 10 };
+}

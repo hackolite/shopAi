@@ -28,7 +28,7 @@ _HEIGHT_PATTERN = re.compile(
 
 
 # ============================================================
-# COULEURS PAR TYPE DE BÂTIMENT
+# COULEURS
 # ============================================================
 
 BUILDING_TYPE_COLORS = {
@@ -57,7 +57,7 @@ BUILDING_TYPE_COLORS = {
 
 
 # ============================================================
-# ALIAS BUILDING OSM -> TYPE MÉTIER
+# ALIAS BUILDING
 # ============================================================
 
 _BUILDING_TYPE_ALIASES = {
@@ -133,17 +133,27 @@ _GENERIC_BUILDING_VALUES = {
 # OUTILS
 # ============================================================
 
-def _safe_float(value: str | None) -> float | None:
+def _safe_float(
+    value: str | None,
+) -> float | None:
+
     if value is None:
         return None
 
     try:
         return float(value.strip())
-    except (ValueError, AttributeError):
+
+    except (
+        ValueError,
+        AttributeError,
+    ):
         return None
 
 
-def _normalize_building_type(value: str | None) -> str:
+def _normalize_building_type(
+    value: str | None,
+) -> str:
+
     if not value:
         return "other"
 
@@ -155,17 +165,9 @@ def _normalize_building_type(value: str | None) -> str:
     )
 
 
-def _parse_height_cm(value: str | None) -> float | None:
-    """
-    Convertit les hauteurs OSM en centimètres.
-
-    Exemples :
-        10       -> 1000 cm
-        10m      -> 1000 cm
-        10 m     -> 1000 cm
-        1000cm   -> 1000 cm
-        1000 cm  -> 1000 cm
-    """
+def _parse_height_cm(
+    value: str | None,
+) -> float | None:
 
     if not value:
         return None
@@ -177,22 +179,31 @@ def _parse_height_cm(value: str | None) -> float | None:
     if not match:
         return None
 
-    number = float(match.group(1))
+    number = float(
+        match.group(1)
+    )
+
     unit = match.group(2)
 
     if unit == "cm":
         return number
 
+    # OSM height est généralement
+    # exprimé en mètres.
     return number * 100.0
 
 
 # ============================================================
-# CLASSIFICATION SÉMANTIQUE OSM
+# CLASSIFICATION OSM
 # ============================================================
 
 def _classify_osm_type(
     tags: dict[str, str],
-) -> tuple[str, str | None, str | None]:
+) -> tuple[
+    str,
+    str | None,
+    str | None,
+]:
 
     building = tags.get(
         "building",
@@ -200,7 +211,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     # --------------------------------------------------------
-    # 1. BUILDING SPÉCIFIQUE
+    # BUILDING SPÉCIFIQUE
     # --------------------------------------------------------
 
     if (
@@ -213,6 +224,7 @@ def _classify_osm_type(
         )
 
         if normalized != "other":
+
             return (
                 normalized,
                 "building",
@@ -220,7 +232,7 @@ def _classify_osm_type(
             )
 
     # --------------------------------------------------------
-    # 2. SHOP
+    # SHOP
     # --------------------------------------------------------
 
     shop = tags.get(
@@ -256,6 +268,7 @@ def _classify_osm_type(
         }
 
         if shop in retail_values:
+
             return (
                 "retail",
                 "shop",
@@ -269,7 +282,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 3. OFFICE
+    # OFFICE
     # --------------------------------------------------------
 
     office = tags.get(
@@ -278,6 +291,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if office:
+
         return (
             "office",
             "office",
@@ -285,7 +299,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 4. INDUSTRIAL
+    # INDUSTRIAL
     # --------------------------------------------------------
 
     industrial = tags.get(
@@ -300,6 +314,7 @@ def _classify_osm_type(
             "storage",
             "distribution",
         }:
+
             return (
                 "warehouse",
                 "industrial",
@@ -313,7 +328,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 5. HEALTHCARE
+    # HEALTHCARE
     # --------------------------------------------------------
 
     healthcare = tags.get(
@@ -322,6 +337,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if healthcare:
+
         return (
             "hospital",
             "healthcare",
@@ -329,7 +345,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 6. AMENITY
+    # AMENITY
     # --------------------------------------------------------
 
     amenity = tags.get(
@@ -357,6 +373,7 @@ def _classify_osm_type(
     }
 
     if amenity in amenity_mapping:
+
         return (
             amenity_mapping[amenity],
             "amenity",
@@ -364,10 +381,11 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 7. BUILDING GÉNÉRIQUE
+    # BUILDING GÉNÉRIQUE
     # --------------------------------------------------------
 
     if building:
+
         return (
             "other",
             "building",
@@ -375,7 +393,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 8. HIGHWAY
+    # HIGHWAY
     # --------------------------------------------------------
 
     highway = tags.get(
@@ -389,6 +407,7 @@ def _classify_osm_type(
             "footway",
             "path",
         }:
+
             return (
                 "path",
                 "highway",
@@ -396,6 +415,7 @@ def _classify_osm_type(
             )
 
         if highway == "cycleway":
+
             return (
                 "cycleway",
                 "highway",
@@ -403,6 +423,7 @@ def _classify_osm_type(
             )
 
         if highway == "pedestrian":
+
             return (
                 "pedestrian",
                 "highway",
@@ -416,7 +437,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 9. PARKING
+    # PARKING
     # --------------------------------------------------------
 
     parking = tags.get(
@@ -425,6 +446,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if parking:
+
         return (
             "parking",
             "parking",
@@ -432,7 +454,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 10. LEISURE
+    # LEISURE
     # --------------------------------------------------------
 
     leisure = tags.get(
@@ -447,6 +469,7 @@ def _classify_osm_type(
             "garden",
             "nature_reserve",
         }:
+
             return (
                 "park",
                 "leisure",
@@ -461,6 +484,7 @@ def _classify_osm_type(
             "swimming_pool",
             "fitness_centre",
         }:
+
             return (
                 "sports",
                 "leisure",
@@ -474,7 +498,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 11. NATURAL
+    # NATURAL
     # --------------------------------------------------------
 
     natural = tags.get(
@@ -489,6 +513,7 @@ def _classify_osm_type(
             "bay",
             "coastline",
         }:
+
             return (
                 "water",
                 "natural",
@@ -502,7 +527,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 12. LANDUSE
+    # LANDUSE
     # --------------------------------------------------------
 
     landuse = tags.get(
@@ -511,6 +536,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if landuse:
+
         return (
             "landuse",
             "landuse",
@@ -518,7 +544,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 13. RAILWAY
+    # RAILWAY
     # --------------------------------------------------------
 
     railway = tags.get(
@@ -534,6 +560,7 @@ def _classify_osm_type(
             "tram_stop",
             "subway_entrance",
         }:
+
             return (
                 "station",
                 "railway",
@@ -547,7 +574,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 14. PUBLIC TRANSPORT
+    # PUBLIC TRANSPORT
     # --------------------------------------------------------
 
     public_transport = tags.get(
@@ -556,6 +583,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if public_transport:
+
         return (
             "station",
             "public_transport",
@@ -563,7 +591,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 15. MAN MADE
+    # MAN MADE
     # --------------------------------------------------------
 
     man_made = tags.get(
@@ -572,6 +600,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if man_made:
+
         return (
             "other",
             "man_made",
@@ -579,7 +608,7 @@ def _classify_osm_type(
         )
 
     # --------------------------------------------------------
-    # 16. POWER
+    # POWER
     # --------------------------------------------------------
 
     power = tags.get(
@@ -588,6 +617,7 @@ def _classify_osm_type(
     ).strip().lower()
 
     if power:
+
         return (
             "other",
             "power",
@@ -610,7 +640,11 @@ def _infer_building_status(
     semantic_type: str,
     semantic_source_tag: str | None,
     closed: bool,
-) -> tuple[bool, float, str]:
+) -> tuple[
+    bool,
+    float,
+    str,
+]:
 
     building = tags.get(
         "building",
@@ -622,6 +656,7 @@ def _infer_building_status(
     # --------------------------------------------------------
 
     if building:
+
         return (
             True,
             1.0,
@@ -635,6 +670,7 @@ def _infer_building_status(
     if tags.get("shop"):
 
         if closed:
+
             return (
                 True,
                 0.72,
@@ -654,6 +690,7 @@ def _infer_building_status(
     if tags.get("office"):
 
         if closed:
+
             return (
                 True,
                 0.80,
@@ -673,6 +710,7 @@ def _infer_building_status(
     if tags.get("industrial"):
 
         if closed:
+
             return (
                 True,
                 0.78,
@@ -692,6 +730,7 @@ def _infer_building_status(
     if tags.get("healthcare"):
 
         if closed:
+
             return (
                 True,
                 0.75,
@@ -732,6 +771,7 @@ def _infer_building_status(
     if amenity in building_like_amenities:
 
         if closed:
+
             return (
                 True,
                 0.70,
@@ -745,7 +785,7 @@ def _infer_building_status(
         )
 
     # --------------------------------------------------------
-    # SURFACES / ROUTES
+    # OBJETS DE SURFACE
     # --------------------------------------------------------
 
     if semantic_type in {
@@ -765,6 +805,7 @@ def _infer_building_status(
         "landuse",
         "natural",
     }:
+
         return (
             False,
             0.0,
@@ -776,6 +817,7 @@ def _infer_building_status(
     # --------------------------------------------------------
 
     if closed:
+
         return (
             False,
             0.20,
@@ -799,20 +841,27 @@ def osm_xml_to_retail_layout(
 ) -> dict[str, Any]:
 
     # ========================================================
-    # PARSING XML
+    # PARSING
     # ========================================================
 
-    root = ET.fromstring(xml_text)
+    root = ET.fromstring(
+        xml_text
+    )
 
     # ========================================================
     # NODES
     # ========================================================
 
-    nodes: dict[str, tuple[float, float]] = {}
+    nodes: dict[
+        str,
+        tuple[float, float],
+    ] = {}
 
     for node in root.findall("node"):
 
-        node_id = node.attrib.get("id")
+        node_id = node.attrib.get(
+            "id"
+        )
 
         lat = _safe_float(
             node.attrib.get("lat")
@@ -827,12 +876,14 @@ def osm_xml_to_retail_layout(
             and lat is not None
             and lon is not None
         ):
+
             nodes[node_id] = (
                 lat,
                 lon,
             )
 
     if not nodes:
+
         raise ValueError(
             "Aucun node OSM exploitable trouvé."
         )
@@ -881,38 +932,48 @@ def osm_xml_to_retail_layout(
     # ========================================================
 
     if min_lat is None:
+
         min_lat = min(
             lat
-            for lat, lon in nodes.values()
+            for lat, lon
+            in nodes.values()
         )
 
     if max_lat is None:
+
         max_lat = max(
             lat
-            for lat, lon in nodes.values()
+            for lat, lon
+            in nodes.values()
         )
 
     if min_lon is None:
+
         min_lon = min(
             lon
-            for lat, lon in nodes.values()
+            for lat, lon
+            in nodes.values()
         )
 
     if max_lon is None:
+
         max_lon = max(
             lon
-            for lat, lon in nodes.values()
+            for lat, lon
+            in nodes.values()
         )
 
     # ========================================================
-    # PROJECTION LOCALE
+    # PROJECTION LOCALE EN CM
     # ========================================================
 
     center_lat = (
         min_lat + max_lat
     ) / 2.0
 
-    meters_per_degree_lat = 111_320.0
+    meters_per_degree_lat = (
+        111_320.0
+    )
 
     meters_per_degree_lon = (
         111_320.0
@@ -943,7 +1004,9 @@ def osm_xml_to_retail_layout(
     # ZONES
     # ========================================================
 
-    zones: list[dict[str, Any]] = []
+    zones: list[
+        dict[str, Any]
+    ] = []
 
     building_count = 0
 
@@ -951,9 +1014,13 @@ def osm_xml_to_retail_layout(
     # WAYS
     # ========================================================
 
-    for way in root.findall("way"):
+    for way in root.findall(
+        "way"
+    ):
 
-        way_id = way.attrib.get("id")
+        way_id = way.attrib.get(
+            "id"
+        )
 
         if way_id is None:
             continue
@@ -964,15 +1031,23 @@ def osm_xml_to_retail_layout(
 
         tags: dict[str, str] = {}
 
-        for tag in way.findall("tag"):
+        for tag in way.findall(
+            "tag"
+        ):
 
-            key = tag.attrib.get("k")
-            value = tag.attrib.get("v")
+            key = tag.attrib.get(
+                "k"
+            )
+
+            value = tag.attrib.get(
+                "v"
+            )
 
             if (
                 key
                 and value is not None
             ):
+
                 tags[key] = value
 
         # ----------------------------------------------------
@@ -981,18 +1056,24 @@ def osm_xml_to_retail_layout(
 
         node_refs: list[str] = []
 
-        for nd in way.findall("nd"):
+        for nd in way.findall(
+            "nd"
+        ):
 
-            ref = nd.attrib.get("ref")
+            ref = nd.attrib.get(
+                "ref"
+            )
 
             if ref:
-                node_refs.append(ref)
+                node_refs.append(
+                    ref
+                )
 
         if len(node_refs) < 3:
             continue
 
         # ----------------------------------------------------
-        # WAY FERMÉ
+        # FERMETURE DU WAY
         # ----------------------------------------------------
 
         closed = (
@@ -1001,15 +1082,13 @@ def osm_xml_to_retail_layout(
             == node_refs[-1]
         )
 
-        # ====================================================
-        # IMPORTANT
+        # ----------------------------------------------------
+        # IMPORTANT :
+        # LES WAYS OUVERTS NE VONT PAS
+        # DANS store.zones.
         #
-        # SceneData n'accepte pas :
-        #
-        #     shape = "line"
-        #
-        # Donc tous les ways ouverts sont ignorés.
-        # ====================================================
+        # SceneData n'accepte pas shape="line".
+        # ----------------------------------------------------
 
         if not closed:
             continue
@@ -1025,6 +1104,7 @@ def osm_xml_to_retail_layout(
         for ref in node_refs:
 
             if ref in nodes:
+
                 coords.append(
                     nodes[ref]
                 )
@@ -1033,10 +1113,11 @@ def osm_xml_to_retail_layout(
             continue
 
         # ----------------------------------------------------
-        # RETIRE LE POINT DE FERMETURE
+        # RETIRE LE DERNIER POINT
         # ----------------------------------------------------
 
         if coords[0] == coords[-1]:
+
             coords.pop()
 
         if len(coords) < 3:
@@ -1067,9 +1148,18 @@ def osm_xml_to_retail_layout(
 
         # ====================================================
         # PROJECTION DU POLYGONE
+        #
+        # FloorZonePoint attend :
+        #
+        # {
+        #     "x": ...,
+        #     "z": ...
+        # }
         # ====================================================
 
-        points: list[list[float]] = []
+        points: list[
+            dict[str, float]
+        ] = []
 
         for lat, lon in coords:
 
@@ -1078,10 +1168,16 @@ def osm_xml_to_retail_layout(
                 lon,
             )
 
-            points.append([
-                round(x_cm, 2),
-                round(z_cm, 2),
-            ])
+            points.append({
+                "x": round(
+                    x_cm,
+                    2,
+                ),
+                "z": round(
+                    z_cm,
+                    2,
+                ),
+            })
 
         if len(points) < 3:
             continue
@@ -1091,12 +1187,12 @@ def osm_xml_to_retail_layout(
         # ====================================================
 
         xs = [
-            point[0]
+            point["x"]
             for point in points
         ]
 
         zs = [
-            point[1]
+            point["z"]
             for point in points
         ]
 
@@ -1132,32 +1228,41 @@ def osm_xml_to_retail_layout(
             "height"
         )
 
+        raw_levels = tags.get(
+            "building:levels"
+        )
+
         height_cm = None
+
         height_source = None
+
         default_height_applied = False
 
         # ----------------------------------------------------
-        # PRIORITÉ 1 : height
+        # 1. HEIGHT
         # ----------------------------------------------------
 
         if raw_height:
 
-            parsed_height = _parse_height_cm(
-                raw_height
+            parsed_height = (
+                _parse_height_cm(
+                    raw_height
+                )
             )
 
             if parsed_height is not None:
 
-                height_cm = parsed_height
-                height_source = "height"
+                height_cm = (
+                    parsed_height
+                )
+
+                height_source = (
+                    "height"
+                )
 
         # ----------------------------------------------------
-        # PRIORITÉ 2 : building:levels
+        # 2. BUILDING LEVELS
         # ----------------------------------------------------
-
-        raw_levels = tags.get(
-            "building:levels"
-        )
 
         if (
             height_cm is None
@@ -1185,7 +1290,7 @@ def osm_xml_to_retail_layout(
                 )
 
         # ----------------------------------------------------
-        # PRIORITÉ 3 : DEFAULT
+        # 3. DEFAULT 10M
         # ----------------------------------------------------
 
         if (
@@ -1197,7 +1302,9 @@ def osm_xml_to_retail_layout(
                 DEFAULT_BUILDING_HEIGHT_CM
             )
 
-            height_source = "default"
+            height_source = (
+                "default"
+            )
 
             default_height_applied = True
 
@@ -1217,9 +1324,11 @@ def osm_xml_to_retail_layout(
         # COULEUR
         # ====================================================
 
-        color = BUILDING_TYPE_COLORS.get(
-            semantic_type,
-            DEFAULT_BUILDING_COLOR,
+        color = (
+            BUILDING_TYPE_COLORS.get(
+                semantic_type,
+                DEFAULT_BUILDING_COLOR,
+            )
         )
 
         # ====================================================
@@ -1232,10 +1341,13 @@ def osm_xml_to_retail_layout(
                 "height",
                 "building:levels",
             }:
+
                 opacity = (
                     KNOWN_HEIGHT_OPACITY
                 )
+
             else:
+
                 opacity = (
                     MISSING_HEIGHT_OPACITY
                 )
@@ -1257,8 +1369,11 @@ def osm_xml_to_retail_layout(
         if not name:
 
             if semantic_type != "other":
+
                 name = semantic_type
+
             else:
+
                 name = (
                     f"OSM {way_id}"
                 )
@@ -1267,7 +1382,11 @@ def osm_xml_to_retail_layout(
         # SOURCE
         # ====================================================
 
-        source_data: dict[str, Any] = {
+        source_data: dict[
+            str,
+            Any,
+        ] = {
+
             "osmWayId": way_id,
 
             "building": tags.get(
@@ -1314,22 +1433,24 @@ def osm_xml_to_retail_layout(
                 default_height_applied
             ),
 
-            # Conservation intégrale
-            # des tags OSM.
+            # Tous les tags OSM
             "tags": tags,
         }
 
         if raw_height:
+
             source_data["height"] = (
                 raw_height
             )
 
         if raw_levels:
+
             source_data[
                 "building:levels"
             ] = raw_levels
 
         if "name" in tags:
+
             source_data["name"] = (
                 tags["name"]
             )
@@ -1339,6 +1460,7 @@ def osm_xml_to_retail_layout(
         # ====================================================
 
         zone = {
+
             "id": (
                 f"building-{way_id}"
             ),
@@ -1347,8 +1469,15 @@ def osm_xml_to_retail_layout(
 
             "label": name,
 
-            "x": round(x, 2),
-            "z": round(z, 2),
+            "x": round(
+                x,
+                2,
+            ),
+
+            "z": round(
+                z,
+                2,
+            ),
 
             "width": round(
                 width,
@@ -1363,15 +1492,16 @@ def osm_xml_to_retail_layout(
             "rotationDeg": 0,
 
             "rows": None,
+
             "cols": None,
 
-            # IMPORTANT :
-            # uniquement une valeur acceptée
-            # par SceneData.
+            # Valeur compatible avec SceneData.
             "shape": "polygon",
 
             "color": color,
 
+            # FloorZonePoint :
+            # {"x": ..., "z": ...}
             "points": points,
 
             "pathMode": "linear",
@@ -1388,9 +1518,12 @@ def osm_xml_to_retail_layout(
             "_source": source_data,
         }
 
-        zones.append(zone)
+        zones.append(
+            zone
+        )
 
         if is_likely_building:
+
             building_count += 1
 
     # ========================================================
@@ -1405,11 +1538,11 @@ def osm_xml_to_retail_layout(
         for point in zone["points"]:
 
             all_x.append(
-                point[0]
+                point["x"]
             )
 
             all_z.append(
-                point[1]
+                point["z"]
             )
 
     if all_x:
@@ -1452,6 +1585,7 @@ def osm_xml_to_retail_layout(
     # ========================================================
 
     payload = {
+
         "version": "1.0",
 
         "projectId": str(
@@ -1475,6 +1609,7 @@ def osm_xml_to_retail_layout(
         # ====================================================
 
         "source": {
+
             "format": (
                 "OpenStreetMap XML"
             ),
@@ -1513,6 +1648,7 @@ def osm_xml_to_retail_layout(
             ),
 
             "heightPolicy": {
+
                 "height": (
                     "OSM height tag "
                     "has priority."
@@ -1540,6 +1676,7 @@ def osm_xml_to_retail_layout(
         # ====================================================
 
         "store": {
+
             "id": str(
                 uuid4()
             ),

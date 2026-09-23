@@ -1,6 +1,9 @@
 /**
- * Aggregated customer-journey metrics: totals and per-customer averages over
- * every customer of the running simulation (active and exited alike).
+ * Aggregated customer-journey metrics.
+ *
+ * Distance metrics (`totalDistanceM`, `averageDistanceM`) are computed only on
+ * customers that completed the full path (entry + exit).
+ * Time metrics keep aggregating all available customers.
  *
  * Pure functions so they can be unit-tested; consumed by the
  * « Waypoints & rendement » panel tiles and the recorded 3D HUD.
@@ -17,11 +20,13 @@ export type JourneyMetricId =
 export interface JourneySummary {
   /** Number of customers included in the aggregation. */
   customerCount: number;
-  /** Sum of the distance travelled by every customer, in metres. */
+  /** Number of customers that completed the full entry → exit journey. */
+  completedCustomerCount: number;
+  /** Sum of the distance travelled by completed customers, in metres. */
   totalDistanceM: number;
   /** Sum of the time spent in store by every customer, in seconds. */
   totalTimeSeconds: number;
-  /** Average distance travelled per customer, in metres (0 when no customer). */
+  /** Average distance travelled per completed customer, in metres (0 when none). */
   averageDistanceM: number;
   /** Average time spent in store per customer, in seconds (0 when no customer). */
   averageTimeSeconds: number;
@@ -44,17 +49,26 @@ export function computeJourneySummary(customers: CustomerJourney[] | null | unde
   const list = customers ?? [];
   let totalDistanceCm = 0;
   let totalTimeSeconds = 0;
+  let completedCustomerCount = 0;
   for (const customer of list) {
-    if (Number.isFinite(customer.distanceCm)) totalDistanceCm += customer.distanceCm;
+    const completedJourney =
+      customer.exitTimeSeconds != null &&
+      Number.isFinite(customer.exitTimeSeconds) &&
+      customer.active === false;
+    if (completedJourney) {
+      completedCustomerCount += 1;
+      if (Number.isFinite(customer.distanceCm)) totalDistanceCm += customer.distanceCm;
+    }
     if (Number.isFinite(customer.totalTimeSeconds)) totalTimeSeconds += customer.totalTimeSeconds;
   }
   const customerCount = list.length;
   const totalDistanceM = totalDistanceCm / 100;
   return {
     customerCount,
+    completedCustomerCount,
     totalDistanceM,
     totalTimeSeconds,
-    averageDistanceM: customerCount > 0 ? totalDistanceM / customerCount : 0,
+    averageDistanceM: completedCustomerCount > 0 ? totalDistanceM / completedCustomerCount : 0,
     averageTimeSeconds: customerCount > 0 ? totalTimeSeconds / customerCount : 0,
   };
 }

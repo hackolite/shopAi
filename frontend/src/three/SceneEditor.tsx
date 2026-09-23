@@ -25,6 +25,8 @@ import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording'
 import {
   GRID_CELL_CM,
   furnitureCentreCm,
+  gridDisplayKeyCm,
+  gridDisplaySpecForKeyCm,
   gridDisplaySpecCm,
   gridPlaneSpec,
   snapSizeToCell,
@@ -84,6 +86,7 @@ function projectedGridPixelsPerBaseCell(
   viewportHeightPx: number,
   focusPoint: THREE.Vector3,
   cellWorldSize: number,
+  cameraDir: THREE.Vector3,
 ): number {
   const viewportHeight = Math.max(1, viewportHeightPx);
   if (camera instanceof THREE.OrthographicCamera) {
@@ -93,7 +96,6 @@ function projectedGridPixelsPerBaseCell(
   if (camera instanceof THREE.PerspectiveCamera) {
     const distance = Math.max(camera.position.distanceTo(focusPoint), 1e-6);
     const viewHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const cameraDir = new THREE.Vector3();
     camera.getWorldDirection(cameraDir);
     const incidence = Math.max(Math.abs(cameraDir.dot(UP_VEC3)), 0.18);
     return ((cellWorldSize / Math.max(viewHeight, 1e-6)) * viewportHeight) * incidence;
@@ -1122,14 +1124,15 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   );
   const [gridDisplay, setGridDisplay] = useState(() => gridDisplaySpecCm(Number.POSITIVE_INFINITY));
   const gridDisplayKeyRef = useRef(gridDisplay.key);
+  const cameraDirRef = useRef(new THREE.Vector3());
 
   useFrame(() => {
-    const next = gridDisplaySpecCm(
-      projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT),
+    const nextKey = gridDisplayKeyCm(
+      projectedGridPixelsPerBaseCell(camera, viewportHeightPx, gridFocusPoint, SNAP_UNIT, cameraDirRef.current),
     );
-    if (next.key === gridDisplayKeyRef.current) return;
-    gridDisplayKeyRef.current = next.key;
-    setGridDisplay(next);
+    if (nextKey === gridDisplayKeyRef.current) return;
+    gridDisplayKeyRef.current = nextKey;
+    setGridDisplay(gridDisplaySpecForKeyCm(nextKey));
   });
 
   // <Grid> draws its lines at multiples of `cellSize` from the centre of its

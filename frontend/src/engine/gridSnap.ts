@@ -165,20 +165,37 @@ export interface GridDisplaySpecCm {
  * screen pixels. This reduces moiré / scintillation while zooming out or
  * orbiting at a shallow angle.
  */
+export function gridDisplayKeyCm(
+  pixelsPerBaseCell: number,
+): GridDisplaySpecCm['key'] {
+  const pixels = Number.isFinite(pixelsPerBaseCell) ? pixelsPerBaseCell : Number.POSITIVE_INFINITY;
+  if (pixels < 2.5) return 'major';
+  if (pixels < 4.5) return 'coarse';
+  if (pixels < 8) return 'medium';
+  return 'fine';
+}
+
+export function gridDisplaySpecForKeyCm(
+  key: GridDisplaySpecCm['key'],
+  baseCellCm: number = GRID_CELL_CM,
+): GridDisplaySpecCm {
+  const base = baseCellCm > 0 ? baseCellCm : GRID_CELL_CM;
+  switch (key) {
+    case 'major':
+      return { key, cellCm: base * 10, sectionCm: base * 20 };
+    case 'coarse':
+      return { key, cellCm: base * 4, sectionCm: base * 20 };
+    case 'medium':
+      return { key, cellCm: base * 2, sectionCm: base * 10 };
+    case 'fine':
+    default:
+      return { key: 'fine', cellCm: base, sectionCm: base * 10 };
+  }
+}
+
 export function gridDisplaySpecCm(
   pixelsPerBaseCell: number,
   baseCellCm: number = GRID_CELL_CM,
 ): GridDisplaySpecCm {
-  const base = baseCellCm > 0 ? baseCellCm : GRID_CELL_CM;
-  const pixels = Number.isFinite(pixelsPerBaseCell) ? pixelsPerBaseCell : Number.POSITIVE_INFINITY;
-  if (pixels < 2.5) {
-    return { key: 'major', cellCm: base * 10, sectionCm: base * 20 };
-  }
-  if (pixels < 4.5) {
-    return { key: 'coarse', cellCm: base * 4, sectionCm: base * 20 };
-  }
-  if (pixels < 8) {
-    return { key: 'medium', cellCm: base * 2, sectionCm: base * 10 };
-  }
-  return { key: 'fine', cellCm: base, sectionCm: base * 10 };
+  return gridDisplaySpecForKeyCm(gridDisplayKeyCm(pixelsPerBaseCell), baseCellCm);
 }

@@ -603,7 +603,8 @@ export default function CheckoutChartsOverlay() {
               </div>
               <p className="mb-1 text-[10px] leading-tight text-gray-600">
                 Cliquer sur une tuile pour l'afficher en grand en haut à droite de la scène
-                (incluse dans l'enregistrement vidéo). Totaux = addition sur tous les clients.
+                (incluse dans l'enregistrement vidéo). Distances et temps = clients ayant
+                terminé entrée→sortie.
               </p>
               <div className="max-h-36 overflow-y-auto text-[10px] text-gray-500">
                 {(analytics?.customers ?? []).map((customer) => (

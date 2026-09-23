@@ -1,6 +1,8 @@
 /**
- * Aggregated customer-journey metrics: totals and per-customer averages over
- * every customer of the running simulation (active and exited alike).
+ * Aggregated customer-journey metrics.
+ *
+ * Distance and time metrics are computed only on customers that completed the
+ * full path (entry + exit).
  *
  * Pure functions so they can be unit-tested; consumed by the
  * « Waypoints & rendement » panel tiles and the recorded 3D HUD.
@@ -17,13 +19,15 @@ export type JourneyMetricId =
 export interface JourneySummary {
   /** Number of customers included in the aggregation. */
   customerCount: number;
-  /** Sum of the distance travelled by every customer, in metres. */
+  /** Number of customers that completed the full entry → exit journey. */
+  completedCustomerCount: number;
+  /** Sum of the distance travelled by completed customers, in metres. */
   totalDistanceM: number;
-  /** Sum of the time spent in store by every customer, in seconds. */
+  /** Sum of the time spent in store by completed customers, in seconds. */
   totalTimeSeconds: number;
-  /** Average distance travelled per customer, in metres (0 when no customer). */
+  /** Average distance travelled per completed customer, in metres (0 when none). */
   averageDistanceM: number;
-  /** Average time spent in store per customer, in seconds (0 when no customer). */
+  /** Average time spent in store per completed customer, in seconds (0 when none). */
   averageTimeSeconds: number;
 }
 
@@ -37,25 +41,35 @@ export const JOURNEY_METRIC_IDS: JourneyMetricId[] = [
 
 /**
  * Aggregate the customer journeys into plain sums and per-customer averages.
- * Totals are simple additions of the rows; averages divide by the customer
- * count (0 when there is no customer, never NaN).
+ * Totals are simple additions of rows.
+ * Distance and time metrics use completed customers only
+ * (0 when the relevant denominator is empty, never NaN).
  */
 export function computeJourneySummary(customers: CustomerJourney[] | null | undefined): JourneySummary {
   const list = customers ?? [];
   let totalDistanceCm = 0;
   let totalTimeSeconds = 0;
+  let completedCustomerCount = 0;
   for (const customer of list) {
-    if (Number.isFinite(customer.distanceCm)) totalDistanceCm += customer.distanceCm;
-    if (Number.isFinite(customer.totalTimeSeconds)) totalTimeSeconds += customer.totalTimeSeconds;
+    const completedJourney =
+      customer.exitTimeSeconds != null &&
+      Number.isFinite(customer.exitTimeSeconds) &&
+      customer.active === false;
+    if (completedJourney) {
+      completedCustomerCount += 1;
+      if (Number.isFinite(customer.distanceCm)) totalDistanceCm += customer.distanceCm;
+      if (Number.isFinite(customer.totalTimeSeconds)) totalTimeSeconds += customer.totalTimeSeconds;
+    }
   }
   const customerCount = list.length;
   const totalDistanceM = totalDistanceCm / 100;
   return {
     customerCount,
+    completedCustomerCount,
     totalDistanceM,
     totalTimeSeconds,
-    averageDistanceM: customerCount > 0 ? totalDistanceM / customerCount : 0,
-    averageTimeSeconds: customerCount > 0 ? totalTimeSeconds / customerCount : 0,
+    averageDistanceM: completedCustomerCount > 0 ? totalDistanceM / completedCustomerCount : 0,
+    averageTimeSeconds: completedCustomerCount > 0 ? totalTimeSeconds / completedCustomerCount : 0,
   };
 }
 

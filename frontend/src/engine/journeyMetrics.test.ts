@@ -27,6 +27,7 @@ describe('computeJourneySummary', () => {
     for (const input of [null, undefined, []]) {
       const summary = computeJourneySummary(input);
       expect(summary.customerCount).toBe(0);
+      expect(summary.completedCustomerCount).toBe(0);
       expect(summary.totalDistanceM).toBe(0);
       expect(summary.totalTimeSeconds).toBe(0);
       expect(summary.averageDistanceM).toBe(0);
@@ -34,24 +35,38 @@ describe('computeJourneySummary', () => {
     }
   });
 
-  it('totals are plain sums of the rows and averages divide by the count', () => {
+  it('distance and time totals/averages only include clients that completed entry→exit', () => {
     const summary = computeJourneySummary([
-      customer({ customerId: 1, distanceCm: 12_000, totalTimeSeconds: 60 }),
+      customer({ customerId: 1, distanceCm: 12_000, totalTimeSeconds: 60, exitTimeSeconds: 60, active: false }),
       customer({ customerId: 2, distanceCm: 8_000, totalTimeSeconds: 30, exitTimeSeconds: 30, active: false }),
       customer({ customerId: 3, distanceCm: 4_000, totalTimeSeconds: 90 }),
     ]);
     expect(summary.customerCount).toBe(3);
-    expect(summary.totalDistanceM).toBeCloseTo(240);
-    expect(summary.totalTimeSeconds).toBeCloseTo(180);
-    expect(summary.averageDistanceM).toBeCloseTo(80);
-    expect(summary.averageTimeSeconds).toBeCloseTo(60);
+    expect(summary.completedCustomerCount).toBe(2);
+    expect(summary.totalDistanceM).toBeCloseTo(200);
+    expect(summary.totalTimeSeconds).toBeCloseTo(90);
+    expect(summary.averageDistanceM).toBeCloseTo(100);
+    expect(summary.averageTimeSeconds).toBeCloseTo(45);
   });
 
   it('ignores non-finite values without breaking the totals', () => {
     const summary = computeJourneySummary([
-      customer({ customerId: 1, distanceCm: Number.NaN, totalTimeSeconds: 10 }),
-      customer({ customerId: 2, distanceCm: 5_000, totalTimeSeconds: Number.POSITIVE_INFINITY }),
+      customer({
+        customerId: 1,
+        distanceCm: Number.NaN,
+        totalTimeSeconds: 10,
+        exitTimeSeconds: 10,
+        active: false,
+      }),
+      customer({
+        customerId: 2,
+        distanceCm: 5_000,
+        totalTimeSeconds: Number.POSITIVE_INFINITY,
+        exitTimeSeconds: 10,
+        active: false,
+      }),
     ]);
+    expect(summary.completedCustomerCount).toBe(2);
     expect(summary.totalDistanceM).toBeCloseTo(50);
     expect(summary.totalTimeSeconds).toBeCloseTo(10);
   });
@@ -71,7 +86,7 @@ describe('formatting helpers', () => {
 
   it('exposes a label and value for every metric id', () => {
     const summary = computeJourneySummary([
-      customer({ customerId: 1, distanceCm: 10_000, totalTimeSeconds: 120 }),
+      customer({ customerId: 1, distanceCm: 10_000, totalTimeSeconds: 120, exitTimeSeconds: 120, active: false }),
     ]);
     expect(journeyMetricDisplay('total-distance', summary)).toEqual({
       label: 'Distance totale',

@@ -705,6 +705,7 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     )
     assert import_response.status_code == 200, import_response.text
     payload = import_response.json()["payload"]
+    scene = payload["scene"]
     zones = payload["scene"]["store"]["zones"]
     assert len(zones) == 3
     assert payload["scene"]["furniture"] == []
@@ -722,8 +723,34 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert zones_by_id["building-300"]["opacity"] == 0.32
     assert zones_by_id["building-300"]["heightCm"] == 1000.0
     assert zones_by_id["building-300"]["mounted"] is True
+    assert zones_by_id["building-100"]["source"]["osmWayId"] == "100"
+    assert zones_by_id["building-100"]["source"]["buildingType"] == "retail"
+    assert zones_by_id["building-100"]["source"]["heightSource"] == "height"
+    assert zones_by_id["building-100"]["source"]["height"] == "9"
+    assert zones_by_id["building-200"]["source"]["heightSource"] == "building:levels"
+    assert zones_by_id["building-200"]["source"]["building:levels"] == "2"
+    assert zones_by_id["building-300"]["source"]["defaultHeightApplied"] is True
     assert min(zone["x"] for zone in zones) == 0.0
     assert min(zone["z"] for zone in zones) == 0.0
+    all_x = [point["x"] for zone in zones for point in zone["points"]]
+    all_z = [point["z"] for zone in zones for point in zone["points"]]
+    assert scene["store"]["dimensions"] == {
+        "width": max(all_x) - min(all_x),
+        "depth": max(all_z) - min(all_z),
+        "height": 1000.0,
+    }
+
+    project_response = client.post(
+        "/api/cad/projects/",
+        json={"name": "Projet OSM", "storeLayoutId": import_response.json()["id"]},
+    )
+    assert project_response.status_code == 200, project_response.text
+    project_id = project_response.json()["id"]
+
+    project_scene = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert project_scene.status_code == 200, project_scene.text
+    assert project_scene.json()["store"]["dimensions"] == scene["store"]["dimensions"]
+    assert project_scene.json()["store"]["zones"][0]["source"]["osmWayId"] == zones[0]["source"]["osmWayId"]
 
 
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:

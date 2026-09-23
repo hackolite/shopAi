@@ -5,7 +5,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
-import type { FurnitureInstance, FaceId, Planogram, FloorZone } from '../../types/cad';
+import type { FurnitureInstance, FaceId, Planogram, FloorZone, FloorZoneSource } from '../../types/cad';
 import { extendGondolaWidth, extendGondolaHeight, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
 import { fitPlanogramToFace } from '../../engine/planogramFit';
 import {
@@ -695,6 +695,16 @@ function zonePathModeLabel(zone: FloorZone): string {
   return 'Linéaire';
 }
 
+function zoneSource(zone: FloorZone): FloorZoneSource | null {
+  return zone.source ?? null;
+}
+
+function zoneSourceValue(value: unknown): string {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
+  return String(value);
+}
+
 // ─── Zone inspector ───────────────────────────────────────────────────────────
 function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string | null }) {
   const { updateZone } = useZoneStore();
@@ -704,6 +714,8 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
   const isRotatable = isForbidden && zone.shape !== 'circle';
   const pointCount = zone.points?.length ?? 0;
   const isPolygon = zone.shape === 'polygon';
+  const source = zoneSource(zone);
+  const osmTags = source?.tags ? Object.entries(source.tags).sort(([left], [right]) => left.localeCompare(right)) : [];
 
   const save = (updated: FloorZone) => {
     updateZone(updated);
@@ -877,6 +889,77 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
             <span className="text-gray-500">Hauteur 3D</span>
             <span>{zone.mounted === true ? `${zone.heightCm ?? 120} cm` : 'À plat'}</span>
           </div>
+        )}
+        {source && (
+          <>
+            <div className="pt-2 mt-2 border-t border-gray-800" />
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">OSM</div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Way</span>
+              <span className="font-mono text-right">{zoneSourceValue(source.osmWayId)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Nom source</span>
+              <span className="text-right">{zoneSourceValue(source.name)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Type</span>
+              <span className="text-right">{zoneSourceValue(source.buildingType ?? source.semanticType)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Type brut</span>
+              <span className="text-right">{zoneSourceValue(source.buildingTypeRaw ?? source.building)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Tag sémantique</span>
+              <span className="text-right">
+                {source.semanticSourceTag
+                  ? `${source.semanticSourceTag}=${zoneSourceValue(source.semanticRawValue)}`
+                  : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Rôle géométrie</span>
+              <span className="text-right">{zoneSourceValue(source.geometryRole)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Confiance</span>
+              <span className="text-right">{zoneSourceValue(source.buildingConfidence)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Bâtiment détecté</span>
+              <span className="text-right">{zoneSourceValue(source.isLikelyBuilding)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Hauteur OSM</span>
+              <span className="text-right">{zoneSourceValue(source.height)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Niveaux OSM</span>
+              <span className="text-right">{zoneSourceValue(source['building:levels'])}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Source hauteur</span>
+              <span className="text-right">{zoneSourceValue(source.heightSource)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">Hauteur par défaut</span>
+              <span className="text-right">{zoneSourceValue(source.defaultHeightApplied)}</span>
+            </div>
+            {osmTags.length > 0 && (
+              <div className="space-y-1 rounded-lg border border-gray-800 bg-gray-950/40 px-2 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tags OSM</div>
+                <div className="space-y-1">
+                  {osmTags.map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-3">
+                      <span className="font-mono text-gray-500">{key}</span>
+                      <span className="text-right break-all">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
         {isForbidden && (
           <div className="rounded-lg border border-red-900 bg-red-950/20 px-2 py-2 text-[11px] leading-snug text-red-200">

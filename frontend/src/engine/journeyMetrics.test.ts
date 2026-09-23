@@ -86,7 +86,7 @@ describe('formatting helpers', () => {
 
   it('exposes a label and value for every metric id', () => {
     const summary = computeJourneySummary([
-      customer({ customerId: 1, distanceCm: 10_000, totalTimeSeconds: 120 }),
+      customer({ customerId: 1, distanceCm: 10_000, totalTimeSeconds: 120, exitTimeSeconds: 120, active: false }),
     ]);
     expect(journeyMetricDisplay('total-distance', summary)).toEqual({
       label: 'Distance totale',

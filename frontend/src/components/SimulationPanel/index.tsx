@@ -1108,13 +1108,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               </button>
             </div>
             <p className="text-[11px] text-gray-500">
-              Cliquez sur le sol 3D pour poser {waypointPlacementType === 'entry'
-                ? 'une entrée'
-                : waypointPlacementType === 'exit'
-                  ? 'une sortie'
-                  : waypointPlacementType === 'transit'
-                    ? 'un waypoint'
-                    : 'un point'}.
+              {waypointPlacementType === null
+                ? 'Sélectionnez Entrée, Waypoint ou Sortie, puis cliquez sur le sol 3D.'
+                : `Cliquez sur le sol 3D pour poser ${
+                  waypointPlacementType === 'entry'
+                    ? 'une entrée'
+                    : waypointPlacementType === 'exit'
+                      ? 'une sortie'
+                      : 'un waypoint'
+                }.`}
             </p>
           </div>
           <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-2 space-y-2">

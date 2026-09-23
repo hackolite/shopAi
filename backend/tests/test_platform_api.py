@@ -815,6 +815,43 @@ def test_store_layout_import_osm_without_bounds_derives_extent_from_nodes() -> N
     assert zones[0]["mounted"] is True
 
 
+def test_store_layout_import_osm_rebases_geometries_when_bounds_are_inconsistent() -> None:
+    client = _make_client()
+    _register(client, name="OSM Inconsistent Bounds", email="osm-inconsistent-bounds@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <bounds minlat="14.6002" minlon="-61.0797" maxlat="14.6008" maxlon="-61.0793"/>
+  <node id="1" lat="14.6009" lon="-61.0799"/>
+  <node id="2" lat="14.6009" lon="-61.0798"/>
+  <node id="3" lat="14.6008" lon="-61.0798"/>
+  <node id="4" lat="14.6008" lon="-61.0799"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="retail"/>
+  </way>
+</osm>
+"""
+    response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM bounds incohérents", "description": "zones rebased to store origin"},
+        files={"file": ("inconsistent-bounds.osm", osm_xml, "application/xml")},
+    )
+    assert response.status_code == 200, response.text
+
+    scene = response.json()["payload"]["scene"]
+    zones = scene["store"]["zones"]
+    assert len(zones) == 1
+
+    all_x = [point["x"] for zone in zones for point in zone["points"]]
+    all_z = [point["z"] for zone in zones for point in zone["points"]]
+
+    assert min(all_x) >= 0.0
+    assert min(all_z) >= 0.0
+    assert max(all_x) <= scene["store"]["dimensions"]["width"]
+    assert max(all_z) <= scene["store"]["dimensions"]["depth"]
+
+
 def test_project_import_snapshot_normalizes_dimension_and_face_aliases() -> None:
     client = _make_client()
     _register(client, name="Snapshot Importer", email="snapshot-importer@example.com")

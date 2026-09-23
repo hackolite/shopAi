@@ -1562,14 +1562,65 @@ def osm_xml_to_retail_layout(
 
     if all_x:
 
+        min_scene_x = min(all_x)
+        max_scene_x = max(all_x)
+        min_scene_z = min(all_z)
+        max_scene_z = max(all_z)
+
+        # Rebase all imported geometries to the store origin so the generated
+        # grid always starts at (0, 0) and covers the whole implantation.
+        if min_scene_x != 0.0 or min_scene_z != 0.0:
+
+            offset_x = -min_scene_x
+            offset_z = -min_scene_z
+
+            for zone in zones:
+
+                zone["x"] = round(
+                    float(zone["x"]) + offset_x,
+                    2,
+                )
+
+                zone["z"] = round(
+                    float(zone["z"]) + offset_z,
+                    2,
+                )
+
+                shifted_points: list[dict[str, float]] = []
+
+                for point in zone["points"]:
+
+                    shifted_points.append({
+                        "x": round(
+                            float(point["x"]) + offset_x,
+                            2,
+                        ),
+                        "z": round(
+                            float(point["z"]) + offset_z,
+                            2,
+                        ),
+                    })
+
+                zone["points"] = shifted_points
+
+        geometry_bounds_width = max(
+            1.0,
+            max_scene_x - min_scene_x,
+        )
+
+        geometry_bounds_depth = max(
+            1.0,
+            max_scene_z - min_scene_z,
+        )
+
         scene_width = max(
             projected_bounds_width,
-            max(all_x),
+            geometry_bounds_width,
         )
 
         scene_depth = max(
             projected_bounds_depth,
-            max(all_z),
+            geometry_bounds_depth,
         )
 
     else:

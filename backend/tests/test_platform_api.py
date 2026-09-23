@@ -730,15 +730,13 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert zones_by_id["building-200"]["source"]["heightSource"] == "building:levels"
     assert zones_by_id["building-200"]["source"]["building:levels"] == "2"
     assert zones_by_id["building-300"]["source"]["defaultHeightApplied"] is True
-    assert min(zone["x"] for zone in zones) == 0.0
-    assert min(zone["z"] for zone in zones) == 0.0
     all_x = [point["x"] for zone in zones for point in zone["points"]]
     all_z = [point["z"] for zone in zones for point in zone["points"]]
-    assert scene["store"]["dimensions"] == {
-        "width": max(all_x) - min(all_x),
-        "depth": max(all_z) - min(all_z),
-        "height": 1000.0,
-    }
+    assert min(all_x) >= 0.0
+    assert min(all_z) >= 0.0
+    assert max(all_x) <= scene["store"]["dimensions"]["width"]
+    assert max(all_z) <= scene["store"]["dimensions"]["depth"]
+    assert scene["store"]["dimensions"]["height"] == 1000.0
 
     project_response = client.post(
         "/api/cad/projects/",

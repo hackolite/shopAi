@@ -42,7 +42,6 @@ describe('Inspector OSM zone metadata', () => {
           id: 'store-osm',
           name: 'OSM Store',
           position: [0, 0, 0],
-          rotation: [0, 0, 0],
           dimensions: { width: 1200, depth: 900, height: 1000 },
           floorColor: '#1e2230',
           wallColor: '#404060',

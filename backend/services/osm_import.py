@@ -844,9 +844,14 @@ def osm_xml_to_retail_layout(
     # PARSING
     # ========================================================
 
-    root = ET.fromstring(
-        xml_text
-    )
+    try:
+        root = ET.fromstring(
+            xml_text
+        )
+    except ET.ParseError as exc:
+        raise ValueError(
+            str(exc)
+        ) from exc
 
     # ========================================================
     # NODES
@@ -1202,13 +1207,9 @@ def osm_xml_to_retail_layout(
         min_z = min(zs)
         max_z = max(zs)
 
-        x = (
-            min_x + max_x
-        ) / 2.0
+        x = min_x
 
-        z = (
-            min_z + max_z
-        ) / 2.0
+        z = min_z
 
         width = max(
             max_x - min_x,
@@ -1545,22 +1546,36 @@ def osm_xml_to_retail_layout(
                 point["z"]
             )
 
+    projected_bounds_width = max(
+        0.0,
+        (
+            max_lon - min_lon
+        ) * meters_per_degree_lon * 100.0,
+    )
+
+    projected_bounds_depth = max(
+        0.0,
+        (
+            max_lat - min_lat
+        ) * meters_per_degree_lat * 100.0,
+    )
+
     if all_x:
 
-        scene_width = (
-            max(all_x)
-            - min(all_x)
+        scene_width = max(
+            projected_bounds_width,
+            max(all_x),
         )
 
-        scene_depth = (
-            max(all_z)
-            - min(all_z)
+        scene_depth = max(
+            projected_bounds_depth,
+            max(all_z),
         )
 
     else:
 
-        scene_width = 0.0
-        scene_depth = 0.0
+        scene_width = projected_bounds_width
+        scene_depth = projected_bounds_depth
 
     # ========================================================
     # HAUTEUR GLOBALE

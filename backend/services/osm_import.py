@@ -240,7 +240,6 @@ def osm_xml_to_retail_layout(
             "cols": None,
             "shape": "polygon",
             "color": color,
-            "opacity": 1,
             "points": points,
             "pathMode": "linear",
             "mounted": True,

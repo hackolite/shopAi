@@ -651,7 +651,7 @@ export default function App() {
                       <Field label="Nom de l’implantation"><input required value={layoutOsmName} onChange={(event) => setLayoutOsmName(event.target.value)} placeholder="Ex. Quartier centre-ville" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
                       <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`) et couleur par type de bâtiment.</p>
+                      <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut et bâtiment en rouge.</p>
                       <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
                     </form>
                     <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Implantations enregistrées">

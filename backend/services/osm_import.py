@@ -292,7 +292,10 @@ def osm_xml_to_retail_layout(
                 "OSM footprint node geometry preserved; no simplification, "
                 "rotation, or non-uniform scaling"
             ),
-            "colorPolicy": "deterministic color map by OSM building type, with fallback for other types",
+            "colorPolicy": (
+                "deterministic color map by OSM building type; "
+                "missing-height buildings are forced to red"
+            ),
             "buildingTypeColors": BUILDING_TYPE_COLORS,
             "heightPolicy": (
                 "explicit OSM height when available; otherwise building:levels × 3m; "

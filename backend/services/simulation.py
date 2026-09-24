@@ -205,6 +205,22 @@ def _walkable_components(geometry) -> list[Polygon]:
     ]
 
 
+def _has_agent_navigable_space(component: Polygon) -> bool:
+    """Return True when at least one agent centre can fit inside the component."""
+    clearance_m = _cm_to_m(AGENT_RADIUS_CM)
+    navigable = component.buffer(-clearance_m)
+    if navigable.is_empty:
+        return False
+    return any(
+        isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
+        for geom in getattr(navigable, "geoms", [navigable])
+    )
+
+
+def _walkable_navigable_components(geometry) -> list[Polygon]:
+    return [component for component in _walkable_components(geometry) if _has_agent_navigable_space(component)]
+
+
 def _subtract_obstacle_from_walkable(
     walkable,
     obstacle: Polygon | MultiPolygon,
@@ -215,7 +231,7 @@ def _subtract_obstacle_from_walkable(
     if overlap.is_empty or overlap.area <= MIN_WALKABLE_COMPONENT_AREA_M2:
         return walkable, None
     next_walkable = walkable.difference(obstacle).buffer(0)
-    return next_walkable, split_detail if len(_walkable_components(next_walkable)) > 1 else None
+    return next_walkable, split_detail if len(_walkable_navigable_components(next_walkable)) > 1 else None
 
 
 def _apply_scene_obstacles(
@@ -564,7 +580,7 @@ def _build_walkable_geometry(scene: SceneData) -> Polygon:
     )
     walkable, split_detail = _apply_scene_obstacles(scene, store_polygon)
     walkable = walkable.buffer(0)
-    if len(_walkable_components(walkable)) > 1:
+    if len(_walkable_navigable_components(walkable)) > 1:
         raise SimulationConstraintViolation(split_detail or split_accessible_area_detail())
     if isinstance(walkable, MultiPolygon):
         walkable = max(walkable.geoms, key=lambda geom: geom.area)

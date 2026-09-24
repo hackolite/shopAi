@@ -370,6 +370,70 @@ def test_split_forbidden_zone_is_reported_before_simulation_start() -> None:
     assert "coupe la zone accessible des piétons" in detail["message"]
 
 
+def test_thin_isolated_strip_does_not_trigger_split_accessible_area() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "almost-full-width-barrier",
+            "type": "forbidden",
+            "label": "Barrière avec filet étroit",
+            "shape": "rectangle",
+            "color": "#ef4444",
+            "x": 25.0,
+            "z": 0.0,
+            "width": 100.0,
+            "depth": 3000.0,
+        }
+    ]
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.2,
+                "maxCustomers": 4,
+                "randomSeed": 5,
+                "waypoints": [
+                    {
+                        "id": "entry-main",
+                        "type": "entry",
+                        "label": "Entrée",
+                        "x": 2500.0,
+                        "z": 200.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                    {
+                        "id": "exit-main",
+                        "type": "exit",
+                        "label": "Sortie",
+                        "x": 2500.0,
+                        "z": 2800.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

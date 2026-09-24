@@ -149,6 +149,12 @@ class SimulationConstraintViolation(ValueError):
         self.detail = detail
 
 
+class SimulationRuntimeValidationError(RuntimeError):
+    def __init__(self, detail: dict[str, object]):
+        super().__init__(str(detail.get("message", "Simulation runtime validation error")))
+        self.detail = detail
+
+
 def _split_accessible_area_detail(
     *,
     element_type: str,
@@ -182,6 +188,12 @@ def _split_accessible_area_detail(
 
 def split_accessible_area_detail() -> dict[str, object]:
     return _split_accessible_area_detail(element_type="obstacle")
+
+
+def reraise_known_simulation_runtime_error(exc: RuntimeError) -> None:
+    if SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET in str(exc):
+        raise SimulationRuntimeValidationError(split_accessible_area_detail()) from exc
+    raise exc
 
 
 def _walkable_components(geometry) -> list[Polygon]:
@@ -936,54 +948,57 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     walkable = _build_walkable_geometry(scene)
     entries, transit_waypoints, exits = _partition_waypoints(scene, config)
     _validate_waypoint_constraints([*entries, *transit_waypoints, *exits], walkable)
-    sim = jps.Simulation(
-        model=jps.CollisionFreeSpeedModel(),
-        geometry=walkable,
-        dt=SIMULATION_DT_S,
-    )
-
     exit_stage_ids: dict[str, int] = {}
     waypoint_stage_ids: dict[str, int] = {}
     waypoint_by_stage_id: dict[int, SimulationWaypoint] = {}
     waypoint_runtimes: dict[str, _WaypointRuntime] = {}
     metrics_waypoints = [*entries, *transit_waypoints, *exits]
-    for waypoint in metrics_waypoints:
-        if waypoint.type == "exit":
-            approach_stage_id = sim.add_waypoint_stage(
-                _safe_waypoint_point(
-                    waypoint,
-                    walkable,
-                    clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
-                ),
-                _cm_to_m(max(40.0, waypoint.radiusCm)),
-            )
-            waypoint_stage_ids[waypoint.id] = approach_stage_id
-            waypoint_by_stage_id[approach_stage_id] = waypoint
-            exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
-        elif waypoint.retentionSeconds > 0:
-            stage_id = sim.add_queue_stage(
-                _queue_slot_positions(waypoint, walkable)
-            )
-            runtime = _WaypointRuntime(
-                waypoint=waypoint,
-                stage_id=stage_id,
-                stage=sim.get_stage(stage_id),
-                release_interval_s=float(waypoint.retentionSeconds),
-            )
-            waypoint_runtimes[waypoint.id] = runtime
-            waypoint_stage_ids[waypoint.id] = stage_id
-            waypoint_by_stage_id[stage_id] = waypoint
-        else:
-            stage_id = sim.add_waypoint_stage(
-                _safe_waypoint_point(
-                    waypoint,
-                    walkable,
-                    clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
-                ),
-                _cm_to_m(max(40.0, waypoint.radiusCm)),
-            )
-            waypoint_stage_ids[waypoint.id] = stage_id
-            waypoint_by_stage_id[stage_id] = waypoint
+    try:
+        sim = jps.Simulation(
+            model=jps.CollisionFreeSpeedModel(),
+            geometry=walkable,
+            dt=SIMULATION_DT_S,
+        )
+
+        for waypoint in metrics_waypoints:
+            if waypoint.type == "exit":
+                approach_stage_id = sim.add_waypoint_stage(
+                    _safe_waypoint_point(
+                        waypoint,
+                        walkable,
+                        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+                    ),
+                    _cm_to_m(max(40.0, waypoint.radiusCm)),
+                )
+                waypoint_stage_ids[waypoint.id] = approach_stage_id
+                waypoint_by_stage_id[approach_stage_id] = waypoint
+                exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
+            elif waypoint.retentionSeconds > 0:
+                stage_id = sim.add_queue_stage(
+                    _queue_slot_positions(waypoint, walkable)
+                )
+                runtime = _WaypointRuntime(
+                    waypoint=waypoint,
+                    stage_id=stage_id,
+                    stage=sim.get_stage(stage_id),
+                    release_interval_s=float(waypoint.retentionSeconds),
+                )
+                waypoint_runtimes[waypoint.id] = runtime
+                waypoint_stage_ids[waypoint.id] = stage_id
+                waypoint_by_stage_id[stage_id] = waypoint
+            else:
+                stage_id = sim.add_waypoint_stage(
+                    _safe_waypoint_point(
+                        waypoint,
+                        walkable,
+                        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+                    ),
+                    _cm_to_m(max(40.0, waypoint.radiusCm)),
+                )
+                waypoint_stage_ids[waypoint.id] = stage_id
+                waypoint_by_stage_id[stage_id] = waypoint
+    except RuntimeError as exc:
+        reraise_known_simulation_runtime_error(exc)
 
     arrival_times: list[float] = []
     arrival_rate = max(0.0, float(config.arrivalRatePerSecond))

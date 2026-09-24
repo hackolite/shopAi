@@ -151,7 +151,21 @@ const RECORDING_TIMESLICE_MS = 1000;
  * {@link computeRecordingDpr}) so the captured frames stay small and the
  * real-time encoder does not stall the render loop.
  */
-const DEFAULT_DPR: [number, number] = [1, 2];
+const DEFAULT_DPR: [number, number] = [1, 1.5];
+/** Lower bound the adaptive DPR controller is allowed to reach on slow devices. */
+const ADAPTIVE_DPR_MIN = 0.85;
+/** Upper bound targeted by the adaptive DPR controller on fast devices. */
+const ADAPTIVE_DPR_MAX = DEFAULT_DPR[1];
+/** Seconds of frame-time history used before adjusting DPR. */
+const ADAPTIVE_DPR_SAMPLE_SECONDS = 0.75;
+/** DPR adjustment step (small to avoid visible pumping). */
+const ADAPTIVE_DPR_STEP = 0.1;
+/** If FPS drops below this threshold, lower DPR. */
+const ADAPTIVE_DPR_DOWN_FPS = 48;
+/** If FPS rises above this threshold, raise DPR. */
+const ADAPTIVE_DPR_UP_FPS = 57;
+/** Shadow map size used in the editor directional light. */
+const EDITOR_SHADOW_MAP_SIZE = 1536;
 
 // ─── Camera state persistence across Canvas remounts ──────────────────────────
 // When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
@@ -311,6 +325,16 @@ const SEMI_ROT: Record<'front' | 'back' | 'right' | 'left', [number, number, num
 };
 
 // ─── 3D text sprite (captured by canvas.captureStream unlike Html overlays) ───
+function configureOverlayTexture(texture: THREE.CanvasTexture, maxAnisotropy: number): THREE.CanvasTexture {
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.anisotropy = Math.max(1, Math.min(8, maxAnisotropy));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function makeTextTexture(text: string, isSelected = false): THREE.CanvasTexture {
   const fontSize = 16;
   const padding  = 8;
@@ -386,6 +410,11 @@ function PlanogramFaceOverlay({
   D: number;
   face: OverlayFace;
 }) {
+  const gl = useThree((state) => state.gl);
+  const maxTextureAnisotropy = useMemo(
+    () => Math.max(1, gl.capabilities.getMaxAnisotropy()),
+    [gl],
+  );
   const { planogramDetails } = usePlanogramStore();
   const setSelection    = useSceneStore((state) => state.setSelection);
   const selectZone      = useZoneStore((state) => state.selectZone);
@@ -485,7 +514,7 @@ function PlanogramFaceOverlay({
       }
     }
 
-    const tex = new THREE.CanvasTexture(canvas);
+    const tex = configureOverlayTexture(new THREE.CanvasTexture(canvas), maxTextureAnisotropy);
     // The back overlay plane is rotated π about Y (see position/rotation below). We
     // deliberately keep the texture un-flipped so the back reads as a true MIRROR of
     // the front: data column 0 renders at the plane's local −X, which the π rotation
@@ -498,7 +527,7 @@ function PlanogramFaceOverlay({
   // rebuilt each time one of THIS planogram's product images lands in the shared
   // cache — never when unrelated planograms' images load.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planogram, products, loadedImages, loadedImagesKey]);
+  }, [planogram, products, loadedImages, loadedImagesKey, maxTextureAnisotropy]);
 
   useEffect(() => {
     return () => { texture?.dispose(); };
@@ -532,8 +561,8 @@ function PlanogramFaceOverlay({
       ctx.strokeRect(cx + 1, cy + 1, cw, ch);
     }
 
-    return new THREE.CanvasTexture(canvas);
-  }, [planogram, selectedCellIdsKey]);
+    return configureOverlayTexture(new THREE.CanvasTexture(canvas), maxTextureAnisotropy);
+  }, [planogram, selectedCellIdsKey, maxTextureAnisotropy]);
 
   useEffect(() => {
     return () => { highlightTexture?.dispose(); };
@@ -685,16 +714,31 @@ function PlanogramFaceOverlay({
 
   return (
     <group position={position} rotation={rotation}>
-      <mesh onClick={handleClick}>
+      <mesh onClick={handleClick} renderOrder={10}>
         <planeGeometry args={[planoW, planoH]} />
-        <meshBasicMaterial map={texture} transparent opacity={OVERLAY_OPACITY} depthWrite={false} />
+        <meshBasicMaterial
+          map={texture}
+          transparent
+          opacity={OVERLAY_OPACITY}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
       </mesh>
       {highlightTexture && (
         // Selection highlight plane sits just in front of the product plane
         // (along its local normal) and ignores pointer events.
-        <mesh position={[0, 0, OVERLAY_Z_OFFSET / 2]} raycast={() => null}>
+        <mesh position={[0, 0, OVERLAY_Z_OFFSET / 2]} raycast={() => null} renderOrder={11}>
           <planeGeometry args={[planoW, planoH]} />
-          <meshBasicMaterial map={highlightTexture} transparent depthWrite={false} />
+          <meshBasicMaterial
+            map={highlightTexture}
+            transparent
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+          />
         </mesh>
       )}
     </group>
@@ -3315,6 +3359,51 @@ function CameraStateSync({ savedPosition }: { savedPosition?: [number, number, n
 }
 
 /**
+ * Keeps the viewport smooth by adapting DPR based on recent frame time.
+ * This sacrifices a bit of pixel sharpness during heavy interactions to
+ * preserve responsiveness, then restores quality when the scene is lighter.
+ */
+function AdaptiveDprManager({ enabled }: { enabled: boolean }) {
+  const setDpr = useThree((state) => state.setDpr);
+  const sampleElapsed = useRef(0);
+  const sampleFrames = useRef(0);
+  const currentDpr = useRef(ADAPTIVE_DPR_MAX);
+
+  useEffect(() => {
+    sampleElapsed.current = 0;
+    sampleFrames.current = 0;
+    if (!enabled) return;
+    const deviceDpr = typeof window !== 'undefined' ? window.devicePixelRatio : ADAPTIVE_DPR_MAX;
+    const initial = Math.max(ADAPTIVE_DPR_MIN, Math.min(ADAPTIVE_DPR_MAX, deviceDpr));
+    currentDpr.current = initial;
+    setDpr(initial);
+  }, [enabled, setDpr]);
+
+  useFrame((_, delta) => {
+    if (!enabled) return;
+    sampleElapsed.current += delta;
+    sampleFrames.current += 1;
+    if (sampleElapsed.current < ADAPTIVE_DPR_SAMPLE_SECONDS) return;
+
+    const fps = sampleFrames.current / Math.max(sampleElapsed.current, 1e-6);
+    sampleElapsed.current = 0;
+    sampleFrames.current = 0;
+
+    let next = currentDpr.current;
+    if (fps < ADAPTIVE_DPR_DOWN_FPS) {
+      next = Math.max(ADAPTIVE_DPR_MIN, currentDpr.current - ADAPTIVE_DPR_STEP);
+    } else if (fps > ADAPTIVE_DPR_UP_FPS) {
+      next = Math.min(ADAPTIVE_DPR_MAX, currentDpr.current + ADAPTIVE_DPR_STEP);
+    }
+    if (Math.abs(next - currentDpr.current) < 1e-6) return;
+    currentDpr.current = next;
+    setDpr(next);
+  });
+
+  return null;
+}
+
+/**
  * When BEV mode is activated, snaps the camera to a top-down position above the
  * store centre. The OrbitControls maxPolarAngle restriction (set in SceneContent)
  * then prevents the user from rotating away from the top-down view.
@@ -3348,7 +3437,7 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
 }
 
 
-function SceneContent({ projectId }: { projectId: string | null }) {
+function SceneContent({ projectId, adaptiveDprEnabled }: { projectId: string | null; adaptiveDprEnabled: boolean }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
   const { activeTool, bevMode } = useUIStore();
   const { zones, selectedZoneId, selectedZoneIds, selectZone, polygonDraft } = useZoneStore();
@@ -3465,7 +3554,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           position={[15, 25, 15]}
           intensity={0.9}
           castShadow
-          shadow-mapSize={[2048, 2048]}
+          shadow-mapSize={[EDITOR_SHADOW_MAP_SIZE, EDITOR_SHADOW_MAP_SIZE]}
           shadow-bias={-0.00035}
           shadow-normalBias={0.02}
         />
@@ -3544,6 +3633,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
         <CameraStateSync savedPosition={_persistedCameraState?.position} />
+        <AdaptiveDprManager enabled={adaptiveDprEnabled} />
         <BEVCameraController store={scene.store} />
         <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>
@@ -3717,7 +3807,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
         >
           <color attach="background" args={['#111827']} />
           <Suspense fallback={null}>
-            <SceneContent projectId={projectId} />
+            <SceneContent projectId={projectId} adaptiveDprEnabled={recordingDpr == null} />
             <JourneyMetricsHud />
             <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
               <GizmoViewport axisColors={['#e84545', '#52b788', '#4a9eff']} />

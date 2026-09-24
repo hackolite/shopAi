@@ -577,11 +577,24 @@ def _normalize_polygon(geometry) -> Polygon | None:
     return geometry if isinstance(geometry, Polygon) else None
 
 
+_WALKABLE_BUFFER_CACHE: dict[tuple[int, float], Polygon | None] = {}
+
+
 def _walkable_with_clearance(walkable: Polygon, clearance_cm: float) -> Polygon | None:
+    cache_key = (id(walkable), float(clearance_cm))
+    if cache_key in _WALKABLE_BUFFER_CACHE:
+        return _WALKABLE_BUFFER_CACHE[cache_key]
+    if len(_WALKABLE_BUFFER_CACHE) > 100:
+        _WALKABLE_BUFFER_CACHE.clear()
+
     clearance_m = _cm_to_m(max(0.0, clearance_cm))
     if clearance_m <= 0:
-        return walkable
-    return _normalize_polygon(walkable.buffer(-clearance_m))
+        res = walkable
+    else:
+        res = _normalize_polygon(walkable.buffer(-clearance_m))
+
+    _WALKABLE_BUFFER_CACHE[cache_key] = res
+    return res
 
 
 def _closest_walkable_point(point: tuple[float, float], walkable: Polygon) -> tuple[float, float]:

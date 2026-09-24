@@ -103,6 +103,8 @@ export interface FloorZone {
   mounted?: boolean;
   /** Extrusion height in cm for mounted floor drawings. */
   heightCm?: number;
+  /** Whether this zone blocks pedestrians in simulation (false = traversable). */
+  pedestrianObstacle?: boolean;
   /** Optional import/source metadata (e.g. OSM tags for imported buildings). */
   source?: FloorZoneSource;
 }

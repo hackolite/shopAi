@@ -714,6 +714,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
   const isRotatable = isForbidden && zone.shape !== 'circle';
   const pointCount = zone.points?.length ?? 0;
   const isPolygon = zone.shape === 'polygon';
+  const isPedestrianObstacle = zone.pedestrianObstacle ?? true;
   const source = zoneSource(zone);
   const osmTags = source?.tags ? Object.entries(source.tags).sort(([left], [right]) => left.localeCompare(right)) : [];
 
@@ -774,6 +775,17 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
                 onChange={(event) => save({ ...zone, mounted: event.target.checked })}
                 className="accent-blue-500"
               />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-gray-300">
+              <span className="text-xs text-gray-500 w-16 shrink-0">Piétons</span>
+              <select
+                value={isPedestrianObstacle ? 'obstacle' : 'traversable'}
+                onChange={(event) => save({ ...zone, pedestrianObstacle: event.target.value === 'obstacle' })}
+                className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="obstacle">Obstacle</option>
+                <option value="traversable">Traversable</option>
+              </select>
             </label>
             {zone.mounted === true && (
               <div className="flex items-center gap-2">
@@ -962,6 +974,12 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
           </>
         )}
         {isForbidden && (
+          <div className="flex justify-between">
+            <span className="text-gray-500">Navigation</span>
+            <span>{isPedestrianObstacle ? 'Obstacle' : 'Traversable'}</span>
+          </div>
+        )}
+        {isForbidden && isPedestrianObstacle && (
           <div className="rounded-lg border border-red-900 bg-red-950/20 px-2 py-2 text-[11px] leading-snug text-red-200">
             Ce dessin au sol est un obstacle piéton : les agents le contournent comme un mobilier, à plat ou monté.
           </div>

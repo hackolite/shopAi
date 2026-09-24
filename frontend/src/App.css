@@ -148,6 +148,12 @@ body {
 .hub-disclosure { margin-top: 24px; padding: 20px; border: 1px solid #374151; border-radius: 12px; background: #111827; }
 .hub-disclosure summary { cursor: pointer; font-weight: 600; }
 .hub pre { padding: 20px; margin-top: 20px; overflow-x: auto; background: #030712; border-radius: 8px; font-size: 14px; }
+.hub-log-textarea {
+  min-height: 300px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  white-space: pre;
+}
 .hub code { overflow-wrap: anywhere; font-size: 14px; }
 .hub-capabilities { list-style: none; padding: 0; margin: 24px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .hub-capabilities li { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: #111827; border: 1px solid #1f2937; padding: 20px; border-radius: 12px; }

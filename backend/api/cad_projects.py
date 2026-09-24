@@ -32,6 +32,7 @@ from services.layout_audit import (
     validate_planogram,
     validate_store,
 )
+from services.diagnostic_logs import append_log
 from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import (
@@ -78,6 +79,30 @@ def _get_project_lock(project_id: str) -> threading.Lock:
         if project_id not in _project_locks:
             _project_locks[project_id] = threading.Lock()
         return _project_locks[project_id]
+
+
+def _simulation_log_details(
+    project_id: str,
+    *,
+    mode: str,
+    session_id: str | None = None,
+    config: SimulationConfig | None = None,
+    scene: SceneData | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    details: dict[str, Any] = {
+        "projectId": project_id,
+        "mode": mode,
+        "sessionId": session_id,
+    }
+    if config is not None:
+        details["waypointCount"] = len(config.waypoints)
+    if scene is not None:
+        details["furnitureCount"] = len(scene.furniture)
+        details["zoneCount"] = len(scene.store.zones or [])
+    if error:
+        details["error"] = error
+    return details
 
 
 def _furniture_overlaps(first: FurnitureInstance, second: FurnitureInstance) -> bool:
@@ -829,14 +854,55 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
             if payload.config is not None
             else _load_settings(project_id).simulation
         )
-        return run_flow_simulation(scene, config).model_dump(mode="json")
+        append_log(
+            source="backend",
+            category="simulation-run",
+            message="Simulation run started",
+            details=_simulation_log_details(project_id, mode="batch", config=config, scene=scene),
+        )
+        result = run_flow_simulation(scene, config).model_dump(mode="json")
+        append_log(
+            source="backend",
+            category="simulation-run",
+            message="Simulation run succeeded",
+            details=_simulation_log_details(project_id, mode="batch", config=config, scene=scene),
+        )
+        return result
     except SimulationConstraintViolation as exc:
+        append_log(
+            source="backend",
+            category="simulation-run",
+            level="warning",
+            message="Simulation run rejected by constraints",
+            details=_simulation_log_details(project_id, mode="batch", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except SimulationRuntimeValidationError as exc:
+        append_log(
+            source="backend",
+            category="simulation-run",
+            level="warning",
+            message="Simulation run rejected at runtime validation",
+            details=_simulation_log_details(project_id, mode="batch", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
+        append_log(
+            source="backend",
+            category="simulation-run",
+            level="warning",
+            message="Simulation run failed with invalid payload",
+            details=_simulation_log_details(project_id, mode="batch", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
+        append_log(
+            source="backend",
+            category="simulation-run",
+            level="error",
+            message="Simulation run failed with runtime error",
+            details=_simulation_log_details(project_id, mode="batch", error=str(exc)),
+        )
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
@@ -849,15 +915,55 @@ def start_live_simulation(project_id: str, payload: SimulationRunPayload):
             if payload.config is not None
             else _load_settings(project_id).simulation
         )
+        append_log(
+            source="backend",
+            category="simulation-live-start",
+            message="Live simulation start requested",
+            details=_simulation_log_details(project_id, mode="live", config=config, scene=scene),
+        )
         session_id, result = live_simulation_manager.start(project_id, scene, config)
+        append_log(
+            source="backend",
+            category="simulation-live-start",
+            message="Live simulation started",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, config=config, scene=scene),
+        )
         return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": False}
     except SimulationConstraintViolation as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-start",
+            level="warning",
+            message="Live simulation start rejected by constraints",
+            details=_simulation_log_details(project_id, mode="live", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except SimulationRuntimeValidationError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-start",
+            level="warning",
+            message="Live simulation start rejected at runtime validation",
+            details=_simulation_log_details(project_id, mode="live", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-start",
+            level="warning",
+            message="Live simulation start failed with invalid payload",
+            details=_simulation_log_details(project_id, mode="live", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-start",
+            level="error",
+            message="Live simulation start failed with runtime error",
+            details=_simulation_log_details(project_id, mode="live", error=str(exc)),
+        )
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
@@ -905,17 +1011,57 @@ def update_live_simulation(project_id: str, session_id: str, payload: Simulation
             raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
         scene = SceneData.model_validate(payload.scene) if payload.scene is not None else session.scene
         config = SimulationConfig.model_validate(payload.config) if payload.config is not None else session.config
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            message="Live simulation update requested",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, config=config, scene=scene),
+        )
         result = session.update(scene, config)
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            message="Live simulation updated",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, config=config, scene=scene),
+        )
         return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": session.paused}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
     except SimulationConstraintViolation as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            level="warning",
+            message="Live simulation update rejected by constraints",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except SimulationRuntimeValidationError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            level="warning",
+            message="Live simulation update rejected at runtime validation",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            level="warning",
+            message="Live simulation update failed with invalid payload",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            level="error",
+            message="Live simulation update failed with runtime error",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id, error=str(exc)),
+        )
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 

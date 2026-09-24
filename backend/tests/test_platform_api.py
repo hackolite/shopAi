@@ -764,6 +764,15 @@ def test_store_layout_import_osm_rejects_invalid_xml() -> None:
     assert response.status_code == 422, response.text
     assert response.json()["detail"].startswith("Invalid OSM document:")
 
+    logs_response = client.get("/api/platform/logs?limit=50")
+    assert logs_response.status_code == 200, logs_response.text
+    logs = logs_response.json()["logs"]
+    assert any(
+        entry.get("category") == "osm-import"
+        and entry.get("message") == "OSM import failed: invalid OSM document"
+        for entry in logs
+    )
+
 
 def test_store_layout_import_osm_rejects_non_utf8_payload() -> None:
     client = _make_client()
@@ -776,6 +785,34 @@ def test_store_layout_import_osm_rejects_non_utf8_payload() -> None:
     )
     assert response.status_code == 422, response.text
     assert response.json()["detail"] == "File must be UTF-8 encoded OSM XML text"
+
+
+def test_client_logs_are_persisted_and_returned_as_text() -> None:
+    client = _make_client()
+    _register(client, name="Logger User", email="logger@example.com")
+
+    post_response = client.post(
+        "/api/platform/logs/client",
+        json={
+            "source": "frontend",
+            "category": "3d-load",
+            "message": "3D project load failed",
+            "details": {"projectId": "demo", "error": "boom"},
+        },
+    )
+    assert post_response.status_code == 200, post_response.text
+    assert post_response.json()["logged"] is True
+
+    logs_response = client.get("/api/platform/logs?limit=20")
+    assert logs_response.status_code == 200, logs_response.text
+    payload = logs_response.json()
+    assert "3D project load failed" in payload["text"]
+    assert any(
+        entry.get("source") == "frontend"
+        and entry.get("category") == "3d-load"
+        and entry.get("message") == "3D project load failed"
+        for entry in payload["logs"]
+    )
 
 
 def test_store_layout_import_osm_without_bounds_derives_extent_from_nodes() -> None:

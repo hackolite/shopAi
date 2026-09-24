@@ -40,7 +40,8 @@ EXIT_FALLBACK_MARGIN_CM = 120.0
 AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 EXIT_REMOVAL_RADIUS_CM = 40.0
-EXIT_REMOVAL_RETRY_RADII_CM = (40.0, 30.0, 20.0, 10.0, 5.0)
+EXIT_REMOVAL_RETRY_MIN_RADIUS_CM = 5.0
+EXIT_REMOVAL_RETRY_FACTORS = (1.0, 0.75, 0.5, 0.25, 0.125)
 TOO_CLOSE_TO_AGENT_ERROR_SNIPPET = "too close to agent"
 SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET = "Exclusion splits accessibleArea"
 MIN_WALKABLE_COMPONENT_AREA_M2 = 1e-6
@@ -470,7 +471,12 @@ def _select_polygon_containing(
 
 def _add_exit_stage_with_retry(sim: object, waypoint: SimulationWaypoint, walkable: Polygon) -> int:
     last_split_error: RuntimeError | None = None
-    for radius_cm in EXIT_REMOVAL_RETRY_RADII_CM:
+    tried_radii: set[float] = set()
+    for factor in EXIT_REMOVAL_RETRY_FACTORS:
+        radius_cm = max(EXIT_REMOVAL_RETRY_MIN_RADIUS_CM, EXIT_REMOVAL_RADIUS_CM * factor)
+        if radius_cm in tried_radii:
+            continue
+        tried_radii.add(radius_cm)
         try:
             return sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable, removal_radius_cm=radius_cm))
         except RuntimeError as exc:

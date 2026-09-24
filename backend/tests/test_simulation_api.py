@@ -1311,22 +1311,25 @@ def test_live_simulation_exposes_analytics_and_queue_wait_times() -> None:
     for _ in range(120):
         tick = client.post(
             f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
-            json={"steps": 4},
+            json={"steps": 4, "includeWaypointMetrics": False},
         )
         assert tick.status_code == 200, tick.text
     assert tick is not None
-    queue_metrics = next(
-        item for item in tick.json()["result"]["waypoints"] if item["waypointId"] == "queue-main"
-    )
-    assert queue_metrics["completedWaits"] > 0, "agents must be released from the retention queue"
-    assert queue_metrics["averageWaitSeconds"] >= 2.0
-    assert queue_metrics["maxWaitSeconds"] >= queue_metrics["averageWaitSeconds"]
+    assert tick.json()["result"]["waypoints"] == []
 
     analytics_response = client.get(
         f"/api/cad/projects/{project_id}/simulation/live/{session_id}/analytics"
     )
     assert analytics_response.status_code == 200, analytics_response.text
     analytics = analytics_response.json()["analytics"]
+    queue_metrics = next(
+        item
+        for item in analytics_response.json()["waypoints"]
+        if item["waypointId"] == "queue-main"
+    )
+    assert queue_metrics["completedWaits"] > 0, "agents must be released from the retention queue"
+    assert queue_metrics["averageWaitSeconds"] >= 2.0
+    assert queue_metrics["maxWaitSeconds"] >= queue_metrics["averageWaitSeconds"]
     heatmap = analytics["heatmap"]
     assert heatmap["cols"] > 0 and heatmap["rows"] > 0
     assert len(heatmap["counts"]) == heatmap["cols"] * heatmap["rows"]

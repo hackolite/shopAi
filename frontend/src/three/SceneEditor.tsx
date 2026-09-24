@@ -2327,17 +2327,83 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
   );
 }
 
+function FloorZonePreviewMesh({ zone }: { zone: FloorZone }) {
+  const { scene } = useSceneStore();
+  const zoneCenter = zoneCenterCm(zone);
+  const cx = zoneCenter.x * CM_TO_UNIT;
+  const cz = zoneCenter.z * CM_TO_UNIT;
+  const y = GRID_Y_OFFSET + 0.014;
+  const palette = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
+  const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
+  const fillOpacity = Math.max(0.06, Math.min(0.45, (zone.opacity ?? 0.32) * 0.8));
+  const storeBounds = useMemo(() => (
+    scene?.store
+      ? {
+          storeWidth: scene.store.dimensions.width,
+          storeDepth: scene.store.dimensions.depth,
+          storeX: scene.store.position?.[0] ?? 0,
+          storeZ: scene.store.position?.[2] ?? 0,
+        }
+      : undefined
+  ), [scene?.store]);
+  const shape = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
+
+  return (
+    <mesh position={[cx, y, cz]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={110}>
+      <shapeGeometry args={[shape]} />
+      <meshBasicMaterial
+        color={fillColor}
+        transparent
+        opacity={fillOpacity}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
+
 // ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
+const LARGE_SIMULATION_ZONE_COUNT = 250;
+
 function FloorZoneLayer() {
   const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
+  const playing = useSimulationStore((state) => state.playing);
+  const paused = useSimulationStore((state) => state.paused);
+  const invalidObstacleHighlights = useSimulationStore((state) => state.invalidObstacleHighlights);
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
+  const useReducedZoneSet = playing && !paused && zones.length > LARGE_SIMULATION_ZONE_COUNT;
+  const fullDetailZoneIds = useMemo(() => {
+    if (!useReducedZoneSet) return null;
+    return new Set([
+      ...selectedZoneIds,
+      ...(selectedZoneId ? [selectedZoneId] : []),
+      ...(invalidObstacleHighlights.zoneIds ?? []),
+      ...(invalidObstacleHighlights.allIds ?? []),
+      ...zones.filter((zone) => zone.type !== 'forbidden').map((zone) => zone.id),
+    ]);
+  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, zones]);
+  const detailedZones = useMemo(
+    () => (!useReducedZoneSet || fullDetailZoneIds == null
+      ? zones
+      : zones.filter((zone) => fullDetailZoneIds.has(zone.id))),
+    [fullDetailZoneIds, useReducedZoneSet, zones],
+  );
+  const previewZones = useMemo(
+    () => (!useReducedZoneSet || fullDetailZoneIds == null
+      ? []
+      : zones.filter((zone) => !fullDetailZoneIds.has(zone.id))),
+    [fullDetailZoneIds, useReducedZoneSet, zones],
+  );
 
   return (
     <>
-      {zones.map((zone) => (
+      {previewZones.map((zone) => (
+        <FloorZonePreviewMesh key={`preview-${zone.id}`} zone={zone} />
+      ))}
+      {detailedZones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
       {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (

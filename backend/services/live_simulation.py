@@ -661,11 +661,11 @@ class LiveSimulationSession:
             self.average_load_samples += 1
             self.max_waypoint_load = max(self.max_waypoint_load, max(waypoint_loads))
 
-    def tick(self, steps: int = 1) -> SimulationResult:
+    def tick(self, steps: int = 1, include_waypoint_metrics: bool = True) -> SimulationResult:
         with self.lock:
             self.last_accessed_at = time()
             if self.paused:
-                return self.snapshot()
+                return self.snapshot(include_waypoint_metrics=include_waypoint_metrics)
             n_steps = max(1, int(steps))
             self.pending_pickup_events = []
             for _ in range(n_steps):
@@ -694,7 +694,7 @@ class LiveSimulationSession:
                 self.passages.observe(self.sim, self.stage_to_waypoint_id)
                 self.time_seconds += simsvc.SIMULATION_DT_S
             self._capture_frame()
-            return self.snapshot()
+            return self.snapshot(include_waypoint_metrics=include_waypoint_metrics)
 
     def _record_pickup_if_applicable(self, token: str, released_agent_id: int) -> None:
         """Turn a queue release into a PickupEvent when the queue was a
@@ -766,8 +766,8 @@ class LiveSimulationSession:
             self.last_accessed_at = time()
             return self.analytics_recorder.snapshot()
 
-    def snapshot(self) -> SimulationResult:
-        waypoint_metrics = [
+    def waypoint_metrics_snapshot(self) -> list[WaypointMetrics]:
+        return [
             WaypointMetrics(
                 waypointId=waypoint.id,
                 waypointLabel=waypoint.label,
@@ -792,12 +792,14 @@ class LiveSimulationSession:
             )
             for waypoint in self.metrics_waypoints
         ]
+
+    def _summary_snapshot(self) -> SimulationSummary:
         all_retentions = [
             float(waypoint.retentionSeconds)
             for waypoint in self.transit_waypoints
             if waypoint.retentionSeconds > 0
         ]
-        summary = SimulationSummary(
+        return SimulationSummary(
             spawnedCustomers=self.spawned,
             completedCustomers=self.completed,
             activeCustomers=self.active_agents,
@@ -812,10 +814,17 @@ class LiveSimulationSession:
                 round(sum(all_retentions) / len(all_retentions), 2) if all_retentions else 0.0
             ),
         )
+
+    def analytics_with_waypoints(self) -> tuple[SimulationAnalytics, list[WaypointMetrics]]:
+        with self.lock:
+            self.last_accessed_at = time()
+            return self.analytics_recorder.snapshot(), self.waypoint_metrics_snapshot()
+
+    def snapshot(self, include_waypoint_metrics: bool = True) -> SimulationResult:
         return SimulationResult(
             frames=self.frames[-LIVE_RESPONSE_FRAME_WINDOW:],
-            waypoints=waypoint_metrics,
-            summary=summary,
+            waypoints=self.waypoint_metrics_snapshot() if include_waypoint_metrics else [],
+            summary=self._summary_snapshot(),
             pickupEvents=list(self.pending_pickup_events),
         )
 

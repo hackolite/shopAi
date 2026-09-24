@@ -13,9 +13,14 @@ removes or shrinks an obstacle — no extra state is needed.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import threading
 from dataclasses import dataclass, field
+from collections import OrderedDict
 
 from shapely.geometry import MultiPolygon, Polygon
+from shapely.ops import unary_union
 
 from models.project import SceneData, SimulationConfig, SimulationWaypoint
 from services.simulation import (
@@ -45,6 +50,22 @@ class WalkablePartition:
     reachable_waypoint_ids: set[str] = field(default_factory=set)
 
 
+@dataclass
+class CompiledLayout:
+    scene_hash: str
+    store_polygon: Polygon
+    components: list[Polygon]
+    excluded_obstacles: list[dict]
+    obstacle_cell_size_m: float
+    obstacle_spatial_index: dict[tuple[int, int], list[int]]
+
+
+_COMPILED_LAYOUT_CACHE: OrderedDict[str, CompiledLayout] = OrderedDict()
+_COMPILED_LAYOUT_CACHE_LOCK = threading.Lock()
+_MAX_COMPILED_LAYOUTS = 16
+_SPATIAL_INDEX_GRID_DIVISIONS = 32
+
+
 def _store_polygon(store) -> Polygon:
     store_x_m = _cm_to_m(float(store.position[0]))
     store_z_m = _cm_to_m(float(store.position[2]))
@@ -68,20 +89,68 @@ def _obstacle_identity(element_type: str, element_id: str | None, element_label:
     }
 
 
-def _collect_splitting_obstacles(scene: SceneData, store_polygon: Polygon) -> tuple[object, list[dict]]:
-    """Subtract every obstacle once, collecting all that split the walkable area."""
-    all_obstacles = []
+def _scene_hash(scene: SceneData) -> str:
+    payload = json.dumps(
+        scene.model_dump(mode="json", by_alias=True),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _collect_scene_obstacles(
+    scene: SceneData,
+    store_polygon: Polygon,
+) -> list[tuple[dict, Polygon | MultiPolygon]]:
+    obstacles: list[tuple[dict, Polygon | MultiPolygon]] = []
     for furniture in scene.furniture:
         obstacle = _furniture_polygon(furniture, store_polygon)
         if obstacle is not None:
-            all_obstacles.append(obstacle)
+            obstacles.append(
+                (_obstacle_identity("furniture", furniture.id, furniture.name), obstacle)
+            )
     for zone in getattr(scene.store, "zones", []) or []:
         obstacle = _zone_polygon(zone, store_polygon)
         if obstacle is not None:
-            all_obstacles.append(obstacle)
+            obstacles.append(
+                (
+                    _obstacle_identity("zone", getattr(zone, "id", None), getattr(zone, "label", None)),
+                    obstacle,
+                )
+            )
+    return obstacles
 
-    from shapely.ops import unary_union
-    obstacles_union = unary_union(all_obstacles) if all_obstacles else None
+
+def _build_obstacle_spatial_index(
+    store_polygon: Polygon,
+    obstacles: list[tuple[dict, Polygon | MultiPolygon]],
+) -> tuple[float, dict[tuple[int, int], list[int]]]:
+    min_x, min_z, max_x, max_z = store_polygon.bounds
+    cell_size_m = max(
+        (max_x - min_x) / _SPATIAL_INDEX_GRID_DIVISIONS,
+        (max_z - min_z) / _SPATIAL_INDEX_GRID_DIVISIONS,
+        1e-6,
+    )
+    index: dict[tuple[int, int], list[int]] = {}
+    for obstacle_index, (_identity, obstacle) in enumerate(obstacles):
+        bounds = obstacle.bounds
+        start_col = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[0] - min_x) // cell_size_m)))
+        end_col = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[2] - min_x) // cell_size_m)))
+        start_row = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[1] - min_z) // cell_size_m)))
+        end_row = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[3] - min_z) // cell_size_m)))
+        for col in range(start_col, end_col + 1):
+            for row in range(start_row, end_row + 1):
+                index.setdefault((col, row), []).append(obstacle_index)
+    return cell_size_m, index
+
+
+def _collect_splitting_obstacles(
+    store_polygon: Polygon,
+    obstacles: list[tuple[dict, Polygon | MultiPolygon]],
+) -> tuple[object, list[dict]]:
+    """Subtract every obstacle once, collecting all that split the walkable area."""
+
+    obstacles_union = unary_union([obstacle for _identity, obstacle in obstacles]) if obstacles else None
 
     if obstacles_union is not None and not obstacles_union.is_empty:
         global_walkable = store_polygon.difference(obstacles_union).buffer(0)
@@ -93,31 +162,51 @@ def _collect_splitting_obstacles(scene: SceneData, store_polygon: Polygon) -> tu
 
     walkable = store_polygon
     splitting: list[dict] = []
-    for furniture in scene.furniture:
-        obstacle = _furniture_polygon(furniture, store_polygon)
-        if obstacle is None:
-            continue
+    for identity, obstacle in obstacles:
         overlap = walkable.intersection(obstacle)
         if overlap.is_empty:
             continue
         walkable = walkable.difference(obstacle)
         normalized = walkable.buffer(0)
         if isinstance(normalized, MultiPolygon) and len(_walkable_components(normalized)) > 1:
-            splitting.append(_obstacle_identity("furniture", furniture.id, furniture.name))
-    for zone in getattr(scene.store, "zones", []) or []:
-        obstacle = _zone_polygon(zone, store_polygon)
-        if obstacle is None:
-            continue
-        overlap = walkable.intersection(obstacle)
-        if overlap.is_empty:
-            continue
-        walkable = walkable.difference(obstacle)
-        normalized = walkable.buffer(0)
-        if isinstance(normalized, MultiPolygon) and len(_walkable_components(normalized)) > 1:
-            splitting.append(
-                _obstacle_identity("zone", getattr(zone, "id", None), getattr(zone, "label", None))
-            )
+            splitting.append(identity)
     return walkable, splitting
+
+
+def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
+    store_polygon = _store_polygon(scene.store)
+    obstacles = _collect_scene_obstacles(scene, store_polygon)
+    walkable, splitting = _collect_splitting_obstacles(store_polygon, obstacles)
+    walkable = walkable.buffer(0)
+    components = _walkable_components(walkable)
+    cell_size_m, obstacle_spatial_index = _build_obstacle_spatial_index(store_polygon, obstacles)
+    return CompiledLayout(
+        scene_hash=_scene_hash(scene),
+        store_polygon=store_polygon,
+        components=components,
+        excluded_obstacles=splitting,
+        obstacle_cell_size_m=cell_size_m,
+        obstacle_spatial_index=obstacle_spatial_index,
+    )
+
+
+def compiled_layout(scene: SceneData) -> CompiledLayout:
+    scene_hash = _scene_hash(scene)
+    with _COMPILED_LAYOUT_CACHE_LOCK:
+        cached = _COMPILED_LAYOUT_CACHE.get(scene_hash)
+        if cached is not None:
+            _COMPILED_LAYOUT_CACHE.move_to_end(scene_hash)
+            return cached
+    built = _build_compiled_layout(scene)
+    with _COMPILED_LAYOUT_CACHE_LOCK:
+        cached = _COMPILED_LAYOUT_CACHE.get(scene_hash)
+        if cached is not None:
+            _COMPILED_LAYOUT_CACHE.move_to_end(scene_hash)
+            return cached
+        _COMPILED_LAYOUT_CACHE[scene_hash] = built
+        while len(_COMPILED_LAYOUT_CACHE) > _MAX_COMPILED_LAYOUTS:
+            _COMPILED_LAYOUT_CACHE.popitem(last=False)
+    return built
 
 
 def _first_blocking_detail(excluded_obstacles: list[dict]) -> dict[str, object]:
@@ -210,22 +299,19 @@ def _choose_connected_component(
 
 
 def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> WalkablePartition:
-    store_polygon = _store_polygon(scene.store)
-    walkable, splitting = _collect_splitting_obstacles(scene, store_polygon)
-    walkable = walkable.buffer(0)
-    components = _walkable_components(walkable)
-    if not components:
+    layout = compiled_layout(scene)
+    if not layout.components:
         raise ValueError("Unable to derive a valid walkable area from the current store layout")
 
     # Raises SimulationConstraintViolation when waypoints exist but no exit.
     entries, transit, exits = _partition_waypoints(scene, config)
 
-    connected = _choose_connected_component(components, entries)
-    disconnected = [component for component in components if not component.equals(connected)]
+    connected = _choose_connected_component(layout.components, entries)
+    disconnected = [component for component in layout.components if not component.equals(connected)]
 
     for exit_waypoint in exits:
         if not _point_in_walkable(_waypoint_point(exit_waypoint), connected):
-            _raise_disconnected_exit(exit_waypoint, splitting)
+            _raise_disconnected_exit(exit_waypoint, layout.excluded_obstacles)
 
     reachable_waypoint_ids = {
         waypoint.id
@@ -235,7 +321,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     return WalkablePartition(
         connected=connected,
         disconnected=disconnected,
-        excluded_obstacles=splitting,
+        excluded_obstacles=layout.excluded_obstacles,
         reachable_waypoint_ids=reachable_waypoint_ids,
     )
 

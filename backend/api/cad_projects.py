@@ -186,6 +186,7 @@ class SimulationRunPayload(BaseModel):
 
 class SimulationLiveTickPayload(BaseModel):
     steps: int = 1
+    includeWaypointMetrics: StrictBool = True
 
 
 def _load_scene(project_id: str) -> SceneData:
@@ -995,7 +996,10 @@ def tick_live_simulation(project_id: str, session_id: str, payload: SimulationLi
         session = live_simulation_manager.get(session_id)
         if session.project_id != project_id:
             raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
-        result = session.tick(payload.steps)
+        result = session.tick(
+            payload.steps,
+            include_waypoint_metrics=payload.includeWaypointMetrics,
+        )
         return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": session.paused}
     except KeyError as exc:
         append_log(
@@ -1107,7 +1111,12 @@ def get_live_simulation_analytics(project_id: str, session_id: str):
         session = live_simulation_manager.get(session_id)
         if session.project_id != project_id:
             raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
-        return {"sessionId": session_id, "analytics": session.analytics().model_dump(mode="json")}
+        analytics, waypoints = session.analytics_with_waypoints()
+        return {
+            "sessionId": session_id,
+            "analytics": analytics.model_dump(mode="json"),
+            "waypoints": [item.model_dump(mode="json") for item in waypoints],
+        }
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
 

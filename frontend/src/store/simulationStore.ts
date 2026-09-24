@@ -8,6 +8,7 @@ import type {
   SimulationResult,
   SimulationWaypoint,
   SimulationWaypointSystem,
+  WaypointMetrics,
   WalkablePreview,
 } from '../types/cad';
 import type { JourneyMetricId } from '../engine/journeyMetrics';
@@ -215,6 +216,7 @@ interface SimulationState {
   setWaypointPlacementType: (type: SimulationWaypoint['type'] | null) => void;
   undo: () => void;
   setResult: (result: SimulationResult | null) => void;
+  setResultWaypoints: (waypoints: WaypointMetrics[]) => void;
   setAnalytics: (analytics: SimulationAnalytics | null) => void;
   setShowHeatmap: (showHeatmap: boolean) => void;
   setHeatmapMode: (heatmapMode: HeatmapMode) => void;
@@ -477,6 +479,15 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
     walkablePreview: null,
   }),
+  setResultWaypoints: (waypoints) =>
+    set((state) => ({
+      result: state.result
+        ? {
+          ...state.result,
+          waypoints,
+        }
+        : state.result,
+    })),
   setAnalytics: (analytics) => set({ analytics }),
   setShowHeatmap: (showHeatmap) => set({ showHeatmap }),
   setHeatmapMode: (heatmapMode) => set({ heatmapMode }),

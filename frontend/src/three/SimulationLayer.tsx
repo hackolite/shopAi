@@ -3,6 +3,7 @@ import { Html, Line } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { floorShapePlanePointCm } from '../engine/floorZones';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep, isClockResnap } from '../engine/simulationPlayback';
@@ -13,7 +14,7 @@ import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { useUIStore } from '../store/uiStore';
 import { PickupPopups } from './PickupPopups';
-import type { AgentTrajectory, SimulationHeatmap } from '../types/cad';
+import type { AgentTrajectory, SimulationHeatmap, WalkablePreview } from '../types/cad';
 
 const WAYPOINT_CONE_BASE_Y = 0.95;
 const WAYPOINT_RING_Y = 0.02;
@@ -24,6 +25,7 @@ const SUGGESTED_MARKER_INNER_RADIUS_CM = 20;
 const SUGGESTED_MARKER_CROSS_HALF_CM = 18;
 const SUGGESTED_MARKER_SEGMENTS = 40;
 const HEATMAP_Y = 0.012;
+const NAVIGATION_OVERLAY_Y = HEATMAP_Y + 0.004;
 const TRAJECTORY_Y = 0.03;
 const TRAJECTORY_ACTIVE_OPACITY = 0.85;
 const TRAJECTORY_PAST_OPACITY = 0.35;
@@ -570,6 +572,95 @@ function HeatmapOverlay({ heatmap }: { heatmap: SimulationHeatmap }) {
   );
 }
 
+/**
+ * Signed area of a ring in the shape plane. Positive = counter-clockwise,
+ * which is the winding ShapeGeometry expects for exterior contours (holes
+ * must be clockwise).
+ */
+function ringSignedArea(points: [number, number][]): number {
+  let area = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const [x1, y1] = points[index];
+    const [x2, y2] = points[(index + 1) % points.length];
+    area += x1 * y2 - x2 * y1;
+  }
+  return area / 2;
+}
+
+/** Builds a Three.js path from a ring, forcing the requested winding. */
+function buildRingPath<T extends THREE.Path>(path: T, ring: [number, number][], clockwise: boolean): T {
+  const ordered = ringSignedArea(ring) < 0 === clockwise ? ring : [...ring].reverse();
+  ordered.forEach(([x, y], index) => {
+    if (index === 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+  });
+  path.closePath();
+  return path;
+}
+
+/**
+ * Turns a walkable polygon (store-relative cm, world X/Z) into a shape drawn
+ * on the floor plane. Follows the zone fill convention (see
+ * `zoneShapeGeometry`/`floorShapePlanePointCm`): the mesh is rotated by -90°
+ * around X, so the shape's +Y axis points toward store -Z.
+ */
+function walkableRingShape(exterior: [number, number][], holes: [number, number][][]): THREE.Shape | null {
+  if (exterior.length < 3) return null;
+  const toPlane = ([x, z]: [number, number]): [number, number] => {
+    const [px, planeY] = floorShapePlanePointCm({ x, z });
+    return [px * CM_TO_UNIT, planeY * CM_TO_UNIT];
+  };
+  const shape = buildRingPath(new THREE.Shape(), exterior.map(toPlane), false);
+  shape.holes = holes
+    .filter((ring) => ring.length >= 3)
+    .map((ring) => buildRingPath(new THREE.Path(), ring.map(toPlane), true));
+  return shape;
+}
+
+/**
+ * Walkable-area partition preview: the area reachable from the entry
+ * (« chemin empruntable ») in magenta, disconnected islands in violet.
+ */
+function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
+  const shapes = useMemo(
+    () => ({
+      connected: walkableRingShape(preview.connected, preview.connectedHoles),
+      disconnected: preview.disconnected
+        .map((polygon) => walkableRingShape(polygon.exterior, polygon.holes))
+        .filter((shape): shape is THREE.Shape => shape !== null),
+    }),
+    [preview],
+  );
+
+  const geometries = useMemo(
+    () => ({
+      connected: shapes.connected ? new THREE.ShapeGeometry(shapes.connected) : null,
+      disconnected: shapes.disconnected.map((shape) => new THREE.ShapeGeometry(shape)),
+    }),
+    [shapes],
+  );
+
+  useEffect(() => () => {
+    geometries.connected?.dispose();
+    geometries.disconnected.forEach((geometry) => geometry.dispose());
+  }, [geometries]);
+
+  return (
+    <group>
+      {geometries.connected && (
+        <mesh position={[0, NAVIGATION_OVERLAY_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={890} geometry={geometries.connected}>
+          <meshBasicMaterial color="#ff00ff" transparent opacity={0.22} depthWrite={false} />
+        </mesh>
+      )}
+      {geometries.disconnected.map((geometry, index) => (
+        <mesh key={index} position={[0, NAVIGATION_OVERLAY_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={890} geometry={geometry}>
+          <meshBasicMaterial color="#8b5cf6" transparent opacity={0.35} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 /** Polylines showing the path each agent followed through the store. */
 function TrajectoryOverlay({ trajectories }: { trajectories: AgentTrajectory[] }) {
   const lines = useMemo(
@@ -661,6 +752,8 @@ export function SimulationLayer({
   const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
   const catalogProducts = useCatalogStore((state) => state.products);
   const showTrajectories = useSimulationStore((state) => state.showTrajectories);
+  const showNavigationOverlay = useSimulationStore((state) => state.showNavigationOverlay);
+  const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const pickupPopups = useSimulationStore((state) => state.pickupPopups);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
@@ -947,6 +1040,9 @@ export function SimulationLayer({
       )}
       {showTrajectories && analytics && analytics.trajectories.length > 0 && (
         <TrajectoryOverlay trajectories={analytics.trajectories} />
+      )}
+      {showNavigationOverlay && walkablePreview && (
+        <NavigationOverlay preview={walkablePreview} />
       )}
       <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
       <PickupPopups popups={pickupPopups} agentPoses={agentPoses} />

@@ -370,6 +370,127 @@ def test_split_forbidden_zone_is_reported_before_simulation_start() -> None:
     assert "coupe la zone accessible des piétons" in detail["message"]
 
 
+def _barrier_scene(scene: dict) -> dict:
+    """Default store (5000x3000 cm) split by a full-width barrier at z 1400-1600."""
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "blocked-aisle",
+            "type": "forbidden",
+            "label": "Barrière centrale",
+            "shape": "rectangle",
+            "color": "#ef4444",
+            "x": 0.0,
+            "z": 1400.0,
+            "width": 5000.0,
+            "depth": 200.0,
+        }
+    ]
+    return scene
+
+
+def _waypoint(waypoint_id: str, waypoint_type: str, label: str, x: float, z: float) -> dict:
+    return {
+        "id": waypoint_id,
+        "type": waypoint_type,
+        "label": label,
+        "x": x,
+        "z": z,
+        "radiusCm": 120.0,
+        "optional": False,
+        "visitProbability": 1.0,
+        "retentionSeconds": 0.0,
+        "visionAngleDeg": 70.0,
+        "visionRangeCm": 220.0,
+    }
+
+
+def test_split_area_with_entry_and_exit_same_side_simulates() -> None:
+    """A split walkable area is no longer fatal when entry and exit share a side."""
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = _barrier_scene(scene_response.json())
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.2,
+                "maxCustomers": 4,
+                "randomSeed": 5,
+                "waypoints": [
+                    _waypoint("entry-main", "entry", "Entrée", 2500.0, 200.0),
+                    _waypoint("exit-main", "exit", "Sortie", 2500.0, 400.0),
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    session_id = response.json()["sessionId"]
+    assert session_id
+
+    stop = client.post(f"/api/cad/projects/{project_id}/simulation/live/{session_id}/stop")
+    assert stop.status_code == 200, stop.text
+
+
+def test_walkable_preview_endpoint_returns_components() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = _barrier_scene(scene_response.json())
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/walkable-preview",
+        json={
+            "scene": scene,
+            "config": {
+                "waypoints": [
+                    _waypoint("entry-main", "entry", "Entrée", 2500.0, 200.0),
+                    _waypoint("exit-main", "exit", "Sortie", 2500.0, 400.0),
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["connected"], "connected component ring should be non-empty"
+    assert len(payload["disconnected"]) == 1, "the barrier must exclude exactly one island"
+    excluded_ids = [obstacle["elementId"] for obstacle in payload["excludedObstacles"]]
+    assert "blocked-aisle" in excluded_ids
+
+
+def test_walkable_preview_disconnected_exit_returns_422() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = _barrier_scene(scene_response.json())
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/walkable-preview",
+        json={
+            "scene": scene,
+            "config": {
+                "waypoints": [
+                    _waypoint("entry-main", "entry", "Entrée", 2500.0, 200.0),
+                    _waypoint("exit-main", "exit", "Sortie", 2500.0, 2800.0),
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    detail = response.json()["detail"]
+    assert detail["code"] == "splitAccessibleArea"
+    assert detail["blockingElementId"] == "blocked-aisle"
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

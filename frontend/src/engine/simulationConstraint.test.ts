@@ -41,13 +41,19 @@ describe('simulationConstraint', () => {
   it('extracts the blocking forbidden zone from split-area errors', () => {
     expect(extractBlockingElementHighlight(
       new Error('[422] {"detail":{"message":"Zone bloquante","code":"splitAccessibleArea","blockingElementType":"zone","blockingElementId":"zone-1"}}'),
-    )).toEqual({ furnitureIds: [], zoneIds: ['zone-1'] });
+    )).toEqual({ furnitureIds: [], zoneIds: ['zone-1'], allIds: ['zone-1'] });
   });
 
   it('extracts the blocking furniture volume from split-area errors', () => {
     expect(extractBlockingElementHighlight(
       new Error('[422] {"detail":{"message":"Meuble bloquant","code":"splitAccessibleArea","blockingElementType":"furniture","blockingElementId":"fixture-9"}}'),
-    )).toEqual({ furnitureIds: ['fixture-9'], zoneIds: [] });
+    )).toEqual({ furnitureIds: ['fixture-9'], zoneIds: [], allIds: ['fixture-9'] });
+  });
+
+  it('merges every blockingElementIds entry into allIds, deduplicated', () => {
+    expect(extractBlockingElementHighlight(
+      new Error('[422] {"detail":{"message":"Zone bloquante","code":"splitAccessibleArea","blockingElementType":"zone","blockingElementId":"zone-1","blockingElementIds":["zone-1","zone-2"]}}'),
+    )).toEqual({ furnitureIds: [], zoneIds: ['zone-1'], allIds: ['zone-1', 'zone-2'] });
   });
 
   it('matches the closest waypoint from a reported geometry point', () => {

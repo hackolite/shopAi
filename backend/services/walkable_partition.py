@@ -367,7 +367,10 @@ def _waypoint_supported_by_runtime(waypoint: SimulationWaypoint, runtime_walkabl
     clearance_m = _cm_to_m(_waypoint_constraint_clearance_cm(waypoint))
     if clearance_m <= 0:
         return True
-    return runtime_walkable.boundary.distance(Point(point)) >= clearance_m
+    point_geometry = Point(point)
+    boundary_distances = [runtime_walkable.exterior.distance(point_geometry)]
+    boundary_distances.extend(ring.distance(point_geometry) for ring in runtime_walkable.interiors)
+    return min(boundary_distances, default=0.0) >= clearance_m
 
 
 def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> WalkablePartition:

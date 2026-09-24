@@ -184,6 +184,24 @@ def split_accessible_area_detail() -> dict[str, object]:
     return _split_accessible_area_detail(element_type="obstacle")
 
 
+def _walkable_components(geometry) -> list[Polygon]:
+    return [
+        geom
+        for geom in getattr(geometry, "geoms", [geometry])
+        if isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
+    ]
+
+
+def _subtract_obstacle_from_walkable(
+    walkable,
+    obstacle: Polygon | MultiPolygon,
+    *,
+    split_detail: dict[str, object],
+) -> tuple[object, dict[str, object] | None]:
+    next_walkable = walkable.difference(obstacle).buffer(0)
+    return next_walkable, split_detail if len(_walkable_components(next_walkable)) > 1 else None
+
+
 def _cm_to_m(value: float) -> float:
     return float(value) * CM_TO_M
 
@@ -472,41 +490,38 @@ def _build_walkable_geometry(scene: SceneData) -> Polygon:
         ]
     )
     walkable = store_polygon
+    split_detail: dict[str, object] | None = None
     for furniture in scene.furniture:
         obstacle = _furniture_polygon(furniture, store_polygon)
         if obstacle is not None:
-            walkable = walkable.difference(obstacle).buffer(0)
-            components = [
-                geom
-                for geom in getattr(walkable, "geoms", [walkable])
-                if isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
-            ]
-            if len(components) > 1:
-                raise SimulationConstraintViolation(
-                    _split_accessible_area_detail(
-                        element_type="furniture",
-                        element_id=furniture.id,
-                        element_label=furniture.name,
-                    )
-                )
+            walkable, detected_split = _subtract_obstacle_from_walkable(
+                walkable,
+                obstacle,
+                split_detail=_split_accessible_area_detail(
+                    element_type="furniture",
+                    element_id=furniture.id,
+                    element_label=furniture.name,
+                ),
+            )
+            if split_detail is None and detected_split is not None:
+                split_detail = detected_split
     for zone in getattr(store, "zones", []) or []:
         obstacle = _zone_polygon(zone, store_polygon)
         if obstacle is not None:
-            walkable = walkable.difference(obstacle).buffer(0)
-            components = [
-                geom
-                for geom in getattr(walkable, "geoms", [walkable])
-                if isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
-            ]
-            if len(components) > 1:
-                raise SimulationConstraintViolation(
-                    _split_accessible_area_detail(
-                        element_type="zone",
-                        element_id=getattr(zone, "id", None),
-                        element_label=getattr(zone, "label", None),
-                    )
-                )
+            walkable, detected_split = _subtract_obstacle_from_walkable(
+                walkable,
+                obstacle,
+                split_detail=_split_accessible_area_detail(
+                    element_type="zone",
+                    element_id=getattr(zone, "id", None),
+                    element_label=getattr(zone, "label", None),
+                ),
+            )
+            if split_detail is None and detected_split is not None:
+                split_detail = detected_split
     walkable = walkable.buffer(0)
+    if len(_walkable_components(walkable)) > 1:
+        raise SimulationConstraintViolation(split_detail or split_accessible_area_detail())
     if isinstance(walkable, MultiPolygon):
         walkable = max(walkable.geoms, key=lambda geom: geom.area)
     if not isinstance(walkable, Polygon) or walkable.is_empty:

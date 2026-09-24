@@ -19,11 +19,13 @@ import threading
 from dataclasses import dataclass, field
 from collections import OrderedDict
 
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
 from models.project import SceneData, SimulationConfig, SimulationWaypoint
 from services.simulation import (
+    AGENT_RADIUS_CM,
+    BOUNDARY_CLEARANCE_EPSILON_CM,
     SimulationConstraintViolation,
     _cm_to_m,
     _furniture_polygon,
@@ -32,6 +34,7 @@ from services.simulation import (
     _point_in_walkable,
     _split_accessible_area_detail,
     _walkable_components,
+    _waypoint_constraint_clearance_cm,
     _waypoint_point,
     _zone_polygon,
 )
@@ -41,6 +44,8 @@ from services.simulation import (
 class WalkablePartition:
     # The connected component agents can walk in.
     connected: Polygon
+    # Simplified runtime geometry handed to the crowd simulator.
+    runtime_connected: Polygon
     # Excluded islands (may be empty).
     disconnected: list[Polygon]
     # Obstacles whose subtraction split the walkable area
@@ -55,6 +60,7 @@ class CompiledLayout:
     scene_hash: str
     store_polygon: Polygon
     components: list[Polygon]
+    runtime_components: list[Polygon]
     excluded_obstacles: list[dict]
     obstacle_cell_size_m: float
     obstacle_spatial_index: dict[tuple[int, int], list[int]]
@@ -64,6 +70,9 @@ _COMPILED_LAYOUT_CACHE: OrderedDict[str, CompiledLayout] = OrderedDict()
 _COMPILED_LAYOUT_CACHE_LOCK = threading.Lock()
 _MAX_COMPILED_LAYOUTS = 16
 _SPATIAL_INDEX_GRID_DIVISIONS = 32
+_RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
+_RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
+_RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
 
 
 def _store_polygon(store) -> Polygon:
@@ -173,17 +182,73 @@ def _collect_splitting_obstacles(
     return walkable, splitting
 
 
+def _normalize_polygon(
+    geometry,
+    *,
+    anchor: tuple[float, float] | None = None,
+) -> Polygon | None:
+    if geometry.is_empty:
+        return None
+    geometry = geometry.buffer(0)
+    if geometry.is_empty:
+        return None
+    if isinstance(geometry, MultiPolygon):
+        geoms = [geom for geom in geometry.geoms if isinstance(geom, Polygon)]
+        if not geoms:
+            return None
+        if anchor is not None:
+            for geom in geoms:
+                if _point_in_walkable(anchor, geom):
+                    geometry = geom
+                    break
+            else:
+                geometry = max(geoms, key=lambda geom: geom.area)
+        else:
+            geometry = max(geoms, key=lambda geom: geom.area)
+    return geometry if isinstance(geometry, Polygon) else None
+
+
+def _compile_runtime_component(component: Polygon) -> Polygon:
+    """Compile a lighter runtime walkable for crowd simulation.
+
+    The editing/preview geometry stays exact; the simulator gets an agent-centric
+    version that removes sub-agent detail and micro-passages that only add
+    computational cost.
+    """
+
+    clearance_m = _cm_to_m(_RUNTIME_OPENING_CLEARANCE_CM)
+    tolerance_m = _cm_to_m(_RUNTIME_SIMPLIFICATION_TOLERANCE_CM)
+    anchor = (component.representative_point().x, component.representative_point().y)
+    vertex_count = len(component.exterior.coords) + sum(len(ring.coords) for ring in component.interiors)
+    if vertex_count <= _RUNTIME_BUFFER_MIN_VERTEX_COUNT:
+        compiled = _normalize_polygon(component, anchor=anchor)
+    else:
+        compiled = _normalize_polygon(
+            component.buffer(-clearance_m, join_style="mitre").buffer(clearance_m, join_style="mitre"),
+            anchor=anchor,
+        )
+    if compiled is None:
+        compiled = _normalize_polygon(component, anchor=anchor)
+    if compiled is None:
+        return component
+    simplified = compiled.simplify(tolerance_m, preserve_topology=True)
+    normalized = _normalize_polygon(simplified, anchor=anchor) or compiled
+    return _normalize_polygon(normalized, anchor=anchor) or normalized
+
+
 def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
     store_polygon = _store_polygon(scene.store)
     obstacles = _collect_scene_obstacles(scene, store_polygon)
     walkable, splitting = _collect_splitting_obstacles(store_polygon, obstacles)
     walkable = walkable.buffer(0)
     components = _walkable_components(walkable)
+    runtime_components = [_compile_runtime_component(component) for component in components]
     cell_size_m, obstacle_spatial_index = _build_obstacle_spatial_index(store_polygon, obstacles)
     return CompiledLayout(
         scene_hash=_scene_hash(scene),
         store_polygon=store_polygon,
         components=components,
+        runtime_components=runtime_components,
         excluded_obstacles=splitting,
         obstacle_cell_size_m=cell_size_m,
         obstacle_spatial_index=obstacle_spatial_index,
@@ -266,36 +331,46 @@ def raise_no_reachable_entry(excluded_obstacles: list[dict]) -> None:
     raise SimulationConstraintViolation(detail)
 
 
-def _choose_connected_component(
+def _choose_connected_component_index(
     components: list[Polygon],
     entries: list[SimulationWaypoint],
-) -> Polygon:
+) -> int:
     """Pick the component containing the first entry; majority of entries wins,
     ties break to the largest area, and no entry at all falls back to largest."""
-    entry_components: list[Polygon] = []
+    if not entries:
+        return max(range(len(components)), key=lambda index: components[index].area)
+    entry_component_indexes: list[int] = []
     for entry in entries:
         point = _waypoint_point(entry)
-        for component in components:
+        for index, component in enumerate(components):
             if _point_in_walkable(point, component):
-                entry_components.append(component)
+                entry_component_indexes.append(index)
                 break
-    if not entry_components:
-        return max(components, key=lambda geom: geom.area)
+    if not entry_component_indexes:
+        return max(range(len(components)), key=lambda index: components[index].area)
     # Majority of entries decides; ties prefer the first entry's component,
     # then the largest area.
-    first = entry_components[0]
-    counts: list[tuple[Polygon, int]] = []
-    for component in entry_components:
-        for index, (existing_component, _) in enumerate(counts):
-            if component.equals(existing_component):
-                counts[index] = (existing_component, counts[index][1] + 1)
-                break
-        else:
-            counts.append((component, 1))
+    first = entry_component_indexes[0]
+    counts: dict[int, int] = {}
+    for index in entry_component_indexes:
+        counts[index] = counts.get(index, 0) + 1
     return max(
         counts,
-        key=lambda item: (item[1], item[0].equals(first), item[0].area),
-    )[0]
+        key=lambda index: (counts[index], index == first, components[index].area),
+    )
+
+
+def _waypoint_supported_by_runtime(waypoint: SimulationWaypoint, runtime_walkable: Polygon) -> bool:
+    point = _waypoint_point(waypoint)
+    if not _point_in_walkable(point, runtime_walkable):
+        return False
+    clearance_m = _cm_to_m(_waypoint_constraint_clearance_cm(waypoint))
+    if clearance_m <= 0:
+        return True
+    point_geometry = Point(point)
+    boundary_distances = [runtime_walkable.exterior.distance(point_geometry)]
+    boundary_distances.extend(ring.distance(point_geometry) for ring in runtime_walkable.interiors)
+    return min(boundary_distances, default=0.0) >= clearance_m
 
 
 def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> WalkablePartition:
@@ -306,8 +381,12 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     # Raises SimulationConstraintViolation when waypoints exist but no exit.
     entries, transit, exits = _partition_waypoints(scene, config)
 
-    connected = _choose_connected_component(layout.components, entries)
-    disconnected = [component for component in layout.components if not component.equals(connected)]
+    connected_index = _choose_connected_component_index(layout.components, entries)
+    connected = layout.components[connected_index]
+    runtime_connected = layout.runtime_components[connected_index]
+    disconnected = [
+        component for index, component in enumerate(layout.components) if index != connected_index
+    ]
 
     for exit_waypoint in exits:
         if not _point_in_walkable(_waypoint_point(exit_waypoint), connected):
@@ -318,8 +397,15 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         for waypoint in [*entries, *transit, *exits]
         if _point_in_walkable(_waypoint_point(waypoint), connected)
     }
+    if any(
+        waypoint.id in reachable_waypoint_ids
+        and not _waypoint_supported_by_runtime(waypoint, runtime_connected)
+        for waypoint in [*entries, *transit, *exits]
+    ):
+        runtime_connected = connected
     return WalkablePartition(
         connected=connected,
+        runtime_connected=runtime_connected,
         disconnected=disconnected,
         excluded_obstacles=layout.excluded_obstacles,
         reachable_waypoint_ids=reachable_waypoint_ids,

@@ -137,7 +137,7 @@ class LiveSimulationSession:
         # into disconnected islands exclude the islands instead of aborting the
         # session, and waypoints that land in an excluded island are dropped.
         partition = walkable_partition.compute_walkable_partition(self.scene, self.config)
-        self.walkable = partition.connected
+        self.walkable = partition.runtime_connected
         all_entries, all_transit, all_exits = simsvc._partition_waypoints(self.scene, self.config)
         entries = walkable_partition.waypoints_outside_disconnected_islands(all_entries, partition)
         transit = walkable_partition.waypoints_outside_disconnected_islands(all_transit, partition)

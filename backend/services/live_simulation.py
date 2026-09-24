@@ -336,12 +336,14 @@ class LiveSimulationSession:
             return
         self._ensure_next_arrival()
         max_customers = max(1, int(self.config.maxCustomers))
-        step_spawn_positions = simsvc.current_agent_positions(self.sim)
+        step_spawn_positions = None
         while (
             self.next_arrival_at is not None
             and self.next_arrival_at <= self.time_seconds
             and self.active_agents < max_customers
         ):
+            if step_spawn_positions is None:
+                step_spawn_positions = simsvc.current_agent_positions(self.sim)
             tokens = self._build_route_tokens(self.spawned)
             stage_ids = self._route_tokens_to_stage_ids(tokens)
             if len(stage_ids) < 2:
@@ -476,7 +478,7 @@ class LiveSimulationSession:
 
     def _spawn_pedestrians_if_due(self) -> None:
         max_customers = max(1, int(self.config.maxCustomers))
-        step_spawn_positions = simsvc.current_agent_positions(self.sim)
+        step_spawn_positions = None
         while (
             self.pedestrian_cursor < len(self.pedestrian_plans)
             and self.active_agents < max_customers
@@ -485,6 +487,8 @@ class LiveSimulationSession:
             scheduled_at = float(plan.startUnixTs - (self.pedestrian_sim_start_ts or plan.startUnixTs))
             if scheduled_at > self.time_seconds:
                 break
+            if step_spawn_positions is None:
+                step_spawn_positions = simsvc.current_agent_positions(self.sim)
             tokens = self._pedestrian_route_tokens(plan, self.pedestrian_cursor)
             stage_ids = self._route_tokens_to_stage_ids(tokens)
             if len(stage_ids) < 2:

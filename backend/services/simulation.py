@@ -1091,9 +1091,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
-        step_spawn_positions = current_agent_positions(sim)
+        step_spawn_positions = None
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
+            if step_spawn_positions is None:
+                step_spawn_positions = current_agent_positions(sim)
             selected_entry = entries[spawned % len(entries)]
             selected_stage_ids: list[int] = [waypoint_stage_ids[selected_entry.id]]
             for waypoint in transit_waypoints:

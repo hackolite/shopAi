@@ -71,7 +71,6 @@ _MAX_COMPILED_LAYOUTS = 16
 _SPATIAL_INDEX_GRID_DIVISIONS = 32
 _RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 _RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
-_RUNTIME_MIN_HOLE_AREA_M2 = max(_cm_to_m(AGENT_RADIUS_CM * 2) ** 2, 0.04)
 
 
 def _store_polygon(store) -> Polygon:
@@ -207,15 +206,6 @@ def _normalize_polygon(
     return geometry if isinstance(geometry, Polygon) else None
 
 
-def _drop_small_holes(polygon: Polygon, minimum_area_m2: float) -> Polygon:
-    holes = []
-    for ring in polygon.interiors:
-        hole = Polygon(ring)
-        if hole.area >= minimum_area_m2:
-            holes.append(ring.coords)
-    return Polygon(polygon.exterior.coords, holes)
-
-
 def _compile_runtime_component(component: Polygon) -> Polygon:
     """Compile a lighter runtime walkable for crowd simulation.
 
@@ -237,8 +227,7 @@ def _compile_runtime_component(component: Polygon) -> Polygon:
         return component
     simplified = compiled.simplify(tolerance_m, preserve_topology=True)
     normalized = _normalize_polygon(simplified, anchor=anchor) or compiled
-    without_small_holes = _drop_small_holes(normalized, _RUNTIME_MIN_HOLE_AREA_M2)
-    return _normalize_polygon(without_small_holes, anchor=anchor) or normalized
+    return _normalize_polygon(normalized, anchor=anchor) or normalized
 
 
 def _build_compiled_layout(scene: SceneData) -> CompiledLayout:

@@ -11,8 +11,8 @@ import { useZoneStore } from '../../store/zoneStore';
 
 vi.mock('../../api/cad', () => ({
   cadApi: {
-    updateFurniture: vi.fn(),
-    updateStore: vi.fn(),
+    updateFurniture: vi.fn().mockResolvedValue(undefined),
+    updateStore: vi.fn().mockResolvedValue(undefined),
   },
 }));
 

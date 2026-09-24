@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from models.project import PedestrianImportResult, PedestrianPickupPlan, PickupPlanItem
 from services import platform_service
 from services.catalog_import import parse_catalog_json
+from services.diagnostic_logs import append_log, list_logs
 from services.osm_import import osm_xml_to_retail_layout
 from services.pedestrian_import import parse_pedestrian_csv
 from services.retail_layout import build_retail_layout, split_retail_layout
@@ -111,6 +112,13 @@ class AgentRequestPayload(BaseModel):
     targetResourceType: str
     targetResourceId: str | None = None
     prompt: str
+
+
+class ClientLogPayload(BaseModel):
+    source: str = "frontend"
+    category: str
+    message: str
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.get("/bootstrap")
@@ -387,9 +395,27 @@ async def create_store_layout_from_osm(
 ) -> dict[str, Any]:
     """Upload an OSM XML file and persist its buildings as a reusable store layout."""
     raw = await file.read()
+    append_log(
+        source="backend",
+        category="osm-import",
+        message="OSM import started",
+        details={
+            "name": name.strip(),
+            "filename": file.filename,
+            "contentType": file.content_type,
+            "bytes": len(raw),
+        },
+    )
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
+        append_log(
+            source="backend",
+            category="osm-import",
+            level="warning",
+            message="OSM import failed: invalid encoding",
+            details={"name": name.strip(), "filename": file.filename},
+        )
         raise HTTPException(status_code=422, detail="File must be UTF-8 encoded OSM XML text") from exc
     try:
         retail_layout = osm_xml_to_retail_layout(
@@ -401,15 +427,59 @@ async def create_store_layout_from_osm(
             project_name=name.strip() or None,
         )
     except ValueError as exc:
+        append_log(
+            source="backend",
+            category="osm-import",
+            level="warning",
+            message="OSM import failed: invalid OSM document",
+            details={"name": name.strip(), "filename": file.filename, "error": str(exc)},
+        )
         raise HTTPException(status_code=422, detail=f"Invalid OSM document: {exc}") from exc
     except (AttributeError, TypeError, KeyError) as exc:
+        append_log(
+            source="backend",
+            category="osm-import",
+            level="warning",
+            message="OSM import failed: invalid generated layout",
+            details={"name": name.strip(), "filename": file.filename, "error": str(exc)},
+        )
         raise HTTPException(status_code=422, detail=f"Invalid generated layout from OSM: {exc}") from exc
     payload = {"scene": scene_dict, "planograms": planograms_list}
-    return platform_service.create_store_layout(
+    layout = platform_service.create_store_layout(
         name=name,
         description=description,
         payload=payload,
     )
+    append_log(
+        source="backend",
+        category="osm-import",
+        message="OSM import succeeded",
+        details={
+            "name": layout.get("name"),
+            "layoutId": layout.get("id"),
+            "furnitureCount": layout.get("furnitureCount"),
+        },
+    )
+    return layout
+
+
+@router.get("/logs")
+def get_diagnostic_logs(limit: int = Query(400, ge=1, le=2000)) -> dict[str, Any]:
+    platform_service.require_current_user()
+    logs = list_logs(limit)
+    return {"logs": logs, "text": "\n".join(entry["line"] for entry in logs)}
+
+
+@router.post("/logs/client")
+def append_client_log(payload: ClientLogPayload) -> dict[str, Any]:
+    platform_service.require_current_user()
+    entry = append_log(
+        source=payload.source or "frontend",
+        category=payload.category,
+        message=payload.message,
+        details=payload.details or None,
+    )
+    return {"logged": True, "entry": entry}
 
 
 @router.get("/store-layouts")

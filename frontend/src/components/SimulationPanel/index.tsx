@@ -434,6 +434,17 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (!projectId || !sceneWithZones) return;
     setRunning(true);
     setPedestrianDatasetError(null);
+    void platformApi.appendClientLog({
+      source: 'frontend',
+      category: 'simulation-attempt',
+      message: 'Simulation launch requested from 3D panel',
+      details: {
+        projectId,
+        waypointCount: runtimeConfig.waypoints.length,
+        furnitureCount: sceneWithZones.furniture.length,
+        zoneCount: sceneWithZones.store.zones?.length ?? 0,
+      },
+    }).catch(() => {});
     try {
       if (liveSessionId) {
         await cadApi.stopLiveSimulation(projectId, liveSessionId).catch(console.error);
@@ -456,6 +467,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       }
       setPlaying(true);
       lastSimulationSignature.current = signature;
+      void platformApi.appendClientLog({
+        source: 'frontend',
+        category: 'simulation-attempt',
+        message: 'Simulation launch succeeded in 3D panel',
+        details: { projectId, sessionId: live.sessionId },
+      }).catch(() => {});
     } catch (error) {
       if (isStale(projectId)) {
         // Failure of a run that belongs to a project the user has left: do not
@@ -487,6 +504,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       }
       setInvalidObstacleHighlights(blockingHighlights);
       console.error('Failed to run simulation:', error);
+      void platformApi.appendClientLog({
+        source: 'frontend',
+        category: 'simulation-attempt',
+        message: 'Simulation launch failed in 3D panel',
+        details: {
+          projectId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      }).catch(() => {});
       alert(correction ? formatConstraintCorrection(correction) : error instanceof Error ? error.message : 'Simulation impossible');
     } finally {
       setRunning(false);
@@ -499,6 +525,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     hasExplicitDatasetSelection,
     pedestrianImport,
     projectId,
+    runtimeConfig,
     sceneWithZones,
     selectWaypoint,
     setInvalidWaypointIds,

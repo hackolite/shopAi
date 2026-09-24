@@ -73,6 +73,16 @@ export interface PlatformAgentRequest {
   createdAt: string;
 }
 
+export interface PlatformDiagnosticLogEntry {
+  timestamp: string;
+  level: string;
+  source: string;
+  category: string;
+  message: string;
+  details?: Record<string, unknown> | null;
+  line: string;
+}
+
 export interface PlatformDashboard {
   user: PlatformUser;
   tenant: {
@@ -234,6 +244,18 @@ export const platformApi = {
     }),
   logout: () => request<{ ok: boolean }>('/api/platform/auth/logout', { method: 'POST' }),
   getDashboard: () => request<PlatformDashboard>('/api/platform/dashboard'),
+  getDiagnosticLogs: (limit = 400) =>
+    request<{ logs: PlatformDiagnosticLogEntry[]; text: string }>(`/api/platform/logs?limit=${limit}`),
+  appendClientLog: (payload: {
+    source?: string;
+    category: string;
+    message: string;
+    details?: Record<string, unknown>;
+  }) =>
+    request<{ logged: boolean; entry: PlatformDiagnosticLogEntry }>('/api/platform/logs/client', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   listCatalogs: () => request<{ catalogs: PlatformCatalogWorkspace[] }>('/api/platform/catalogs'),
   getCatalog: (catalogId: string) =>
     request<PlatformCatalogWorkspace>(`/api/platform/catalogs/${encodeURIComponent(catalogId)}`),

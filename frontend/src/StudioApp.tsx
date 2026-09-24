@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { cadApi } from './api/cad';
+import { platformApi } from './api/platform';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
 import { usePlanogramStore } from './store/planogramStore';
@@ -48,6 +49,17 @@ interface StudioAppProps {
 }
 
 export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) {
+  const appendClientLog = useCallback(
+    (category: string, message: string, details: Record<string, unknown>) => {
+      void platformApi.appendClientLog({
+        source: 'frontend',
+        category,
+        message,
+        details,
+      }).catch(() => {});
+    },
+    [],
+  );
   // Restore the last opened project so a page refresh (F5) brings the user
   // back into the project they were working on instead of the default one.
   const [projectId, setProjectId]     = useState<string>(() => initialProjectId ?? readStoredProjectId());
@@ -145,6 +157,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     // previous project's scene/zones/waypoints can never be written into the
     // project being opened.
     resetProjectStores();
+    appendClientLog('3d-load', '3D project load started', { projectId: id });
 
     try {
       const [sceneData, catalog, planoData, meta, settings] = await Promise.all([
@@ -206,10 +219,20 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       void assets.preloadProductImages(urlsByEan).finally(() => {
         if (loadingProjectIdRef.current === id) assets.finishLoading();
       });
+      appendClientLog('3d-load', '3D project load succeeded', {
+        projectId: id,
+        furnitureCount: sceneData.furniture.length,
+        zoneCount: sceneData.store.zones?.length ?? 0,
+        planogramCount: planoData.planograms.length,
+      });
     } catch (err) {
       if (loadingProjectIdRef.current === id) {
         useAssetStore.getState().finishLoading();
         console.error('Failed to load project data:', err);
+        appendClientLog('3d-load', '3D project load failed', {
+          projectId: id,
+          error: err instanceof Error ? err.message : String(err),
+        });
         setLoadError(err instanceof Error ? err.message : String(err));
         try {
           const available = await cadApi.listProjects();
@@ -234,6 +257,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     setZones,
     setSimulationConfig,
     setLoadedProjectId,
+    appendClientLog,
   ]);
 
   // ── Auto-open the Inspector when a planogram product is selected in 3D ────

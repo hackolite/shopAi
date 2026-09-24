@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 from fastapi import FastAPI, Request
@@ -13,6 +14,8 @@ from api.platform import router as platform_router
 from api.projects import router as projects_router
 from services.demo_initializer import init_retail_cad_demo
 from services import platform_service
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="Retail Digital Twin API",

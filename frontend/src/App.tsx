@@ -111,6 +111,9 @@ export default function App() {
   const [agentTargetType, setAgentTargetType] = useState('workspace');
   const [agentTargetId, setAgentTargetId] = useState('');
   const [agentPrompt, setAgentPrompt] = useState('');
+  const [diagnosticLogsText, setDiagnosticLogsText] = useState('');
+  const [diagnosticLogsError, setDiagnosticLogsError] = useState<string | null>(null);
+  const [diagnosticLogsLoading, setDiagnosticLogsLoading] = useState(false);
   const promptPrefixLabels = agentGuide?.promptPrefixes.map((item) => item.prefix) ?? defaultAgentPromptPrefixLabels;
 
   const loadAuthenticatedData = useCallback(async () => {
@@ -123,6 +126,19 @@ export default function App() {
     ]);
     setAgentGuide(guide);
     setAgentCapabilityReport(capabilities);
+  }, []);
+
+  const loadDiagnosticLogs = useCallback(async () => {
+    setDiagnosticLogsLoading(true);
+    setDiagnosticLogsError(null);
+    try {
+      const response = await platformApi.getDiagnosticLogs(800);
+      setDiagnosticLogsText(response.text || '');
+    } catch (error) {
+      setDiagnosticLogsError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDiagnosticLogsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -144,6 +160,11 @@ export default function App() {
     })();
     return () => { cancelled = true; };
   }, [loadAuthenticatedData]);
+
+  useEffect(() => {
+    if (!currentUser || activeTab !== 'settings') return;
+    void loadDiagnosticLogs();
+  }, [activeTab, currentUser, loadDiagnosticLogs]);
 
   const runAction = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -842,6 +863,26 @@ export default function App() {
                       <summary>{agentCapabilityReport.projectAudit.projectName} — {agentCapabilityReport.projectAudit.ok ? 'Vérifications réussies' : `${agentCapabilityReport.projectAudit.issueCount} anomalie(s)`}</summary>
                       <ul className="hub-workflow">{Object.entries(agentCapabilityReport.projectAudit.checks).map(([key, value]) => <li key={key}>{key} : {value.ok ? 'OK' : value.issues.join(' · ')}</li>)}</ul>
                     </details>}
+                  </Section>
+                  <Section title="Journaux diagnostics (texte)" subtitle="Historique complet des tentatives de chargement 3D et de simulation.">
+                    <div className="hub-form-card">
+                      <div className="hub-resource-item-header">
+                        <h3>Logs backend</h3>
+                        <div className="hub-resource-actions">
+                          <button type="button" className="hub-link-button" disabled={diagnosticLogsLoading} onClick={() => void loadDiagnosticLogs()}>
+                            {diagnosticLogsLoading ? 'Actualisation…' : 'Actualiser'}
+                          </button>
+                        </div>
+                      </div>
+                      {diagnosticLogsError && <p className="hub-small" style={{ color: '#fca5a5' }}>{diagnosticLogsError}</p>}
+                      <textarea
+                        readOnly
+                        value={diagnosticLogsText}
+                        rows={16}
+                        className="hub-log-textarea"
+                        placeholder="Aucun log disponible pour le moment."
+                      />
+                    </div>
                   </Section>
                 </>}
               </div>

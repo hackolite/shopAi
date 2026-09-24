@@ -764,6 +764,15 @@ def test_store_layout_import_osm_rejects_invalid_xml() -> None:
     assert response.status_code == 422, response.text
     assert response.json()["detail"].startswith("Invalid OSM document:")
 
+    logs_response = client.get("/api/platform/logs?limit=50")
+    assert logs_response.status_code == 200, logs_response.text
+    logs = logs_response.json()["logs"]
+    assert any(
+        entry.get("category") == "osm-import"
+        and entry.get("message") == "OSM import failed: invalid OSM document"
+        for entry in logs
+    )
+
 
 def test_store_layout_import_osm_rejects_non_utf8_payload() -> None:
     client = _make_client()
@@ -776,6 +785,61 @@ def test_store_layout_import_osm_rejects_non_utf8_payload() -> None:
     )
     assert response.status_code == 422, response.text
     assert response.json()["detail"] == "File must be UTF-8 encoded OSM XML text"
+
+
+def test_client_logs_are_persisted_and_returned_as_text() -> None:
+    client = _make_client()
+    _register(client, name="Logger User", email="logger@example.com")
+
+    post_response = client.post(
+        "/api/platform/logs/client",
+        json={
+            "source": "studio-monitor",
+            "category": "3d-load",
+            "message": "3D project load failed",
+            "details": {"projectId": "demo", "error": "boom"},
+        },
+    )
+    assert post_response.status_code == 200, post_response.text
+    assert post_response.json()["logged"] is True
+    assert post_response.json()["entry"]["details"] == {"projectId": "demo", "error": "boom"}
+
+    logs_response = client.get("/api/platform/logs?limit=20")
+    assert logs_response.status_code == 200, logs_response.text
+    payload = logs_response.json()
+    assert "3D project load failed" in payload["text"]
+    assert any(
+        entry.get("source") == "studio-monitor"
+        and entry.get("category") == "3d-load"
+        and entry.get("message") == "3D project load failed"
+        and entry.get("details") == {"projectId": "demo", "error": "boom"}
+        for entry in payload["logs"]
+    )
+
+    client.post(
+        "/api/platform/logs/client",
+        json={"source": "studio-monitor", "category": "3d-load", "message": "second log"},
+    )
+    limit_response = client.get("/api/platform/logs?limit=1")
+    assert limit_response.status_code == 200, limit_response.text
+    limited = limit_response.json()["logs"]
+    assert len(limited) == 1
+    assert limited[0]["message"] == "second log"
+
+
+def test_diagnostic_logs_endpoints_require_authentication() -> None:
+    client = _make_client()
+
+    logs_response = client.get("/api/platform/logs?limit=20")
+    assert logs_response.status_code == 401, logs_response.text
+    assert logs_response.json()["detail"] == "Authentication required"
+
+    append_response = client.post(
+        "/api/platform/logs/client",
+        json={"source": "frontend", "category": "3d-load", "message": "test"},
+    )
+    assert append_response.status_code == 401, append_response.text
+    assert append_response.json()["detail"] == "Authentication required"
 
 
 def test_store_layout_import_osm_without_bounds_derives_extent_from_nodes() -> None:

@@ -275,6 +275,20 @@ export interface LiveSimulationResponse {
   paused: boolean;
 }
 
+/** One walkable island of the split walkable-area preview (store-relative cm). */
+export interface WalkablePolygonPreview {
+  exterior: [number, number][];
+  holes: [number, number][][];
+}
+
+/** Partition of the walkable floor area reachable (or not) from the entry. */
+export interface WalkablePreview {
+  connected: [number, number][];
+  connectedHoles: [number, number][][];
+  disconnected: WalkablePolygonPreview[];
+  excludedObstacles: { elementType: string; elementId: string | null; elementLabel: string | null }[];
+}
+
 export interface Scene {
   store: StoreConfig;
   furniture: FurnitureInstance[];

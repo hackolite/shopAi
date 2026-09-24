@@ -16,6 +16,7 @@ import type {
   LiveSimulationResponse,
   SimulationResult,
   StoreConfig,
+  WalkablePreview,
 } from '../types/cad';
 
 const BASE = '/api/cad/projects';
@@ -258,6 +259,11 @@ export const cadApi = {
     }),
   startLiveSimulation: (id: string, scene: Scene, config: SimulationConfig) =>
     request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/start`, {
+      method: 'POST',
+      body: JSON.stringify({ scene, config }),
+    }),
+  getWalkablePreview: (id: string, scene: Scene, config: SimulationConfig) =>
+    request<WalkablePreview>(`${BASE}/${id}/simulation/walkable-preview`, {
       method: 'POST',
       body: JSON.stringify({ scene, config }),
     }),

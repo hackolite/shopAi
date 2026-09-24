@@ -284,6 +284,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setHeatmapMode,
     showTrajectories,
     setShowTrajectories,
+    showNavigationOverlay,
+    setShowNavigationOverlay,
+    setWalkablePreview,
     pedestrianImport,
     setPedestrianImport,
     selectedAgentId,
@@ -430,6 +433,47 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     }
   }, [isStale, projectId]);
 
+  // Refreshes the walkable-area preview (« chemin navigable » overlay) in the
+  // background: failures must never break the simulation flow, but a 422 still
+  // highlights the obstacles that now disconnect the entry from the exit.
+  const refreshWalkablePreview = useCallback(() => {
+    if (!projectId || !sceneWithZones) return;
+    if (!useSimulationStore.getState().showNavigationOverlay) return;
+    void cadApi
+      .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
+      .then((preview) => {
+        if (isStale(projectId)) return;
+        setWalkablePreview(preview);
+      })
+      .catch((error) => {
+        if (isStale(projectId)) return;
+        console.error('Failed to refresh walkable preview:', error);
+        const blockingHighlights = extractBlockingElementHighlight(error);
+        if (blockingHighlights.allIds.length > 0) {
+          setInvalidObstacleHighlights(blockingHighlights);
+        }
+      });
+  }, [isStale, projectId, runtimeConfig, sceneWithZones, setInvalidObstacleHighlights, setWalkablePreview]);
+
+  const toggleNavigationOverlay = useCallback(async (enabled: boolean) => {
+    setShowNavigationOverlay(enabled);
+    if (!enabled || !projectId || !sceneWithZones) return;
+    try {
+      const preview = await cadApi.getWalkablePreview(projectId, sceneWithZones, runtimeConfig);
+      if (isStale(projectId)) return;
+      setWalkablePreview(preview);
+    } catch (error) {
+      if (isStale(projectId)) return;
+      // Entry/exit truly disconnected: keep the last good preview on screen,
+      // turn the responsible obstacles red and surface the same error UX as a
+      // failed simulation launch.
+      const blockingHighlights = extractBlockingElementHighlight(error);
+      setInvalidObstacleHighlights(blockingHighlights);
+      console.error('Failed to fetch walkable preview:', error);
+      alert(error instanceof Error ? error.message : 'Aperçu de la zone navigable impossible');
+    }
+  }, [isStale, projectId, runtimeConfig, sceneWithZones, setInvalidObstacleHighlights, setShowNavigationOverlay, setWalkablePreview]);
+
   const runSimulation = useCallback(async () => {
     if (!projectId || !sceneWithZones) return;
     setRunning(true);
@@ -467,6 +511,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       }
       setPlaying(true);
       lastSimulationSignature.current = signature;
+      refreshWalkablePreview();
       void platformApi.appendClientLog({
         source: 'frontend',
         category: 'simulation-attempt',
@@ -525,6 +570,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     hasExplicitDatasetSelection,
     pedestrianImport,
     projectId,
+    refreshWalkablePreview,
     runtimeConfig,
     sceneWithZones,
     selectWaypoint,
@@ -853,6 +899,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           setResult(live.result);
           setPaused(live.paused);
           lastSimulationSignature.current = signature;
+          refreshWalkablePreview();
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -889,7 +936,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [allConfiguredWaypoints, handleLostSession, isStale, liveSessionId, playing, projectId, runtimeConfig, sceneWithZones, selectWaypoint, setInvalidObstacleHighlights, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
+  }, [allConfiguredWaypoints, handleLostSession, isStale, liveSessionId, playing, projectId, refreshWalkablePreview, runtimeConfig, sceneWithZones, selectWaypoint, setInvalidObstacleHighlights, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
 
   // Stop the backend live session when the panel unmounts *or* when the user
   // switches project, so the previous project's session does not keep running
@@ -1285,6 +1332,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               type="checkbox"
               checked={showTrajectories}
               onChange={(event) => setShowTrajectories(event.target.checked)}
+              className="accent-blue-500"
+            />
+          </label>
+          <label className="flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Chemin navigable</span>
+            <input
+              type="checkbox"
+              checked={showNavigationOverlay}
+              onChange={(event) => void toggleNavigationOverlay(event.target.checked)}
               className="accent-blue-500"
             />
           </label>

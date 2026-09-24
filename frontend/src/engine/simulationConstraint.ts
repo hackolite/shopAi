@@ -16,6 +16,8 @@ export interface ConstraintCorrection {
 export interface BlockingElementHighlight {
   furnitureIds: string[];
   zoneIds: string[];
+  /** Every blocking element id reported by the backend, regardless of type. */
+  allIds: string[];
 }
 
 export function extractConstraintDetail(raw: string): unknown {
@@ -60,14 +62,19 @@ export function extractConstraintCorrection(error: unknown): ConstraintCorrectio
 export function extractBlockingElementHighlight(error: unknown): BlockingElementHighlight {
   const raw = error instanceof Error ? error.message : String(error);
   const detail = extractConstraintDetail(raw);
-  if (!detail || typeof detail !== 'object') return { furnitureIds: [], zoneIds: [] };
+  if (!detail || typeof detail !== 'object') return { furnitureIds: [], zoneIds: [], allIds: [] };
   const record = detail as Record<string, unknown>;
   const blockingElementId = typeof record.blockingElementId === 'string' ? record.blockingElementId : null;
   const blockingElementType = typeof record.blockingElementType === 'string' ? record.blockingElementType : null;
-  if (!blockingElementId || !blockingElementType) return { furnitureIds: [], zoneIds: [] };
+  const blockingElementIds = Array.isArray(record.blockingElementIds)
+    ? record.blockingElementIds.filter((id): id is string => typeof id === 'string')
+    : [];
+  const allIds = [...new Set([...(blockingElementId ? [blockingElementId] : []), ...blockingElementIds])];
+  if (!blockingElementId || !blockingElementType) return { furnitureIds: [], zoneIds: [], allIds };
   return {
     furnitureIds: blockingElementType === 'furniture' ? [blockingElementId] : [],
     zoneIds: blockingElementType === 'zone' ? [blockingElementId] : [],
+    allIds,
   };
 }
 

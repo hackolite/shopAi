@@ -759,7 +759,8 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const groupRef = useRef<THREE.Group>(null!);
 
   const isSelected  = selectedFurnitureId === furniture.id || selectedFurnitureIds.has(furniture.id);
-  const isBlocking = invalidObstacleHighlights.furnitureIds.includes(furniture.id);
+  const isBlocking = invalidObstacleHighlights.furnitureIds.includes(furniture.id)
+    || (invalidObstacleHighlights.allIds ?? []).includes(furniture.id);
   // Used only for material appearance (roughness/metalness), not for overlay logic.
   const isGondolaStyle = furniture.type.startsWith('gondola');
 
@@ -1925,7 +1926,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   gridOriginRef.current = gridOrigin;
 
   const isSelected = selectedZoneIds.has(zone.id) || selectedZoneId === zone.id;
-  const isBlocking = invalidObstacleHighlights.zoneIds.includes(zone.id);
+  const isBlocking = invalidObstacleHighlights.zoneIds.includes(zone.id)
+    || (invalidObstacleHighlights.allIds ?? []).includes(zone.id);
   const W = zone.width  * CM_TO_UNIT;
   const D = zone.depth  * CM_TO_UNIT;
   const zoneCenter = zoneCenterCm(zone);
@@ -2399,7 +2401,8 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   sceneFurnitureRef.current = useSceneStore((state) => state.scene?.furniture) ?? [];
 
   const isSelected = selectedFurnitureId === furniture.id;
-  const isBlocking = invalidObstacleHighlights.furnitureIds.includes(furniture.id);
+  const isBlocking = invalidObstacleHighlights.furnitureIds.includes(furniture.id)
+    || (invalidObstacleHighlights.allIds ?? []).includes(furniture.id);
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
   const D  = furniture.dimensions.depth  * CM_TO_UNIT;
   // World-space centre of the rectangle (group origin)

@@ -116,7 +116,7 @@ describe('simulationStore waypoint systems', () => {
       },
     });
 
-    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [] });
+    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
   });
 
   it('clears blocking obstacle highlights on config edits', () => {
@@ -125,7 +125,7 @@ describe('simulationStore waypoint systems', () => {
 
     store.patchConfig({ maxCustomers: 12 });
 
-    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [] });
+    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
   });
 
   it('clears blocking obstacle highlights when editing a waypoint', () => {
@@ -137,6 +137,31 @@ describe('simulationStore waypoint systems', () => {
 
     store.updateWaypoint(waypointId as string, { x: 140 });
 
-    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [] });
+    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
+  });
+
+  it('toggles the navigation overlay and stores the walkable preview', () => {
+    const store = useSimulationStore.getState();
+    const preview = {
+      connected: [[0, 0], [100, 0], [100, 100]] as [number, number][],
+      connectedHoles: [],
+      disconnected: [],
+      excludedObstacles: [],
+    };
+
+    store.setShowNavigationOverlay(true);
+    store.setWalkablePreview(preview);
+    store.setInvalidObstacleHighlights({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'], allIds: ['fixture-1', 'zone-2'] });
+
+    let state = useSimulationStore.getState();
+    expect(state.showNavigationOverlay).toBe(true);
+    expect(state.walkablePreview).toEqual(preview);
+    expect(state.invalidObstacleHighlights).toEqual({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'], allIds: ['fixture-1', 'zone-2'] });
+
+    state.reset();
+    state = useSimulationStore.getState();
+    expect(state.showNavigationOverlay).toBe(false);
+    expect(state.walkablePreview).toBeNull();
+    expect(state.invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
   });
 });

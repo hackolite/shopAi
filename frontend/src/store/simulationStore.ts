@@ -8,6 +8,7 @@ import type {
   SimulationResult,
   SimulationWaypoint,
   SimulationWaypointSystem,
+  WalkablePreview,
 } from '../types/cad';
 import type { JourneyMetricId } from '../engine/journeyMetrics';
 import type { YieldMetricId } from '../engine/yieldMetrics';
@@ -138,10 +139,12 @@ export const PICKUP_POPUP_DURATION_MS = 5000;
 export interface InvalidSimulationObstacleHighlights {
   furnitureIds: string[];
   zoneIds: string[];
+  /** Type-agnostic union of every blocking element id reported by the backend. */
+  allIds?: string[];
 }
 
 function emptyInvalidSimulationObstacleHighlights(): InvalidSimulationObstacleHighlights {
-  return { furnitureIds: [], zoneIds: [] };
+  return { furnitureIds: [], zoneIds: [], allIds: [] };
 }
 
 /** A transient, world-anchored pop-up shown when an agent picks a product. */
@@ -164,6 +167,10 @@ interface SimulationState {
   /** What drives the floor heatmap intensity: agent traffic or exposed margin. */
   heatmapMode: HeatmapMode;
   showTrajectories: boolean;
+  /** Whether the walkable-area overlay (chemin navigable) is drawn on the floor. */
+  showNavigationOverlay: boolean;
+  /** Last walkable-area partition returned by the backend, if any. */
+  walkablePreview: WalkablePreview | null;
   running: boolean;
   playing: boolean;
   paused: boolean;
@@ -212,6 +219,8 @@ interface SimulationState {
   setShowHeatmap: (showHeatmap: boolean) => void;
   setHeatmapMode: (heatmapMode: HeatmapMode) => void;
   setShowTrajectories: (showTrajectories: boolean) => void;
+  setShowNavigationOverlay: (showNavigationOverlay: boolean) => void;
+  setWalkablePreview: (walkablePreview: WalkablePreview | null) => void;
   setRunning: (running: boolean) => void;
   setPlaying: (playing: boolean) => void;
   setPaused: (paused: boolean) => void;
@@ -246,6 +255,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   showHeatmap: false,
   heatmapMode: 'traffic',
   showTrajectories: false,
+  showNavigationOverlay: false,
+  walkablePreview: null,
   running: false,
   playing: false,
   paused: false,
@@ -277,6 +288,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+      walkablePreview: null,
       history: [],
     }),
   patchConfig: (patch) =>
@@ -286,6 +298,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+      walkablePreview: null,
     })),
   addWaypointSystem: () =>
     set((state) => {
@@ -309,6 +322,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         invalidWaypointIds: [],
         invalidWaypointSuggestion: null,
         invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+        walkablePreview: null,
       };
     }),
   removeWaypointSystem: (id) =>
@@ -333,6 +347,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         invalidWaypointIds: [],
         invalidWaypointSuggestion: null,
         invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+        walkablePreview: null,
       };
     }),
   selectWaypointSystem: (id) =>
@@ -392,6 +407,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+      walkablePreview: null,
       };
     }),
   updateWaypoint: (id, patch, options) =>
@@ -414,6 +430,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
         invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
         invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+        walkablePreview: null,
       };
     }),
   removeWaypoint: (id) =>
@@ -431,6 +448,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
       invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
       invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+      walkablePreview: null,
     })),
   selectWaypoint: (id) => set({ selectedWaypointId: id }),
   setWaypointPlacementType: (type) => set({ waypointPlacementType: type }),
@@ -449,6 +467,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         invalidWaypointIds: [],
         invalidWaypointSuggestion: null,
         invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+        walkablePreview: null,
       };
     }),
   setResult: (result) => set({
@@ -456,11 +475,14 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     invalidWaypointIds: [],
     invalidWaypointSuggestion: null,
     invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+    walkablePreview: null,
   }),
   setAnalytics: (analytics) => set({ analytics }),
   setShowHeatmap: (showHeatmap) => set({ showHeatmap }),
   setHeatmapMode: (heatmapMode) => set({ heatmapMode }),
   setShowTrajectories: (showTrajectories) => set({ showTrajectories }),
+  setShowNavigationOverlay: (showNavigationOverlay) => set({ showNavigationOverlay }),
+  setWalkablePreview: (walkablePreview) => set({ walkablePreview }),
   setRunning: (running) => set({ running }),
   setPlaying: (playing) => set({ playing }),
   setPaused: (paused) => set({ paused }),
@@ -471,6 +493,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     invalidObstacleHighlights: {
       furnitureIds: [...new Set(highlights.furnitureIds)],
       zoneIds: [...new Set(highlights.zoneIds)],
+      allIds: [...new Set(highlights.allIds ?? [])],
     },
   }),
   toggleJourneyMetric: (id) =>
@@ -526,6 +549,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       config: normalizeConfig(defaultSimulationConfig()),
       result: null,
       analytics: null,
+      showNavigationOverlay: false,
       running: false,
       playing: false,
       paused: false,
@@ -535,6 +559,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
       invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+      walkablePreview: null,
       pinnedJourneyMetrics: [],
       pinnedYieldMetrics: [],
       pinnedRevenueMetrics: [],

@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 import services.simulation as simsvc
+import services.walkable_partition as walkable_partition
 from models.project import (
     AgentBasket,
     AgentBasketItem,
@@ -132,9 +133,25 @@ class LiveSimulationSession:
         return [self.token_to_stage[token] for token in tokens if token in self.token_to_stage]
 
     def _init_runtime(self, carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]]) -> None:
-        self.walkable = simsvc._build_walkable_geometry(self.scene)
-        self.entries, self.transit_waypoints, self.exits = simsvc._partition_waypoints(self.scene, self.config)
-        simsvc._validate_waypoint_constraints([*self.entries, *self.transit_waypoints, *self.exits], self.walkable)
+        # Compute the walkable partition first: obstacles that split the store
+        # into disconnected islands exclude the islands instead of aborting the
+        # session, and waypoints that land in an excluded island are dropped.
+        partition = walkable_partition.compute_walkable_partition(self.scene, self.config)
+        self.walkable = partition.connected
+        all_entries, all_transit, all_exits = simsvc._partition_waypoints(self.scene, self.config)
+        entries = walkable_partition.waypoints_outside_disconnected_islands(all_entries, partition)
+        transit = walkable_partition.waypoints_outside_disconnected_islands(all_transit, partition)
+        exits = walkable_partition.waypoints_outside_disconnected_islands(all_exits, partition)
+        simsvc._validate_waypoint_constraints([*entries, *transit, *exits], self.walkable)
+        self.entries = walkable_partition.filter_reachable_waypoints(all_entries, partition)
+        self.transit_waypoints = walkable_partition.filter_reachable_waypoints(all_transit, partition)
+        self.exits = walkable_partition.filter_reachable_waypoints(all_exits, partition)
+        if not self.entries:
+            walkable_partition.raise_no_reachable_entry(partition.excluded_obstacles)
+        if not self.exits:
+            # Unreachable exits raise inside compute_walkable_partition; this
+            # guard only covers a defensive fallback.
+            raise simsvc.SimulationConstraintViolation(simsvc.split_accessible_area_detail())
         previous_queue_stats = {
             waypoint_id: (
                 runtime.released_agents,
@@ -712,9 +729,10 @@ class LiveSimulationSession:
             # waypoint) must reject the update and leave the running session
             # fully intact; mutating first used to leave the session half
             # rebuilt (new scene, old sim) and broke every later tick/update.
-            walkable = simsvc._build_walkable_geometry(scene)
-            entries, transit, exits = simsvc._partition_waypoints(scene, config)
-            simsvc._validate_waypoint_constraints([*entries, *transit, *exits], walkable)
+            # The partition step raises when an exit (or every entry) is cut off
+            # on a disconnected island; waypoints still on the connected area
+            # are fully validated by _init_runtime below.
+            walkable_partition.compute_walkable_partition(scene, config)
             carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]] = []
             for agent in self.sim.agents():
                 route = self.agent_routes.get(int(agent.id))

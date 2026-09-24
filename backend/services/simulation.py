@@ -548,29 +548,18 @@ def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None
     return clipped if isinstance(clipped, (Polygon, MultiPolygon)) else None
 
 
-def _build_walkable_geometry(scene: SceneData) -> Polygon:
-    store = scene.store
-    store_x_m = _cm_to_m(float(store.position[0]))
-    store_z_m = _cm_to_m(float(store.position[2]))
-    width_m = _cm_to_m(float(store.dimensions["width"]))
-    depth_m = _cm_to_m(float(store.dimensions["depth"]))
-    store_polygon = Polygon(
-        [
-            (store_x_m, store_z_m),
-            (store_x_m + width_m, store_z_m),
-            (store_x_m + width_m, store_z_m + depth_m),
-            (store_x_m, store_z_m + depth_m),
-        ]
-    )
-    walkable, split_detail = _apply_scene_obstacles(scene, store_polygon)
-    walkable = walkable.buffer(0)
-    if len(_walkable_components(walkable)) > 1:
-        raise SimulationConstraintViolation(split_detail or split_accessible_area_detail())
-    if isinstance(walkable, MultiPolygon):
-        walkable = max(walkable.geoms, key=lambda geom: geom.area)
-    if not isinstance(walkable, Polygon) or walkable.is_empty:
-        raise ValueError("Unable to derive a valid walkable area from the current store layout")
-    return walkable
+def _build_walkable_geometry(scene: SceneData, config: SimulationConfig | None = None) -> Polygon:
+    """Return the connected walkable component agents can move in.
+
+    Obstacles that split the store into disconnected islands no longer abort
+    the build: the islands are excluded and the simulation runs on the
+    component holding the entry waypoints.  A genuine entry/exit
+    disconnection still raises a ``splitAccessibleArea`` 422 detail.
+    """
+    from services.walkable_partition import compute_walkable_partition
+
+    partition = compute_walkable_partition(scene, config or SimulationConfig())
+    return partition.connected
 
 
 def _point_in_walkable(point: tuple[float, float], walkable: Polygon) -> bool:
@@ -976,9 +965,25 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             ),
         )
 
+    from services.walkable_partition import (
+        compute_walkable_partition,
+        filter_reachable_waypoints,
+        raise_no_reachable_entry,
+    )
+
     rng = random.Random(int(config.randomSeed))
-    walkable = _build_walkable_geometry(scene)
-    entries, transit_waypoints, exits = _partition_waypoints(scene, config)
+    partition = compute_walkable_partition(scene, config)
+    walkable = partition.connected
+    all_entries, all_transit_waypoints, all_exits = _partition_waypoints(scene, config)
+    entries = filter_reachable_waypoints(all_entries, partition)
+    transit_waypoints = filter_reachable_waypoints(all_transit_waypoints, partition)
+    exits = filter_reachable_waypoints(all_exits, partition)
+    if not entries:
+        raise_no_reachable_entry(partition.excluded_obstacles)
+    if not exits:
+        # Unreachable exits raise inside compute_walkable_partition; this guard
+        # only covers a defensive fallback.
+        raise SimulationConstraintViolation(split_accessible_area_detail())
     _validate_waypoint_constraints([*entries, *transit_waypoints, *exits], walkable)
     exit_stage_ids: dict[str, int] = {}
     waypoint_stage_ids: dict[str, int] = {}

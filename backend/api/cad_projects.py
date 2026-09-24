@@ -40,6 +40,7 @@ from services.simulation import (
     SimulationRuntimeValidationError,
     run_flow_simulation,
 )
+from services.walkable_partition import compute_walkable_partition, polygon_to_cm
 from services.live_simulation import live_simulation_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
@@ -904,6 +905,27 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
             details=_simulation_log_details(project_id, mode="batch", error=str(exc)),
         )
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/{project_id}/simulation/walkable-preview")
+def walkable_preview(project_id: str, payload: SimulationRunPayload):
+    try:
+        scene = SceneData.model_validate(payload.scene) if payload.scene is not None else _load_scene(project_id)
+        config = (
+            SimulationConfig.model_validate(payload.config)
+            if payload.config is not None
+            else _load_settings(project_id).simulation
+        )
+        partition = compute_walkable_partition(scene, config)
+        connected = polygon_to_cm(partition.connected)
+        return {
+            "connected": connected["exterior"],
+            "connectedHoles": connected["holes"],
+            "disconnected": [polygon_to_cm(polygon) for polygon in partition.disconnected],
+            "excludedObstacles": partition.excluded_obstacles,
+        }
+    except SimulationConstraintViolation as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
 
 
 @router.post("/{project_id}/simulation/live/start")

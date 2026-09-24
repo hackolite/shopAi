@@ -753,11 +753,13 @@ interface FurnitureMeshProps {
 function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const [hovered, setHovered] = useState(false);
   const { selectedFurnitureId, selectedFurnitureIds, selectFurniture, toggleFurnitureSelection, selection } = useSceneStore();
+  const invalidObstacleHighlights = useSimulationStore((state) => state.invalidObstacleHighlights);
   const { activeTool } = useUIStore();
   const registerGroup = useContext(MeshRegistryCtx);
   const groupRef = useRef<THREE.Group>(null!);
 
   const isSelected  = selectedFurnitureId === furniture.id || selectedFurnitureIds.has(furniture.id);
+  const isBlocking = invalidObstacleHighlights.furnitureIds.includes(furniture.id);
   // Used only for material appearance (roughness/metalness), not for overlay logic.
   const isGondolaStyle = furniture.type.startsWith('gondola');
 
@@ -770,7 +772,7 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
   const ry = furniture.rotation[1] * (Math.PI / 180);
 
   const baseColor = getFurnitureColor(furniture.type);
-  const color = isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
+  const color = isBlocking ? '#ef4444' : isSelected ? '#4a9eff' : hovered ? '#a8c8ff' : baseColor;
 
   const { selectZone } = useZoneStore();
   const { planogramDetails } = usePlanogramStore();
@@ -906,8 +908,8 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
         <boxGeometry args={[W, H, D]} />
         <meshStandardMaterial
           color={color}
-          emissive={isSelected ? '#1a3a6a' : hovered ? '#1a1a3a' : '#000000'}
-          emissiveIntensity={isSelected ? 0.35 : hovered ? 0.12 : 0}
+          emissive={isBlocking ? '#7f1d1d' : isSelected ? '#1a3a6a' : hovered ? '#1a1a3a' : '#000000'}
+          emissiveIntensity={isBlocking ? 0.45 : isSelected ? 0.35 : hovered ? 0.12 : 0}
           roughness={isGondolaStyle ? 0.4 : 0.55}
           metalness={isGondolaStyle ? 0.5 : 0.25}
         />
@@ -922,9 +924,9 @@ function FurnitureMesh({ furniture }: FurnitureMeshProps) {
           <mesh position={[0, H / 2 + OVERLAY_Z_OFFSET, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[W, D]} />
             <meshStandardMaterial
-              color={isSelected ? '#4a9eff' : topFill}
-              emissive={isSelected ? '#1a3a6a' : '#000000'}
-              emissiveIntensity={isSelected ? 0.35 : 0}
+              color={isBlocking ? '#ef4444' : isSelected ? '#4a9eff' : topFill}
+              emissive={isBlocking ? '#7f1d1d' : isSelected ? '#1a3a6a' : '#000000'}
+              emissiveIntensity={isBlocking ? 0.45 : isSelected ? 0.35 : 0}
               roughness={0.45}
               metalness={0.2}
             />
@@ -1913,6 +1915,7 @@ function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
 function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds } = useZoneStore();
   const { selectFurniture, scene } = useSceneStore();
+  const invalidObstacleHighlights = useSimulationStore((state) => state.invalidObstacleHighlights);
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
@@ -1922,6 +1925,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   gridOriginRef.current = gridOrigin;
 
   const isSelected = selectedZoneIds.has(zone.id) || selectedZoneId === zone.id;
+  const isBlocking = invalidObstacleHighlights.zoneIds.includes(zone.id);
   const W = zone.width  * CM_TO_UNIT;
   const D = zone.depth  * CM_TO_UNIT;
   const zoneCenter = zoneCenterCm(zone);
@@ -1931,10 +1935,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const rotationDeg = zoneRotationDeg(zone);
 
   const palette = ZONE_COLORS[zone.type] ?? ZONE_COLORS.entrance;
-  const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
-  const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
+  const fillColor = isBlocking ? '#ef4444' : zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
+  const borderColor = isBlocking ? '#fca5a5' : zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
   const mounted = zoneMounted(zone);
-  const whiteEdgeColor = mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
+  const whiteEdgeColor = isBlocking ? '#fecaca' : mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
   const baseOpacity = zone.opacity ?? 0.32;
   const storeBounds = useMemo(() => (
     scene?.store
@@ -1947,8 +1951,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       : undefined
   ), [scene?.store]);
   const fillOpacity = mounted
-    ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
-    : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
+    ? Math.max(0.08, Math.min(1, baseOpacity * (isBlocking ? 0.95 : isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
+    : Math.max(0.08, Math.min(1, isBlocking ? Math.max(baseOpacity, 0.65) : isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
   const extrudedGeometry = useMemo(
     () => (mounted
@@ -2383,6 +2387,7 @@ const BEV_MAX_POLAR_ANGLE = 0.01;
 function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: FurnitureInstance; projectId: string | null }) {
   const { selectedFurnitureId, selectFurniture, updateFurniture } = useSceneStore();
   const { selectZone } = useZoneStore();
+  const invalidObstacleHighlights = useSimulationStore((state) => state.invalidObstacleHighlights);
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
   const registerGroup = useContext(MeshRegistryCtx);
@@ -2394,6 +2399,7 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
   sceneFurnitureRef.current = useSceneStore((state) => state.scene?.furniture) ?? [];
 
   const isSelected = selectedFurnitureId === furniture.id;
+  const isBlocking = invalidObstacleHighlights.furnitureIds.includes(furniture.id);
   const W  = furniture.dimensions.width  * CM_TO_UNIT;
   const D  = furniture.dimensions.depth  * CM_TO_UNIT;
   // World-space centre of the rectangle (group origin)
@@ -2540,9 +2546,9 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       >
         <planeGeometry args={[W, D]} />
         <meshBasicMaterial
-          color={color.fill}
+          color={isBlocking ? '#ef4444' : color.fill}
           transparent
-          opacity={isSelected ? 0.65 : hovered ? 0.5 : 0.35}
+          opacity={isBlocking ? 0.72 : isSelected ? 0.65 : hovered ? 0.5 : 0.35}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
@@ -2551,14 +2557,14 @@ function UnmountedFurnitureMesh({ furniture, projectId }: { furniture: Furniture
       {/* Border outline */}
       <Line
         points={borderPts}
-        color={isSelected ? '#ffffff' : color.border}
+        color={isBlocking ? '#fecaca' : isSelected ? '#ffffff' : color.border}
         lineWidth={isSelected ? 3 : 2}
       />
 
       {/* Front-edge highlight (thicker, accent colour) so orientation is unambiguous */}
       <Line
         points={frontEdgePts}
-        color="#facc15"
+        color={isBlocking ? '#fecaca' : '#facc15'}
         lineWidth={isSelected ? 4 : 3}
       />
 

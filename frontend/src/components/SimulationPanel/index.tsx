@@ -3,6 +3,7 @@ import { cadApi } from '../../api/cad';
 import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
 import {
+  extractBlockingElementHighlight,
   extractConstraintCorrection,
   extractConstraintPoint,
   formatConstraintCorrection,
@@ -273,6 +274,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setLiveSessionId,
     setInvalidWaypointIds,
     setInvalidWaypointSuggestion,
+    setInvalidObstacleHighlights,
     selectWaypoint,
     invalidWaypointIds,
     setAnalytics,
@@ -466,6 +468,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setLiveSessionId(null);
       setResult(null);
       const correction = extractConstraintCorrection(error);
+      const blockingHighlights = extractBlockingElementHighlight(error);
       const point = correction ? null : extractConstraintPoint(error);
       const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, allConfiguredWaypoints) : null);
       const suggestedPosition =
@@ -482,6 +485,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         setInvalidWaypointIds([]);
         setInvalidWaypointSuggestion(null);
       }
+      setInvalidObstacleHighlights(blockingHighlights);
       console.error('Failed to run simulation:', error);
       alert(correction ? formatConstraintCorrection(correction) : error instanceof Error ? error.message : 'Simulation impossible');
     } finally {
@@ -498,6 +502,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     sceneWithZones,
     selectWaypoint,
     setInvalidWaypointIds,
+    setInvalidObstacleHighlights,
     setInvalidWaypointSuggestion,
     setLiveSessionId,
     setPaused,
@@ -833,6 +838,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           // waypoint): the backend kept the previous layout running, so keep
           // the session alive and highlight the offending waypoint instead.
           const correction = extractConstraintCorrection(error);
+          const blockingHighlights = extractBlockingElementHighlight(error);
           const point = correction ? null : extractConstraintPoint(error);
           const invalidWaypointId = correction?.waypointId ?? (point ? pickClosestWaypointId(point, allConfiguredWaypoints) : null);
           if (invalidWaypointId) {
@@ -843,13 +849,17 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 : null,
             );
             selectWaypoint(invalidWaypointId);
+          } else {
+            setInvalidWaypointIds([]);
+            setInvalidWaypointSuggestion(null);
           }
+          setInvalidObstacleHighlights(blockingHighlights);
         });
     }, 200);
     return () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
     };
-  }, [allConfiguredWaypoints, handleLostSession, isStale, liveSessionId, playing, projectId, runtimeConfig, sceneWithZones, selectWaypoint, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
+  }, [allConfiguredWaypoints, handleLostSession, isStale, liveSessionId, playing, projectId, runtimeConfig, sceneWithZones, selectWaypoint, setInvalidObstacleHighlights, setInvalidWaypointIds, setInvalidWaypointSuggestion, setPaused, setResult]);
 
   // Stop the backend live session when the panel unmounts *or* when the user
   // switches project, so the previous project's session does not keep running

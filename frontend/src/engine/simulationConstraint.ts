@@ -13,6 +13,11 @@ export interface ConstraintCorrection {
   suggestedZcm: number | null;
 }
 
+export interface BlockingElementHighlight {
+  furnitureIds: string[];
+  zoneIds: string[];
+}
+
 export function extractConstraintDetail(raw: string): unknown {
   const jsonStart = raw.indexOf('{');
   if (jsonStart < 0) return raw;
@@ -49,6 +54,20 @@ export function extractConstraintCorrection(error: unknown): ConstraintCorrectio
     currentZcm: typeof record.currentZcm === 'number' ? record.currentZcm : null,
     suggestedXcm: typeof record.suggestedXcm === 'number' ? record.suggestedXcm : null,
     suggestedZcm: typeof record.suggestedZcm === 'number' ? record.suggestedZcm : null,
+  };
+}
+
+export function extractBlockingElementHighlight(error: unknown): BlockingElementHighlight {
+  const raw = error instanceof Error ? error.message : String(error);
+  const detail = extractConstraintDetail(raw);
+  if (!detail || typeof detail !== 'object') return { furnitureIds: [], zoneIds: [] };
+  const record = detail as Record<string, unknown>;
+  const blockingElementId = typeof record.blockingElementId === 'string' ? record.blockingElementId : null;
+  const blockingElementType = typeof record.blockingElementType === 'string' ? record.blockingElementType : null;
+  if (!blockingElementId || !blockingElementType) return { furnitureIds: [], zoneIds: [] };
+  return {
+    furnitureIds: blockingElementType === 'furniture' ? [blockingElementId] : [],
+    zoneIds: blockingElementType === 'zone' ? [blockingElementId] : [],
   };
 }
 

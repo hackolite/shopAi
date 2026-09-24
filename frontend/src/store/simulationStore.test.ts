@@ -98,4 +98,24 @@ describe('simulationStore waypoint systems', () => {
     store.setWaypointPlacementType('exit');
     expect(useSimulationStore.getState().waypointPlacementType).toBe('exit');
   });
+
+  it('clears blocking obstacle highlights after a successful result', () => {
+    const store = useSimulationStore.getState();
+    store.setInvalidObstacleHighlights({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'] });
+
+    store.setResult({
+      frames: [],
+      waypoints: [],
+      summary: {
+        spawnedCustomers: 0,
+        completedCustomers: 0,
+        activeCustomers: 0,
+        averageWaypointLoad: 0,
+        maxWaypointLoad: 0,
+        averageConfiguredRetentionSeconds: 0,
+      },
+    });
+
+    expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [] });
+  });
 });

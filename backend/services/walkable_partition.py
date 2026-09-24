@@ -71,6 +71,7 @@ _MAX_COMPILED_LAYOUTS = 16
 _SPATIAL_INDEX_GRID_DIVISIONS = 32
 _RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 _RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
+_RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
 
 
 def _store_polygon(store) -> Polygon:
@@ -217,10 +218,14 @@ def _compile_runtime_component(component: Polygon) -> Polygon:
     clearance_m = _cm_to_m(_RUNTIME_OPENING_CLEARANCE_CM)
     tolerance_m = _cm_to_m(_RUNTIME_SIMPLIFICATION_TOLERANCE_CM)
     anchor = (component.representative_point().x, component.representative_point().y)
-    compiled = _normalize_polygon(
-        component.buffer(-clearance_m, join_style="mitre").buffer(clearance_m, join_style="mitre"),
-        anchor=anchor,
-    )
+    vertex_count = len(component.exterior.coords) + sum(len(ring.coords) for ring in component.interiors)
+    if vertex_count <= _RUNTIME_BUFFER_MIN_VERTEX_COUNT:
+        compiled = _normalize_polygon(component, anchor=anchor)
+    else:
+        compiled = _normalize_polygon(
+            component.buffer(-clearance_m, join_style="mitre").buffer(clearance_m, join_style="mitre"),
+            anchor=anchor,
+        )
     if compiled is None:
         compiled = _normalize_polygon(component, anchor=anchor)
     if compiled is None:
@@ -378,6 +383,12 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         for waypoint in [*entries, *transit, *exits]
         if _point_in_walkable(_waypoint_point(waypoint), connected)
     }
+    if any(
+        waypoint.id in reachable_waypoint_ids
+        and not _point_in_walkable(_waypoint_point(waypoint), runtime_connected)
+        for waypoint in [*entries, *transit, *exits]
+    ):
+        runtime_connected = connected
     return WalkablePartition(
         connected=connected,
         runtime_connected=runtime_connected,

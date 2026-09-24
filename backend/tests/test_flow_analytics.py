@@ -157,6 +157,106 @@ def test_delta_since_falls_back_to_full_when_history_window_is_exceeded() -> Non
     assert recorder.delta_since(0) is None
 
 
+def _apply_delta(base: dict, delta: dict) -> dict:
+    from copy import deepcopy
+
+    result = deepcopy(base)
+    result["timeSeconds"] = delta["timeSeconds"]
+    for name, increments in (("heatmap", "occupancyIncrements"), ("visitHeatmap", "visitIncrements")):
+        for item in delta[increments]:
+            result[name]["counts"][item["index"]] += item["delta"]
+        result[name]["maxCount"] = max(result[name]["counts"])
+    trajectories = {item["agentId"]: item for item in result["trajectories"]}
+    for agent_id in delta["removedTrajectoryAgentIds"]:
+        trajectories.pop(agent_id, None)
+    for item in delta["trajectoryReplacements"]:
+        trajectories[item["agentId"]] = deepcopy(item)
+    for item in delta["trajectoryAppends"]:
+        trajectories[item["agentId"]]["pointsCm"].extend(item["appendPointsCm"])
+    for agent_id in delta["deactivatedTrajectoryAgentIds"]:
+        if agent_id in trajectories:
+            trajectories[agent_id]["active"] = False
+    customers = {item["customerId"]: item for item in result["customers"]}
+    for agent_id in delta["removedCustomerIds"]:
+        customers.pop(agent_id, None)
+    for item in delta["customerUpdates"]:
+        customers[item["customerId"]] = item
+    result["trajectories"] = sorted(trajectories.values(), key=lambda item: item["agentId"])
+    result["customers"] = list(customers.values())
+    return result
+
+
+def test_large_cohort_keeps_stable_paths_and_all_customer_and_grid_statistics() -> None:
+    recorder = FlowAnalyticsRecorder(_scene(width=10000))
+    base = recorder.snapshot().model_dump(mode="json")
+    seq = recorder.seq
+    # More customers than either display limit: all active customers must retain
+    # their distance/entry time, while only forty stable paths are sampled.
+    for step in range(180):
+        recorder.record_frame(_frame(step / 10, [(i, 50 + step * 20, 50) for i in reversed(range(120))]))
+        assert set(recorder._trajectories) == set(range(40))
+        assert len(recorder._customers) == 120
+    delta = recorder.delta_since(seq)
+    assert delta is not None
+    assert _apply_delta(base, delta) == recorder.snapshot().model_dump(mode="json")
+    assert sum(recorder.heatmap().counts) == 120 * 180
+    assert all(customer.distanceCm == 179 * 20 for customer in recorder.customers())
+    assert all(customer.entryTimeSeconds == 0 for customer in recorder.customers())
+    assert all(len(path.pointsCm) <= 320 for path in recorder.trajectories())
+
+
+def test_delta_replay_handles_admission_decimation_removal_and_customer_eviction() -> None:
+    recorder = FlowAnalyticsRecorder(_scene(width=10000))
+    base = recorder.snapshot().model_dump(mode="json")
+    seq = recorder.seq
+    for step in range(350):
+        # First tracked agents leave; next active agents are admitted, without
+        # resending any heatmap or losing active customers' accumulated history.
+        ids = range(120) if step < 200 else range(30, 120)
+        recorder.record_frame(_frame(step / 10, [(i, 50 + step * 20, 50) for i in ids]))
+        if step % 13 == 0 or step == 349:
+            delta = recorder.delta_since(seq)
+            assert delta is not None
+            base = _apply_delta(base, delta)
+            expected = recorder.snapshot().model_dump(mode="json")
+            assert base == expected
+            seq = recorder.seq
+    assert len(base["trajectories"]) == 40
+    assert len(base["customers"]) == 100
+    assert sum(recorder.heatmap().counts) == 200 * 120 + 150 * 90
+
+
+def test_delta_history_boundaries_and_geometry_reset_require_correct_resync() -> None:
+    from services.flow_analytics import MAX_DELTA_HISTORY
+
+    recorder = FlowAnalyticsRecorder(_scene())
+    start_seq = recorder.seq
+    for step in range(MAX_DELTA_HISTORY):
+        recorder.record_frame(_frame(step / 10, [(1, 50, 50)]))
+    assert recorder.delta_since(start_seq) is not None
+    recorder.record_frame(_frame(61, [(1, 50, 50)]))
+    assert recorder.delta_since(start_seq) is None
+    assert recorder.delta_since(start_seq + 1) is not None
+    assert recorder.delta_since(recorder.seq + 1) is None
+    assert recorder.delta_since(recorder.seq)["customerUpdates"] == []
+    seq = recorder.seq
+    recorder.configure(_scene(width=2000))
+    assert recorder.delta_since(seq) is None
+    recorder.record_frame(_frame(62, [(1, 50, 50)]))
+    assert recorder.delta_since(seq) is None
+    assert sum(recorder.heatmap().counts) == 1
+
+
+def test_delta_includes_first_point_after_snapshot_omits_stationary_path() -> None:
+    recorder = FlowAnalyticsRecorder(_scene())
+    recorder.record_frame(_frame(0, [(1, 50, 50)]))
+    base = recorder.snapshot().model_dump(mode="json")
+    assert base["trajectories"] == []
+    seq = recorder.seq
+    recorder.record_frame(_frame(0.1, [(1, 100, 50)]))
+    assert _apply_delta(base, recorder.delta_since(seq)) == recorder.snapshot().model_dump(mode="json")
+
+
 def test_queue_wait_metrics_track_time_spent_in_the_queue() -> None:
     stage = _FakeQueueStage()
     runtime = _WaypointRuntime(

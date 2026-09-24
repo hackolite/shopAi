@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File, Query
 from fastapi.responses import Response
-from pydantic import BaseModel, ConfigDict, StrictBool, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StringConstraints
 
 from models.project import (
     Catalog,
@@ -22,6 +22,7 @@ from models.project import (
     ProjectSettings,
     SceneData,
     SimulationConfig,
+    SimulationResult,
     Store,
 )
 from models.gondola import GondolaData
@@ -41,7 +42,12 @@ from services.simulation import (
     run_flow_simulation,
 )
 from services.walkable_partition import compute_walkable_partition, polygon_to_cm
-from services.live_simulation import live_simulation_manager
+from services.live_simulation import (
+    LIVE_RESPONSE_FRAME_WINDOW,
+    MAX_LIVE_TICK_STEPS,
+    MIN_LIVE_RESPONSE_FRAME_WINDOW,
+    live_simulation_manager,
+)
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
 from services.studio_assistant import run_studio_assistant
@@ -185,8 +191,20 @@ class SimulationRunPayload(BaseModel):
 
 
 class SimulationLiveTickPayload(BaseModel):
-    steps: int = 1
+    steps: int = Field(default=1, ge=1, le=MAX_LIVE_TICK_STEPS, strict=True)
     includeWaypointMetrics: StrictBool = True
+    frameWindow: int = Field(
+        default=LIVE_RESPONSE_FRAME_WINDOW,
+        ge=MIN_LIVE_RESPONSE_FRAME_WINDOW,
+        le=LIVE_RESPONSE_FRAME_WINDOW,
+        strict=True,
+    )
+
+
+class SimulationLiveTickResponse(BaseModel):
+    sessionId: str
+    result: SimulationResult
+    paused: bool
 
 
 def _load_scene(project_id: str) -> SceneData:
@@ -990,7 +1008,7 @@ def start_live_simulation(project_id: str, payload: SimulationRunPayload):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@router.post("/{project_id}/simulation/live/{session_id}/tick")
+@router.post("/{project_id}/simulation/live/{session_id}/tick", response_model=SimulationLiveTickResponse)
 def tick_live_simulation(project_id: str, session_id: str, payload: SimulationLiveTickPayload):
     try:
         session = live_simulation_manager.get(session_id)
@@ -999,8 +1017,10 @@ def tick_live_simulation(project_id: str, session_id: str, payload: SimulationLi
         result = session.tick(
             payload.steps,
             include_waypoint_metrics=payload.includeWaypointMetrics,
+            frame_window=payload.frameWindow,
         )
-        return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": session.paused}
+        response = SimulationLiveTickResponse(sessionId=session_id, result=result, paused=session.paused)
+        return Response(content=response.model_dump_json(), media_type="application/json")
     except KeyError as exc:
         append_log(
             source="backend",

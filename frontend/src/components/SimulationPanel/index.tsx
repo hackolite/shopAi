@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { cadApi } from '../../api/cad';
 import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
+import { applyAnalyticsDelta } from '../../engine/simulationAnalytics';
+import { LIVE_FRAME_WINDOW, LIVE_TICK_INTERVAL_MS } from '../../engine/simulationPlayback';
 import {
   extractBlockingElementHighlight,
   extractConstraintCorrection,
@@ -22,8 +24,6 @@ import { useAssetStore } from '../../store/assetStore';
 import { useUIStore } from '../../store/uiStore';
 import type {
   AgentBasket,
-  SimulationAnalytics,
-  SimulationAnalyticsDelta,
   SimulationConfig,
   SimulationWaypoint,
   WaypointMetrics,
@@ -33,7 +33,6 @@ interface SimulationPanelProps {
   projectId: string | null;
 }
 
-const LIVE_TICK_INTERVAL_MS = 100;
 /** Heatmap and trajectories change slowly: refresh them far less often than agents. */
 const ANALYTICS_INTERVAL_MS = 1000;
 /**
@@ -46,52 +45,6 @@ const MAX_CATCH_UP_STEPS = 50;
 
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)} s`;
-}
-
-function applyHeatmapDelta(
-  source: SimulationAnalytics['heatmap'] | undefined | null,
-  deltas: { index: number; delta: number }[],
-) {
-  if (!source) return source ?? null;
-  if (deltas.length === 0) return source;
-  const counts = [...source.counts];
-  let maxCount = source.maxCount;
-  for (const { index, delta } of deltas) {
-    if (index < 0 || index >= counts.length) continue;
-    counts[index] += delta;
-    if (counts[index] > maxCount) maxCount = counts[index];
-  }
-  return { ...source, counts, maxCount };
-}
-
-function applyAnalyticsDelta(base: SimulationAnalytics, delta: SimulationAnalyticsDelta): SimulationAnalytics {
-  const trajectoriesByAgent = new Map(base.trajectories.map((item) => [item.agentId, { ...item, pointsCm: [...item.pointsCm] }]));
-  for (const append of delta.trajectoryAppends) {
-    const existing = trajectoriesByAgent.get(append.agentId);
-    if (existing) {
-      existing.pointsCm.push(...append.appendPointsCm);
-    } else {
-      trajectoriesByAgent.set(append.agentId, {
-        agentId: append.agentId,
-        active: true,
-        pointsCm: [...append.appendPointsCm],
-      });
-    }
-  }
-  for (const agentId of delta.deactivatedTrajectoryAgentIds) {
-    const existing = trajectoriesByAgent.get(agentId);
-    if (existing) existing.active = false;
-  }
-  const customers = new Map((base.customers ?? []).map((item) => [item.customerId, item]));
-  for (const customer of delta.customerUpdates) customers.set(customer.customerId, customer);
-  return {
-    ...base,
-    timeSeconds: delta.timeSeconds,
-    heatmap: applyHeatmapDelta(base.heatmap, delta.occupancyIncrements),
-    visitHeatmap: applyHeatmapDelta(base.visitHeatmap ?? null, delta.visitIncrements),
-    trajectories: Array.from(trajectoriesByAgent.values()),
-    customers: Array.from(customers.values()),
-  };
 }
 
 function mergeBasketDelta(current: AgentBasket[], changed: AgentBasket[]): AgentBasket[] {
@@ -752,7 +705,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       lastTickAt.current = previousTickAt + steps * LIVE_TICK_INTERVAL_MS;
       pendingTick.current = true;
       void cadApi
-        .tickLiveSimulation(projectId, liveSessionId, steps, false)
+        .tickLiveSimulation(projectId, liveSessionId, steps, false, LIVE_FRAME_WINDOW)
         .then((live) => {
           if (isStale(projectId)) return;
           setResult({

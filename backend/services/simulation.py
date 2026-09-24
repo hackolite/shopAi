@@ -940,7 +940,16 @@ def _apply_right_hand_bias(sim: object) -> None:
     aware rightward drift that the underlying CollisionFreeSpeedModel resolves
     safely without violating its geometric guarantees.
     """
-    for agent in sim.agents():
+    if jps is None:
+        return
+    agents = list(sim.agents())
+    if not agents:
+        return
+    first_model = agents[0].model
+    if not hasattr(jps, "GeneralizedCentrifugalForceModelState") or not isinstance(first_model, jps.GeneralizedCentrifugalForceModelState):
+        return
+
+    for agent in agents:
         model_state = agent.model
         if not isinstance(model_state, jps.GeneralizedCentrifugalForceModelState):
             continue

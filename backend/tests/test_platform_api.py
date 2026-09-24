@@ -794,7 +794,7 @@ def test_client_logs_are_persisted_and_returned_as_text() -> None:
     post_response = client.post(
         "/api/platform/logs/client",
         json={
-            "source": "frontend",
+            "source": "studio-monitor",
             "category": "3d-load",
             "message": "3D project load failed",
             "details": {"projectId": "demo", "error": "boom"},
@@ -809,12 +809,22 @@ def test_client_logs_are_persisted_and_returned_as_text() -> None:
     payload = logs_response.json()
     assert "3D project load failed" in payload["text"]
     assert any(
-        entry.get("source") == "frontend"
+        entry.get("source") == "studio-monitor"
         and entry.get("category") == "3d-load"
         and entry.get("message") == "3D project load failed"
         and entry.get("details") == {"projectId": "demo", "error": "boom"}
         for entry in payload["logs"]
     )
+
+    client.post(
+        "/api/platform/logs/client",
+        json={"source": "studio-monitor", "category": "3d-load", "message": "second log"},
+    )
+    limit_response = client.get("/api/platform/logs?limit=1")
+    assert limit_response.status_code == 200, limit_response.text
+    limited = limit_response.json()["logs"]
+    assert len(limited) == 1
+    assert limited[0]["message"] == "second log"
 
 
 def test_diagnostic_logs_endpoints_require_authentication() -> None:

@@ -40,6 +40,24 @@ DEFAULT_SIMPLIFY_TOLERANCE_M = 0.5
 # filtrés par ce seuil, quelle que soit leur taille.
 DEFAULT_MIN_SURFACE_AREA_M2 = 1.0
 
+# ------------------------------------------------------------
+# AJOUT — ENVELOPPES ULTRA-AGRESSIVES (mode test)
+#
+# Les bâtiments sont fusionnés en "îlots" via une fermeture
+# morphologique : buffer(+d) -> union -> buffer(-d). Tout
+# interstice plus étroit que 2*d est comblé, donc des rues
+# ÉTROITES DEVIENNENT IMPRATICABLES. C'est voulu pour un test
+# de charge, pas pour une simulation réaliste.
+# ------------------------------------------------------------
+DEFAULT_ENVELOPE_ENABLED = True
+# "replace" : les îlots REMPLACENT les bâtiments (rien n'est ajouté).
+# "overlay" : anciens bâtiments gardés + calque rouge de debug.
+DEFAULT_ENVELOPE_MODE = "replace"
+DEFAULT_ENVELOPE_BUFFER_M = 3.0      # comble les passages < 6 m
+DEFAULT_ENVELOPE_SIMPLIFY_M = 2.0    # tolérance Douglas-Peucker
+DEFAULT_ENVELOPE_CONVEX = False      # True = enveloppe convexe par îlot
+DEFAULT_ENVELOPE_MIN_AREA_M2 = 25.0  # îlots plus petits ignorés
+
 _HEIGHT_PATTERN = re.compile(
     r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$",
     re.IGNORECASE,
@@ -1036,6 +1054,12 @@ def osm_xml_to_retail_layout(
     # ----------------------------------------------------
     simplify_tolerance_m: float = DEFAULT_SIMPLIFY_TOLERANCE_M,
     min_surface_area_m2: float = DEFAULT_MIN_SURFACE_AREA_M2,
+    envelope_enabled: bool = DEFAULT_ENVELOPE_ENABLED,
+    envelope_mode: str = DEFAULT_ENVELOPE_MODE,
+    envelope_buffer_m: float = DEFAULT_ENVELOPE_BUFFER_M,
+    envelope_simplify_m: float = DEFAULT_ENVELOPE_SIMPLIFY_M,
+    envelope_convex: bool = DEFAULT_ENVELOPE_CONVEX,
+    envelope_min_area_m2: float = DEFAULT_ENVELOPE_MIN_AREA_M2,
 ) -> dict[str, Any]:
 
     import_started_at = time.perf_counter()  # AJOUT — mesure
@@ -1838,6 +1862,173 @@ def osm_xml_to_retail_layout(
             building_count += 1
 
     # ========================================================
+    # AJOUT — ENVELOPPES DE NAVIGATION (îlots de bâtiments)
+    #
+    # Les bâtiments d'origine restent dans store.zones pour
+    # l'affichage et la sélection, mais ne sont plus des
+    # obstacles (pedestrianObstacle=False). Les îlots fusionnés
+    # deviennent les seuls obstacles de navigation.
+    #
+    # Limites connues : FloorZone.points n'a qu'un contour
+    # extérieur, donc les cours intérieures sont comblées.
+    # ========================================================
+
+    envelope_count = 0
+    envelope_vertices = 0
+    envelope_source_buildings = 0
+
+    if envelope_enabled and building_count > 0:
+
+        try:
+            from shapely.geometry import Polygon
+            from shapely.ops import unary_union
+        except ImportError as exc:
+            raise RuntimeError(
+                "envelope_enabled=True nécessite shapely "
+                "(pip install shapely)."
+            ) from exc
+
+        buffer_cm = max(envelope_buffer_m, 0.0) * 100.0
+        simplify_cm = max(envelope_simplify_m, 0.0) * 100.0
+        min_area_cm2 = max(envelope_min_area_m2, 0.0) * 10_000.0
+
+        building_polys = []
+        building_way_ids = []
+        building_attrs = []  # (hauteur, couleur, opacité) de chaque bâtiment
+
+        for zone in zones:
+
+            if not zone["_source"].get("isLikelyBuilding"):
+                continue
+
+            polygon = Polygon(
+                [(p["x"], p["z"]) for p in zone["points"]]
+            )
+
+            if not polygon.is_valid:
+                polygon = polygon.buffer(0)
+
+            if polygon.is_empty:
+                continue
+
+            building_polys.append(polygon)
+            building_way_ids.append(zone["_source"].get("osmWayId"))
+            building_attrs.append(
+                (zone["heightCm"], zone["color"], zone["opacity"])
+            )
+
+            # Mode overlay : le bâtiment d'origine ne bloque plus.
+            if envelope_mode != "replace":
+                zone["pedestrianObstacle"] = False
+
+        envelope_source_buildings = len(building_polys)
+
+        if building_polys:
+
+            # Fermeture morphologique : +d, union, -d.
+            grown = [poly.buffer(buffer_cm) for poly in building_polys]
+            merged = unary_union(grown).buffer(-buffer_cm)
+
+            islands = (
+                list(merged.geoms)
+                if hasattr(merged, "geoms")
+                else [merged]
+            )
+
+            for index, island in enumerate(islands):
+
+                if island.is_empty or island.area < min_area_cm2:
+                    continue
+
+                # Contour extérieur uniquement (les trous sont comblés).
+                island = Polygon(island.exterior)
+
+                if envelope_convex:
+                    island = island.convex_hull
+
+                if simplify_cm > 0.0:
+                    island = island.simplify(
+                        simplify_cm,
+                        preserve_topology=True,
+                    )
+
+                if island.is_empty or island.geom_type != "Polygon":
+                    continue
+
+                coords_xy = list(island.exterior.coords)[:-1]
+
+                if len(coords_xy) < 3:
+                    continue
+
+                env_points = [
+                    {"x": round(px, 2), "z": round(pz, 2)}
+                    for px, pz in coords_xy
+                ]
+
+                env_xs = [p["x"] for p in env_points]
+                env_zs = [p["z"] for p in env_points]
+
+                members = [
+                    (way_id, attrs)
+                    for way_id, poly, attrs in zip(
+                        building_way_ids, building_polys, building_attrs
+                    )
+                    if poly.intersects(island)
+                ]
+                member_ids = [m[0] for m in members]
+
+                if envelope_mode == "replace" and members:
+                    # L'îlot reprend l'aspect de ses bâtiments :
+                    # hauteur max, couleur du premier, opacité max.
+                    env_height = max(m[1][0] for m in members)
+                    env_color = members[0][1][1]
+                    env_opacity = max(m[1][2] for m in members)
+                    env_label = f"Îlot {index}"
+                else:
+                    env_height, env_color, env_opacity = 0.0, "#EF4444", 0.25
+                    env_label = f"Enveloppe {index}"
+
+                zones.append({
+                    "id": f"envelope-{index}",
+                    "type": "forbidden",
+                    "pedestrianObstacle": True,
+                    "label": env_label,
+                    "x": round(min(env_xs), 2),
+                    "z": round(min(env_zs), 2),
+                    "width": round(max(max(env_xs) - min(env_xs), 1.0), 2),
+                    "depth": round(max(max(env_zs) - min(env_zs), 1.0), 2),
+                    "rotationDeg": 0,
+                    "rows": None,
+                    "cols": None,
+                    "shape": "polygon",
+                    "color": env_color,
+                    "points": env_points,
+                    "pathMode": "linear",
+                    "mounted": True,
+                    "opacity": env_opacity,
+                    "heightCm": env_height,
+                    "_source": {
+                        "isEnvelope": True,
+                        "isLikelyBuilding": envelope_mode == "replace",
+                        "memberOsmWayIds": member_ids,
+                        "vertexCountSimplified": len(env_points),
+                    },
+                })
+
+                envelope_count += 1
+                envelope_vertices += len(env_points)
+
+            if envelope_mode == "replace":
+                # Les bâtiments d'origine disparaissent : seuls
+                # les îlots restent.
+                zones[:] = [
+                    z for z in zones
+                    if z["_source"].get("isEnvelope")
+                    or not z["_source"].get("isLikelyBuilding")
+                ]
+                building_count = envelope_count
+
+    # ========================================================
     # DIMENSIONS GLOBALES
     # ========================================================
 
@@ -1994,6 +2185,14 @@ def osm_xml_to_retail_layout(
         "vertexReductionPercent": reduction_pct,
         "simplifyToleranceM": simplify_tolerance_m,
         "minSurfaceAreaM2Filter": min_surface_area_m2,
+        "envelopeEnabled": envelope_enabled,
+        "envelopeMode": envelope_mode,
+        "envelopeCount": envelope_count,
+        "envelopeVertices": envelope_vertices,
+        "envelopeSourceBuildings": envelope_source_buildings,
+        "envelopeBufferM": envelope_buffer_m,
+        "envelopeSimplifyM": envelope_simplify_m,
+        "envelopeConvex": envelope_convex,
     }
 
     # Log direct, pour voir l'effet immédiatement sans avoir

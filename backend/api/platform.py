@@ -465,12 +465,14 @@ async def create_store_layout_from_osm(
 
 @router.get("/logs")
 def get_diagnostic_logs(limit: int = Query(400, ge=1, le=2000)) -> dict[str, Any]:
+    platform_service.require_current_user()
     logs = list_logs(limit)
     return {"logs": logs, "text": "\n".join(entry["line"] for entry in logs)}
 
 
 @router.post("/logs/client")
 def append_client_log(payload: ClientLogPayload) -> dict[str, Any]:
+    platform_service.require_current_user()
     entry = append_log(
         source=payload.source or "frontend",
         category=payload.category,

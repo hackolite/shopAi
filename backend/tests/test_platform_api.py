@@ -815,6 +815,21 @@ def test_client_logs_are_persisted_and_returned_as_text() -> None:
     )
 
 
+def test_diagnostic_logs_endpoints_require_authentication() -> None:
+    client = _make_client()
+
+    logs_response = client.get("/api/platform/logs?limit=20")
+    assert logs_response.status_code == 401, logs_response.text
+    assert logs_response.json()["detail"] == "Authentication required"
+
+    append_response = client.post(
+        "/api/platform/logs/client",
+        json={"source": "frontend", "category": "3d-load", "message": "test"},
+    )
+    assert append_response.status_code == 401, append_response.text
+    assert append_response.json()["detail"] == "Authentication required"
+
+
 def test_store_layout_import_osm_without_bounds_derives_extent_from_nodes() -> None:
     client = _make_client()
     _register(client, name="OSM No Bounds", email="osm-no-bounds@example.com")

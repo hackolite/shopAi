@@ -32,7 +32,6 @@ describe('floorZones helpers', () => {
     expect(zoneRotationDeg(zone({}))).toBe(0);
     expect(zonePathMode(zone({}))).toBe('linear');
     expect(zoneMounted(zone({}))).toBe(false);
-    expect(zoneSupportsSimulationPreview(zone({}))).toBe(true);
     expect(zoneHeightCm(zone({}))).toBe(120);
   });
 

@@ -41,6 +41,8 @@ AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 EXIT_REMOVAL_RADIUS_CM = 40.0
 TOO_CLOSE_TO_AGENT_ERROR_SNIPPET = "too close to agent"
+SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET = "Exclusion splits accessibleArea"
+MIN_WALKABLE_COMPONENT_AREA_M2 = 1e-6
 
 # French pedestrian right-hand avoidance: when an agent's speed drops below this
 # fraction of its desired speed it is considered "blocked" and a lateral rightward
@@ -145,6 +147,132 @@ class SimulationConstraintViolation(ValueError):
     def __init__(self, detail: dict[str, object]):
         super().__init__(str(detail.get("message", "Simulation constraint violation")))
         self.detail = detail
+
+
+class SimulationRuntimeValidationError(RuntimeError):
+    def __init__(self, detail: dict[str, object]):
+        super().__init__(str(detail.get("message", "Simulation runtime validation error")))
+        self.detail = detail
+
+
+def _split_accessible_area_detail(
+    *,
+    element_type: str,
+    element_id: str | None = None,
+    element_label: str | None = None,
+) -> dict[str, object]:
+    title = element_label or element_id or "sans nom"
+    if element_type == "zone":
+        message = (
+            f"La zone interdite « {title} » coupe la zone accessible des piétons en plusieurs parties. "
+            "Réduisez-la, déplacez-la, ou désactivez « obstacle piéton » si cette zone doit rester traversable."
+        )
+    elif element_type == "furniture":
+        message = (
+            f"Le meuble « {title} » coupe la zone accessible des piétons en plusieurs parties. "
+            "Déplacez-le ou réduisez son emprise pour garder un passage continu."
+        )
+    else:
+        message = (
+            "Une exclusion coupe la zone accessible des piétons en plusieurs parties. "
+            "Réduisez ou déplacez l’exclusion concernée pour garder un passage continu."
+        )
+    return {
+        "message": message,
+        "code": "splitAccessibleArea",
+        "blockingElementType": element_type,
+        "blockingElementId": element_id,
+        "blockingElementLabel": element_label,
+    }
+
+
+def split_accessible_area_detail() -> dict[str, object]:
+    return _split_accessible_area_detail(element_type="obstacle")
+
+
+def reraise_known_simulation_runtime_error(exc: RuntimeError, scene: SceneData | None = None) -> None:
+    if SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET in str(exc):
+        detail = split_accessible_area_detail_for_scene(scene) if scene is not None else split_accessible_area_detail()
+        raise SimulationRuntimeValidationError(detail) from exc
+    raise exc
+
+
+def _walkable_components(geometry) -> list[Polygon]:
+    return [
+        geom
+        for geom in getattr(geometry, "geoms", [geometry])
+        if isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
+    ]
+
+
+def _subtract_obstacle_from_walkable(
+    walkable,
+    obstacle: Polygon | MultiPolygon,
+    *,
+    split_detail: dict[str, object],
+) -> tuple[object, dict[str, object] | None]:
+    overlap = walkable.intersection(obstacle)
+    if overlap.is_empty or overlap.area <= MIN_WALKABLE_COMPONENT_AREA_M2:
+        return walkable, None
+    next_walkable = walkable.difference(obstacle).buffer(0)
+    return next_walkable, split_detail if len(_walkable_components(next_walkable)) > 1 else None
+
+
+def _apply_scene_obstacles(
+    scene: SceneData,
+    store_polygon: Polygon,
+) -> tuple[object, dict[str, object] | None]:
+    walkable = store_polygon
+    split_detail: dict[str, object] | None = None
+    for furniture in scene.furniture:
+        obstacle = _furniture_polygon(furniture, store_polygon)
+        if obstacle is None:
+            continue
+        walkable, detected_split = _subtract_obstacle_from_walkable(
+            walkable,
+            obstacle,
+            split_detail=_split_accessible_area_detail(
+                element_type="furniture",
+                element_id=furniture.id,
+                element_label=furniture.name,
+            ),
+        )
+        if split_detail is None and detected_split is not None:
+            split_detail = detected_split
+    for zone in getattr(scene.store, "zones", []) or []:
+        obstacle = _zone_polygon(zone, store_polygon)
+        if obstacle is None:
+            continue
+        walkable, detected_split = _subtract_obstacle_from_walkable(
+            walkable,
+            obstacle,
+            split_detail=_split_accessible_area_detail(
+                element_type="zone",
+                element_id=getattr(zone, "id", None),
+                element_label=getattr(zone, "label", None),
+            ),
+        )
+        if split_detail is None and detected_split is not None:
+            split_detail = detected_split
+    return walkable, split_detail
+
+
+def split_accessible_area_detail_for_scene(scene: SceneData) -> dict[str, object]:
+    store = scene.store
+    store_x_m = _cm_to_m(float(store.position[0]))
+    store_z_m = _cm_to_m(float(store.position[2]))
+    width_m = _cm_to_m(float(store.dimensions["width"]))
+    depth_m = _cm_to_m(float(store.dimensions["depth"]))
+    store_polygon = Polygon(
+        [
+            (store_x_m, store_z_m),
+            (store_x_m + width_m, store_z_m),
+            (store_x_m + width_m, store_z_m + depth_m),
+            (store_x_m, store_z_m + depth_m),
+        ]
+    )
+    _walkable, split_detail = _apply_scene_obstacles(scene, store_polygon)
+    return split_detail or split_accessible_area_detail()
 
 
 def _cm_to_m(value: float) -> float:
@@ -434,16 +562,10 @@ def _build_walkable_geometry(scene: SceneData) -> Polygon:
             (store_x_m, store_z_m + depth_m),
         ]
     )
-    walkable = store_polygon
-    for furniture in scene.furniture:
-        obstacle = _furniture_polygon(furniture, store_polygon)
-        if obstacle is not None:
-            walkable = walkable.difference(obstacle)
-    for zone in getattr(store, "zones", []) or []:
-        obstacle = _zone_polygon(zone, store_polygon)
-        if obstacle is not None:
-            walkable = walkable.difference(obstacle)
+    walkable, split_detail = _apply_scene_obstacles(scene, store_polygon)
     walkable = walkable.buffer(0)
+    if len(_walkable_components(walkable)) > 1:
+        raise SimulationConstraintViolation(split_detail or split_accessible_area_detail())
     if isinstance(walkable, MultiPolygon):
         walkable = max(walkable.geoms, key=lambda geom: geom.area)
     if not isinstance(walkable, Polygon) or walkable.is_empty:
@@ -858,54 +980,57 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     walkable = _build_walkable_geometry(scene)
     entries, transit_waypoints, exits = _partition_waypoints(scene, config)
     _validate_waypoint_constraints([*entries, *transit_waypoints, *exits], walkable)
-    sim = jps.Simulation(
-        model=jps.CollisionFreeSpeedModel(),
-        geometry=walkable,
-        dt=SIMULATION_DT_S,
-    )
-
     exit_stage_ids: dict[str, int] = {}
     waypoint_stage_ids: dict[str, int] = {}
     waypoint_by_stage_id: dict[int, SimulationWaypoint] = {}
     waypoint_runtimes: dict[str, _WaypointRuntime] = {}
     metrics_waypoints = [*entries, *transit_waypoints, *exits]
-    for waypoint in metrics_waypoints:
-        if waypoint.type == "exit":
-            approach_stage_id = sim.add_waypoint_stage(
-                _safe_waypoint_point(
-                    waypoint,
-                    walkable,
-                    clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
-                ),
-                _cm_to_m(max(40.0, waypoint.radiusCm)),
-            )
-            waypoint_stage_ids[waypoint.id] = approach_stage_id
-            waypoint_by_stage_id[approach_stage_id] = waypoint
-            exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
-        elif waypoint.retentionSeconds > 0:
-            stage_id = sim.add_queue_stage(
-                _queue_slot_positions(waypoint, walkable)
-            )
-            runtime = _WaypointRuntime(
-                waypoint=waypoint,
-                stage_id=stage_id,
-                stage=sim.get_stage(stage_id),
-                release_interval_s=float(waypoint.retentionSeconds),
-            )
-            waypoint_runtimes[waypoint.id] = runtime
-            waypoint_stage_ids[waypoint.id] = stage_id
-            waypoint_by_stage_id[stage_id] = waypoint
-        else:
-            stage_id = sim.add_waypoint_stage(
-                _safe_waypoint_point(
-                    waypoint,
-                    walkable,
-                    clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
-                ),
-                _cm_to_m(max(40.0, waypoint.radiusCm)),
-            )
-            waypoint_stage_ids[waypoint.id] = stage_id
-            waypoint_by_stage_id[stage_id] = waypoint
+    try:
+        sim = jps.Simulation(
+            model=jps.CollisionFreeSpeedModel(),
+            geometry=walkable,
+            dt=SIMULATION_DT_S,
+        )
+
+        for waypoint in metrics_waypoints:
+            if waypoint.type == "exit":
+                approach_stage_id = sim.add_waypoint_stage(
+                    _safe_waypoint_point(
+                        waypoint,
+                        walkable,
+                        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+                    ),
+                    _cm_to_m(max(40.0, waypoint.radiusCm)),
+                )
+                waypoint_stage_ids[waypoint.id] = approach_stage_id
+                waypoint_by_stage_id[approach_stage_id] = waypoint
+                exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
+            elif waypoint.retentionSeconds > 0:
+                stage_id = sim.add_queue_stage(
+                    _queue_slot_positions(waypoint, walkable)
+                )
+                runtime = _WaypointRuntime(
+                    waypoint=waypoint,
+                    stage_id=stage_id,
+                    stage=sim.get_stage(stage_id),
+                    release_interval_s=float(waypoint.retentionSeconds),
+                )
+                waypoint_runtimes[waypoint.id] = runtime
+                waypoint_stage_ids[waypoint.id] = stage_id
+                waypoint_by_stage_id[stage_id] = waypoint
+            else:
+                stage_id = sim.add_waypoint_stage(
+                    _safe_waypoint_point(
+                        waypoint,
+                        walkable,
+                        clearance_cm=_waypoint_constraint_clearance_cm(waypoint),
+                    ),
+                    _cm_to_m(max(40.0, waypoint.radiusCm)),
+                )
+                waypoint_stage_ids[waypoint.id] = stage_id
+                waypoint_by_stage_id[stage_id] = waypoint
+    except RuntimeError as exc:
+        reraise_known_simulation_runtime_error(exc, scene)
 
     arrival_times: list[float] = []
     arrival_rate = max(0.0, float(config.arrivalRatePerSecond))

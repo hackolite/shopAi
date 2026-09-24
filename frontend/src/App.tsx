@@ -627,35 +627,37 @@ export default function App() {
 
               <div className="hub-panel" role="tabpanel" id="panel-layouts" aria-labelledby="tab-layouts" hidden={activeTab !== 'layouts'} tabIndex={0}>
                 {activeTab === 'layouts' && <Section title="Implantations (Store Layout)" subtitle="Réutilisez un plan de magasin (mobilier + implantation) indépendamment de son projet d’origine.">
-                  <div className="hub-two-column hub-workspace-grid">
-                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateStoreLayout(); }}>
-                      <h3>Nouvelle implantation</h3>
-                      <Field label="Nom de l’implantation"><input required value={layoutName} onChange={(event) => setLayoutName(event.target.value)} placeholder="Ex. Implantation type hypermarché" /></Field>
-                      <Field label="Description (facultatif)"><textarea rows={4} value={layoutDescription} onChange={(event) => setLayoutDescription(event.target.value)} /></Field>
-                      <Field label="Depuis le projet"><select required value={layoutProjectId} onChange={(event) => setLayoutProjectId(event.target.value)}>
-                        <option value="">Choisir un projet</option>
-                        {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-                      </select></Field>
-                      <button className="hub-primary" type="submit" disabled={busy || !layoutName.trim() || !layoutProjectId}>Enregistrer l’implantation</button>
-                    </form>
-                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutJson(); }}>
-                      <h3>Importer une implantation (JSON ShopAI)</h3>
-                      <Field label="Nom de l’implantation"><input required value={layoutJsonName} onChange={(event) => setLayoutJsonName(event.target.value)} placeholder="Ex. Implantation fournisseur" /></Field>
-                      <Field label="Description (facultatif)"><textarea rows={4} value={layoutJsonDescription} onChange={(event) => setLayoutJsonDescription(event.target.value)} /></Field>
-                      <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setLayoutJsonFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Format retail-layout JSON ShopAI (export « Retail Layout » du studio : store + furniture + planogrammes).</p>
-                      <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
-                    </form>
-                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutOsm(); }}>
-                      <h3>Importer une implantation (OSM XML)</h3>
-                      <Field label="Nom de l’implantation"><input required value={layoutOsmName} onChange={(event) => setLayoutOsmName(event.target.value)} placeholder="Ex. Quartier centre-ville" /></Field>
-                      <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
-                      <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut; les bâtiments avec hauteur trouvée sont affichés plus opaques.</p>
-                      <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
-                    </form>
-                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Implantations enregistrées">
-                      {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
+                  <div className="hub-workspace-section">
+                    <div className="hub-two-column hub-workspace-grid">
+                      <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateStoreLayout(); }}>
+                        <h3>Nouvelle implantation</h3>
+                        <Field label="Nom de l’implantation"><input required value={layoutName} onChange={(event) => setLayoutName(event.target.value)} placeholder="Ex. Implantation type hypermarché" /></Field>
+                        <Field label="Description (facultatif)"><textarea rows={4} value={layoutDescription} onChange={(event) => setLayoutDescription(event.target.value)} /></Field>
+                        <Field label="Depuis le projet"><select required value={layoutProjectId} onChange={(event) => setLayoutProjectId(event.target.value)}>
+                          <option value="">Choisir un projet</option>
+                          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                        </select></Field>
+                        <button className="hub-primary" type="submit" disabled={busy || !layoutName.trim() || !layoutProjectId}>Enregistrer l’implantation</button>
+                      </form>
+                      <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutJson(); }}>
+                        <h3>Importer une implantation (JSON ShopAI)</h3>
+                        <Field label="Nom de l’implantation"><input required value={layoutJsonName} onChange={(event) => setLayoutJsonName(event.target.value)} placeholder="Ex. Implantation fournisseur" /></Field>
+                        <Field label="Description (facultatif)"><textarea rows={4} value={layoutJsonDescription} onChange={(event) => setLayoutJsonDescription(event.target.value)} /></Field>
+                        <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setLayoutJsonFile(event.target.files?.[0] ?? null)} /></Field>
+                        <p className="hub-small hub-muted">Format retail-layout JSON ShopAI (export « Retail Layout » du studio : store + furniture + planogrammes).</p>
+                        <button className="hub-primary" type="submit" disabled={busy || !layoutJsonFile || !layoutJsonName.trim()}>Importer le JSON</button>
+                      </form>
+                      <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportStoreLayoutOsm(); }}>
+                        <h3>Importer une implantation (OSM XML)</h3>
+                        <Field label="Nom de l’implantation"><input required value={layoutOsmName} onChange={(event) => setLayoutOsmName(event.target.value)} placeholder="Ex. Quartier centre-ville" /></Field>
+                        <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
+                        <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
+                        <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut; les bâtiments avec hauteur trouvée sont affichés plus opaques.</p>
+                        <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
+                      </form>
+                    </div>
+                    <div className="hub-workspace-resources hub-resource-panel" role="region" aria-label="Implantations enregistrées">
+                      {dashboard?.storeLayouts.length ? <ul className="hub-resource-list hub-resource-card-grid">{dashboard.storeLayouts.map((layout) => (
                         <li key={layout.id}>
                           <div className="hub-resource-item-header">
                             <h4>{layout.name}</h4>
@@ -675,23 +677,25 @@ export default function App() {
 
               <div className="hub-panel" role="tabpanel" id="panel-catalogs" aria-labelledby="tab-catalogs" hidden={activeTab !== 'catalogs'} tabIndex={0}>
                 {activeTab === 'catalogs' && <Section title="Catalogues" subtitle="Organisez vos référentiels produits, avec ou sans projet associé.">
-                  <div className="hub-two-column hub-workspace-grid">
-                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateCatalog(); }}>
-                      <h3>Nouveau catalogue</h3>
-                      <Field label="Nom du catalogue"><input required value={catalogName} onChange={(event) => setCatalogName(event.target.value)} placeholder="Ex. Collection printemps" /></Field>
-                      <Field label="Description (facultatif)"><textarea rows={4} value={catalogDescription} onChange={(event) => setCatalogDescription(event.target.value)} /></Field>
-                      <Field label="Projet source (facultatif)"><select value={catalogProjectId} onChange={(event) => setCatalogProjectId(event.target.value)}>{projectChoices}</select></Field>
-                      <button className="hub-primary" type="submit" disabled={busy || !catalogName.trim()}>Enregistrer le catalogue</button>
-                    </form>
-                    <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportCatalogCsv(); }}>
-                      <h3>Importer un catalogue assortment.json</h3>
-                      <Field label="Nom du catalogue"><input required value={catalogCsvName} onChange={(event) => setCatalogCsvName(event.target.value)} placeholder="Ex. Assortiment fournisseur" /></Field>
-                      <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Accepte le format brut `assortment.json` (barcode, product_name, image_url, etc.) et aussi un objet JSON déjà normalisé avec une clé `products`.</p>
-                      <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
-                    </form>
-                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Catalogues enregistrés">
-                      {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
+                  <div className="hub-workspace-section">
+                    <div className="hub-two-column hub-workspace-grid hub-workspace-grid--catalogs">
+                      <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateCatalog(); }}>
+                        <h3>Nouveau catalogue</h3>
+                        <Field label="Nom du catalogue"><input required value={catalogName} onChange={(event) => setCatalogName(event.target.value)} placeholder="Ex. Collection printemps" /></Field>
+                        <Field label="Description (facultatif)"><textarea rows={4} value={catalogDescription} onChange={(event) => setCatalogDescription(event.target.value)} /></Field>
+                        <Field label="Projet source (facultatif)"><select value={catalogProjectId} onChange={(event) => setCatalogProjectId(event.target.value)}>{projectChoices}</select></Field>
+                        <button className="hub-primary" type="submit" disabled={busy || !catalogName.trim()}>Enregistrer le catalogue</button>
+                      </form>
+                      <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleImportCatalogCsv(); }}>
+                        <h3>Importer un catalogue assortment.json</h3>
+                        <Field label="Nom du catalogue"><input required value={catalogCsvName} onChange={(event) => setCatalogCsvName(event.target.value)} placeholder="Ex. Assortiment fournisseur" /></Field>
+                        <Field label="Fichier JSON"><input required type="file" accept=".json,application/json" onChange={(event) => setCatalogCsvFile(event.target.files?.[0] ?? null)} /></Field>
+                        <p className="hub-small hub-muted">Accepte le format brut `assortment.json` (barcode, product_name, image_url, etc.) et aussi un objet JSON déjà normalisé avec une clé `products`.</p>
+                        <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
+                      </form>
+                    </div>
+                    <div className="hub-workspace-resources hub-resource-panel" role="region" aria-label="Catalogues enregistrés">
+                      {dashboard?.catalogs.length ? <ul className="hub-resource-list hub-resource-card-grid">{dashboard.catalogs.map((catalog) => (
                         <li key={catalog.id}>
                           <div className="hub-resource-item-header">
                             <h4>{catalog.name}</h4>

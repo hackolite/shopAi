@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  extractBlockingElementHighlight,
   extractConstraintDetail,
   extractConstraintCorrection,
   extractConstraintPoint,
@@ -35,6 +36,18 @@ describe('simulationConstraint', () => {
     const correction = extractConstraintCorrection(new Error('[422] {"detail":{"message":"Waypoint invalide","waypointId":"wp-1","suggestedXcm":1235,"suggestedZcm":800}}'));
     expect(correction).not.toBeNull();
     expect(hasDistinctConstraintSuggestion(correction!)).toBe(false);
+  });
+
+  it('extracts the blocking forbidden zone from split-area errors', () => {
+    expect(extractBlockingElementHighlight(
+      new Error('[422] {"detail":{"message":"Zone bloquante","code":"splitAccessibleArea","blockingElementType":"zone","blockingElementId":"zone-1"}}'),
+    )).toEqual({ furnitureIds: [], zoneIds: ['zone-1'] });
+  });
+
+  it('extracts the blocking furniture volume from split-area errors', () => {
+    expect(extractBlockingElementHighlight(
+      new Error('[422] {"detail":{"message":"Meuble bloquant","code":"splitAccessibleArea","blockingElementType":"furniture","blockingElementId":"fixture-9"}}'),
+    )).toEqual({ furnitureIds: ['fixture-9'], zoneIds: [] });
   });
 
   it('matches the closest waypoint from a reported geometry point', () => {

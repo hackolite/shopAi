@@ -135,6 +135,15 @@ export type HeatmapMode = 'traffic' | 'margin' | 'yield';
 /** How long a gamified pickup pop-up stays on screen before fading out. */
 export const PICKUP_POPUP_DURATION_MS = 5000;
 
+export interface InvalidSimulationObstacleHighlights {
+  furnitureIds: string[];
+  zoneIds: string[];
+}
+
+function emptyInvalidSimulationObstacleHighlights(): InvalidSimulationObstacleHighlights {
+  return { furnitureIds: [], zoneIds: [] };
+}
+
 /** A transient, world-anchored pop-up shown when an agent picks a product. */
 export interface PickupPopup {
   id: string;
@@ -163,6 +172,7 @@ interface SimulationState {
   waypointPlacementType: SimulationWaypoint['type'] | null;
   invalidWaypointIds: string[];
   invalidWaypointSuggestion: { waypointId: string; xCm: number; zCm: number } | null;
+  invalidObstacleHighlights: InvalidSimulationObstacleHighlights;
   /**
    * Journey metric tiles selected in the « Waypoints & rendement » panel: they
    * are displayed as a large HUD at the top-right of the 3D scene (drawn inside
@@ -208,6 +218,7 @@ interface SimulationState {
   setLiveSessionId: (liveSessionId: string | null) => void;
   setInvalidWaypointIds: (ids: string[]) => void;
   setInvalidWaypointSuggestion: (suggestion: { waypointId: string; xCm: number; zCm: number } | null) => void;
+  setInvalidObstacleHighlights: (highlights: InvalidSimulationObstacleHighlights) => void;
   /** Toggles one journey metric tile in/out of the pinned HUD selection. */
   toggleJourneyMetric: (id: JourneyMetricId) => void;
   /** Toggles one exposed-margin metric tile in/out of the pinned HUD selection. */
@@ -243,6 +254,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   waypointPlacementType: null,
   invalidWaypointIds: [],
   invalidWaypointSuggestion: null,
+  invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
   pinnedJourneyMetrics: [],
   pinnedYieldMetrics: [],
   pinnedRevenueMetrics: [],
@@ -264,6 +276,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       waypointPlacementType: null,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
+      invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       history: [],
     }),
   patchConfig: (patch) =>
@@ -272,6 +285,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       config: normalizeConfig({ ...state.config, ...patch }),
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
+      invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
     })),
   addWaypointSystem: () =>
     set((state) => {
@@ -294,6 +308,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         selectedWaypointId: null,
         invalidWaypointIds: [],
         invalidWaypointSuggestion: null,
+        invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       };
     }),
   removeWaypointSystem: (id) =>
@@ -317,6 +332,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
           : null,
         invalidWaypointIds: [],
         invalidWaypointSuggestion: null,
+        invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       };
     }),
   selectWaypointSystem: (id) =>
@@ -375,6 +391,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       selectedWaypointId: waypoint.id,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
+      invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       };
     }),
   updateWaypoint: (id, patch, options) =>
@@ -396,6 +413,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         config: nextConfig,
         invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
         invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
+        invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       };
     }),
   removeWaypoint: (id) =>
@@ -412,6 +430,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       selectedWaypointId: state.selectedWaypointId === id ? null : state.selectedWaypointId,
       invalidWaypointIds: state.invalidWaypointIds.filter((waypointId) => waypointId !== id),
       invalidWaypointSuggestion: state.invalidWaypointSuggestion?.waypointId === id ? null : state.invalidWaypointSuggestion,
+      invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
     })),
   selectWaypoint: (id) => set({ selectedWaypointId: id }),
   setWaypointPlacementType: (type) => set({ waypointPlacementType: type }),
@@ -429,9 +448,15 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         selectedWaypointId,
         invalidWaypointIds: [],
         invalidWaypointSuggestion: null,
+        invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       };
     }),
-  setResult: (result) => set({ result, invalidWaypointIds: [], invalidWaypointSuggestion: null }),
+  setResult: (result) => set({
+    result,
+    invalidWaypointIds: [],
+    invalidWaypointSuggestion: null,
+    invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
+  }),
   setAnalytics: (analytics) => set({ analytics }),
   setShowHeatmap: (showHeatmap) => set({ showHeatmap }),
   setHeatmapMode: (heatmapMode) => set({ heatmapMode }),
@@ -442,6 +467,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setLiveSessionId: (liveSessionId) => set({ liveSessionId }),
   setInvalidWaypointIds: (ids) => set({ invalidWaypointIds: [...new Set(ids)] }),
   setInvalidWaypointSuggestion: (suggestion) => set({ invalidWaypointSuggestion: suggestion }),
+  setInvalidObstacleHighlights: (highlights) => set({
+    invalidObstacleHighlights: {
+      furnitureIds: [...new Set(highlights.furnitureIds)],
+      zoneIds: [...new Set(highlights.zoneIds)],
+    },
+  }),
   toggleJourneyMetric: (id) =>
     set((state) => ({
       pinnedJourneyMetrics: state.pinnedJourneyMetrics.includes(id)
@@ -503,6 +534,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       waypointPlacementType: null,
       invalidWaypointIds: [],
       invalidWaypointSuggestion: null,
+      invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
       pinnedJourneyMetrics: [],
       pinnedYieldMetrics: [],
       pinnedRevenueMetrics: [],

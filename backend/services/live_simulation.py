@@ -135,11 +135,6 @@ class LiveSimulationSession:
         self.walkable = simsvc._build_walkable_geometry(self.scene)
         self.entries, self.transit_waypoints, self.exits = simsvc._partition_waypoints(self.scene, self.config)
         simsvc._validate_waypoint_constraints([*self.entries, *self.transit_waypoints, *self.exits], self.walkable)
-        self.sim = jps.Simulation(
-            model=jps.CollisionFreeSpeedModel(),
-            geometry=self.walkable,
-            dt=simsvc.SIMULATION_DT_S,
-        )
         previous_queue_stats = {
             waypoint_id: (
                 runtime.released_agents,
@@ -157,64 +152,72 @@ class LiveSimulationSession:
         self.metrics_waypoints = [*self.entries, *self.transit_waypoints, *self.exits]
         self.stage_to_token = {}
         self.token_to_stage = {}
+        try:
+            self.sim = jps.Simulation(
+                model=jps.CollisionFreeSpeedModel(),
+                geometry=self.walkable,
+                dt=simsvc.SIMULATION_DT_S,
+            )
 
-        for waypoint in self.metrics_waypoints:
-            if waypoint.type == "exit":
-                approach_stage_id = self.sim.add_waypoint_stage(
-                    simsvc._safe_waypoint_point(
-                        waypoint,
-                        self.walkable,
-                        clearance_cm=simsvc._waypoint_constraint_clearance_cm(waypoint),
-                    ),
-                    simsvc._cm_to_m(max(40.0, waypoint.radiusCm)),
-                )
-                self.waypoint_stage_ids[waypoint.id] = approach_stage_id
-                self.waypoint_by_stage_id[approach_stage_id] = waypoint
-                self.stage_to_token[approach_stage_id] = waypoint.id
-                self.token_to_stage[waypoint.id] = approach_stage_id
+            for waypoint in self.metrics_waypoints:
+                if waypoint.type == "exit":
+                    approach_stage_id = self.sim.add_waypoint_stage(
+                        simsvc._safe_waypoint_point(
+                            waypoint,
+                            self.walkable,
+                            clearance_cm=simsvc._waypoint_constraint_clearance_cm(waypoint),
+                        ),
+                        simsvc._cm_to_m(max(40.0, waypoint.radiusCm)),
+                    )
+                    self.waypoint_stage_ids[waypoint.id] = approach_stage_id
+                    self.waypoint_by_stage_id[approach_stage_id] = waypoint
+                    self.stage_to_token[approach_stage_id] = waypoint.id
+                    self.token_to_stage[waypoint.id] = approach_stage_id
 
-                exit_stage_id = self.sim.add_exit_stage(simsvc._waypoint_exit_polygon(waypoint, self.walkable))
-                self.exit_stage_ids[waypoint.id] = exit_stage_id
-                exit_token = self._token_for_exit_stage(waypoint.id)
-                self.stage_to_token[exit_stage_id] = exit_token
-                self.token_to_stage[exit_token] = exit_stage_id
-            elif waypoint.retentionSeconds > 0:
-                stage_id = self.sim.add_queue_stage(simsvc._queue_slot_positions(waypoint, self.walkable))
-                runtime = simsvc._WaypointRuntime(
-                    waypoint=waypoint,
-                    stage_id=stage_id,
-                    stage=self.sim.get_stage(stage_id),
-                    release_interval_s=float(waypoint.retentionSeconds),
-                )
-                # Hot updates rebuild every stage: carry the cumulative queue
-                # statistics over so the measured waiting times keep growing
-                # instead of restarting from zero on each scene edit.
-                carried = previous_queue_stats.get(waypoint.id)
-                if carried is not None:
-                    (
-                        runtime.released_agents,
-                        runtime.completed_waits,
-                        runtime.total_wait_seconds,
-                        runtime.max_wait_seconds,
-                    ) = carried
-                self.waypoint_runtimes[waypoint.id] = runtime
-                self.waypoint_stage_ids[waypoint.id] = stage_id
-                self.waypoint_by_stage_id[stage_id] = waypoint
-                self.stage_to_token[stage_id] = waypoint.id
-                self.token_to_stage[waypoint.id] = stage_id
-            else:
-                stage_id = self.sim.add_waypoint_stage(
-                    simsvc._safe_waypoint_point(
-                        waypoint,
-                        self.walkable,
-                        clearance_cm=simsvc._waypoint_constraint_clearance_cm(waypoint),
-                    ),
-                    simsvc._cm_to_m(max(40.0, waypoint.radiusCm)),
-                )
-                self.waypoint_stage_ids[waypoint.id] = stage_id
-                self.waypoint_by_stage_id[stage_id] = waypoint
-                self.stage_to_token[stage_id] = waypoint.id
-                self.token_to_stage[waypoint.id] = stage_id
+                    exit_stage_id = self.sim.add_exit_stage(simsvc._waypoint_exit_polygon(waypoint, self.walkable))
+                    self.exit_stage_ids[waypoint.id] = exit_stage_id
+                    exit_token = self._token_for_exit_stage(waypoint.id)
+                    self.stage_to_token[exit_stage_id] = exit_token
+                    self.token_to_stage[exit_token] = exit_stage_id
+                elif waypoint.retentionSeconds > 0:
+                    stage_id = self.sim.add_queue_stage(simsvc._queue_slot_positions(waypoint, self.walkable))
+                    runtime = simsvc._WaypointRuntime(
+                        waypoint=waypoint,
+                        stage_id=stage_id,
+                        stage=self.sim.get_stage(stage_id),
+                        release_interval_s=float(waypoint.retentionSeconds),
+                    )
+                    # Hot updates rebuild every stage: carry the cumulative queue
+                    # statistics over so the measured waiting times keep growing
+                    # instead of restarting from zero on each scene edit.
+                    carried = previous_queue_stats.get(waypoint.id)
+                    if carried is not None:
+                        (
+                            runtime.released_agents,
+                            runtime.completed_waits,
+                            runtime.total_wait_seconds,
+                            runtime.max_wait_seconds,
+                        ) = carried
+                    self.waypoint_runtimes[waypoint.id] = runtime
+                    self.waypoint_stage_ids[waypoint.id] = stage_id
+                    self.waypoint_by_stage_id[stage_id] = waypoint
+                    self.stage_to_token[stage_id] = waypoint.id
+                    self.token_to_stage[waypoint.id] = stage_id
+                else:
+                    stage_id = self.sim.add_waypoint_stage(
+                        simsvc._safe_waypoint_point(
+                            waypoint,
+                            self.walkable,
+                            clearance_cm=simsvc._waypoint_constraint_clearance_cm(waypoint),
+                        ),
+                        simsvc._cm_to_m(max(40.0, waypoint.radiusCm)),
+                    )
+                    self.waypoint_stage_ids[waypoint.id] = stage_id
+                    self.waypoint_by_stage_id[stage_id] = waypoint
+                    self.stage_to_token[stage_id] = waypoint.id
+                    self.token_to_stage[waypoint.id] = stage_id
+        except RuntimeError as exc:
+            simsvc.reraise_known_simulation_runtime_error(exc, self.scene)
 
         # Stage ids are rebuilt on every hot update: refresh the mapping and drop
         # the per-agent stage memory while keeping the cumulative passage counts.

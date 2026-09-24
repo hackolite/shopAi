@@ -301,6 +301,75 @@ def test_traversable_forbidden_zone_is_not_removed_from_walkable_geometry() -> N
     assert walkable.covers(Point(5.0, 5.0))
 
 
+def test_split_forbidden_zone_is_reported_before_simulation_start() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "blocked-aisle",
+            "type": "forbidden",
+            "label": "Barrière centrale",
+            "shape": "rectangle",
+            "color": "#ef4444",
+            "x": 0.0,
+            "z": 1400.0,
+            "width": 5000.0,
+            "depth": 200.0,
+        }
+    ]
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.2,
+                "maxCustomers": 4,
+                "randomSeed": 5,
+                "waypoints": [
+                    {
+                        "id": "entry-main",
+                        "type": "entry",
+                        "label": "Entrée",
+                        "x": 2500.0,
+                        "z": 200.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                    {
+                        "id": "exit-main",
+                        "type": "exit",
+                        "label": "Sortie",
+                        "x": 2500.0,
+                        "z": 2800.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    detail = response.json()["detail"]
+    assert detail["code"] == "splitAccessibleArea"
+    assert detail["blockingElementId"] == "blocked-aisle"
+    assert detail["blockingElementType"] == "zone"
+    assert "coupe la zone accessible des piétons" in detail["message"]
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

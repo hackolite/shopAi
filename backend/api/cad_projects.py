@@ -34,7 +34,11 @@ from services.layout_audit import (
 )
 from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
-from services.simulation import SimulationConstraintViolation, run_flow_simulation
+from services.simulation import (
+    SimulationConstraintViolation,
+    SimulationRuntimeValidationError,
+    run_flow_simulation,
+)
 from services.live_simulation import live_simulation_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
@@ -828,6 +832,8 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
         return run_flow_simulation(scene, config).model_dump(mode="json")
     except SimulationConstraintViolation as exc:
         raise HTTPException(status_code=422, detail=exc.detail) from exc
+    except SimulationRuntimeValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -846,6 +852,8 @@ def start_live_simulation(project_id: str, payload: SimulationRunPayload):
         session_id, result = live_simulation_manager.start(project_id, scene, config)
         return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": False}
     except SimulationConstraintViolation as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
+    except SimulationRuntimeValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -902,6 +910,8 @@ def update_live_simulation(project_id: str, session_id: str, payload: Simulation
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
     except SimulationConstraintViolation as exc:
+        raise HTTPException(status_code=422, detail=exc.detail) from exc
+    except SimulationRuntimeValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.detail) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

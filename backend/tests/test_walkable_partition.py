@@ -55,6 +55,10 @@ def _scene_with_sawtooth_obstacle() -> SceneData:
                         "type": "forbidden",
                         "shape": "polygon",
                         "label": "Sawtooth",
+                        "x": 300.0,
+                        "z": 200.0,
+                        "width": 600.0,
+                        "depth": 210.0,
                         "points": points,
                     }
                 ],
@@ -148,4 +152,57 @@ def test_runtime_walkable_is_simplified_relative_to_preview_geometry() -> None:
     )
 
     assert runtime_vertex_count < exact_vertex_count
-    assert partition.runtime_connected.area <= partition.connected.area
+    assert abs(partition.runtime_connected.area - partition.connected.area) < 1.0
+
+
+def test_runtime_walkable_supports_simulation_setup_with_reachable_waypoints() -> None:
+    import services.simulation as sim_svc
+
+    scene = _scene_with_sawtooth_obstacle()
+    config = SimulationConfig.model_validate(
+        {
+            "arrivalRatePerSecond": 0.2,
+            "durationSeconds": 1.0,
+            "maxCustomers": 1,
+            "randomSeed": 7,
+            "waypoints": [
+                {
+                    "id": "entry-1",
+                    "type": "entry",
+                    "label": "Entrée",
+                    "x": 120.0,
+                    "z": 120.0,
+                    "radiusCm": 120.0,
+                    "optional": False,
+                    "visitProbability": 1.0,
+                    "retentionSeconds": 0.0,
+                },
+                {
+                    "id": "transit-1",
+                    "type": "transit",
+                    "label": "Transit",
+                    "x": 980.0,
+                    "z": 430.0,
+                    "radiusCm": 120.0,
+                    "optional": False,
+                    "visitProbability": 1.0,
+                    "retentionSeconds": 0.0,
+                },
+                {
+                    "id": "exit-1",
+                    "type": "exit",
+                    "label": "Sortie",
+                    "x": 1450.0,
+                    "z": 1050.0,
+                    "radiusCm": 120.0,
+                    "optional": False,
+                    "visitProbability": 1.0,
+                    "retentionSeconds": 0.0,
+                },
+            ],
+        }
+    )
+
+    result = sim_svc.run_flow_simulation(scene, config)
+
+    assert result.frames

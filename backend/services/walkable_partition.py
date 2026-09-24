@@ -181,14 +181,29 @@ def _collect_splitting_obstacles(
     return walkable, splitting
 
 
-def _normalize_polygon(geometry) -> Polygon | None:
+def _normalize_polygon(
+    geometry,
+    *,
+    anchor: tuple[float, float] | None = None,
+) -> Polygon | None:
     if geometry.is_empty:
         return None
     geometry = geometry.buffer(0)
     if geometry.is_empty:
         return None
     if isinstance(geometry, MultiPolygon):
-        geometry = max(geometry.geoms, key=lambda geom: geom.area)
+        geoms = [geom for geom in geometry.geoms if isinstance(geom, Polygon)]
+        if not geoms:
+            return None
+        if anchor is not None:
+            for geom in geoms:
+                if _point_in_walkable(anchor, geom):
+                    geometry = geom
+                    break
+            else:
+                geometry = max(geoms, key=lambda geom: geom.area)
+        else:
+            geometry = max(geoms, key=lambda geom: geom.area)
     return geometry if isinstance(geometry, Polygon) else None
 
 
@@ -211,17 +226,19 @@ def _compile_runtime_component(component: Polygon) -> Polygon:
 
     clearance_m = _cm_to_m(_RUNTIME_OPENING_CLEARANCE_CM)
     tolerance_m = _cm_to_m(_RUNTIME_SIMPLIFICATION_TOLERANCE_CM)
+    anchor = (component.representative_point().x, component.representative_point().y)
     compiled = _normalize_polygon(
-        component.buffer(-clearance_m, join_style="mitre").buffer(clearance_m, join_style="mitre")
+        component.buffer(-clearance_m, join_style="mitre").buffer(clearance_m, join_style="mitre"),
+        anchor=anchor,
     )
     if compiled is None:
-        compiled = _normalize_polygon(component)
+        compiled = _normalize_polygon(component, anchor=anchor)
     if compiled is None:
         return component
     simplified = compiled.simplify(tolerance_m, preserve_topology=True)
-    normalized = _normalize_polygon(simplified) or compiled
+    normalized = _normalize_polygon(simplified, anchor=anchor) or compiled
     without_small_holes = _drop_small_holes(normalized, _RUNTIME_MIN_HOLE_AREA_M2)
-    return _normalize_polygon(without_small_holes) or normalized
+    return _normalize_polygon(without_small_holes, anchor=anchor) or normalized
 
 
 def _build_compiled_layout(scene: SceneData) -> CompiledLayout:

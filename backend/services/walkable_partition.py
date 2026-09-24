@@ -134,10 +134,10 @@ def _build_obstacle_spatial_index(
     index: dict[tuple[int, int], list[int]] = {}
     for obstacle_index, (_identity, obstacle) in enumerate(obstacles):
         bounds = obstacle.bounds
-        start_col = max(0, int((bounds[0] - min_x) // cell_size_m))
-        end_col = max(0, int((bounds[2] - min_x) // cell_size_m))
-        start_row = max(0, int((bounds[1] - min_z) // cell_size_m))
-        end_row = max(0, int((bounds[3] - min_z) // cell_size_m))
+        start_col = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[0] - min_x) // cell_size_m)))
+        end_col = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[2] - min_x) // cell_size_m)))
+        start_row = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[1] - min_z) // cell_size_m)))
+        end_row = min(_SPATIAL_INDEX_GRID_DIVISIONS - 1, max(0, int((bounds[3] - min_z) // cell_size_m)))
         for col in range(start_col, end_col + 1):
             for row in range(start_row, end_row + 1):
                 index.setdefault((col, row), []).append(obstacle_index)

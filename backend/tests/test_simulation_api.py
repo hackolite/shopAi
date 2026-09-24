@@ -87,10 +87,6 @@ def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:
     )
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload["sessionId"]
-    assert payload["paused"] is False
-    assert payload["result"]["frames"], "live start should return an initial frame"
-    payload = response.json()
 
     assert payload["frames"], "simulation should emit frames"
     assert payload["waypoints"], "simulation should emit waypoint metrics"
@@ -493,6 +489,10 @@ def test_thin_isolated_strip_does_not_trigger_split_accessible_area() -> None:
     )
 
     assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["sessionId"]
+    assert payload["paused"] is False
+    assert payload["result"]["frames"], "live start should return an initial frame"
 
 
 def test_run_simulation_reports_closest_waypoint_correction() -> None:

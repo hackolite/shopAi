@@ -268,6 +268,39 @@ def test_rotated_forbidden_rectangle_is_removed_from_walkable_geometry() -> None
     assert not walkable.covers(Point(5.0, 5.0))
 
 
+def test_traversable_forbidden_zone_is_not_removed_from_walkable_geometry() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "traversable-poly",
+            "type": "forbidden",
+            "label": "Dessin traversable",
+            "shape": "polygon",
+            "color": "#ef4444",
+            "x": 400.0,
+            "z": 400.0,
+            "width": 200.0,
+            "depth": 200.0,
+            "pedestrianObstacle": False,
+            "points": [
+                {"x": 400.0, "z": 400.0},
+                {"x": 600.0, "z": 400.0},
+                {"x": 600.0, "z": 600.0},
+                {"x": 400.0, "z": 600.0},
+            ],
+        }
+    ]
+
+    walkable = simulation_service._build_walkable_geometry(simulation_service.SceneData.model_validate(scene))
+
+    assert walkable.covers(Point(5.0, 5.0))
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

@@ -109,10 +109,12 @@ function clampZoneOpacity(opacity: number | undefined): number {
 }
 
 function normalizeZone(zone: FloorZone): FloorZone {
+  const pedestrianObstacle = zone.pedestrianObstacle ?? (zone.type === 'forbidden');
   return {
     ...zone,
     mounted: zone.mounted ?? false,
     heightCm: zone.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
+    pedestrianObstacle,
     opacity: clampZoneOpacity(zone.opacity),
     pathMode: zone.pathMode ?? (zone.shape === 'polygon' ? 'linear' : undefined),
   };
@@ -155,6 +157,7 @@ function buildZone(
     pathMode: options?.pathMode ?? (shape === 'polygon' ? 'linear' : undefined),
     mounted: options?.mounted ?? false,
     heightCm: options?.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
+    pedestrianObstacle: type === 'forbidden',
     ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),
   };
 }

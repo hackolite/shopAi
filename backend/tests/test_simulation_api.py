@@ -179,6 +179,102 @@ def test_exit_polygon_stays_anchored_when_furniture_moves_near() -> None:
     assert walkable.covers(polygon)
 
 
+def test_add_exit_stage_retries_with_smaller_removal_radius_on_split_error() -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+
+    class _FakeSim:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def add_exit_stage(self, _polygon) -> int:
+            self.calls += 1
+            if self.calls < 3:
+                raise RuntimeError("Exclusion splits accessibleArea")
+            return 123
+
+    sim = _FakeSim()
+    stage_id = simulation_service._add_exit_stage_with_retry(sim, waypoint, walkable)
+
+    assert stage_id == 123
+    assert sim.calls == 3
+
+
+def test_add_exit_stage_retry_stops_on_non_split_runtime_error() -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+
+    class _FakeSim:
+        def add_exit_stage(self, _polygon) -> int:
+            raise RuntimeError("unexpected exit geometry failure")
+
+    with pytest.raises(RuntimeError, match="unexpected exit geometry failure"):
+        simulation_service._add_exit_stage_with_retry(_FakeSim(), waypoint, walkable)
+
+
+def test_add_exit_stage_retry_uses_progressively_smaller_radii(monkeypatch: pytest.MonkeyPatch) -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+    seen_radii: list[float] = []
+
+    def _fake_exit_polygon(_waypoint, _walkable, removal_radius_cm=simulation_service.EXIT_REMOVAL_RADIUS_CM):
+        seen_radii.append(float(removal_radius_cm))
+        return Point(1.0, 1.0).buffer(0.1)
+
+    monkeypatch.setattr(simulation_service, "_waypoint_exit_polygon", _fake_exit_polygon)
+
+    class _FakeSim:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def add_exit_stage(self, _polygon) -> int:
+            self.calls += 1
+            if self.calls < 4:
+                raise RuntimeError("Exclusion splits accessibleArea")
+            return 321
+
+    stage_id = simulation_service._add_exit_stage_with_retry(_FakeSim(), waypoint, walkable)
+
+    assert stage_id == 321
+    assert seen_radii[:4] == [40.0, 30.0, 20.0, 10.0]
+
+
 def test_run_simulation_with_default_waypoints() -> None:
     project_id = _create_project()
 
@@ -368,6 +464,74 @@ def test_split_forbidden_zone_is_reported_before_simulation_start() -> None:
     assert detail["blockingElementId"] == "blocked-aisle"
     assert detail["blockingElementType"] == "zone"
     assert "coupe la zone accessible des piétons" in detail["message"]
+
+
+def test_thin_isolated_strip_does_not_trigger_split_accessible_area() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "almost-full-width-barrier",
+            "type": "forbidden",
+            "label": "Barrière avec filet étroit",
+            "shape": "rectangle",
+            "color": "#ef4444",
+            "x": 25.0,
+            "z": 0.0,
+            "width": 100.0,
+            "depth": 3000.0,
+        }
+    ]
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/start",
+        json={
+            "scene": scene,
+            "config": {
+                "arrivalRatePerSecond": 0.2,
+                "maxCustomers": 4,
+                "randomSeed": 5,
+                "waypoints": [
+                    {
+                        "id": "entry-main",
+                        "type": "entry",
+                        "label": "Entrée",
+                        "x": 2500.0,
+                        "z": 200.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                    {
+                        "id": "exit-main",
+                        "type": "exit",
+                        "label": "Sortie",
+                        "x": 2500.0,
+                        "z": 2800.0,
+                        "radiusCm": 120.0,
+                        "optional": False,
+                        "visitProbability": 1.0,
+                        "retentionSeconds": 0.0,
+                        "visionAngleDeg": 70.0,
+                        "visionRangeCm": 220.0,
+                    },
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["sessionId"]
+    assert payload["paused"] is False
+    assert payload["result"]["frames"], "live start should return an initial frame"
 
 
 def test_run_simulation_reports_closest_waypoint_correction() -> None:

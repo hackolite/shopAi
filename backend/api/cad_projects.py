@@ -976,6 +976,13 @@ def tick_live_simulation(project_id: str, session_id: str, payload: SimulationLi
         result = session.tick(payload.steps)
         return {"sessionId": session_id, "result": result.model_dump(mode="json"), "paused": session.paused}
     except KeyError as exc:
+        append_log(
+            source="backend",
+            category="simulation-live-update",
+            level="warning",
+            message="Live simulation update failed: unknown session",
+            details=_simulation_log_details(project_id, mode="live", session_id=session_id),
+        )
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
 
 

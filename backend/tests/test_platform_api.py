@@ -802,6 +802,7 @@ def test_client_logs_are_persisted_and_returned_as_text() -> None:
     )
     assert post_response.status_code == 200, post_response.text
     assert post_response.json()["logged"] is True
+    assert post_response.json()["entry"]["details"] == {"projectId": "demo", "error": "boom"}
 
     logs_response = client.get("/api/platform/logs?limit=20")
     assert logs_response.status_code == 200, logs_response.text
@@ -811,6 +812,7 @@ def test_client_logs_are_persisted_and_returned_as_text() -> None:
         entry.get("source") == "frontend"
         and entry.get("category") == "3d-load"
         and entry.get("message") == "3D project load failed"
+        and entry.get("details") == {"projectId": "demo", "error": "boom"}
         for entry in payload["logs"]
     )
 

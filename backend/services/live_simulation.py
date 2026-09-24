@@ -217,7 +217,7 @@ class LiveSimulationSession:
                     self.stage_to_token[stage_id] = waypoint.id
                     self.token_to_stage[waypoint.id] = stage_id
         except RuntimeError as exc:
-            simsvc.reraise_known_simulation_runtime_error(exc)
+            simsvc.reraise_known_simulation_runtime_error(exc, self.scene)
 
         # Stage ids are rebuilt on every hot update: refresh the mapping and drop
         # the per-agent stage memory while keeping the cumulative passage counts.

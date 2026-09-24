@@ -16,6 +16,12 @@ export function zoneMounted(zone: Pick<FloorZone, 'mounted'>): boolean {
   return zone.mounted === true;
 }
 
+export function zoneSupportsSimulationPreview(
+  zone: Pick<FloorZone, 'type' | 'mounted'>,
+): boolean {
+  return zone.type === 'forbidden' && !zoneMounted(zone);
+}
+
 export function zoneHeightCm(zone: Pick<FloorZone, 'heightCm'>): number {
   return Math.max(0, zone.heightCm ?? 120);
 }

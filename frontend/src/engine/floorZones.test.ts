@@ -8,6 +8,7 @@ import {
   zonePathMode,
   zoneRotationDeg,
   zoneShape,
+  zoneSupportsSimulationPreview,
   zoneSupportsResizeHandles,
 } from './floorZones';
 import type { FloorZone } from '../types/cad';
@@ -32,6 +33,12 @@ describe('floorZones helpers', () => {
     expect(zonePathMode(zone({}))).toBe('linear');
     expect(zoneMounted(zone({}))).toBe(false);
     expect(zoneHeightCm(zone({}))).toBe(120);
+  });
+
+  it('keeps mounted forbidden zones in full 3D during simulation', () => {
+    expect(zoneSupportsSimulationPreview(zone({ type: 'forbidden', mounted: false }))).toBe(true);
+    expect(zoneSupportsSimulationPreview(zone({ type: 'forbidden', mounted: true }))).toBe(false);
+    expect(zoneSupportsSimulationPreview(zone({ type: 'entrance', mounted: true }))).toBe(false);
   });
 
   it('keeps resize handles for bounded shapes but not free polygons', () => {

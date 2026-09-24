@@ -20,7 +20,14 @@ import {
 import { useProjectStore } from '../../store/projectStore';
 import { useAssetStore } from '../../store/assetStore';
 import { useUIStore } from '../../store/uiStore';
-import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
+import type {
+  AgentBasket,
+  SimulationAnalytics,
+  SimulationAnalyticsDelta,
+  SimulationConfig,
+  SimulationWaypoint,
+  WaypointMetrics,
+} from '../../types/cad';
 
 interface SimulationPanelProps {
   projectId: string | null;
@@ -39,6 +46,59 @@ const MAX_CATCH_UP_STEPS = 50;
 
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)} s`;
+}
+
+function applyHeatmapDelta(
+  source: SimulationAnalytics['heatmap'] | undefined | null,
+  deltas: { index: number; delta: number }[],
+) {
+  if (!source) return source ?? null;
+  if (deltas.length === 0) return source;
+  const counts = [...source.counts];
+  let maxCount = source.maxCount;
+  for (const { index, delta } of deltas) {
+    if (index < 0 || index >= counts.length) continue;
+    counts[index] += delta;
+    if (counts[index] > maxCount) maxCount = counts[index];
+  }
+  return { ...source, counts, maxCount };
+}
+
+function applyAnalyticsDelta(base: SimulationAnalytics, delta: SimulationAnalyticsDelta): SimulationAnalytics {
+  const trajectoriesByAgent = new Map(base.trajectories.map((item) => [item.agentId, { ...item, pointsCm: [...item.pointsCm] }]));
+  for (const append of delta.trajectoryAppends) {
+    const existing = trajectoriesByAgent.get(append.agentId);
+    if (existing) {
+      existing.pointsCm.push(...append.appendPointsCm);
+    } else {
+      trajectoriesByAgent.set(append.agentId, {
+        agentId: append.agentId,
+        active: true,
+        pointsCm: [...append.appendPointsCm],
+      });
+    }
+  }
+  for (const agentId of delta.deactivatedTrajectoryAgentIds) {
+    const existing = trajectoriesByAgent.get(agentId);
+    if (existing) existing.active = false;
+  }
+  const customers = new Map((base.customers ?? []).map((item) => [item.customerId, item]));
+  for (const customer of delta.customerUpdates) customers.set(customer.customerId, customer);
+  return {
+    ...base,
+    timeSeconds: delta.timeSeconds,
+    heatmap: applyHeatmapDelta(base.heatmap, delta.occupancyIncrements),
+    visitHeatmap: applyHeatmapDelta(base.visitHeatmap ?? null, delta.visitIncrements),
+    trajectories: Array.from(trajectoriesByAgent.values()),
+    customers: Array.from(customers.values()),
+  };
+}
+
+function mergeBasketDelta(current: AgentBasket[], changed: AgentBasket[]): AgentBasket[] {
+  if (changed.length === 0) return current;
+  const byAgent = new Map(current.map((item) => [item.agentId, item]));
+  for (const basket of changed) byAgent.set(basket.agentId, basket);
+  return Array.from(byAgent.values()).sort((a, b) => (a.agentId ?? -1) - (b.agentId ?? -1));
 }
 
 function NumberField({
@@ -350,6 +410,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
    */
   const liveSession = useRef<{ projectId: string; sessionId: string } | null>(null);
   const waypointMetricsSessionId = useRef<string | null>(null);
+  const analyticsSeqRef = useRef<number>(0);
+  const basketsSeqRef = useRef<number>(0);
+  const selectedBasketSeqRef = useRef<number>(0);
+  const selectedBasketAgentIdRef = useRef<number | null>(null);
   /**
    * True when a live-simulation request no longer belongs to the project the
    * app currently holds in memory.  Live-simulation calls are asynchronous:
@@ -509,6 +573,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setLiveSessionId(live.sessionId);
       setResult(live.result);
       waypointMetricsSessionId.current = live.sessionId;
+      analyticsSeqRef.current = 0;
+      basketsSeqRef.current = 0;
+      selectedBasketSeqRef.current = 0;
       setPaused(live.paused);
       if (hasExplicitDatasetSelection && pedestrianImport && pedestrianImport.pedestrianCount > 0) {
         await loadPedestriansIntoSession(live.sessionId);
@@ -534,6 +601,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setPlaying(false);
       setPaused(false);
       setLiveSessionId(null);
+      analyticsSeqRef.current = 0;
+      basketsSeqRef.current = 0;
+      selectedBasketSeqRef.current = 0;
       setResult(null);
       const correction = extractConstraintCorrection(error);
       const blockingHighlights = extractBlockingElementHighlight(error);
@@ -643,6 +713,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setPaused(false);
     setLiveSessionId(null);
     waypointMetricsSessionId.current = null;
+    analyticsSeqRef.current = 0;
+    basketsSeqRef.current = 0;
+    selectedBasketSeqRef.current = 0;
     lastSimulationSignature.current = null;
   }, [setLiveSessionId, setPaused, setPlaying]);
 
@@ -732,13 +805,36 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       if (isStale(projectId) || pendingAnalytics.current) return;
       pendingAnalytics.current = true;
       void cadApi
-        .getLiveSimulationAnalytics(projectId, liveSessionId)
+        .getLiveSimulationAnalytics(projectId, liveSessionId, analyticsSeqRef.current || undefined)
         .then((payload) => {
           if (isStale(projectId)) return;
           if (payload.sessionId !== useSimulationStore.getState().liveSessionId) return;
-          setAnalytics(payload.analytics);
-          setResultWaypoints(payload.waypoints);
-          waypointMetricsSessionId.current = payload.sessionId;
+          analyticsSeqRef.current = payload.seq;
+          if (payload.full || !payload.analyticsDelta) {
+            setAnalytics(payload.analytics ?? null);
+            setResultWaypoints(payload.waypoints);
+            waypointMetricsSessionId.current = payload.sessionId;
+          } else {
+            const currentAnalytics = useSimulationStore.getState().analytics;
+            if (currentAnalytics) {
+              setAnalytics(applyAnalyticsDelta(currentAnalytics, payload.analyticsDelta));
+              setResultWaypoints(payload.waypoints);
+              waypointMetricsSessionId.current = payload.sessionId;
+            } else {
+              analyticsSeqRef.current = 0;
+              void cadApi
+                .getLiveSimulationAnalytics(projectId, liveSessionId)
+                .then((fullPayload) => {
+                  if (isStale(projectId)) return;
+                  if (fullPayload.sessionId !== useSimulationStore.getState().liveSessionId) return;
+                  analyticsSeqRef.current = fullPayload.seq;
+                  setAnalytics(fullPayload.analytics ?? null);
+                  setResultWaypoints(fullPayload.waypoints);
+                  waypointMetricsSessionId.current = fullPayload.sessionId;
+                })
+                .catch(() => undefined);
+            }
+          }
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -781,10 +877,16 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       if (isStale(projectId) || pendingJourneyBaskets.current) return;
       pendingJourneyBaskets.current = true;
       void cadApi
-        .listLiveAgentBaskets(projectId, liveSessionId)
+        .listLiveAgentBaskets(projectId, liveSessionId, basketsSeqRef.current || undefined)
         .then((payload) => {
           if (isStale(projectId)) return;
-          setJourneyBaskets(payload.baskets);
+          basketsSeqRef.current = payload.seq;
+          if (payload.full) {
+            setJourneyBaskets(payload.baskets);
+          } else {
+            const current = useSimulationStore.getState().journeyBaskets;
+            setJourneyBaskets(mergeBasketDelta(current, payload.baskets));
+          }
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -809,19 +911,39 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   // Pedestrian detail panel: refresh the selected agent's basket whenever the
   // selection changes and while the simulation keeps ticking.
   useEffect(() => {
-    if (!projectId || !liveSessionId || selectedAgentId == null) return;
+    if (!projectId || !liveSessionId || selectedAgentId == null) {
+      selectedBasketSeqRef.current = 0;
+      selectedBasketAgentIdRef.current = null;
+      return;
+    }
+    if (selectedBasketAgentIdRef.current !== selectedAgentId) {
+      selectedBasketAgentIdRef.current = selectedAgentId;
+      selectedBasketSeqRef.current = 0;
+      setAgentBasket(null);
+    }
     const fetchBasket = () => {
       if (isStale(projectId) || pendingAgentBasket.current) return;
       pendingAgentBasket.current = true;
       void cadApi
-        .getLiveAgentBasket(projectId, liveSessionId, selectedAgentId)
-        .then((basket) => {
+        .getLiveAgentBasket(projectId, liveSessionId, selectedAgentId, selectedBasketSeqRef.current || undefined)
+        .then((payload) => {
           if (isStale(projectId)) return;
-          setAgentBasket(basket);
+          selectedBasketSeqRef.current = payload.seq;
+          if (payload.changed && payload.basket) {
+            setAgentBasket(payload.basket);
+          } else {
+            const current = useSimulationStore.getState().agentBasket;
+            if (current && current.agentId !== selectedAgentId) {
+              setAgentBasket(null);
+            }
+          }
         })
         .catch((error) => {
           if (isStale(projectId)) return;
           console.error('Failed to fetch pedestrian basket:', error);
+          if (String(error).includes('[404]')) {
+            setAgentBasket(null);
+          }
         })
         .finally(() => {
           pendingAgentBasket.current = false;
@@ -885,6 +1007,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setAppliedPedestrianDataset(null);
     setPedestrianDatasetError(null);
     setPedestrianLoadedSessionId(null);
+    analyticsSeqRef.current = 0;
+    basketsSeqRef.current = 0;
+    selectedBasketSeqRef.current = 0;
   }, [projectId]);
 
   useEffect(() => {

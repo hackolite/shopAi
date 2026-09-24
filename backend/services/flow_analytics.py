@@ -16,6 +16,8 @@ though only a small window of frames is sent back to the client.
 
 from __future__ import annotations
 
+from collections import deque
+
 from models.project import (
     AgentTrajectory,
     CustomerJourney,
@@ -35,6 +37,7 @@ MAX_TRAJECTORY_POINTS = 160
 MAX_TRACKED_CUSTOMERS = 100
 # Minimum distance between two recorded trajectory points.
 TRAJECTORY_MIN_STEP_CM = 15.0
+MAX_DELTA_HISTORY = 600
 
 
 def _grid_geometry(scene: SceneData, cell_size_cm: float) -> tuple[float, float, float, int, int]:
@@ -61,6 +64,8 @@ class FlowAnalyticsRecorder:
         self._last_positions: dict[int, tuple[float, float]] = {}
         self._time_seconds = 0.0
         self._max_count = 0
+        self._seq = 0
+        self._delta_history: deque[dict] = deque(maxlen=MAX_DELTA_HISTORY)
         self.configure(scene)
 
     def configure(self, scene: SceneData) -> None:
@@ -88,14 +93,26 @@ class FlowAnalyticsRecorder:
 
     def record_frame(self, frame: SimulationFrame) -> None:
         self._time_seconds = float(frame.timeSeconds)
+        occupancy_increments: dict[int, int] = {}
+        visit_increments: dict[int, int] = {}
+        trajectory_appends: dict[int, list[float]] = {}
+        customer_updates: dict[int, CustomerJourney] = {}
+        previous_active = set(self._active_agents)
         seen: set[int] = set()
         for agent in frame.agents:
             agent_id = int(agent.id)
             seen.add(agent_id)
             self._record_customer(agent_id, float(agent.xCm), float(agent.zCm), float(frame.timeSeconds))
-            self._record_occupancy(float(agent.xCm), float(agent.zCm))
-            self._record_visit(int(agent.id), float(agent.xCm), float(agent.zCm))
-            self._record_trajectory_point(int(agent.id), float(agent.xCm), float(agent.zCm))
+            customer_updates[agent_id] = self._customers[agent_id].model_copy(deep=True)
+            occupancy_index = self._record_occupancy(float(agent.xCm), float(agent.zCm))
+            if occupancy_index is not None:
+                occupancy_increments[occupancy_index] = occupancy_increments.get(occupancy_index, 0) + 1
+            visit_index = self._record_visit(int(agent.id), float(agent.xCm), float(agent.zCm))
+            if visit_index is not None:
+                visit_increments[visit_index] = visit_increments.get(visit_index, 0) + 1
+            appended = self._record_trajectory_point(int(agent.id), float(agent.xCm), float(agent.zCm))
+            if appended:
+                trajectory_appends.setdefault(agent_id, []).extend(appended)
         self._active_agents = seen
         for agent_id in [agent_id for agent_id in self._agent_cells if agent_id not in seen]:
             del self._agent_cells[agent_id]
@@ -105,8 +122,29 @@ class FlowAnalyticsRecorder:
                 customer.exitTimeSeconds = float(frame.timeSeconds)
                 customer.totalTimeSeconds = round(customer.exitTimeSeconds - customer.entryTimeSeconds, 2)
                 self._last_positions.pop(agent_id, None)
-        self._evict_old_trajectories()
-        self._evict_old_customers()
+                customer_updates[agent_id] = customer.model_copy(deep=True)
+        deactivated = list(previous_active - seen)
+        evicted_trajectories = self._evict_old_trajectories()
+        evicted_customers = self._evict_old_customers()
+        self._seq += 1
+        if evicted_trajectories or evicted_customers:
+            # A delta cannot safely express recorder-eviction removals; force a
+            # client full resync by dropping older retained deltas.
+            self._delta_history.clear()
+        self._delta_history.append(
+            {
+                "seq": self._seq,
+                "timeSeconds": round(self._time_seconds, 2),
+                "occupancyIncrements": occupancy_increments,
+                "visitIncrements": visit_increments,
+                "trajectoryAppends": trajectory_appends,
+                "deactivatedTrajectoryAgentIds": deactivated,
+                "customerUpdates": {
+                    agent_id: customer.model_dump(mode="json")
+                    for agent_id, customer in customer_updates.items()
+                },
+            }
+        )
 
     def _record_customer(self, agent_id: int, x_cm: float, z_cm: float, time_seconds: float) -> None:
         customer = self._customers.get(agent_id)
@@ -123,23 +161,27 @@ class FlowAnalyticsRecorder:
         customer.totalTimeSeconds = round(time_seconds - customer.entryTimeSeconds, 2)
         self._last_positions[agent_id] = (x_cm, z_cm)
 
-    def _evict_old_customers(self) -> None:
+    def _evict_old_customers(self) -> bool:
+        evicted = False
         while len(self._customers) > MAX_TRACKED_CUSTOMERS:
             oldest_id = next(iter(self._customers))
             if self._customers[oldest_id].active:
                 break
             del self._customers[oldest_id]
             self._last_positions.pop(oldest_id, None)
+            evicted = True
+        return evicted
 
-    def _record_occupancy(self, x_cm: float, z_cm: float) -> None:
+    def _record_occupancy(self, x_cm: float, z_cm: float) -> int | None:
         col = int((x_cm - self._origin_x) // self._cell_cm)
         row = int((z_cm - self._origin_z) // self._cell_cm)
         if col < 0 or row < 0 or col >= self._cols or row >= self._rows:
-            return
+            return None
         index = row * self._cols + col
         self._counts[index] += 1
         if self._counts[index] > self._max_count:
             self._max_count = self._counts[index]
+        return index
 
     def _cell_index(self, x_cm: float, z_cm: float) -> int | None:
         col = int((x_cm - self._origin_x) // self._cell_cm)
@@ -148,30 +190,32 @@ class FlowAnalyticsRecorder:
             return None
         return row * self._cols + col
 
-    def _record_visit(self, agent_id: int, x_cm: float, z_cm: float) -> None:
+    def _record_visit(self, agent_id: int, x_cm: float, z_cm: float) -> int | None:
         """Count one visit each time an agent steps into a new cell."""
         index = self._cell_index(x_cm, z_cm)
         if index is None:
             self._agent_cells.pop(agent_id, None)
-            return
+            return None
         if self._agent_cells.get(agent_id) == index:
-            return
+            return None
         self._agent_cells[agent_id] = index
         self._visit_counts[index] += 1
         if self._visit_counts[index] > self._max_visit_count:
             self._max_visit_count = self._visit_counts[index]
+        return index
 
-    def _record_trajectory_point(self, agent_id: int, x_cm: float, z_cm: float) -> None:
+    def _record_trajectory_point(self, agent_id: int, x_cm: float, z_cm: float) -> list[float]:
         points = self._trajectories.get(agent_id)
         if points is None:
-            self._trajectories[agent_id] = [round(x_cm, 1), round(z_cm, 1)]
-            return
+            pair = [round(x_cm, 1), round(z_cm, 1)]
+            self._trajectories[agent_id] = pair
+            return list(pair)
         last_x = points[-2]
         last_z = points[-1]
         if abs(x_cm - last_x) < TRAJECTORY_MIN_STEP_CM and abs(z_cm - last_z) < TRAJECTORY_MIN_STEP_CM:
-            return
-        points.append(round(x_cm, 1))
-        points.append(round(z_cm, 1))
+            return []
+        appended = [round(x_cm, 1), round(z_cm, 1)]
+        points.extend(appended)
         if len(points) > MAX_TRAJECTORY_POINTS * 2:
             # Halve the resolution instead of truncating so the whole path shape
             # is preserved for the rest of the session.
@@ -183,18 +227,24 @@ class FlowAnalyticsRecorder:
             decimated.append(points[-2])
             decimated.append(points[-1])
             self._trajectories[agent_id] = decimated
+            return []
+        return appended
 
-    def _evict_old_trajectories(self) -> None:
+    def _evict_old_trajectories(self) -> bool:
+        evicted = False
         if len(self._trajectories) <= MAX_TRACKED_TRAJECTORIES:
-            return
+            return evicted
         # Drop the oldest finished agents first (dict keeps insertion order).
         for agent_id in list(self._trajectories):
             if len(self._trajectories) <= MAX_TRACKED_TRAJECTORIES:
                 break
             if agent_id not in self._active_agents:
                 del self._trajectories[agent_id]
+                evicted = True
         while len(self._trajectories) > MAX_TRACKED_TRAJECTORIES:
             del self._trajectories[next(iter(self._trajectories))]
+            evicted = True
+        return evicted
 
     def heatmap(self) -> SimulationHeatmap:
         return SimulationHeatmap(
@@ -241,6 +291,70 @@ class FlowAnalyticsRecorder:
             trajectories=self.trajectories(),
             customers=self.customers(),
         )
+
+    @property
+    def seq(self) -> int:
+        return self._seq
+
+    def delta_since(self, since_seq: int) -> dict | None:
+        if since_seq >= self._seq:
+            return {
+                "timeSeconds": round(self._time_seconds, 2),
+                "occupancyIncrements": [],
+                "visitIncrements": [],
+                "trajectoryAppends": [],
+                "deactivatedTrajectoryAgentIds": [],
+                "customerUpdates": [],
+            }
+        if not self._delta_history:
+            return None
+        oldest_seq = int(self._delta_history[0]["seq"])
+        if since_seq < oldest_seq:
+            return None
+        occupancy_increments: dict[int, int] = {}
+        visit_increments: dict[int, int] = {}
+        trajectory_appends: dict[int, list[float]] = {}
+        customer_updates: dict[int, dict] = {}
+        deactivated: set[int] = set()
+        time_seconds = round(self._time_seconds, 2)
+        for delta in self._delta_history:
+            seq = int(delta["seq"])
+            if seq <= since_seq:
+                continue
+            time_seconds = float(delta["timeSeconds"])
+            for index, value in delta["occupancyIncrements"].items():
+                occupancy_increments[int(index)] = occupancy_increments.get(int(index), 0) + int(value)
+            for index, value in delta["visitIncrements"].items():
+                visit_increments[int(index)] = visit_increments.get(int(index), 0) + int(value)
+            for agent_id, appended in delta["trajectoryAppends"].items():
+                trajectory_appends.setdefault(int(agent_id), []).extend(float(v) for v in appended)
+            for agent_id in delta["deactivatedTrajectoryAgentIds"]:
+                deactivated.add(int(agent_id))
+            for agent_id, customer in delta["customerUpdates"].items():
+                customer_updates[int(agent_id)] = customer
+        return {
+            "timeSeconds": round(time_seconds, 2),
+            "occupancyIncrements": [
+                {"index": index, "delta": value}
+                for index, value in occupancy_increments.items()
+                if value != 0
+            ],
+            "visitIncrements": [
+                {"index": index, "delta": value}
+                for index, value in visit_increments.items()
+                if value != 0
+            ],
+            "trajectoryAppends": [
+                {
+                    "agentId": agent_id,
+                    "appendPointsCm": points,
+                }
+                for agent_id, points in trajectory_appends.items()
+                if points
+            ],
+            "deactivatedTrajectoryAgentIds": sorted(deactivated),
+            "customerUpdates": list(customer_updates.values()),
+        }
 
 
 def build_analytics(

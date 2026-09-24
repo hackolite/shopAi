@@ -146,6 +146,17 @@ def test_customer_journey_tracks_distance_duration_and_exit() -> None:
     assert customer.active is False
 
 
+def test_delta_since_falls_back_to_full_when_history_window_is_exceeded() -> None:
+    recorder = FlowAnalyticsRecorder(_scene(), cell_size_cm=100.0)
+    for step in range(620):
+        recorder.record_frame(_frame(step * 0.1, [(1, 50.0 + float(step % 20), 50.0)]))
+
+    assert recorder.seq > 600
+    # Old sequence is outside the retained delta window: caller must request
+    # a full snapshot fallback.
+    assert recorder.delta_since(0) is None
+
+
 def test_queue_wait_metrics_track_time_spent_in_the_queue() -> None:
     stage = _FakeQueueStage()
     runtime = _WaypointRuntime(

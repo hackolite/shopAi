@@ -277,8 +277,42 @@ export interface LiveSimulationResponse {
 
 export interface LiveSimulationAnalyticsResponse {
   sessionId: string;
-  analytics: SimulationAnalytics;
+  seq: number;
+  full: boolean;
+  analytics?: SimulationAnalytics;
+  analyticsDelta?: SimulationAnalyticsDelta;
   waypoints: WaypointMetrics[];
+}
+
+export interface HeatmapCountDelta {
+  index: number;
+  delta: number;
+}
+
+export interface TrajectoryAppendDelta {
+  agentId: number;
+  appendPointsCm: number[];
+}
+
+export interface SimulationAnalyticsDelta {
+  timeSeconds: number;
+  occupancyIncrements: HeatmapCountDelta[];
+  visitIncrements: HeatmapCountDelta[];
+  trajectoryAppends: TrajectoryAppendDelta[];
+  deactivatedTrajectoryAgentIds: number[];
+  customerUpdates: CustomerJourney[];
+}
+
+export interface LiveBasketsResponse {
+  seq: number;
+  full: boolean;
+  baskets: AgentBasket[];
+}
+
+export interface LiveAgentBasketResponse {
+  seq: number;
+  changed: boolean;
+  basket?: AgentBasket;
 }
 
 /** One walkable island of the split walkable-area preview (store-relative cm). */

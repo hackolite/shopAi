@@ -1,5 +1,6 @@
 import type {
-  AgentBasket,
+  LiveAgentBasketResponse,
+  LiveBasketsResponse,
   CADProduct,
   Catalog,
   FurnitureDefinition,
@@ -285,9 +286,9 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ scene, config }),
     }),
-  getLiveSimulationAnalytics: (id: string, sessionId: string) =>
+  getLiveSimulationAnalytics: (id: string, sessionId: string, sinceSeq?: number) =>
     request<LiveSimulationAnalyticsResponse>(
-      `${BASE}/${id}/simulation/live/${sessionId}/analytics`,
+      `${BASE}/${id}/simulation/live/${sessionId}/analytics${sinceSeq != null ? `?sinceSeq=${sinceSeq}` : ''}`,
     ),
   stopLiveSimulation: (id: string, sessionId: string) =>
     request<{ stopped: boolean; sessionId: string }>(`${BASE}/${id}/simulation/live/${sessionId}/stop`, {
@@ -320,10 +321,14 @@ export const cadApi = {
       `${BASE}/${id}/simulation/live/${sessionId}/load-pedestrians`,
       { method: 'POST' },
     ),
-  getLiveAgentBasket: (id: string, sessionId: string, agentId: number) =>
-    request<AgentBasket>(`${BASE}/${id}/simulation/live/${sessionId}/agents/${agentId}/basket`),
-  listLiveAgentBaskets: (id: string, sessionId: string) =>
-    request<{ baskets: AgentBasket[] }>(`${BASE}/${id}/simulation/live/${sessionId}/baskets`),
+  getLiveAgentBasket: (id: string, sessionId: string, agentId: number, sinceSeq?: number) =>
+    request<LiveAgentBasketResponse>(
+      `${BASE}/${id}/simulation/live/${sessionId}/agents/${agentId}/basket${sinceSeq != null ? `?sinceSeq=${sinceSeq}` : ''}`,
+    ),
+  listLiveAgentBaskets: (id: string, sessionId: string, sinceSeq?: number) =>
+    request<LiveBasketsResponse>(
+      `${BASE}/${id}/simulation/live/${sessionId}/baskets${sinceSeq != null ? `?sinceSeq=${sinceSeq}` : ''}`,
+    ),
 
   getFurnitureLibrary: () =>
     request<{ furniture: FurnitureDefinition[] }>(LIB_BASE),

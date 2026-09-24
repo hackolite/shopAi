@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import random
 import threading
+from collections import deque
 from dataclasses import dataclass
 from time import time
 from typing import Any
@@ -45,6 +46,7 @@ LIVE_RESPONSE_FRAME_WINDOW = 20
 # stay a constant size. The full series is kept server-side, so the aggregate
 # metrics (peak load, released agents) remain computed over the whole session.
 LIVE_RESPONSE_SAMPLE_WINDOW = 240
+LIVE_DELTA_HISTORY_WINDOW = 1200
 
 
 @dataclass
@@ -108,6 +110,9 @@ class LiveSimulationSession:
         # stable_id -> {ean: (picked, pickedAtSeconds)}, updated on every pickup.
         self.basket_status: dict[int, dict[str, tuple[bool, float | None]]] = {}
         self.pending_pickup_events: list[PickupEvent] = []
+        self.basket_seq = 0
+        self.basket_last_seq: dict[int, int] = {}
+        self.basket_change_history: deque[tuple[int, int]] = deque(maxlen=LIVE_DELTA_HISTORY_WINDOW)
         self._init_runtime(carry_agents=[])
         self._capture_frame()
 
@@ -535,6 +540,7 @@ class LiveSimulationSession:
             self.agent_speeds[agent_id] = desired_speed
             self.agent_baskets[stable_id] = plan
             self.basket_status[stable_id] = {item.ean: (False, None) for item in plan.items}
+            self._mark_basket_changed(stable_id)
             self.passages.record_passage(entry_wp.id)
             self.spawned += 1
             self.pedestrian_cursor += 1
@@ -577,6 +583,54 @@ class LiveSimulationSession:
         with self.lock:
             baskets = [self.basket_for(stable_id) for stable_id in self.agent_baskets]
         return [basket for basket in baskets if basket is not None]
+
+    def _mark_basket_changed(self, stable_id: int) -> None:
+        self.basket_seq += 1
+        self.basket_last_seq[stable_id] = self.basket_seq
+        self.basket_change_history.append((self.basket_seq, stable_id))
+
+    def baskets_update(self, since_seq: int | None = None) -> dict[str, Any]:
+        with self.lock:
+            self.last_accessed_at = time()
+            current_seq = self.basket_seq
+            if since_seq is None:
+                baskets = [self.basket_for(stable_id) for stable_id in self.agent_baskets]
+                return {
+                    "seq": current_seq,
+                    "full": True,
+                    "baskets": [basket.model_dump(mode="json") for basket in baskets if basket is not None],
+                }
+            if since_seq >= current_seq:
+                return {"seq": current_seq, "full": False, "baskets": []}
+            if self.basket_change_history and since_seq < self.basket_change_history[0][0]:
+                baskets = [self.basket_for(stable_id) for stable_id in self.agent_baskets]
+                return {
+                    "seq": current_seq,
+                    "full": True,
+                    "baskets": [basket.model_dump(mode="json") for basket in baskets if basket is not None],
+                }
+            changed_ids = {
+                stable_id
+                for change_seq, stable_id in self.basket_change_history
+                if change_seq > since_seq
+            }
+            changed = [self.basket_for(stable_id) for stable_id in sorted(changed_ids)]
+            return {
+                "seq": current_seq,
+                "full": False,
+                "baskets": [basket.model_dump(mode="json") for basket in changed if basket is not None],
+            }
+
+    def basket_update_for(self, stable_id: int, since_seq: int | None = None) -> dict[str, Any]:
+        with self.lock:
+            self.last_accessed_at = time()
+            basket = self.basket_for(stable_id)
+            if basket is None:
+                raise KeyError(stable_id)
+            basket_seq = self.basket_last_seq.get(stable_id, 0)
+            if since_seq is not None and since_seq >= basket_seq:
+                return {"seq": basket_seq, "changed": False}
+            return {"seq": basket_seq, "changed": True, "basket": basket.model_dump(mode="json")}
 
     def _update_agent_route_indices(self) -> None:
         for agent in self.sim.agents():
@@ -709,6 +763,7 @@ class LiveSimulationSession:
             return
         status = self.basket_status.setdefault(route.stable_id, {})
         status[ean] = (True, round(self.time_seconds, 2))
+        self._mark_basket_changed(route.stable_id)
         self.pending_pickup_events.append(
             PickupEvent(
                 agentId=route.stable_id,
@@ -819,6 +874,28 @@ class LiveSimulationSession:
         with self.lock:
             self.last_accessed_at = time()
             return self.analytics_recorder.snapshot(), self.waypoint_metrics_snapshot()
+
+    def analytics_update(self, since_seq: int | None = None) -> tuple[dict[str, Any], list[WaypointMetrics]]:
+        with self.lock:
+            self.last_accessed_at = time()
+            if since_seq is None:
+                return {
+                    "seq": self.analytics_recorder.seq,
+                    "full": True,
+                    "analytics": self.analytics_recorder.snapshot().model_dump(mode="json"),
+                }, self.waypoint_metrics_snapshot()
+            delta = self.analytics_recorder.delta_since(int(since_seq))
+            if delta is None:
+                return {
+                    "seq": self.analytics_recorder.seq,
+                    "full": True,
+                    "analytics": self.analytics_recorder.snapshot().model_dump(mode="json"),
+                }, self.waypoint_metrics_snapshot()
+            return {
+                "seq": self.analytics_recorder.seq,
+                "full": False,
+                "analyticsDelta": delta,
+            }, self.waypoint_metrics_snapshot()
 
     def snapshot(self, include_waypoint_metrics: bool = True) -> SimulationResult:
         return SimulationResult(

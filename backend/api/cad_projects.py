@@ -7,7 +7,7 @@ import threading
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, StrictBool, StringConstraints
 
@@ -1106,17 +1106,27 @@ def update_live_simulation(project_id: str, session_id: str, payload: Simulation
 
 
 @router.get("/{project_id}/simulation/live/{session_id}/analytics")
-def get_live_simulation_analytics(project_id: str, session_id: str):
+def get_live_simulation_analytics(
+    project_id: str,
+    session_id: str,
+    sinceSeq: int | None = Query(default=None, ge=0),
+):
     try:
         session = live_simulation_manager.get(session_id)
         if session.project_id != project_id:
             raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'")
-        analytics, waypoints = session.analytics_with_waypoints()
-        return {
+        payload, waypoints = session.analytics_update(since_seq=sinceSeq)
+        body: dict[str, Any] = {
             "sessionId": session_id,
-            "analytics": analytics.model_dump(mode="json"),
+            "seq": payload["seq"],
+            "full": payload["full"],
             "waypoints": [item.model_dump(mode="json") for item in waypoints],
         }
+        if payload["full"]:
+            body["analytics"] = payload["analytics"]
+        else:
+            body["analyticsDelta"] = payload["analyticsDelta"]
+        return body
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
 
@@ -1245,7 +1255,12 @@ def load_pedestrians_into_live_simulation(project_id: str, session_id: str):
 
 
 @router.get("/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket")
-def get_live_agent_basket(project_id: str, session_id: str, agent_id: int):
+def get_live_agent_basket(
+    project_id: str,
+    session_id: str,
+    agent_id: int,
+    sinceSeq: int | None = Query(default=None, ge=0),
+):
     """Detail panel for one pedestrian: its basket with pick/not-picked status."""
     try:
         session = live_simulation_manager.get(session_id)
@@ -1254,14 +1269,25 @@ def get_live_agent_basket(project_id: str, session_id: str, agent_id: int):
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
 
-    basket = session.basket_for(agent_id)
-    if basket is None:
+    try:
+        update = session.basket_update_for(agent_id, since_seq=sinceSeq)
+    except KeyError:
         raise HTTPException(status_code=404, detail=f"No pedestrian basket found for agent '{agent_id}'")
-    return basket.model_dump(mode="json")
+    body: dict[str, Any] = {
+        "seq": update["seq"],
+        "changed": update["changed"],
+    }
+    if update["changed"]:
+        body["basket"] = update["basket"]
+    return body
 
 
 @router.get("/{project_id}/simulation/live/{session_id}/baskets")
-def list_live_agent_baskets(project_id: str, session_id: str):
+def list_live_agent_baskets(
+    project_id: str,
+    session_id: str,
+    sinceSeq: int | None = Query(default=None, ge=0),
+):
     """« Parcours client » panel: every pedestrian's basket seen in this session."""
     try:
         session = live_simulation_manager.get(session_id)
@@ -1270,4 +1296,5 @@ def list_live_agent_baskets(project_id: str, session_id: str):
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Unknown live simulation session '{session_id}'") from exc
 
-    return {"baskets": [basket.model_dump(mode="json") for basket in session.list_baskets()]}
+    update = session.baskets_update(since_seq=sinceSeq)
+    return update

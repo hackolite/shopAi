@@ -1321,10 +1321,12 @@ def test_live_simulation_exposes_analytics_and_queue_wait_times() -> None:
         f"/api/cad/projects/{project_id}/simulation/live/{session_id}/analytics"
     )
     assert analytics_response.status_code == 200, analytics_response.text
-    analytics = analytics_response.json()["analytics"]
+    analytics_body = analytics_response.json()
+    assert analytics_body["full"] is True
+    analytics = analytics_body["analytics"]
     queue_metrics = next(
         item
-        for item in analytics_response.json()["waypoints"]
+        for item in analytics_body["waypoints"]
         if item["waypointId"] == "queue-main"
     )
     assert queue_metrics["completedWaits"] > 0, "agents must be released from the retention queue"
@@ -1336,6 +1338,23 @@ def test_live_simulation_exposes_analytics_and_queue_wait_times() -> None:
     assert heatmap["maxCount"] > 0, "agents walking the store must heat up the grid"
     assert analytics["trajectories"], "agent trajectories must be recorded"
     assert all(len(item["pointsCm"]) % 2 == 0 for item in analytics["trajectories"])
+
+    next_tick = client.post(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+        json={"steps": 4, "includeWaypointMetrics": False},
+    )
+    assert next_tick.status_code == 200, next_tick.text
+    delta_response = client.get(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/analytics",
+        params={"sinceSeq": analytics_body["seq"]},
+    )
+    assert delta_response.status_code == 200, delta_response.text
+    delta_body = delta_response.json()
+    assert delta_body["full"] is False
+    assert "analyticsDelta" in delta_body
+    assert "occupancyIncrements" in delta_body["analyticsDelta"]
+    assert "visitIncrements" in delta_body["analyticsDelta"]
+    assert "trajectoryAppends" in delta_body["analyticsDelta"]
 
     missing = client.get(
         f"/api/cad/projects/{project_id}/simulation/live/unknown-session/analytics"

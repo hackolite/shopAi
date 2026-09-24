@@ -171,13 +171,31 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
     )
     assert basket.status_code == 200, basket.text
     basket_body = basket.json()
-    assert basket_body["pedestrianId"] == 1
-    assert basket_body["items"][0]["ean"] == "TESTEAN0"
-    assert basket_body["items"][0]["picked"] is True
+    assert basket_body["changed"] is True
+    assert basket_body["basket"]["pedestrianId"] == 1
+    assert basket_body["basket"]["items"][0]["ean"] == "TESTEAN0"
+    assert basket_body["basket"]["items"][0]["picked"] is True
 
     baskets = client.get(
         f"/api/cad/projects/{project_id}/simulation/live/{session_id}/baskets"
     )
     assert baskets.status_code == 200, baskets.text
-    all_baskets = baskets.json()["baskets"]
+    baskets_body = baskets.json()
+    assert baskets_body["full"] is True
+    all_baskets = baskets_body["baskets"]
     assert any(basket["pedestrianId"] == 1 and basket["items"][0]["picked"] for basket in all_baskets)
+
+    no_change = client.get(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket",
+        params={"sinceSeq": basket_body["seq"]},
+    )
+    assert no_change.status_code == 200, no_change.text
+    assert no_change.json() == {"seq": basket_body["seq"], "changed": False}
+
+    basket_delta = client.get(
+        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/baskets",
+        params={"sinceSeq": baskets_body["seq"]},
+    )
+    assert basket_delta.status_code == 200, basket_delta.text
+    assert basket_delta.json()["full"] is False
+    assert basket_delta.json()["baskets"] == []

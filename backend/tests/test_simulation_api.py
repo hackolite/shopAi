@@ -179,6 +179,63 @@ def test_exit_polygon_stays_anchored_when_furniture_moves_near() -> None:
     assert walkable.covers(polygon)
 
 
+def test_add_exit_stage_retries_with_smaller_removal_radius_on_split_error() -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+
+    class _FakeSim:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def add_exit_stage(self, _polygon) -> int:
+            self.calls += 1
+            if self.calls < 3:
+                raise RuntimeError("Exclusion splits accessibleArea")
+            return 123
+
+    sim = _FakeSim()
+    stage_id = simulation_service._add_exit_stage_with_retry(sim, waypoint, walkable)
+
+    assert stage_id == 123
+    assert sim.calls == 3
+
+
+def test_add_exit_stage_retry_stops_on_non_split_runtime_error() -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+
+    class _FakeSim:
+        def add_exit_stage(self, _polygon) -> int:
+            raise RuntimeError("unexpected exit geometry failure")
+
+    with pytest.raises(RuntimeError, match="unexpected exit geometry failure"):
+        simulation_service._add_exit_stage_with_retry(_FakeSim(), waypoint, walkable)
+
+
 def test_run_simulation_with_default_waypoints() -> None:
     project_id = _create_project()
 

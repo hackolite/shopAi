@@ -40,6 +40,7 @@ EXIT_FALLBACK_MARGIN_CM = 120.0
 AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 EXIT_REMOVAL_RADIUS_CM = 40.0
+EXIT_REMOVAL_RETRY_RADII_CM = (40.0, 30.0, 20.0, 10.0, 5.0)
 TOO_CLOSE_TO_AGENT_ERROR_SNIPPET = "too close to agent"
 SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET = "Exclusion splits accessibleArea"
 MIN_WALKABLE_COMPONENT_AREA_M2 = 1e-6
@@ -397,8 +398,12 @@ def _queue_slot_positions(
     return positions
 
 
-def _waypoint_exit_polygon(waypoint: SimulationWaypoint, walkable: Polygon) -> Polygon:
-    radius_m = _cm_to_m(EXIT_REMOVAL_RADIUS_CM)
+def _waypoint_exit_polygon(
+    waypoint: SimulationWaypoint,
+    walkable: Polygon,
+    removal_radius_cm: float = EXIT_REMOVAL_RADIUS_CM,
+) -> Polygon:
+    radius_m = _cm_to_m(removal_radius_cm)
     # Anchor the removal zone on the *same* point as the visible approach
     # waypoint (clearance 0, i.e. the exit marker itself).  Previously the
     # removal disc was re-snapped with a large clearance
@@ -461,6 +466,20 @@ def _select_polygon_containing(
         if candidate.covers(target):
             return candidate
     return max(candidates, key=lambda geom: geom.area)
+
+
+def _add_exit_stage_with_retry(sim: object, waypoint: SimulationWaypoint, walkable: Polygon) -> int:
+    last_split_error: RuntimeError | None = None
+    for radius_cm in EXIT_REMOVAL_RETRY_RADII_CM:
+        try:
+            return sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable, removal_radius_cm=radius_cm))
+        except RuntimeError as exc:
+            if SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET not in str(exc):
+                raise
+            last_split_error = exc
+    if last_split_error is not None:
+        raise last_split_error
+    raise RuntimeError("Unable to add exit stage")
 
 
 def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> Polygon | None:
@@ -1020,7 +1039,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 )
                 waypoint_stage_ids[waypoint.id] = approach_stage_id
                 waypoint_by_stage_id[approach_stage_id] = waypoint
-                exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
+                exit_stage_ids[waypoint.id] = _add_exit_stage_with_retry(sim, waypoint, walkable)
             elif waypoint.retentionSeconds > 0:
                 stage_id = sim.add_queue_stage(
                     _queue_slot_positions(waypoint, walkable)

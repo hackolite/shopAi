@@ -236,6 +236,45 @@ def test_add_exit_stage_retry_stops_on_non_split_runtime_error() -> None:
         simulation_service._add_exit_stage_with_retry(_FakeSim(), waypoint, walkable)
 
 
+def test_add_exit_stage_retry_uses_progressively_smaller_radii(monkeypatch: pytest.MonkeyPatch) -> None:
+    waypoint = simulation_service.SimulationWaypoint(
+        id="exit-main",
+        type="exit",
+        label="Sortie",
+        x=2500.0,
+        z=1800.0,
+        radiusCm=120.0,
+        optional=False,
+        visitProbability=1.0,
+        retentionSeconds=0.0,
+        visionAngleDeg=70.0,
+        visionRangeCm=220.0,
+    )
+    walkable = Polygon([(0.0, 0.0), (50.0, 0.0), (50.0, 30.0), (0.0, 30.0)])
+    seen_radii: list[float] = []
+
+    def _fake_exit_polygon(_waypoint, _walkable, removal_radius_cm=simulation_service.EXIT_REMOVAL_RADIUS_CM):
+        seen_radii.append(float(removal_radius_cm))
+        return Point(1.0, 1.0).buffer(0.1)
+
+    monkeypatch.setattr(simulation_service, "_waypoint_exit_polygon", _fake_exit_polygon)
+
+    class _FakeSim:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def add_exit_stage(self, _polygon) -> int:
+            self.calls += 1
+            if self.calls < 4:
+                raise RuntimeError("Exclusion splits accessibleArea")
+            return 321
+
+    stage_id = simulation_service._add_exit_stage_with_retry(_FakeSim(), waypoint, walkable)
+
+    assert stage_id == 321
+    assert seen_radii[:4] == [40.0, 30.0, 20.0, 10.0]
+
+
 def test_run_simulation_with_default_waypoints() -> None:
     project_id = _create_project()
 

@@ -68,6 +68,10 @@ export function visibleWaypointSystems(config: import('../types/cad').Simulation
   }];
 }
 
+export function visibleTrajectoryOverlayTrajectories(trajectories: AgentTrajectory[]) {
+  return trajectories.filter((trajectory) => !trajectory.active);
+}
+
 function waypointPalette(accentColor: string, type: 'entry' | 'transit' | 'exit') {
   if (type === 'entry') {
     return {
@@ -660,7 +664,7 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
 function TrajectoryOverlay({ trajectories }: { trajectories: AgentTrajectory[] }) {
   const lines = useMemo(
     () =>
-      trajectories
+      visibleTrajectoryOverlayTrajectories(trajectories)
         .map((trajectory) => {
           const points: [number, number, number][] = [];
           for (let index = 0; index + 1 < trajectory.pointsCm.length; index += 2) {

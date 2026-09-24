@@ -19,7 +19,7 @@ import threading
 from dataclasses import dataclass, field
 from collections import OrderedDict
 
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
 from models.project import SceneData, SimulationConfig, SimulationWaypoint
@@ -34,6 +34,7 @@ from services.simulation import (
     _point_in_walkable,
     _split_accessible_area_detail,
     _walkable_components,
+    _waypoint_constraint_clearance_cm,
     _waypoint_point,
     _zone_polygon,
 )
@@ -359,6 +360,16 @@ def _choose_connected_component_index(
     )
 
 
+def _waypoint_supported_by_runtime(waypoint: SimulationWaypoint, runtime_walkable: Polygon) -> bool:
+    point = _waypoint_point(waypoint)
+    if not _point_in_walkable(point, runtime_walkable):
+        return False
+    clearance_m = _cm_to_m(_waypoint_constraint_clearance_cm(waypoint))
+    if clearance_m <= 0:
+        return True
+    return runtime_walkable.boundary.distance(Point(point)) >= clearance_m
+
+
 def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> WalkablePartition:
     layout = compiled_layout(scene)
     if not layout.components:
@@ -385,7 +396,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     }
     if any(
         waypoint.id in reachable_waypoint_ids
-        and not _point_in_walkable(_waypoint_point(waypoint), runtime_connected)
+        and not _waypoint_supported_by_runtime(waypoint, runtime_connected)
         for waypoint in [*entries, *transit, *exits]
     ):
         runtime_connected = connected

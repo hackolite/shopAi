@@ -265,6 +265,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     updateWaypointSystem,
     result,
     setResult,
+    setResultWaypoints,
     running,
     setRunning,
     playing,
@@ -671,10 +672,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       lastTickAt.current = previousTickAt + steps * LIVE_TICK_INTERVAL_MS;
       pendingTick.current = true;
       void cadApi
-        .tickLiveSimulation(projectId, liveSessionId, steps)
+        .tickLiveSimulation(projectId, liveSessionId, steps, false)
         .then((live) => {
           if (isStale(projectId)) return;
-          setResult(live.result);
+          setResult({
+            ...live.result,
+            waypoints: live.result.waypoints.length > 0
+              ? live.result.waypoints
+              : (useSimulationStore.getState().result?.waypoints ?? []),
+          });
           setPaused(live.paused);
           const events = live.result.pickupEvents;
           if (events && events.length > 0) {
@@ -718,6 +724,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         .then((payload) => {
           if (isStale(projectId)) return;
           setAnalytics(payload.analytics);
+          setResultWaypoints(payload.waypoints);
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -745,6 +752,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     playing,
     projectId,
     setAnalytics,
+    setResultWaypoints,
     showHeatmap,
     heatmapMode,
     showTrajectories,

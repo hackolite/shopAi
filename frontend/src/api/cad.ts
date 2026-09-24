@@ -11,8 +11,8 @@ import type {
   ProjectMeta,
   ProjectSettings,
   Scene,
-  SimulationAnalytics,
   SimulationConfig,
+  LiveSimulationAnalyticsResponse,
   LiveSimulationResponse,
   SimulationResult,
   StoreConfig,
@@ -267,10 +267,10 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ scene, config }),
     }),
-  tickLiveSimulation: (id: string, sessionId: string, steps = 1) =>
+  tickLiveSimulation: (id: string, sessionId: string, steps = 1, includeWaypointMetrics = true) =>
     request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/tick`, {
       method: 'POST',
-      body: JSON.stringify({ steps }),
+      body: JSON.stringify({ steps, includeWaypointMetrics }),
     }),
   pauseLiveSimulation: (id: string, sessionId: string) =>
     request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/pause`, {
@@ -286,7 +286,7 @@ export const cadApi = {
       body: JSON.stringify({ scene, config }),
     }),
   getLiveSimulationAnalytics: (id: string, sessionId: string) =>
-    request<{ sessionId: string; analytics: SimulationAnalytics }>(
+    request<LiveSimulationAnalyticsResponse>(
       `${BASE}/${id}/simulation/live/${sessionId}/analytics`,
     ),
   stopLiveSimulation: (id: string, sessionId: string) =>

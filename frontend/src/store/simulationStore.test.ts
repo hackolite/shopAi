@@ -119,6 +119,40 @@ describe('simulationStore waypoint systems', () => {
     expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
   });
 
+  it('updates waypoint metrics without replacing the current frames', () => {
+    const store = useSimulationStore.getState();
+    store.setResult({
+      frames: [{ timeSeconds: 1, agents: [] }],
+      waypoints: [],
+      summary: {
+        spawnedCustomers: 1,
+        completedCustomers: 0,
+        activeCustomers: 1,
+        averageWaypointLoad: 0,
+        maxWaypointLoad: 0,
+        averageConfiguredRetentionSeconds: 0,
+      },
+    });
+
+    store.setResultWaypoints([{
+      waypointId: 'queue-1',
+      waypointLabel: 'Queue',
+      waypointType: 'transit',
+      retentionSeconds: 2,
+      maxActiveAgents: 3,
+      releasedAgents: 4,
+      samples: [],
+      queuedAgents: 1,
+      completedWaits: 2,
+      averageWaitSeconds: 2,
+      maxWaitSeconds: 3,
+      currentMaxWaitSeconds: 1,
+    }]);
+
+    expect(useSimulationStore.getState().result?.frames).toEqual([{ timeSeconds: 1, agents: [] }]);
+    expect(useSimulationStore.getState().result?.waypoints[0]?.waypointId).toBe('queue-1');
+  });
+
   it('clears blocking obstacle highlights on config edits', () => {
     const store = useSimulationStore.getState();
     store.setInvalidObstacleHighlights({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'] });

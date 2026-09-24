@@ -2328,16 +2328,32 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
 }
 
 // ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
+const LARGE_SIMULATION_ZONE_COUNT = 250;
+
 function FloorZoneLayer() {
   const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
+  const playing = useSimulationStore((state) => state.playing);
+  const paused = useSimulationStore((state) => state.paused);
+  const invalidObstacleHighlights = useSimulationStore((state) => state.invalidObstacleHighlights);
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
+  const renderedZones = useMemo(() => {
+    const useReducedZoneSet = playing && !paused && zones.length > LARGE_SIMULATION_ZONE_COUNT;
+    if (!useReducedZoneSet) return zones;
+    const alwaysVisibleIds = new Set([
+      ...selectedZoneIds,
+      ...(selectedZoneId ? [selectedZoneId] : []),
+      ...(invalidObstacleHighlights.zoneIds ?? []),
+      ...(invalidObstacleHighlights.allIds ?? []),
+    ]);
+    return zones.filter((zone) => zone.type !== 'forbidden' || alwaysVisibleIds.has(zone.id));
+  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, paused, playing, selectedZoneId, selectedZoneIds, zones]);
 
   return (
     <>
-      {zones.map((zone) => (
+      {renderedZones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
       {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (

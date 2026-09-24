@@ -275,6 +275,12 @@ export interface LiveSimulationResponse {
   paused: boolean;
 }
 
+export interface LiveSimulationAnalyticsResponse {
+  sessionId: string;
+  analytics: SimulationAnalytics;
+  waypoints: WaypointMetrics[];
+}
+
 /** One walkable island of the split walkable-area preview (store-relative cm). */
 export interface WalkablePolygonPreview {
   exterior: [number, number][];

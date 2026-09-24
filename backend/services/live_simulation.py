@@ -42,6 +42,8 @@ MAX_WAYPOINT_SAMPLES = 1200
 # causes the stutter and teleport-through-furniture artefacts. Cap the returned
 # window to a small, constant-size tail while keeping the full history server-side.
 LIVE_RESPONSE_FRAME_WINDOW = 20
+MIN_LIVE_RESPONSE_FRAME_WINDOW = 8
+MAX_LIVE_TICK_STEPS = 50
 # Bound the per-waypoint sample series returned to the client so tick responses
 # stay a constant size. The full series is kept server-side, so the aggregate
 # metrics (peak load, released agents) remain computed over the whole session.
@@ -715,12 +717,19 @@ class LiveSimulationSession:
             self.average_load_samples += 1
             self.max_waypoint_load = max(self.max_waypoint_load, max(waypoint_loads))
 
-    def tick(self, steps: int = 1, include_waypoint_metrics: bool = True) -> SimulationResult:
+    def tick(
+        self,
+        steps: int = 1,
+        include_waypoint_metrics: bool = True,
+        frame_window: int = LIVE_RESPONSE_FRAME_WINDOW,
+    ) -> SimulationResult:
+        if not 1 <= steps <= MAX_LIVE_TICK_STEPS:
+            raise ValueError(f"steps must be between 1 and {MAX_LIVE_TICK_STEPS}")
         with self.lock:
             self.last_accessed_at = time()
             if self.paused:
-                return self.snapshot(include_waypoint_metrics=include_waypoint_metrics)
-            n_steps = max(1, int(steps))
+                return self.snapshot(include_waypoint_metrics=include_waypoint_metrics, frame_window=frame_window)
+            n_steps = int(steps)
             self.pending_pickup_events = []
             for _ in range(n_steps):
                 self._spawn_if_due()
@@ -747,8 +756,8 @@ class LiveSimulationSession:
                 self._update_agent_route_indices()
                 self.passages.observe(self.sim, self.stage_to_waypoint_id)
                 self.time_seconds += simsvc.SIMULATION_DT_S
-            self._capture_frame()
-            return self.snapshot(include_waypoint_metrics=include_waypoint_metrics)
+                self._capture_frame()
+            return self.snapshot(include_waypoint_metrics=include_waypoint_metrics, frame_window=frame_window)
 
     def _record_pickup_if_applicable(self, token: str, released_agent_id: int) -> None:
         """Turn a queue release into a PickupEvent when the queue was a
@@ -897,9 +906,14 @@ class LiveSimulationSession:
                 "analyticsDelta": delta,
             }, self.waypoint_metrics_snapshot()
 
-    def snapshot(self, include_waypoint_metrics: bool = True) -> SimulationResult:
+    def snapshot(
+        self,
+        include_waypoint_metrics: bool = True,
+        frame_window: int = LIVE_RESPONSE_FRAME_WINDOW,
+    ) -> SimulationResult:
+        frame_window = max(MIN_LIVE_RESPONSE_FRAME_WINDOW, min(LIVE_RESPONSE_FRAME_WINDOW, frame_window))
         return SimulationResult(
-            frames=self.frames[-LIVE_RESPONSE_FRAME_WINDOW:],
+            frames=self.frames[-frame_window:],
             waypoints=self.waypoint_metrics_snapshot() if include_waypoint_metrics else [],
             summary=self._summary_snapshot(),
             pickupEvents=list(self.pending_pickup_events),

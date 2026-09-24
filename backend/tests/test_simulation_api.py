@@ -936,11 +936,12 @@ def test_live_simulation_allows_multiple_customer_exits() -> None:
     assert start.status_code == 200, start.text
     session_id = start.json()["sessionId"]
 
-    tick = client.post(
-        f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
-        json={"steps": 450},
-    )
-    assert tick.status_code == 200, tick.text
+    for _ in range(9):
+        tick = client.post(
+            f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+            json={"steps": 50},
+        )
+        assert tick.status_code == 200, tick.text
     summary = tick.json()["result"]["summary"]
     assert summary["spawnedCustomers"] > 3
     assert summary["completedCustomers"] > 1

@@ -63,6 +63,29 @@ describe('advancePlaybackClock', () => {
     resnapThresholdSeconds: 1,
   };
 
+  it('keeps the render clock inside an eight-frame tail with periodic batched delivery jitter', () => {
+    let renderTime = -1;
+    let latest = 0;
+    let deliveredStep = 0;
+    for (let renderFrame = 0; renderFrame < 60 * 30; renderFrame += 1) {
+      const wallTime = renderFrame / 60;
+      // A 200ms delay once a second produces a three-step catch-up response.
+      const delay = wallTime % 1 < 0.2 ? 0.2 : 0;
+      const availableStep = Math.max(0, Math.floor((wallTime - delay) * 10));
+      if (availableStep > deliveredStep) {
+        deliveredStep = availableStep;
+        latest = deliveredStep / 10;
+      }
+      const next = advancePlaybackClock(renderTime, 1 / 60, latest, options);
+      if (wallTime > 1) {
+        expect(next).toBeGreaterThan(renderTime);
+        expect(next).toBeGreaterThanOrEqual(latest - 0.7);
+        expect(next).toBeLessThanOrEqual(latest + options.maxExtrapolationSeconds);
+      }
+      renderTime = next;
+    }
+  });
+
   it('initialises to the ideal buffered point when uninitialised', () => {
     expect(advancePlaybackClock(-1, 0.016, 5, options)).toBeCloseTo(4.8, 6);
   });

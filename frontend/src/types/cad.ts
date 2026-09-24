@@ -299,6 +299,9 @@ export interface SimulationAnalyticsDelta {
   occupancyIncrements: HeatmapCountDelta[];
   visitIncrements: HeatmapCountDelta[];
   trajectoryAppends: TrajectoryAppendDelta[];
+  trajectoryReplacements?: AgentTrajectory[];
+  removedTrajectoryAgentIds?: number[];
+  removedCustomerIds?: number[];
   deactivatedTrajectoryAgentIds: number[];
   customerUpdates: CustomerJourney[];
 }

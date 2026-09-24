@@ -268,10 +268,10 @@ export const cadApi = {
       method: 'POST',
       body: JSON.stringify({ scene, config }),
     }),
-  tickLiveSimulation: (id: string, sessionId: string, steps = 1, includeWaypointMetrics = true) =>
+  tickLiveSimulation: (id: string, sessionId: string, steps = 1, includeWaypointMetrics = true, frameWindow = 20) =>
     request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/tick`, {
       method: 'POST',
-      body: JSON.stringify({ steps, includeWaypointMetrics }),
+      body: JSON.stringify({ steps, includeWaypointMetrics, frameWindow }),
     }),
   pauseLiveSimulation: (id: string, sessionId: string) =>
     request<LiveSimulationResponse>(`${BASE}/${id}/simulation/live/${sessionId}/pause`, {

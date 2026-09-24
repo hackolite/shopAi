@@ -349,6 +349,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
    * project is selected can never erase the previous project's session.
    */
   const liveSession = useRef<{ projectId: string; sessionId: string } | null>(null);
+  const waypointMetricsSessionId = useRef<string | null>(null);
   /**
    * True when a live-simulation request no longer belongs to the project the
    * app currently holds in memory.  Live-simulation calls are asynchronous:
@@ -371,6 +372,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       liveSession.current = { projectId, sessionId: liveSessionId };
     } else if (!liveSessionId && liveSession.current?.projectId === projectId) {
       liveSession.current = null;
+      waypointMetricsSessionId.current = null;
     }
   }, [liveSessionId, projectId]);
 
@@ -506,6 +508,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       }
       setLiveSessionId(live.sessionId);
       setResult(live.result);
+      waypointMetricsSessionId.current = live.sessionId;
       setPaused(live.paused);
       if (hasExplicitDatasetSelection && pedestrianImport && pedestrianImport.pedestrianCount > 0) {
         await loadPedestriansIntoSession(live.sessionId);
@@ -610,6 +613,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setPaused(false);
     setLiveSessionId(null);
     setResult(null);
+    waypointMetricsSessionId.current = null;
     lastSimulationSignature.current = null;
   }, [liveSessionId, projectId, setAnalytics, setLiveSessionId, setPaused, setPlaying, setResult]);
 
@@ -618,6 +622,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     const live = await cadApi.pauseLiveSimulation(projectId, liveSessionId);
     if (isStale(projectId)) return;
     setResult(live.result);
+    waypointMetricsSessionId.current = live.sessionId;
     setPaused(true);
   }, [isStale, liveSessionId, projectId, setPaused, setResult]);
 
@@ -626,6 +631,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     const live = await cadApi.resumeLiveSimulation(projectId, liveSessionId);
     if (isStale(projectId)) return;
     setResult(live.result);
+    waypointMetricsSessionId.current = live.sessionId;
     setPaused(false);
   }, [isStale, liveSessionId, projectId, setPaused, setResult]);
 
@@ -636,6 +642,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setPlaying(false);
     setPaused(false);
     setLiveSessionId(null);
+    waypointMetricsSessionId.current = null;
     lastSimulationSignature.current = null;
   }, [setLiveSessionId, setPaused, setPlaying]);
 
@@ -679,8 +686,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             ...live.result,
             waypoints: live.result.waypoints.length > 0
               ? live.result.waypoints
-              : (useSimulationStore.getState().result?.waypoints ?? []),
+              : (waypointMetricsSessionId.current === live.sessionId
+                ? (useSimulationStore.getState().result?.waypoints ?? [])
+                : []),
           });
+          if (live.result.waypoints.length > 0) {
+            waypointMetricsSessionId.current = live.sessionId;
+          }
           setPaused(live.paused);
           const events = live.result.pickupEvents;
           if (events && events.length > 0) {
@@ -725,6 +737,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           if (isStale(projectId)) return;
           setAnalytics(payload.analytics);
           setResultWaypoints(payload.waypoints);
+          waypointMetricsSessionId.current = liveSessionId;
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -907,6 +920,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         .then((live) => {
           if (isStale(projectId)) return;
           setResult(live.result);
+          waypointMetricsSessionId.current = live.sessionId;
           setPaused(live.paused);
           lastSimulationSignature.current = signature;
           refreshWalkablePreview();

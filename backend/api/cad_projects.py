@@ -225,6 +225,14 @@ def _save_settings(project_id: str, settings: ProjectSettings) -> None:
 def _map_simulation_runtime_error(exc: RuntimeError) -> HTTPException:
     detail = str(exc)
     if SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET in detail:
+        json_start = detail.find("{")
+        if json_start >= 0:
+            try:
+                parsed = json.loads(detail[json_start:])
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("detail"), dict):
+                return HTTPException(status_code=422, detail=parsed["detail"])
         return HTTPException(status_code=422, detail=split_accessible_area_detail())
     return HTTPException(status_code=503, detail=detail)
 

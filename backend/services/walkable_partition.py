@@ -70,6 +70,27 @@ def _obstacle_identity(element_type: str, element_id: str | None, element_label:
 
 def _collect_splitting_obstacles(scene: SceneData, store_polygon: Polygon) -> tuple[object, list[dict]]:
     """Subtract every obstacle once, collecting all that split the walkable area."""
+    all_obstacles = []
+    for furniture in scene.furniture:
+        obstacle = _furniture_polygon(furniture, store_polygon)
+        if obstacle is not None:
+            all_obstacles.append(obstacle)
+    for zone in getattr(scene.store, "zones", []) or []:
+        obstacle = _zone_polygon(zone, store_polygon)
+        if obstacle is not None:
+            all_obstacles.append(obstacle)
+
+    from shapely.ops import unary_union
+    obstacles_union = unary_union(all_obstacles) if all_obstacles else None
+
+    if obstacles_union is not None and not obstacles_union.is_empty:
+        global_walkable = store_polygon.difference(obstacles_union).buffer(0)
+    else:
+        global_walkable = store_polygon
+
+    if not isinstance(global_walkable, MultiPolygon) or len(_walkable_components(global_walkable)) <= 1:
+        return global_walkable, []
+
     walkable = store_polygon
     splitting: list[dict] = []
     for furniture in scene.furniture:

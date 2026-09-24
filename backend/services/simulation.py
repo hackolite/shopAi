@@ -211,6 +211,9 @@ def _subtract_obstacle_from_walkable(
     *,
     split_detail: dict[str, object],
 ) -> tuple[object, dict[str, object] | None]:
+    overlap = walkable.intersection(obstacle)
+    if overlap.is_empty or overlap.area <= MIN_WALKABLE_COMPONENT_AREA_M2:
+        return walkable, None
     next_walkable = walkable.difference(obstacle).buffer(0)
     return next_walkable, split_detail if len(_walkable_components(next_walkable)) > 1 else None
 

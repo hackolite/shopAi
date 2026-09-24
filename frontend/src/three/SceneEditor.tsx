@@ -41,6 +41,7 @@ import {
   zoneOutlinePointsCm,
   zoneRotationDeg,
   zoneShape,
+  zoneSupportsSimulationPreview,
   zoneSupportsResizeHandles,
 } from '../engine/floorZones';
 import {
@@ -2382,7 +2383,7 @@ function FloorZoneLayer() {
       ...(selectedZoneId ? [selectedZoneId] : []),
       ...(invalidObstacleHighlights.zoneIds ?? []),
       ...(invalidObstacleHighlights.allIds ?? []),
-      ...zones.filter((zone) => zone.type !== 'forbidden').map((zone) => zone.id),
+      ...zones.filter((zone) => !zoneSupportsSimulationPreview(zone)).map((zone) => zone.id),
     ]);
   }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, zones]);
   const detailedZones = useMemo(

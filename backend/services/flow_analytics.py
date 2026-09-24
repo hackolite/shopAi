@@ -124,9 +124,13 @@ class FlowAnalyticsRecorder:
                 self._last_positions.pop(agent_id, None)
                 customer_updates[agent_id] = customer.model_copy(deep=True)
         deactivated = list(previous_active - seen)
-        self._evict_old_trajectories()
-        self._evict_old_customers()
+        evicted_trajectories = self._evict_old_trajectories()
+        evicted_customers = self._evict_old_customers()
         self._seq += 1
+        if evicted_trajectories or evicted_customers:
+            # A delta cannot safely express recorder-eviction removals; force a
+            # client full resync by dropping older retained deltas.
+            self._delta_history.clear()
         self._delta_history.append(
             {
                 "seq": self._seq,
@@ -157,13 +161,16 @@ class FlowAnalyticsRecorder:
         customer.totalTimeSeconds = round(time_seconds - customer.entryTimeSeconds, 2)
         self._last_positions[agent_id] = (x_cm, z_cm)
 
-    def _evict_old_customers(self) -> None:
+    def _evict_old_customers(self) -> bool:
+        evicted = False
         while len(self._customers) > MAX_TRACKED_CUSTOMERS:
             oldest_id = next(iter(self._customers))
             if self._customers[oldest_id].active:
                 break
             del self._customers[oldest_id]
             self._last_positions.pop(oldest_id, None)
+            evicted = True
+        return evicted
 
     def _record_occupancy(self, x_cm: float, z_cm: float) -> int | None:
         col = int((x_cm - self._origin_x) // self._cell_cm)
@@ -223,17 +230,21 @@ class FlowAnalyticsRecorder:
             return []
         return appended
 
-    def _evict_old_trajectories(self) -> None:
+    def _evict_old_trajectories(self) -> bool:
+        evicted = False
         if len(self._trajectories) <= MAX_TRACKED_TRAJECTORIES:
-            return
+            return evicted
         # Drop the oldest finished agents first (dict keeps insertion order).
         for agent_id in list(self._trajectories):
             if len(self._trajectories) <= MAX_TRACKED_TRAJECTORIES:
                 break
             if agent_id not in self._active_agents:
                 del self._trajectories[agent_id]
+                evicted = True
         while len(self._trajectories) > MAX_TRACKED_TRAJECTORIES:
             del self._trajectories[next(iter(self._trajectories))]
+            evicted = True
+        return evicted
 
     def heatmap(self) -> SimulationHeatmap:
         return SimulationHeatmap(

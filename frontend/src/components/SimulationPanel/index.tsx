@@ -98,7 +98,7 @@ function mergeBasketDelta(current: AgentBasket[], changed: AgentBasket[]): Agent
   if (changed.length === 0) return current;
   const byAgent = new Map(current.map((item) => [item.agentId, item]));
   for (const basket of changed) byAgent.set(basket.agentId, basket);
-  return Array.from(byAgent.values()).sort((a, b) => a.agentId - b.agentId);
+  return Array.from(byAgent.values()).sort((a, b) => (a.agentId ?? -1) - (b.agentId ?? -1));
 }
 
 function NumberField({
@@ -812,16 +812,29 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           analyticsSeqRef.current = payload.seq;
           if (payload.full || !payload.analyticsDelta) {
             setAnalytics(payload.analytics ?? null);
+            setResultWaypoints(payload.waypoints);
+            waypointMetricsSessionId.current = payload.sessionId;
           } else {
             const currentAnalytics = useSimulationStore.getState().analytics;
             if (currentAnalytics) {
               setAnalytics(applyAnalyticsDelta(currentAnalytics, payload.analyticsDelta));
+              setResultWaypoints(payload.waypoints);
+              waypointMetricsSessionId.current = payload.sessionId;
             } else {
               analyticsSeqRef.current = 0;
+              void cadApi
+                .getLiveSimulationAnalytics(projectId, liveSessionId)
+                .then((fullPayload) => {
+                  if (isStale(projectId)) return;
+                  if (fullPayload.sessionId !== useSimulationStore.getState().liveSessionId) return;
+                  analyticsSeqRef.current = fullPayload.seq;
+                  setAnalytics(fullPayload.analytics ?? null);
+                  setResultWaypoints(fullPayload.waypoints);
+                  waypointMetricsSessionId.current = fullPayload.sessionId;
+                })
+                .catch(() => undefined);
             }
           }
-          setResultWaypoints(payload.waypoints);
-          waypointMetricsSessionId.current = payload.sessionId;
         })
         .catch((error) => {
           if (isStale(projectId)) return;
@@ -906,6 +919,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     if (selectedBasketAgentIdRef.current !== selectedAgentId) {
       selectedBasketAgentIdRef.current = selectedAgentId;
       selectedBasketSeqRef.current = 0;
+      setAgentBasket(null);
     }
     const fetchBasket = () => {
       if (isStale(projectId) || pendingAgentBasket.current) return;
@@ -917,11 +931,19 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           selectedBasketSeqRef.current = payload.seq;
           if (payload.changed && payload.basket) {
             setAgentBasket(payload.basket);
+          } else {
+            const current = useSimulationStore.getState().agentBasket;
+            if (current && current.agentId !== selectedAgentId) {
+              setAgentBasket(null);
+            }
           }
         })
         .catch((error) => {
           if (isStale(projectId)) return;
           console.error('Failed to fetch pedestrian basket:', error);
+          if (String(error).includes('[404]')) {
+            setAgentBasket(null);
+          }
         })
         .finally(() => {
           pendingAgentBasket.current = false;

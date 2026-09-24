@@ -120,7 +120,11 @@ def _live_config() -> dict:
 def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -> None:
     project_id, scene = _setup_project_with_product()
 
-    csv_bytes = b"pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n1,0,1.2,,TESTEAN0\n"
+    csv_bytes = (
+        b"pedestrian_id,start_unix_ts,speed_mps,profile_json,ean\n"
+        b"1,0,1.2,,TESTEAN0\n"
+        b"2,15,1.2,,TESTEAN0\n"
+    )
     import_response = client.post(
         f"/api/cad/projects/{project_id}/simulation/import-pedestrians",
         files={"file": ("pedestrians.csv", io.BytesIO(csv_bytes), "text/csv")},
@@ -139,7 +143,7 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
         f"/api/cad/projects/{project_id}/simulation/live/{session_id}/load-pedestrians"
     )
     assert load.status_code == 200, load.text
-    assert load.json()["pedestrianCount"] == 1
+    assert load.json()["pedestrianCount"] == 2
 
     picked_up = False
     saw_picking_field = False
@@ -160,7 +164,7 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
             picked_up = True
             agent_id = result["pickupEvents"][0]["agentId"]
             assert result["pickupEvents"][0]["ean"] == "TESTEAN0"
-            assert result["pickupEvents"][0]["pedestrianId"] == 1
+            assert result["pickupEvents"][0]["pedestrianId"] in (1, 2)
             break
 
     assert saw_picking_field, "agent frame should expose the product being picked"
@@ -172,7 +176,7 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
     assert basket.status_code == 200, basket.text
     basket_body = basket.json()
     assert basket_body["changed"] is True
-    assert basket_body["basket"]["pedestrianId"] == 1
+    assert basket_body["basket"]["pedestrianId"] in (1, 2)
     assert basket_body["basket"]["items"][0]["ean"] == "TESTEAN0"
     assert basket_body["basket"]["items"][0]["picked"] is True
 
@@ -183,7 +187,7 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
     baskets_body = baskets.json()
     assert baskets_body["full"] is True
     all_baskets = baskets_body["baskets"]
-    assert any(basket["pedestrianId"] == 1 and basket["items"][0]["picked"] for basket in all_baskets)
+    assert any(basket["items"][0]["picked"] for basket in all_baskets)
 
     no_change = client.get(
         f"/api/cad/projects/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket",
@@ -199,3 +203,23 @@ def test_live_simulation_follows_pedestrian_csv_schedule_and_reports_pickups() -
     assert basket_delta.status_code == 200, basket_delta.text
     assert basket_delta.json()["full"] is False
     assert basket_delta.json()["baskets"] == []
+
+    delta_seq = baskets_body["seq"]
+    delta_change_seen = False
+    for _ in range(200):
+        tick = client.post(
+            f"/api/cad/projects/{project_id}/simulation/live/{session_id}/tick",
+            json={"steps": 1},
+        )
+        assert tick.status_code == 200, tick.text
+        delta = client.get(
+            f"/api/cad/projects/{project_id}/simulation/live/{session_id}/baskets",
+            params={"sinceSeq": delta_seq},
+        )
+        assert delta.status_code == 200, delta.text
+        delta_body = delta.json()
+        delta_seq = delta_body["seq"]
+        if delta_body["full"] is False and delta_body["baskets"]:
+            delta_change_seen = True
+            break
+    assert delta_change_seen, "basket delta should eventually include only updated baskets"

@@ -19,6 +19,7 @@ import {
 } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useAssetStore } from '../../store/assetStore';
+import { useUIStore } from '../../store/uiStore';
 import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
 
 interface SimulationPanelProps {
@@ -297,6 +298,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setWaypointPlacementType,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
+  const { showGrid, setShowGrid } = useUIStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingTick = useRef(false);
@@ -1341,6 +1343,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               type="checkbox"
               checked={showNavigationOverlay}
               onChange={(event) => void toggleNavigationOverlay(event.target.checked)}
+              className="accent-blue-500"
+            />
+          </label>
+          <label className="flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Grille au sol</span>
+            <input
+              type="checkbox"
+              checked={showGrid}
+              onChange={(event) => setShowGrid(event.target.checked)}
               className="accent-blue-500"
             />
           </label>

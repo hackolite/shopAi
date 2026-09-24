@@ -852,6 +852,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           } else {
             setInvalidWaypointIds([]);
             setInvalidWaypointSuggestion(null);
+            if (blockingHighlights.furnitureIds.length > 0 || blockingHighlights.zoneIds.length > 0) {
+              setResult(null);
+            }
           }
           setInvalidObstacleHighlights(blockingHighlights);
         });

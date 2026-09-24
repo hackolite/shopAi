@@ -366,6 +366,7 @@ def test_split_forbidden_zone_is_reported_before_simulation_start() -> None:
     detail = response.json()["detail"]
     assert detail["code"] == "splitAccessibleArea"
     assert detail["blockingElementId"] == "blocked-aisle"
+    assert detail["blockingElementType"] == "zone"
     assert "coupe la zone accessible des piétons" in detail["message"]
 
 

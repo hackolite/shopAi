@@ -942,32 +942,37 @@ def _apply_right_hand_bias(sim: object) -> None:
     """
     if jps is None:
         return
-    agents = list(sim.agents())
-    if not agents:
-        return
-    first_model = agents[0].model
-    if not hasattr(jps, "GeneralizedCentrifugalForceModelState") or not isinstance(first_model, jps.GeneralizedCentrifugalForceModelState):
+    agents_iter = sim.agents()
+    try:
+        first_agent = next(agents_iter)
+    except StopIteration:
         return
 
-    for agent in agents:
-        model_state = agent.model
-        if not isinstance(model_state, jps.GeneralizedCentrifugalForceModelState):
-            continue
-        speed = model_state.speed
-        desired_speed = model_state.desired_speed
-        if desired_speed <= 0:
-            continue
-        if speed >= _BLOCKING_SPEED_RATIO * desired_speed:
-            continue
-        ex, ez = model_state.e0
-        # Right-perpendicular in the XZ plane: -90° rotation around Y axis
-        # (clockwise when seen from above in a right-handed Y-up system).
-        rx, rz = -ez, ex
-        bx = ex + _RIGHT_HAND_BIAS * rx
-        bz = ez + _RIGHT_HAND_BIAS * rz
-        length = math.hypot(bx, bz)
-        if length > 1e-9:
-            model_state.e0 = (bx / length, bz / length)
+    if not hasattr(jps, "GeneralizedCentrifugalForceModelState") or not isinstance(first_agent.model, jps.GeneralizedCentrifugalForceModelState):
+        return
+
+    _apply_bias_to_agent(first_agent)
+    for agent in agents_iter:
+        _apply_bias_to_agent(agent)
+
+
+def _apply_bias_to_agent(agent: object) -> None:
+    model_state = agent.model
+    speed = model_state.speed
+    desired_speed = model_state.desired_speed
+    if desired_speed <= 0:
+        return
+    if speed >= _BLOCKING_SPEED_RATIO * desired_speed:
+        return
+    ex, ez = model_state.e0
+    # Right-perpendicular in the XZ plane: -90° rotation around Y axis
+    # (clockwise when seen from above in a right-handed Y-up system).
+    rx, rz = -ez, ex
+    bx = ex + _RIGHT_HAND_BIAS * rx
+    bz = ez + _RIGHT_HAND_BIAS * rz
+    length = math.hypot(bx, bz)
+    if length > 1e-9:
+        model_state.e0 = (bx / length, bz / length)
 
 
 def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> SimulationResult:

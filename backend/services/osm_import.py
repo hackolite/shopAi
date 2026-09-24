@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 import xml.etree.ElementTree as ET
 
 from datetime import datetime, timezone
@@ -20,6 +21,24 @@ DEFAULT_BUILDING_COLOR = "#9CA3AF"
 
 KNOWN_HEIGHT_OPACITY = 0.62
 MISSING_HEIGHT_OPACITY = 0.32
+
+# ------------------------------------------------------------
+# AJOUT — Paramètres de réduction de charge pour le moteur
+# de simulation / navigation.
+# ------------------------------------------------------------
+
+# Tolérance de simplification des contours (Douglas-Peucker),
+# en mètres. 0.5 m est un bon point de départ pour des piétons :
+# invisible à l'œil, mais réduit fortement le nombre de sommets
+# sur des bâtiments OSM détaillés (arrondis, décrochés).
+DEFAULT_SIMPLIFY_TOLERANCE_M = 0.5
+
+# Aire minimale (m²) en dessous de laquelle un objet qui N'EST
+# PAS un bâtiment (parking, landuse, bout de trottoir fermé...)
+# est ignoré. Mis à 0.0 pour désactiver ce filtre.
+# Les bâtiments réels (is_likely_building=True) ne sont jamais
+# filtrés par ce seuil, quelle que soit leur taille.
+DEFAULT_MIN_SURFACE_AREA_M2 = 1.0
 
 _HEIGHT_PATTERN = re.compile(
     r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$",
@@ -191,6 +210,178 @@ def _parse_height_cm(
     # OSM height est généralement
     # exprimé en mètres.
     return number * 100.0
+
+
+# ============================================================
+# AJOUT — SIMPLIFICATION DE CONTOURS (DOUGLAS-PEUCKER)
+# ============================================================
+#
+# Réduit le nombre de sommets d'un contour fermé tout en
+# préservant sa forme visuelle, à une tolérance près (en mètres).
+#
+# Pourquoi ici et pas côté frontend : la géométrie envoyée au
+# moteur de navigation/simulation doit déjà être allégée à
+# l'import. Simplifier plus tard (frontend) ne réduit pas le
+# coût de triangulation ni de pathfinding côté backend.
+#
+# Implémentation pure Python, sans dépendance externe.
+# ============================================================
+
+def _perpendicular_distance(
+    point: tuple[float, float],
+    line_start: tuple[float, float],
+    line_end: tuple[float, float],
+) -> float:
+
+    x0, y0 = point
+    x1, y1 = line_start
+    x2, y2 = line_end
+
+    dx = x2 - x1
+    dy = y2 - y1
+
+    if dx == 0.0 and dy == 0.0:
+        # Segment dégénéré : distance au point unique.
+        return ((x0 - x1) ** 2 + (y0 - y1) ** 2) ** 0.5
+
+    # Distance point-segment (projection sur la droite,
+    # sans borner à [0, 1] : suffisant pour Douglas-Peucker
+    # qui travaille sur la droite porteuse du segment).
+    numerator = abs(
+        dy * x0 - dx * y0 + x2 * y1 - y2 * x1
+    )
+    denominator = (dx ** 2 + dy ** 2) ** 0.5
+
+    return numerator / denominator
+
+
+def _douglas_peucker(
+    points: list[tuple[float, float]],
+    tolerance: float,
+) -> list[tuple[float, float]]:
+    """
+    Simplifie une ligne ouverte (pas de rebouclage) selon
+    Douglas-Peucker. `tolerance` est dans la même unité que
+    les coordonnées de `points`.
+    """
+
+    if len(points) < 3 or tolerance <= 0.0:
+        return list(points)
+
+    # ----------------------------------------------------
+    # Version itérative (évite tout risque de récursion
+    # profonde sur des ways OSM à très nombreux sommets).
+    # ----------------------------------------------------
+
+    keep = [False] * len(points)
+    keep[0] = True
+    keep[-1] = True
+
+    stack: list[tuple[int, int]] = [(0, len(points) - 1)]
+
+    while stack:
+
+        start_idx, end_idx = stack.pop()
+
+        if end_idx <= start_idx + 1:
+            continue
+
+        start_point = points[start_idx]
+        end_point = points[end_idx]
+
+        max_distance = -1.0
+        max_index = -1
+
+        for i in range(start_idx + 1, end_idx):
+
+            distance = _perpendicular_distance(
+                points[i],
+                start_point,
+                end_point,
+            )
+
+            if distance > max_distance:
+                max_distance = distance
+                max_index = i
+
+        if max_distance > tolerance:
+            keep[max_index] = True
+            stack.append((start_idx, max_index))
+            stack.append((max_index, end_idx))
+
+    return [
+        point
+        for point, keep_flag in zip(points, keep)
+        if keep_flag
+    ]
+
+
+def _simplify_closed_ring(
+    coords: list[tuple[float, float]],
+    tolerance_m: float,
+) -> list[tuple[float, float]]:
+    """
+    Simplifie un anneau FERMÉ (le premier point n'est pas
+    répété en fin de liste, comme c'est le cas dans ce module
+    après le `coords.pop()` sur la fermeture OSM).
+
+    On simplifie sur [0..n-1] + retour au point 0, en gardant
+    toujours au moins 3 sommets et en ne dégénérant jamais le
+    polygone.
+    """
+
+    if len(coords) < 4 or tolerance_m <= 0.0:
+        return list(coords)
+
+    # On referme temporairement l'anneau pour que Douglas-Peucker
+    # voie le segment retour (dernier point -> premier point).
+    ring = list(coords) + [coords[0]]
+
+    simplified = _douglas_peucker(
+        ring,
+        tolerance_m,
+    )
+
+    # Retire le point de fermeture dupliqué.
+    if len(simplified) >= 2 and simplified[0] == simplified[-1]:
+        simplified = simplified[:-1]
+
+    if len(simplified) < 3:
+        # Simplification dégénérée : on garde l'original plutôt
+        # que de produire un polygone invalide.
+        return list(coords)
+
+    return simplified
+
+
+def _polygon_area_m2(
+    points_cm: list[dict[str, float]],
+) -> float:
+    """
+    Aire d'un polygone (formule du lacet / shoelace), à partir
+    de points déjà en centimètres. Retourne l'aire en m².
+    """
+
+    n = len(points_cm)
+
+    if n < 3:
+        return 0.0
+
+    area_cm2 = 0.0
+
+    for i in range(n):
+
+        x1 = points_cm[i]["x"]
+        z1 = points_cm[i]["z"]
+
+        x2 = points_cm[(i + 1) % n]["x"]
+        z2 = points_cm[(i + 1) % n]["z"]
+
+        area_cm2 += x1 * z2 - x2 * z1
+
+    area_cm2 = abs(area_cm2) / 2.0
+
+    return area_cm2 / 10_000.0  # cm² -> m²
 
 
 # ============================================================
@@ -838,7 +1029,16 @@ def _infer_building_status(
 def osm_xml_to_retail_layout(
     xml_text: str,
     project_name: str = "OSM Import",
+    # ----------------------------------------------------
+    # AJOUT — Paramètres de réduction de charge, exposés
+    # pour pouvoir les ajuster (ou les désactiver à 0.0)
+    # sans toucher au code.
+    # ----------------------------------------------------
+    simplify_tolerance_m: float = DEFAULT_SIMPLIFY_TOLERANCE_M,
+    min_surface_area_m2: float = DEFAULT_MIN_SURFACE_AREA_M2,
 ) -> dict[str, Any]:
+
+    import_started_at = time.perf_counter()  # AJOUT — mesure
 
     # ========================================================
     # PARSING
@@ -1015,6 +1215,16 @@ def osm_xml_to_retail_layout(
 
     building_count = 0
 
+    # ----------------------------------------------------
+    # AJOUT — compteurs pour l'instrumentation de mesure
+    # ----------------------------------------------------
+    stats_ways_seen = 0
+    stats_ways_open_skipped = 0
+    stats_vertices_before_simplify = 0
+    stats_vertices_after_simplify = 0
+    stats_surfaces_dropped_by_area = 0
+    stats_non_building_zone_count = 0
+
     # ========================================================
     # WAYS
     # ========================================================
@@ -1022,6 +1232,8 @@ def osm_xml_to_retail_layout(
     for way in root.findall(
         "way"
     ):
+
+        stats_ways_seen += 1  # AJOUT
 
         way_id = way.attrib.get(
             "id"
@@ -1096,6 +1308,7 @@ def osm_xml_to_retail_layout(
         # ----------------------------------------------------
 
         if not closed:
+            stats_ways_open_skipped += 1  # AJOUT
             continue
 
         # ----------------------------------------------------
@@ -1152,7 +1365,38 @@ def osm_xml_to_retail_layout(
         )
 
         # ====================================================
-        # PROJECTION DU POLYGONE
+        # AJOUT — SIMPLIFICATION DES CONTOURS
+        #
+        # On simplifie en coordonnées MÉTRIQUES projetées
+        # (pas en lat/lon), pour que la tolérance en mètres
+        # ait un sens physique constant sur toute la carte.
+        #
+        # On simplifie systématiquement (bâtiments ET
+        # surfaces) : un parking simplifié coûte aussi moins
+        # cher à triangulariser / afficher.
+        # ====================================================
+
+        stats_vertices_before_simplify += len(coords)  # AJOUT
+
+        projected_coords_m: list[tuple[float, float]] = []
+
+        for lat, lon in coords:
+
+            x_cm, z_cm = project(lat, lon)
+
+            projected_coords_m.append(
+                (x_cm / 100.0, z_cm / 100.0)
+            )
+
+        simplified_coords_m = _simplify_closed_ring(
+            projected_coords_m,
+            simplify_tolerance_m,
+        )
+
+        stats_vertices_after_simplify += len(simplified_coords_m)  # AJOUT
+
+        # ====================================================
+        # PROJECTION DU POLYGONE (déjà en mètres -> cm)
         #
         # FloorZonePoint attend :
         #
@@ -1166,26 +1410,42 @@ def osm_xml_to_retail_layout(
             dict[str, float]
         ] = []
 
-        for lat, lon in coords:
-
-            x_cm, z_cm = project(
-                lat,
-                lon,
-            )
+        for x_m, z_m in simplified_coords_m:
 
             points.append({
                 "x": round(
-                    x_cm,
+                    x_m * 100.0,
                     2,
                 ),
                 "z": round(
-                    z_cm,
+                    z_m * 100.0,
                     2,
                 ),
             })
 
         if len(points) < 3:
             continue
+
+        # ====================================================
+        # AJOUT — FILTRE DES MICRO-SURFACES NON-BÂTIMENT
+        #
+        # Un bout de trottoir fermé, une micro-parcelle de
+        # landuse, etc. n'apportent rien à la simulation mais
+        # ajoutent un obstacle/contour de plus à traiter.
+        # Les vrais bâtiments ne sont JAMAIS filtrés ici, quelle
+        # que soit leur taille.
+        # ====================================================
+
+        if (
+            not is_likely_building
+            and min_surface_area_m2 > 0.0
+        ):
+
+            area_m2 = _polygon_area_m2(points)
+
+            if area_m2 < min_surface_area_m2:
+                stats_surfaces_dropped_by_area += 1  # AJOUT
+                continue
 
         # ====================================================
         # BOUNDING BOX
@@ -1434,6 +1694,11 @@ def osm_xml_to_retail_layout(
                 default_height_applied
             ),
 
+            # AJOUT — traçabilité de la simplification,
+            # utile pour l'afficher dans l'Inspector plus tard.
+            "vertexCountRaw": len(coords),
+            "vertexCountSimplified": len(points),
+
             # Tous les tags OSM
             "tags": tags,
         }
@@ -1459,6 +1724,49 @@ def osm_xml_to_retail_layout(
         # ====================================================
         # ZONE
         # ====================================================
+        #
+        # MODIFIÉ — CORRECTION MAJEURE, revue après lecture de
+        # models/project.py :
+        #
+        # ZoneTypeEnum n'accepte QUE {entrance, exit, supply,
+        # forbidden}. Il n'existe pas de type neutre du genre
+        # "walkable" — une valeur hors de cette liste fait
+        # échouer la validation Pydantic (ZoneTypeEnum(...)
+        # lève ValueError). "type" encode un RÔLE FONCTIONNEL
+        # pour la simulation (entrance/exit/supply sont des
+        # points spéciaux ; forbidden est la seule valeur
+        # générique pour "une forme quelconque").
+        #
+        # Le champ prévu pour dire si une zone bloque ou non
+        # les piétons est `pedestrianObstacle: bool | None`,
+        # séparé de `type`. C'est lui qu'on pilote ici :
+        #
+        # - type reste "forbidden" pour toute zone fermée
+        #   (aucune de ces zones OSM n'est une entrée/sortie/
+        #   zone de réappro : ce sont des formes géométriques
+        #   génériques) ;
+        # - pedestrianObstacle=True uniquement pour les
+        #   bâtiments réels (is_likely_building) ;
+        # - pedestrianObstacle=False pour tout le reste
+        #   (parkings, parcs, landuse, routes fermées...),
+        #   pour qu'ils ne bloquent plus la navigation.
+        #
+        # IMPORTANT : je n'ai pas vu le moteur de navigation
+        # qui construit les obstacles à partir de store.zones.
+        # Cette proposition suppose qu'il lit pedestrianObstacle
+        # (avec une valeur explicite True/False plutôt que None,
+        # justement pour ne pas dépendre d'une éventuelle
+        # logique de déduction par défaut). Si le moteur ignore
+        # ce champ et ne regarde que `type == forbidden`, il
+        # faudra soit l'adapter pour qu'il lise
+        # pedestrianObstacle, soit changer d'approche (ex. ne
+        # pas ajouter du tout les non-bâtiments à store.zones,
+        # ou les mettre dans une collection séparée pour
+        # l'affichage seul).
+        # ====================================================
+
+        if not is_likely_building:
+            stats_non_building_zone_count += 1  # AJOUT
 
         zone = {
 
@@ -1466,7 +1774,9 @@ def osm_xml_to_retail_layout(
                 f"building-{way_id}"
             ),
 
-            "type": "forbidden",
+            "type": "forbidden",  # Seule valeur générique valide du schéma.
+
+            "pedestrianObstacle": is_likely_building,  # AJOUT — le vrai levier
 
             "label": name,
 
@@ -1647,6 +1957,51 @@ def osm_xml_to_retail_layout(
         )
 
     # ========================================================
+    # AJOUT — INSTRUMENTATION DE MESURE
+    #
+    # Objectif : pouvoir chiffrer, à chaque import, l'effet du
+    # correctif forbidden/walkable et de la simplification,
+    # sans avoir à instrumenter le moteur de simulation.
+    # ========================================================
+
+    import_duration_s = time.perf_counter() - import_started_at
+
+    non_building_count = len(zones) - building_count
+
+    vertices_before = stats_vertices_before_simplify
+    vertices_after = stats_vertices_after_simplify
+
+    reduction_pct = (
+        round(
+            100.0 * (1.0 - vertices_after / vertices_before),
+            1,
+        )
+        if vertices_before > 0
+        else 0.0
+    )
+
+    import_stats = {
+        "importDurationSeconds": round(import_duration_s, 3),
+        "waysSeen": stats_ways_seen,
+        "waysOpenSkipped": stats_ways_open_skipped,
+        "zonesTotal": len(zones),
+        "buildingZones": building_count,
+        "nonBuildingZones": non_building_count,
+        "nonBuildingZonesNotAnObstacle": stats_non_building_zone_count,
+        "surfacesDroppedByAreaFilter": stats_surfaces_dropped_by_area,
+        "vertexCountBeforeSimplify": vertices_before,
+        "vertexCountAfterSimplify": vertices_after,
+        "vertexReductionPercent": reduction_pct,
+        "simplifyToleranceM": simplify_tolerance_m,
+        "minSurfaceAreaM2Filter": min_surface_area_m2,
+    }
+
+    # Log direct, pour voir l'effet immédiatement sans avoir
+    # à aller chercher le payload. À remplacer par un vrai
+    # logger applicatif si le projet en a un.
+    print(f"[osm_import] {import_stats}")
+
+    # ========================================================
     # PAYLOAD FINAL
     # ========================================================
 
@@ -1699,7 +2054,13 @@ def osm_xml_to_retail_layout(
                 "zones. Open ways are "
                 "ignored because "
                 "SceneData does not "
-                "support line zones."
+                "support line zones. "
+                "Only real buildings "
+                "are marked as "
+                "navigation obstacles "
+                "(type=forbidden); "
+                "other closed surfaces "
+                "are walkable."
             ),
 
             "colorPolicy": (
@@ -1735,6 +2096,10 @@ def osm_xml_to_retail_layout(
                     "0 cm."
                 ),
             },
+
+            # AJOUT — visible dans le payload pour debug/tuning
+            # sans avoir à relire les logs serveur.
+            "importStats": import_stats,
         },
 
         # ====================================================

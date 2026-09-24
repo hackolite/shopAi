@@ -7,6 +7,7 @@ import { floorShapePlanePointCm } from '../engine/floorZones';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep, isClockResnap, PLAYBACK_CLOCK_OPTIONS } from '../engine/simulationPlayback';
+import { visibleTrajectoryOverlayTrajectories } from '../engine/trajectoryOverlay';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
@@ -660,7 +661,7 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
 function TrajectoryOverlay({ trajectories }: { trajectories: AgentTrajectory[] }) {
   const lines = useMemo(
     () =>
-      trajectories
+      visibleTrajectoryOverlayTrajectories(trajectories)
         .map((trajectory) => {
           const points: [number, number, number][] = [];
           for (let index = 0; index + 1 < trajectory.pointsCm.length; index += 2) {

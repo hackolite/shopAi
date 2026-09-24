@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { visibleWaypointSystems } from './SimulationLayer';
+import { visibleTrajectoryOverlayTrajectories } from '../engine/trajectoryOverlay';
 import { defaultSimulationConfig } from '../store/simulationStore';
 
 describe('visibleWaypointSystems', () => {
@@ -38,5 +39,16 @@ describe('visibleWaypointSystems', () => {
     expect(systems).toHaveLength(1);
     expect(systems[0].waypoints[0]?.id).toBe('legacy-waypoint');
     expect(systems[0].color).toBe('#3b82f6');
+  });
+});
+
+describe('visibleTrajectoryOverlayTrajectories', () => {
+  it("hides active agent lines so only completed paths remain visible", () => {
+    expect(visibleTrajectoryOverlayTrajectories([
+      { agentId: 1, active: true, pointsCm: [0, 0, 100, 0] },
+      { agentId: 2, active: false, pointsCm: [0, 0, 50, 50] },
+    ])).toEqual([
+      { agentId: 2, active: false, pointsCm: [0, 0, 50, 50] },
+    ]);
   });
 });

@@ -87,6 +87,10 @@ def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:
     )
     assert response.status_code == 200, response.text
     payload = response.json()
+    assert payload["sessionId"]
+    assert payload["paused"] is False
+    assert payload["result"]["frames"], "live start should return an initial frame"
+    payload = response.json()
 
     assert payload["frames"], "simulation should emit frames"
     assert payload["waypoints"], "simulation should emit waypoint metrics"

@@ -737,7 +737,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           if (isStale(projectId)) return;
           setAnalytics(payload.analytics);
           setResultWaypoints(payload.waypoints);
-          waypointMetricsSessionId.current = liveSessionId;
+          waypointMetricsSessionId.current = payload.sessionId;
         })
         .catch((error) => {
           if (isStale(projectId)) return;

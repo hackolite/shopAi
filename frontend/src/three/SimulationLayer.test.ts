@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { visibleTrajectoryOverlayTrajectories, visibleWaypointSystems } from './SimulationLayer';
+import { visibleWaypointSystems } from './SimulationLayer';
+import { visibleTrajectoryOverlayTrajectories } from '../engine/trajectoryOverlay';
 import { defaultSimulationConfig } from '../store/simulationStore';
 
 describe('visibleWaypointSystems', () => {

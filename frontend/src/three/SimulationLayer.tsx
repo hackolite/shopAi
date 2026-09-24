@@ -7,6 +7,7 @@ import { floorShapePlanePointCm } from '../engine/floorZones';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep, isClockResnap, PLAYBACK_CLOCK_OPTIONS } from '../engine/simulationPlayback';
+import { visibleTrajectoryOverlayTrajectories } from '../engine/trajectoryOverlay';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
@@ -66,10 +67,6 @@ export function visibleWaypointSystems(config: import('../types/cad').Simulation
     color: '#3b82f6',
     waypoints: config.waypoints,
   }];
-}
-
-export function visibleTrajectoryOverlayTrajectories(trajectories: AgentTrajectory[]) {
-  return trajectories.filter((trajectory) => !trajectory.active);
 }
 
 function waypointPalette(accentColor: string, type: 'entry' | 'transit' | 'exit') {

@@ -10,6 +10,7 @@ import {
   type PlatformUser,
 } from './api/platform';
 import StudioApp from './StudioApp';
+import { useUIStore } from './store/uiStore';
 import NameDialog from './components/NameDialog';
 import ProjectSceneThumbnail from './components/ProjectSceneThumbnail';
 import './App.css';
@@ -57,6 +58,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function App() {
+  const { showGrid, setShowGrid } = useUIStore();
   const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
   const [hasUsers, setHasUsers] = useState(false);
   const [currentUser, setCurrentUser] = useState<PlatformUser | null>(null);
@@ -826,6 +828,26 @@ export default function App() {
                           <span className="hub-small hub-muted">{formatDate(request.createdAt)}</span>
                         </li>)}</ul> : <p className="hub-empty">Aucune demande externe enregistrée.</p>}
                       </div>
+                    </div>
+                  </Section>
+
+                  <Section title="Paramètres d'Affichage du Studio" subtitle="Options d'affichage global du visualiseur 3D.">
+                    <div className="hub-form-card" style={{ maxWidth: '400px' }}>
+                      <h3>Grille de sol 3D</h3>
+                      <p className="hub-small hub-muted" style={{ marginBottom: '12px' }}>
+                        Masquer ou afficher la grille de sol du visualiseur 3D.
+                      </p>
+                      <button
+                        type="button"
+                        style={{
+                          background: showGrid ? '#dc2626' : '#2563eb',
+                          borderColor: showGrid ? '#dc2626' : '#2563eb',
+                          color: 'white',
+                        }}
+                        onClick={() => setShowGrid(!showGrid)}
+                      >
+                        {showGrid ? 'Supprimer la grille' : 'Afficher la grille'}
+                      </button>
                     </div>
                   </Section>
                   <Section title="Connexion REST / OpenAPI" subtitle="Transmettez ce guide à votre agent externe pour lui donner accès à l’API.">

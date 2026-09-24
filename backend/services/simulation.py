@@ -577,11 +577,24 @@ def _normalize_polygon(geometry) -> Polygon | None:
     return geometry if isinstance(geometry, Polygon) else None
 
 
+_WALKABLE_BUFFER_CACHE: dict[tuple[int, float], Polygon | None] = {}
+
+
 def _walkable_with_clearance(walkable: Polygon, clearance_cm: float) -> Polygon | None:
+    cache_key = (id(walkable), float(clearance_cm))
+    if cache_key in _WALKABLE_BUFFER_CACHE:
+        return _WALKABLE_BUFFER_CACHE[cache_key]
+    if len(_WALKABLE_BUFFER_CACHE) > 100:
+        _WALKABLE_BUFFER_CACHE.clear()
+
     clearance_m = _cm_to_m(max(0.0, clearance_cm))
     if clearance_m <= 0:
-        return walkable
-    return _normalize_polygon(walkable.buffer(-clearance_m))
+        res = walkable
+    else:
+        res = _normalize_polygon(walkable.buffer(-clearance_m))
+
+    _WALKABLE_BUFFER_CACHE[cache_key] = res
+    return res
 
 
 def _closest_walkable_point(point: tuple[float, float], walkable: Polygon) -> tuple[float, float]:
@@ -927,25 +940,39 @@ def _apply_right_hand_bias(sim: object) -> None:
     aware rightward drift that the underlying CollisionFreeSpeedModel resolves
     safely without violating its geometric guarantees.
     """
-    for agent in sim.agents():
-        model_state = agent.model
-        if not isinstance(model_state, jps.GeneralizedCentrifugalForceModelState):
-            continue
-        speed = model_state.speed
-        desired_speed = model_state.desired_speed
-        if desired_speed <= 0:
-            continue
-        if speed >= _BLOCKING_SPEED_RATIO * desired_speed:
-            continue
-        ex, ez = model_state.e0
-        # Right-perpendicular in the XZ plane: -90° rotation around Y axis
-        # (clockwise when seen from above in a right-handed Y-up system).
-        rx, rz = -ez, ex
-        bx = ex + _RIGHT_HAND_BIAS * rx
-        bz = ez + _RIGHT_HAND_BIAS * rz
-        length = math.hypot(bx, bz)
-        if length > 1e-9:
-            model_state.e0 = (bx / length, bz / length)
+    if jps is None:
+        return
+    agents_iter = sim.agents()
+    try:
+        first_agent = next(agents_iter)
+    except StopIteration:
+        return
+
+    if not hasattr(jps, "GeneralizedCentrifugalForceModelState") or not isinstance(first_agent.model, jps.GeneralizedCentrifugalForceModelState):
+        return
+
+    _apply_bias_to_agent(first_agent)
+    for agent in agents_iter:
+        _apply_bias_to_agent(agent)
+
+
+def _apply_bias_to_agent(agent: object) -> None:
+    model_state = agent.model
+    speed = model_state.speed
+    desired_speed = model_state.desired_speed
+    if desired_speed <= 0:
+        return
+    if speed >= _BLOCKING_SPEED_RATIO * desired_speed:
+        return
+    ex, ez = model_state.e0
+    # Right-perpendicular in the XZ plane: -90° rotation around Y axis
+    # (clockwise when seen from above in a right-handed Y-up system).
+    rx, rz = -ez, ex
+    bx = ex + _RIGHT_HAND_BIAS * rx
+    bz = ez + _RIGHT_HAND_BIAS * rz
+    length = math.hypot(bx, bz)
+    if length > 1e-9:
+        model_state.e0 = (bx / length, bz / length)
 
 
 def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> SimulationResult:
@@ -1064,9 +1091,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     for step_index in range(int(float(config.durationSeconds) / SIMULATION_DT_S) + 1):
         current_time = step_index * SIMULATION_DT_S
-        step_spawn_positions = current_agent_positions(sim)
+        step_spawn_positions = None
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
+            if step_spawn_positions is None:
+                step_spawn_positions = current_agent_positions(sim)
             selected_entry = entries[spawned % len(entries)]
             selected_stage_ids: list[int] = [waypoint_stage_ids[selected_entry.id]]
             for waypoint in transit_waypoints:

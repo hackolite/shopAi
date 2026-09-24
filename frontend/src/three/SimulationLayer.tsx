@@ -501,11 +501,14 @@ function InstancedAgents({
     useSimulationStore.getState().selectAgent(entry[0]);
   };
 
+  const capacity = Math.max(INSTANCED_AGENTS_MAX_CAPACITY, count);
+
   return (
     <>
       <instancedMesh
+        key={`envelope-${capacity}`}
         ref={envelopeRef}
-        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
+        args={[undefined, undefined, capacity]}
         onPointerDown={handleAgentClick}
       >
         <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
@@ -515,14 +518,19 @@ function InstancedAgents({
         <meshBasicMaterial transparent opacity={0.88} depthWrite={false} />
       </instancedMesh>
       <instancedMesh
+        key={`body-${capacity}`}
         ref={bodyRef}
-        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
+        args={[undefined, undefined, capacity]}
         onPointerDown={handleAgentClick}
       >
         <sphereGeometry args={[0.11, 20, 20]} />
         <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} />
       </instancedMesh>
-      <instancedMesh ref={coneRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
+      <instancedMesh
+        key={`cone-${capacity}`}
+        ref={coneRef}
+        args={[undefined, undefined, capacity]}
+      >
         <circleGeometry args={[coneRange, 28, coneThetaStart, coneThetaLength]} />
         <meshBasicMaterial transparent opacity={0.18} depthWrite={false} />
       </instancedMesh>

@@ -19,6 +19,7 @@ import {
 } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useAssetStore } from '../../store/assetStore';
+import { useUIStore } from '../../store/uiStore';
 import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
 
 interface SimulationPanelProps {
@@ -297,6 +298,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setWaypointPlacementType,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
+  const { showGrid, setShowGrid } = useUIStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingTick = useRef(false);
@@ -1047,6 +1049,21 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ speedVariation: Math.max(0, value) })}
           />
+          <div className="border-t border-gray-800 my-2 pt-2 flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Grille de sol</span>
+            <button
+              type="button"
+              onClick={() => setShowGrid(!showGrid)}
+              className={[
+                'rounded px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
+                showGrid
+                  ? 'bg-red-900/60 hover:bg-red-800/60 text-red-200'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white',
+              ].join(' ')}
+            >
+              {showGrid ? 'Supprimer la grille' : 'Afficher la grille'}
+            </button>
+          </div>
           {playing ? (
             <div className="grid grid-cols-2 gap-2">
               {paused ? (
@@ -1341,6 +1358,15 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               type="checkbox"
               checked={showNavigationOverlay}
               onChange={(event) => void toggleNavigationOverlay(event.target.checked)}
+              className="accent-blue-500"
+            />
+          </label>
+          <label className="flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Grille au sol</span>
+            <input
+              type="checkbox"
+              checked={showGrid}
+              onChange={(event) => setShowGrid(event.target.checked)}
               className="accent-blue-500"
             />
           </label>

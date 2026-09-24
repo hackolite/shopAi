@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { VoxelInstances } from './ProductBlock';
 import { StoreStructure } from './Shelf';
 import type { Store, Voxel, SearchResult } from '../types';
+import { useUIStore } from '../store/uiStore';
 
 // ─── Camera fly-to helper ─────────────────────────────────────────────────────
 function CameraFlyTo({ target }: { target: THREE.Vector3 | null }) {
@@ -36,6 +37,7 @@ interface SceneProps {
 }
 
 const SceneContent = memo(function SceneContent({ store, voxels, searchResult, onHoverVoxel, onClickVoxel, flyTarget }: SceneProps) {
+  const showGrid = useUIStore((state) => state.showGrid);
   const highlightedIds = useMemo(
     () => new Set(searchResult?.instances.map((i) => i.instance_id) ?? []),
     [searchResult],
@@ -57,19 +59,21 @@ const SceneContent = memo(function SceneContent({ store, voxels, searchResult, o
       <StoreStructure store={store} />
 
       {/* Floor grid */}
-      <Grid
-        position={[store.geometry.width / 2, 0, store.geometry.depth / 2]}
-        args={[store.geometry.width, store.geometry.depth]}
-        cellSize={1}
-        cellThickness={0.5}
-        cellColor="#9E9E9E"
-        sectionSize={5}
-        sectionThickness={1}
-        sectionColor="#616161"
-        fadeDistance={80}
-        fadeStrength={1}
-        infiniteGrid={false}
-      />
+      {showGrid && (
+        <Grid
+          position={[store.geometry.width / 2, 0, store.geometry.depth / 2]}
+          args={[store.geometry.width, store.geometry.depth]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor="#9E9E9E"
+          sectionSize={5}
+          sectionThickness={1}
+          sectionColor="#616161"
+          fadeDistance={80}
+          fadeStrength={1}
+          infiniteGrid={false}
+        />
+      )}
 
       {/* Product voxels (InstancedMesh per colour group) */}
       <VoxelInstances

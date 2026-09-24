@@ -1160,6 +1160,7 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectZone } = useZoneStore();
   const addWaypoint = useSimulationStore((state) => state.addWaypoint);
   const waypointPlacementType = useSimulationStore((state) => state.waypointPlacementType);
+  const showGrid = useUIStore((state) => state.showGrid);
   const camera = useThree((state) => state.camera);
   const controls = useThree((state) => state.controls) as {
     addEventListener?: (type: 'change', listener: () => void) => void;
@@ -1264,19 +1265,21 @@ function StoreFloor({ store }: { store: StoreConfig }) {
       </mesh>
 
       {/* Adaptive floor grid: coarsens on zoom-out / shallow orbit to reduce scintillation. */}
-      <Grid
-        position={[gridX.centreCm * CM_TO_UNIT, GRID_Y_OFFSET, gridZ.centreCm * CM_TO_UNIT]}
-        args={[gridX.sizeCm * CM_TO_UNIT, gridZ.sizeCm * CM_TO_UNIT]}
-        cellSize={gridDisplay.cellCm * CM_TO_UNIT}
-        cellThickness={gridDisplay.key === 'fine' ? 1.2 : 1}
-        cellColor="#2e4d6e"
-        sectionSize={gridDisplay.sectionCm * CM_TO_UNIT}
-        sectionThickness={0.9}
-        sectionColor="#2a4a6a"
-        fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
-        fadeStrength={1.2}
-        infiniteGrid={false}
-      />
+      {showGrid && (
+        <Grid
+          position={[gridX.centreCm * CM_TO_UNIT, GRID_Y_OFFSET, gridZ.centreCm * CM_TO_UNIT]}
+          args={[gridX.sizeCm * CM_TO_UNIT, gridZ.sizeCm * CM_TO_UNIT]}
+          cellSize={gridDisplay.cellCm * CM_TO_UNIT}
+          cellThickness={gridDisplay.key === 'fine' ? 1.2 : 1}
+          cellColor="#2e4d6e"
+          sectionSize={gridDisplay.sectionCm * CM_TO_UNIT}
+          sectionThickness={0.9}
+          sectionColor="#2a4a6a"
+          fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
+          fadeStrength={1.2}
+          infiniteGrid={false}
+        />
+      )}
     </group>
   );
 }

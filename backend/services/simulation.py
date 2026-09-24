@@ -41,6 +41,8 @@ AGENT_DIAMETER_CM = AGENT_RADIUS_CM * 2
 SPAWN_SPACING_CM = AGENT_DIAMETER_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 EXIT_REMOVAL_RADIUS_CM = 40.0
 TOO_CLOSE_TO_AGENT_ERROR_SNIPPET = "too close to agent"
+SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET = "Exclusion splits accessibleArea"
+MIN_WALKABLE_COMPONENT_AREA_M2 = 1e-6
 
 # French pedestrian right-hand avoidance: when an agent's speed drops below this
 # fraction of its desired speed it is considered "blocked" and a lateral rightward
@@ -145,6 +147,41 @@ class SimulationConstraintViolation(ValueError):
     def __init__(self, detail: dict[str, object]):
         super().__init__(str(detail.get("message", "Simulation constraint violation")))
         self.detail = detail
+
+
+def _split_accessible_area_detail(
+    *,
+    element_type: str,
+    element_id: str | None = None,
+    element_label: str | None = None,
+) -> dict[str, object]:
+    title = element_label or element_id or "sans nom"
+    if element_type == "zone":
+        message = (
+            f"La zone interdite « {title} » coupe la zone accessible des piétons en plusieurs parties. "
+            "Réduisez-la, déplacez-la, ou désactivez « obstacle piéton » si cette zone doit rester traversable."
+        )
+    elif element_type == "furniture":
+        message = (
+            f"Le meuble « {title} » coupe la zone accessible des piétons en plusieurs parties. "
+            "Déplacez-le ou réduisez son emprise pour garder un passage continu."
+        )
+    else:
+        message = (
+            "Une exclusion coupe la zone accessible des piétons en plusieurs parties. "
+            "Réduisez ou déplacez l’exclusion concernée pour garder un passage continu."
+        )
+    return {
+        "message": message,
+        "code": "splitAccessibleArea",
+        "blockingElementType": element_type,
+        "blockingElementId": element_id,
+        "blockingElementLabel": element_label,
+    }
+
+
+def split_accessible_area_detail() -> dict[str, object]:
+    return _split_accessible_area_detail(element_type="obstacle")
 
 
 def _cm_to_m(value: float) -> float:
@@ -438,11 +475,37 @@ def _build_walkable_geometry(scene: SceneData) -> Polygon:
     for furniture in scene.furniture:
         obstacle = _furniture_polygon(furniture, store_polygon)
         if obstacle is not None:
-            walkable = walkable.difference(obstacle)
+            walkable = walkable.difference(obstacle).buffer(0)
+            components = [
+                geom
+                for geom in getattr(walkable, "geoms", [walkable])
+                if isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
+            ]
+            if len(components) > 1:
+                raise SimulationConstraintViolation(
+                    _split_accessible_area_detail(
+                        element_type="furniture",
+                        element_id=furniture.id,
+                        element_label=furniture.name,
+                    )
+                )
     for zone in getattr(store, "zones", []) or []:
         obstacle = _zone_polygon(zone, store_polygon)
         if obstacle is not None:
-            walkable = walkable.difference(obstacle)
+            walkable = walkable.difference(obstacle).buffer(0)
+            components = [
+                geom
+                for geom in getattr(walkable, "geoms", [walkable])
+                if isinstance(geom, Polygon) and geom.area > MIN_WALKABLE_COMPONENT_AREA_M2
+            ]
+            if len(components) > 1:
+                raise SimulationConstraintViolation(
+                    _split_accessible_area_detail(
+                        element_type="zone",
+                        element_id=getattr(zone, "id", None),
+                        element_label=getattr(zone, "label", None),
+                    )
+                )
     walkable = walkable.buffer(0)
     if isinstance(walkable, MultiPolygon):
         walkable = max(walkable.geoms, key=lambda geom: geom.area)

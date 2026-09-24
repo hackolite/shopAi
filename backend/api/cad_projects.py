@@ -34,7 +34,12 @@ from services.layout_audit import (
 )
 from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
-from services.simulation import SimulationConstraintViolation, run_flow_simulation
+from services.simulation import (
+    SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET,
+    SimulationConstraintViolation,
+    run_flow_simulation,
+    split_accessible_area_detail,
+)
 from services.live_simulation import live_simulation_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
@@ -215,6 +220,13 @@ def _load_settings(project_id: str) -> ProjectSettings:
 def _save_settings(project_id: str, settings: ProjectSettings) -> None:
     platform_service.require_current_user_project_access(project_id)
     save_project_file(project_id, "settings.json", settings.model_dump(mode="json"))
+
+
+def _map_simulation_runtime_error(exc: RuntimeError) -> HTTPException:
+    detail = str(exc)
+    if SPLIT_ACCESSIBLE_AREA_ERROR_SNIPPET in detail:
+        return HTTPException(status_code=422, detail=split_accessible_area_detail())
+    return HTTPException(status_code=503, detail=detail)
 
 
 def _find_index(items: list[Any], attr: str, value: str) -> int:
@@ -831,7 +843,7 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise _map_simulation_runtime_error(exc) from exc
 
 
 @router.post("/{project_id}/simulation/live/start")
@@ -850,7 +862,7 @@ def start_live_simulation(project_id: str, payload: SimulationRunPayload):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise _map_simulation_runtime_error(exc) from exc
 
 
 @router.post("/{project_id}/simulation/live/{session_id}/tick")
@@ -906,7 +918,7 @@ def update_live_simulation(project_id: str, session_id: str, payload: Simulation
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise _map_simulation_runtime_error(exc) from exc
 
 
 @router.get("/{project_id}/simulation/live/{session_id}/analytics")

@@ -23,6 +23,24 @@ export interface PlaybackClockOptions {
   resnapThresholdSeconds: number;
 }
 
+export const LIVE_TICK_INTERVAL_MS = 100;
+
+export const PLAYBACK_CLOCK_OPTIONS = {
+  targetBufferSeconds: 0.25,
+  minRate: 0.25,
+  maxRate: 1.6,
+  rateStiffness: 3,
+  maxExtrapolationSeconds: 0.35,
+  resnapThresholdSeconds: 1,
+} as const satisfies PlaybackClockOptions;
+
+// Cover the maximum non-resnapping lag (buffer + threshold), plus two frame
+// intervals for bracketing/rounding. N frames span N - 1 intervals: 16 span 1.5s.
+export const LIVE_FRAME_WINDOW = Math.ceil(
+  (PLAYBACK_CLOCK_OPTIONS.targetBufferSeconds + PLAYBACK_CLOCK_OPTIONS.resnapThresholdSeconds)
+    / (LIVE_TICK_INTERVAL_MS / 1000),
+) + 3;
+
 /**
  * Advances a self-regulating playback clock for live simulation rendering.
  *

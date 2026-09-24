@@ -3,6 +3,7 @@ import { cadApi } from '../../api/cad';
 import { platformApi, type PlatformPedestrianDataset } from '../../api/platform';
 import { isSessionNotFoundError } from '../../engine/liveSession';
 import { applyAnalyticsDelta } from '../../engine/simulationAnalytics';
+import { LIVE_FRAME_WINDOW, LIVE_TICK_INTERVAL_MS } from '../../engine/simulationPlayback';
 import {
   extractBlockingElementHighlight,
   extractConstraintCorrection,
@@ -32,9 +33,6 @@ interface SimulationPanelProps {
   projectId: string | null;
 }
 
-const LIVE_TICK_INTERVAL_MS = 100;
-// Seven 100ms intervals cover the 250ms render lag plus delivery jitter.
-const LIVE_FRAME_WINDOW = 8;
 /** Heatmap and trajectories change slowly: refresh them far less often than agents. */
 const ANALYTICS_INTERVAL_MS = 1000;
 /**

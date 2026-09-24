@@ -3,6 +3,10 @@ import {
   advancePlaybackClock,
   clampMonotonicTime,
   clampNoReverseStep,
+  isClockResnap,
+  LIVE_FRAME_WINDOW,
+  LIVE_TICK_INTERVAL_MS,
+  PLAYBACK_CLOCK_OPTIONS,
   resolveSimulationTime,
   type PlaybackClockOptions,
 } from './simulationPlayback';
@@ -53,6 +57,41 @@ describe('clampMonotonicTime', () => {
   });
 });
 
+describe('live playback frame window', () => {
+  const frameInterval = LIVE_TICK_INTERVAL_MS / 1000;
+
+  it('covers the production non-resnap lag plus bracketing intervals', () => {
+    expect(LIVE_FRAME_WINDOW).toBe(16);
+    const windowSeconds = (LIVE_FRAME_WINDOW - 1) * frameInterval;
+    expect(windowSeconds).toBeCloseTo(1.5);
+    expect(windowSeconds).toBeGreaterThanOrEqual(
+      PLAYBACK_CLOCK_OPTIONS.targetBufferSeconds
+        + PLAYBACK_CLOCK_OPTIONS.resnapThresholdSeconds
+        + 2 * frameInterval,
+    );
+  });
+
+  it.each([
+    { previous: 10.35, latest: 11.4 },
+    { previous: 8.75, latest: 10 },
+  ])('brackets non-resnapping playback at $previous after a batch ending at $latest', ({ previous, latest }) => {
+    const frames = Array.from(
+      { length: LIVE_FRAME_WINDOW },
+      (_, index) => latest - (LIVE_FRAME_WINDOW - 1 - index) * frameInterval,
+    );
+    expect(isClockResnap(previous, latest, PLAYBACK_CLOCK_OPTIONS)).toBe(false);
+    const next = advancePlaybackClock(previous, 1 / 60, latest, PLAYBACK_CLOCK_OPTIONS);
+    expect(next).toBeGreaterThan(previous);
+    expect(next - previous).toBeLessThanOrEqual(PLAYBACK_CLOCK_OPTIONS.maxRate / 60 + 1e-9);
+    for (const time of [previous, next]) {
+      const afterIndex = frames.findIndex((frameTime) => frameTime > time);
+      expect(afterIndex).toBeGreaterThan(0);
+      expect(frames[afterIndex - 1]).toBeLessThanOrEqual(time);
+      expect(frames[afterIndex]).toBeGreaterThan(time);
+    }
+  });
+});
+
 describe('advancePlaybackClock', () => {
   const options: PlaybackClockOptions = {
     targetBufferSeconds: 0.2,
@@ -63,23 +102,27 @@ describe('advancePlaybackClock', () => {
     resnapThresholdSeconds: 1,
   };
 
-  it('keeps the render clock inside an eight-frame tail with periodic batched delivery jitter', () => {
+  it('keeps the render clock inside the requested tail with periodic delayed batches', () => {
+    const options = PLAYBACK_CLOCK_OPTIONS;
+    const frameInterval = LIVE_TICK_INTERVAL_MS / 1000;
+    const windowSeconds = (LIVE_FRAME_WINDOW - 1) * frameInterval;
     let renderTime = -1;
     let latest = 0;
     let deliveredStep = 0;
     for (let renderFrame = 0; renderFrame < 60 * 30; renderFrame += 1) {
       const wallTime = renderFrame / 60;
-      // A 200ms delay once a second produces a three-step catch-up response.
-      const delay = wallTime % 1 < 0.2 ? 0.2 : 0;
-      const availableStep = Math.max(0, Math.floor((wallTime - delay) * 10));
+      // A one-second delivery stall every three seconds produces a delayed batch.
+      const availableTime = wallTime % 3 < 1 ? wallTime - wallTime % 3 : wallTime;
+      const availableStep = Math.floor(availableTime / frameInterval);
       if (availableStep > deliveredStep) {
         deliveredStep = availableStep;
-        latest = deliveredStep / 10;
+        latest = deliveredStep * frameInterval;
+        expect(isClockResnap(renderTime, latest, options)).toBe(false);
       }
       const next = advancePlaybackClock(renderTime, 1 / 60, latest, options);
       if (wallTime > 1) {
-        expect(next).toBeGreaterThan(renderTime);
-        expect(next).toBeGreaterThanOrEqual(latest - 0.7);
+        expect(next).toBeGreaterThanOrEqual(renderTime);
+        expect(next).toBeGreaterThanOrEqual(latest - windowSeconds);
         expect(next).toBeLessThanOrEqual(latest + options.maxExtrapolationSeconds);
       }
       renderTime = next;

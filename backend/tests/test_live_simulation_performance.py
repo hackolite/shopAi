@@ -45,22 +45,25 @@ def _session(agent_count: int = 0) -> LiveSimulationSession:
             for i in range(agent_count)
         ])
         session.spawned = agent_count
+        # Replace the constructor's empty t=0 frame after fixture-only agent injection.
+        session.frames.clear()
         session._capture_frame()
     return session
 
 
-def test_one_hundred_real_agents_have_identical_batched_physics_frames_and_statistics() -> None:
+@pytest.mark.parametrize("frame_window", [8, 16])
+def test_one_hundred_real_agents_have_identical_batched_physics_frames_and_statistics(frame_window) -> None:
     batched, sequential = _session(100), _session(100)
     assert batched.active_agents == sequential.active_agents == 100
     for _ in range(5):
-        result = batched.tick(10, include_waypoint_metrics=False, frame_window=8)
+        result = batched.tick(10, include_waypoint_metrics=False, frame_window=frame_window)
         for _ in range(10):
             sequential.tick(include_waypoint_metrics=False)
         assert batched.frames == sequential.frames
         assert batched.analytics() == sequential.analytics()
         assert batched.snapshot() == sequential.snapshot()
-        assert len(result.frames) == 8
-        assert [round(b.timeSeconds - a.timeSeconds, 2) for a, b in zip(result.frames, result.frames[1:])] == [0.1] * 7
+        assert len(result.frames) == min(frame_window, len(batched.frames))
+        assert [round(b.timeSeconds - a.timeSeconds, 2) for a, b in zip(result.frames, result.frames[1:])] == [0.1] * (len(result.frames) - 1)
     assert len(batched.analytics_recorder._trajectories) == 40
     assert len(batched.analytics().customers) == 100
 
@@ -115,7 +118,8 @@ def test_capture_retention_limits_and_pause_do_not_duplicate_samples() -> None:
     assert session.average_load_samples == 1251
 
 
-def test_tick_response_uses_typed_json_without_fastapi_recursive_encoding(monkeypatch) -> None:
+@pytest.mark.parametrize("frame_window", [8, 16])
+def test_tick_response_uses_typed_json_without_fastapi_recursive_encoding(monkeypatch, frame_window) -> None:
     import fastapi.encoders
     import fastapi.routing
 
@@ -126,7 +130,7 @@ def test_tick_response_uses_typed_json_without_fastapi_recursive_encoding(monkey
     client = TestClient(app)
     session.tick(20)
     session.set_paused(True)
-    expected = {"sessionId": session.id, "result": session.snapshot(False, 8).model_dump(mode="json"), "paused": True}
+    expected = {"sessionId": session.id, "result": session.snapshot(False, frame_window).model_dump(mode="json"), "paused": True}
 
     def unexpected_encoding(*args, **kwargs):
         raise AssertionError("tick response must not traverse jsonable_encoder")
@@ -135,7 +139,7 @@ def test_tick_response_uses_typed_json_without_fastapi_recursive_encoding(monkey
     monkeypatch.setattr(fastapi.routing, "jsonable_encoder", unexpected_encoding)
     response = client.post(
         f"/api/cad/projects/{session.project_id}/simulation/live/{session.id}/tick",
-        json={"steps": 1, "includeWaypointMetrics": False, "frameWindow": 8},
+        json={"steps": 1, "includeWaypointMetrics": False, "frameWindow": frame_window},
     )
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/json"

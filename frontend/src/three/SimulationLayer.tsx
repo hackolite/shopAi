@@ -6,7 +6,7 @@ import { CM_TO_UNIT } from '../constants';
 import { floorShapePlanePointCm } from '../engine/floorZones';
 import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
-import { advancePlaybackClock, clampNoReverseStep, isClockResnap } from '../engine/simulationPlayback';
+import { advancePlaybackClock, clampNoReverseStep, isClockResnap, PLAYBACK_CLOCK_OPTIONS } from '../engine/simulationPlayback';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
@@ -331,8 +331,7 @@ const ANTICOLLISION_RADIUS_CM = 50;
 // Direction cone: vision-field angle and range used for the sector indicator
 const AGENT_VISION_ANGLE_DEG = 70;
 const AGENT_VISION_RANGE_CM = 220;
-const RENDER_BUFFER_SECONDS = 0.25;
-const MAX_EXTRAPOLATION_SECONDS = 0.35;
+const MAX_EXTRAPOLATION_SECONDS = PLAYBACK_CLOCK_OPTIONS.maxExtrapolationSeconds;
 // Fixed GPU buffer capacity: the instancedMesh is allocated once with this
 // many slots so Three.js never destroys/recreates it when agents arrive or
 // depart.  mesh.count is updated imperatively to tell the renderer how many
@@ -342,18 +341,6 @@ const POSE_SMOOTHING_HZ = 12;
 const MOVEMENT_HEADING_MIN_CM = 0.35;
 const MAX_HEADING_TURN_RATE_RAD_S = Math.PI * 2.5;
 const MIN_EXTRAPOLATION_DT_SECONDS = 1 / 30;
-// Self-regulating playback clock: keeps a small buffer behind the newest frame and
-// gently varies speed to stay there, so rendering stays fluid (no rhythmic freezes,
-// no skips) even when the live-tick frame supply jitters around real time.
-const PLAYBACK_CLOCK_OPTIONS = {
-  targetBufferSeconds: RENDER_BUFFER_SECONDS,
-  minRate: 0.25,
-  maxRate: 1.6,
-  rateStiffness: 3,
-  maxExtrapolationSeconds: MAX_EXTRAPOLATION_SECONDS,
-  resnapThresholdSeconds: 1,
-} as const;
-
 interface AgentPose {
   x: number;
   z: number;

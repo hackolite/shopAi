@@ -1049,6 +1049,21 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ speedVariation: Math.max(0, value) })}
           />
+          <div className="border-t border-gray-800 my-2 pt-2 flex items-center justify-between text-xs text-gray-300">
+            <span className="text-gray-500">Grille de sol</span>
+            <button
+              type="button"
+              onClick={() => setShowGrid(!showGrid)}
+              className={[
+                'rounded px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
+                showGrid
+                  ? 'bg-red-900/60 hover:bg-red-800/60 text-red-200'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white',
+              ].join(' ')}
+            >
+              {showGrid ? 'Supprimer la grille' : 'Afficher la grille'}
+            </button>
+          </div>
           {playing ? (
             <div className="grid grid-cols-2 gap-2">
               {paused ? (

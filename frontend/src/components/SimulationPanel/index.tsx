@@ -440,6 +440,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   );
   const hasNavigationEnvelopePreview = (walkablePreview?.buildingBlocks?.length ?? 0) > 0;
 
+  useEffect(() => {
+    if (showNavigationOverlay && hasNavigationEnvelopePreview) return;
+    if (!showNavigationEnvelopeOnly) return;
+    setShowNavigationEnvelopeOnly(false);
+  }, [hasNavigationEnvelopePreview, setShowNavigationEnvelopeOnly, showNavigationEnvelopeOnly, showNavigationOverlay]);
+
   const loadPedestriansIntoSession = useCallback(async (sessionId: string) => {
     if (!projectId) return false;
     setIsLoadingPedestrians(true);

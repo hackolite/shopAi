@@ -2433,8 +2433,13 @@ function FloorZoneLayer() {
   // the "Chemin navigable" overlay is not shown. Gate this shortcut on
   // `showNavigationOverlay` too, so opening the Inspector never silently
   // flattens buildings into their footprint — that swap only makes sense when
-  // the user has actually turned the navigation overlay on.
-  const canUseNavigationEnvelopeShortcut = showNavigationOverlay && hasNavigationEnvelopePreview;
+  // the user has actually turned the navigation overlay on. It must also stay
+  // off unless the "Enveloppe bâtiments uniquement" toggle is on: the normal
+  // "Chemin navigable" view keeps buildings in full detail, and only the
+  // envelope view is allowed to swap them for their simplified footprint.
+  const canUseNavigationEnvelopeShortcut = showNavigationOverlay
+    && showNavigationEnvelopeOnly
+    && hasNavigationEnvelopePreview;
   const zoneCanPreviewDuringPlayback = useCallback(
     (zone: FloorZone) => (
       zoneSupportsSimulationPreview(zone)

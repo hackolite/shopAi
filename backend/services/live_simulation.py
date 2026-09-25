@@ -102,6 +102,8 @@ class LiveSimulationSession:
         self.paused = False
         self.spawned = 0
         self.completed = 0
+        self.arrival_route_cursor = 0
+        self.pedestrian_pairing_cursor = 0
         self.next_stable_agent_id = 1
         self.next_arrival_at: float | None = None
         self.frames: list[SimulationFrame] = []
@@ -152,13 +154,13 @@ class LiveSimulationSession:
     def _token_for_exit_stage(self, exit_waypoint_id: str) -> str:
         return f"exit_hidden:{exit_waypoint_id}"
 
-    def _build_route_tokens(self, spawn_index: int) -> list[str]:
-        selected_entry = self.entries[spawn_index % len(self.entries)]
+    def _build_route_tokens(self, pairing_index: int) -> list[str]:
+        selected_entry = self.entries[pairing_index % len(self.entries)]
         tokens: list[str] = [selected_entry.id]
         for waypoint in self.transit_waypoints:
             if (not waypoint.optional) or self.rng.random() <= float(waypoint.visitProbability):
                 tokens.append(waypoint.id)
-        selected_exit = self.exits[spawn_index % len(self.exits)]
+        selected_exit = self.exits[pairing_index % len(self.exits)]
         tokens.append(selected_exit.id)
         tokens.append(self._token_for_exit_stage(selected_exit.id))
         return tokens
@@ -446,7 +448,8 @@ class LiveSimulationSession:
         ):
             if step_spawn_positions is None:
                 step_spawn_positions = simsvc.current_agent_position_index(self.sim)
-            raw_tokens = self._build_route_tokens(self.spawned)
+            pairing_index = self.arrival_route_cursor
+            raw_tokens = self._build_route_tokens(pairing_index)
             tokens = self._expand_route_tokens(raw_tokens)
             stage_ids = (
                 self.route_planner.stage_ids_for_route(raw_tokens)
@@ -454,6 +457,7 @@ class LiveSimulationSession:
                 else self._route_tokens_to_stage_ids(tokens)
             )
             if len(stage_ids) < 2:
+                self.arrival_route_cursor += 1
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
                 continue
             journey_id = (
@@ -461,7 +465,7 @@ class LiveSimulationSession:
                 if self.route_planner is not None
                 else self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
             )
-            entry_wp = self.entries[self.spawned % len(self.entries)]
+            entry_wp = self.entries[pairing_index % len(self.entries)]
             desired_speed = max(
                 0.5,
                 self.rng.gauss(float(self.config.desiredSpeedMps), float(self.config.speedVariation)),
@@ -501,6 +505,7 @@ class LiveSimulationSession:
             # stage), so the entry throughput is credited at spawn time.
             self.passages.record_passage(entry_wp.id)
             self.spawned += 1
+            self.arrival_route_cursor += 1
             self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
 
     def load_pedestrian_plans(self, plans: list[PedestrianPickupPlan]) -> None:
@@ -516,6 +521,7 @@ class LiveSimulationSession:
             ordered = sorted(plans, key=lambda plan: plan.startUnixTs)
             self.pedestrian_plans = ordered
             self.pedestrian_cursor = 0
+            self.pedestrian_pairing_cursor = 0
             self.pedestrian_sim_start_ts = ordered[0].startUnixTs if ordered else None
             for plan in ordered:
                 self.agent_baskets[plan.pedestrianId] = plan
@@ -572,14 +578,14 @@ class LiveSimulationSession:
                     float(item.pickupDurationSeconds or 1.0),
                 )
 
-    def _pedestrian_route_tokens(self, plan: PedestrianPickupPlan, spawn_index: int) -> list[str]:
-        entry = self.entries[spawn_index % len(self.entries)]
+    def _pedestrian_route_tokens(self, plan: PedestrianPickupPlan, pairing_index: int) -> list[str]:
+        entry = self.entries[pairing_index % len(self.entries)]
         tokens: list[str] = [entry.id]
         for index, item in enumerate(plan.items):
             token = f"pickup:{plan.pedestrianId}:{index}"
             if token in self.token_to_stage:
                 tokens.append(token)
-        exit_wp = self.exits[spawn_index % len(self.exits)]
+        exit_wp = self.exits[pairing_index % len(self.exits)]
         tokens.append(exit_wp.id)
         tokens.append(self._token_for_exit_stage(exit_wp.id))
         return tokens
@@ -597,7 +603,8 @@ class LiveSimulationSession:
                 break
             if step_spawn_positions is None:
                 step_spawn_positions = simsvc.current_agent_position_index(self.sim)
-            raw_tokens = self._pedestrian_route_tokens(plan, self.pedestrian_cursor)
+            pairing_index = self.pedestrian_pairing_cursor
+            raw_tokens = self._pedestrian_route_tokens(plan, pairing_index)
             tokens = self._expand_route_tokens(raw_tokens)
             stage_ids = (
                 self.route_planner.stage_ids_for_route(raw_tokens)
@@ -612,7 +619,7 @@ class LiveSimulationSession:
                 if self.route_planner is not None
                 else self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
             )
-            entry_wp = self.entries[self.pedestrian_cursor % len(self.entries)]
+            entry_wp = self.entries[pairing_index % len(self.entries)]
             desired_speed = max(0.3, float(plan.speedMps))
             try:
                 agent_id, spawn_position = simsvc.add_agent_with_spawn_retry(
@@ -652,6 +659,7 @@ class LiveSimulationSession:
             self._mark_basket_changed(stable_id)
             self.passages.record_passage(entry_wp.id)
             self.spawned += 1
+            self.pedestrian_pairing_cursor += 1
             self.pedestrian_cursor += 1
 
     def basket_for(self, stable_id: int) -> AgentBasket | None:

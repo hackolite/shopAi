@@ -1379,12 +1379,13 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             if step_spawn_positions is None:
                 step_spawn_positions = current_agent_position_index(sim)
-            selected_entry = entries[spawned % len(entries)]
+            pairing_index = arrival_index
+            selected_entry = entries[pairing_index % len(entries)]
             selected_tokens: list[str] = [selected_entry.id]
             for waypoint in transit_waypoints:
                 if not waypoint.optional or rng.random() <= float(waypoint.visitProbability):
                     selected_tokens.append(waypoint.id)
-            selected_exit = exits[spawned % len(exits)]
+            selected_exit = exits[pairing_index % len(exits)]
             selected_tokens.append(selected_exit.id)
             selected_tokens.append(f"exit_hidden:{selected_exit.id}")
             selected_stage_ids = route_planner.stage_ids_for_route(selected_tokens)

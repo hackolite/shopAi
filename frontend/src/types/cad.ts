@@ -71,6 +71,7 @@ export interface FloorZoneSource {
   defaultHeightApplied?: boolean;
   height?: string | null;
   'building:levels'?: string | null;
+  isEnvelope?: boolean;
   name?: string | null;
   tags?: Record<string, string>;
 }

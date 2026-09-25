@@ -22,6 +22,17 @@ export function zoneSupportsSimulationPreview(
   return zone.type === 'forbidden' && !zoneMounted(zone);
 }
 
+export function zoneIsMergeableBuilding(
+  zone: Pick<FloorZone, 'type' | 'pedestrianObstacle' | 'source'>,
+): boolean {
+  const source = zone.source;
+  return zone.type === 'forbidden'
+    && zone.pedestrianObstacle !== false
+    && source?.isEnvelope !== true
+    && Boolean(source?.osmWayId)
+    && Boolean(source?.isLikelyBuilding);
+}
+
 export function zoneHeightCm(zone: Pick<FloorZone, 'heightCm'>): number {
   return Math.max(0, zone.heightCm ?? 120);
 }

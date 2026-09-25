@@ -101,7 +101,15 @@ describe('simulationStore waypoint systems', () => {
 
   it('clears blocking obstacle highlights after a successful result', () => {
     const store = useSimulationStore.getState();
+    const preview = {
+      connected: [[0, 0], [100, 0], [100, 100]] as [number, number][],
+      connectedHoles: [],
+      disconnected: [],
+      excludedObstacles: [],
+    };
     store.setInvalidObstacleHighlights({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'] });
+    store.setShowNavigationOverlay(true);
+    store.setWalkablePreview(preview);
 
     store.setResult({
       frames: [],
@@ -117,6 +125,7 @@ describe('simulationStore waypoint systems', () => {
     });
 
     expect(useSimulationStore.getState().invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
+    expect(useSimulationStore.getState().walkablePreview).toEqual(preview);
   });
 
   it('updates waypoint metrics without replacing the current frames', () => {
@@ -184,17 +193,20 @@ describe('simulationStore waypoint systems', () => {
     };
 
     store.setShowNavigationOverlay(true);
+    store.setShowNavigationEnvelopeOnly(true);
     store.setWalkablePreview(preview);
     store.setInvalidObstacleHighlights({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'], allIds: ['fixture-1', 'zone-2'] });
 
     let state = useSimulationStore.getState();
     expect(state.showNavigationOverlay).toBe(true);
+    expect(state.showNavigationEnvelopeOnly).toBe(true);
     expect(state.walkablePreview).toEqual(preview);
     expect(state.invalidObstacleHighlights).toEqual({ furnitureIds: ['fixture-1'], zoneIds: ['zone-1'], allIds: ['fixture-1', 'zone-2'] });
 
     state.reset();
     state = useSimulationStore.getState();
     expect(state.showNavigationOverlay).toBe(false);
+    expect(state.showNavigationEnvelopeOnly).toBe(false);
     expect(state.walkablePreview).toBeNull();
     expect(state.invalidObstacleHighlights).toEqual({ furnitureIds: [], zoneIds: [], allIds: [] });
   });

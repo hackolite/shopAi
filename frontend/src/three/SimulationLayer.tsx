@@ -613,19 +613,46 @@ function walkableRingShape(exterior: [number, number][], holes: [number, number]
   return shape;
 }
 
+function walkableLinePoints(exterior: [number, number][], y: number): [number, number, number][] {
+  if (exterior.length < 2) return [];
+  const closedRing = exterior.length > 0 && (exterior[0][0] !== exterior[exterior.length - 1][0] || exterior[0][1] !== exterior[exterior.length - 1][1])
+    ? [...exterior, exterior[0]]
+    : exterior;
+  return closedRing.map(([x, z]) => [x * CM_TO_UNIT, y, z * CM_TO_UNIT] as [number, number, number]);
+}
+
 /**
  * Walkable-area partition preview: the area reachable from the entry
  * (« chemin empruntable ») in magenta, disconnected islands in violet.
  */
-function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
+function NavigationOverlay({
+  preview,
+  envelopeOnly = false,
+}: {
+  preview: WalkablePreview;
+  envelopeOnly?: boolean;
+}) {
   const shapes = useMemo(
     () => ({
       connected: walkableRingShape(preview.connected, preview.connectedHoles),
       disconnected: preview.disconnected
         .map((polygon) => walkableRingShape(polygon.exterior, polygon.holes))
         .filter((shape): shape is THREE.Shape => shape !== null),
+      envelopes: (preview.buildingBlocks ?? [])
+        .map((polygon) => walkableRingShape(polygon.exterior, polygon.holes))
+        .filter((shape): shape is THREE.Shape => shape !== null),
     }),
     [preview],
+  );
+  const envelopeLines = useMemo(
+    () =>
+      (preview.buildingBlocks ?? [])
+        .map((polygon, index) => ({
+          id: `envelope-${index}`,
+          points: walkableLinePoints(polygon.exterior, NAVIGATION_OVERLAY_Y + 0.006),
+        }))
+        .filter((polygon) => polygon.points.length >= 2),
+    [preview.buildingBlocks],
   );
   const routeCellIds = useMemo(() => new Set(preview.routeCellIds ?? []), [preview.routeCellIds]);
   const navmeshLines = useMemo(
@@ -680,6 +707,7 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
     () => ({
       connected: shapes.connected ? new THREE.ShapeGeometry(shapes.connected) : null,
       disconnected: shapes.disconnected.map((shape) => new THREE.ShapeGeometry(shape)),
+      envelopes: shapes.envelopes.map((shape) => new THREE.ShapeGeometry(shape)),
     }),
     [shapes],
   );
@@ -687,21 +715,44 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
   useEffect(() => () => {
     geometries.connected?.dispose();
     geometries.disconnected.forEach((geometry) => geometry.dispose());
+    geometries.envelopes.forEach((geometry) => geometry.dispose());
   }, [geometries]);
 
   return (
     <group>
-      {geometries.connected && (
+      {envelopeOnly && geometries.envelopes.map((geometry, index) => (
+        <mesh
+          key={`envelope-fill-${index}`}
+          position={[0, NAVIGATION_OVERLAY_Y + 0.001, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          renderOrder={896}
+          geometry={geometry}
+        >
+          <meshBasicMaterial color="#22d3ee" transparent opacity={0.28} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {envelopeOnly && envelopeLines.map(({ id, points }) => (
+        <Line
+          key={id}
+          points={points}
+          color="#67e8f9"
+          lineWidth={2.6}
+          transparent
+          opacity={0.95}
+          depthWrite={false}
+        />
+      ))}
+      {!envelopeOnly && geometries.connected && (
         <mesh position={[0, NAVIGATION_OVERLAY_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={890} geometry={geometries.connected}>
           <meshBasicMaterial color="#ff00ff" transparent opacity={0.22} depthWrite={false} />
         </mesh>
       )}
-      {geometries.disconnected.map((geometry, index) => (
+      {!envelopeOnly && geometries.disconnected.map((geometry, index) => (
         <mesh key={index} position={[0, NAVIGATION_OVERLAY_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={890} geometry={geometry}>
           <meshBasicMaterial color="#8b5cf6" transparent opacity={0.35} depthWrite={false} />
         </mesh>
       ))}
-      {navmeshLines.map(({ id, points }) => (
+      {!envelopeOnly && navmeshLines.map(({ id, points }) => (
         <Line
           key={id}
           points={points}
@@ -715,7 +766,7 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
           depthWrite={false}
         />
       ))}
-      {portalLines.map(({ id, points }) => (
+      {!envelopeOnly && portalLines.map(({ id, points }) => (
         <Line
           key={id}
           points={points}
@@ -729,7 +780,7 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
           depthWrite={false}
         />
       ))}
-      {flowFieldLines.map(({ id, points }) => (
+      {!envelopeOnly && flowFieldLines.map(({ id, points }) => (
         <group key={`flow-${id}`}>
           <Line
             points={points}
@@ -841,6 +892,7 @@ export function SimulationLayer({
   const catalogProducts = useCatalogStore((state) => state.products);
   const showTrajectories = useSimulationStore((state) => state.showTrajectories);
   const showNavigationOverlay = useSimulationStore((state) => state.showNavigationOverlay);
+  const showNavigationEnvelopeOnly = useSimulationStore((state) => state.showNavigationEnvelopeOnly);
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const pickupPopups = useSimulationStore((state) => state.pickupPopups);
   const viewMode = useUIStore((s) => s.viewMode);
@@ -1099,7 +1151,7 @@ export function SimulationLayer({
   }, [config.waypoints, invalidWaypointIds, invalidWaypointSuggestion]);
   const renderedWaypointSystems = useMemo(() => visibleWaypointSystems(config), [config]);
 
-  if (!config.enabled) return null;
+  if (!config.enabled && !(showNavigationOverlay && walkablePreview)) return null;
 
   return (
     <>
@@ -1130,7 +1182,7 @@ export function SimulationLayer({
         <TrajectoryOverlay trajectories={analytics.trajectories} />
       )}
       {showNavigationOverlay && walkablePreview && (
-        <NavigationOverlay preview={walkablePreview} />
+        <NavigationOverlay preview={walkablePreview} envelopeOnly={showNavigationEnvelopeOnly} />
       )}
       <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
       <PickupPopups popups={pickupPopups} agentPoses={agentPoses} />

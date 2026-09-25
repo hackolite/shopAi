@@ -301,7 +301,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     showTrajectories,
     setShowTrajectories,
     showNavigationOverlay,
+    showNavigationEnvelopeOnly,
     setShowNavigationOverlay,
+    setShowNavigationEnvelopeOnly,
     setWalkablePreview,
     pedestrianImport,
     setPedestrianImport,
@@ -1503,6 +1505,17 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               className="accent-blue-500"
             />
           </label>
+          {showNavigationOverlay && (
+            <label className="ml-3 flex items-center justify-between text-xs text-gray-300">
+              <span className="text-gray-500">Enveloppe bâtiments uniquement</span>
+              <input
+                type="checkbox"
+                checked={showNavigationEnvelopeOnly}
+                onChange={(event) => setShowNavigationEnvelopeOnly(event.target.checked)}
+                className="accent-blue-500"
+              />
+            </label>
+          )}
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Grille au sol</span>
             <input

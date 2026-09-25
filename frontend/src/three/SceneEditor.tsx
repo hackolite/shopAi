@@ -37,6 +37,7 @@ import {
   floorShapePlanePointCm,
   zoneCenterCm,
   zoneHeightCm,
+  zoneIsMergeableBuilding,
   zoneMounted,
   zoneOutlinePointsCm,
   zoneRotationDeg,
@@ -2371,11 +2372,24 @@ function FloorZoneLayer() {
   const playing = useSimulationStore((state) => state.playing);
   const paused = useSimulationStore((state) => state.paused);
   const invalidObstacleHighlights = useSimulationStore((state) => state.invalidObstacleHighlights);
+  const showNavigationOverlay = useSimulationStore((state) => state.showNavigationOverlay);
+  const showNavigationEnvelopeOnly = useSimulationStore((state) => state.showNavigationEnvelopeOnly);
+  const walkablePreview = useSimulationStore((state) => state.walkablePreview);
+  const visibleZones = useMemo(
+    () => (
+      showNavigationOverlay
+      && showNavigationEnvelopeOnly
+      && (walkablePreview?.buildingBlocks?.length ?? 0) > 0
+        ? zones.filter((zone) => !zoneIsMergeableBuilding(zone))
+        : zones
+    ),
+    [showNavigationEnvelopeOnly, showNavigationOverlay, walkablePreview?.buildingBlocks, zones],
+  );
 
   const selectedZone = selectedZoneId
-    ? zones.find((z) => z.id === selectedZoneId) ?? null
+    ? visibleZones.find((z) => z.id === selectedZoneId) ?? null
     : null;
-  const useReducedZoneSet = playing && !paused && zones.length > LARGE_SIMULATION_ZONE_COUNT;
+  const useReducedZoneSet = playing && !paused && visibleZones.length > LARGE_SIMULATION_ZONE_COUNT;
   const fullDetailZoneIds = useMemo(() => {
     if (!useReducedZoneSet) return null;
     return new Set([
@@ -2383,20 +2397,20 @@ function FloorZoneLayer() {
       ...(selectedZoneId ? [selectedZoneId] : []),
       ...(invalidObstacleHighlights.zoneIds ?? []),
       ...(invalidObstacleHighlights.allIds ?? []),
-      ...zones.filter((zone) => !zoneSupportsSimulationPreview(zone)).map((zone) => zone.id),
+      ...visibleZones.filter((zone) => !zoneSupportsSimulationPreview(zone)).map((zone) => zone.id),
     ]);
-  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, zones]);
+  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones]);
   const detailedZones = useMemo(
     () => (!useReducedZoneSet || fullDetailZoneIds == null
-      ? zones
-      : zones.filter((zone) => fullDetailZoneIds.has(zone.id))),
-    [fullDetailZoneIds, useReducedZoneSet, zones],
+      ? visibleZones
+      : visibleZones.filter((zone) => fullDetailZoneIds.has(zone.id))),
+    [fullDetailZoneIds, useReducedZoneSet, visibleZones],
   );
   const previewZones = useMemo(
     () => (!useReducedZoneSet || fullDetailZoneIds == null
       ? []
-      : zones.filter((zone) => !fullDetailZoneIds.has(zone.id))),
-    [fullDetailZoneIds, useReducedZoneSet, zones],
+      : visibleZones.filter((zone) => !fullDetailZoneIds.has(zone.id))),
+    [fullDetailZoneIds, useReducedZoneSet, visibleZones],
   );
 
   return (

@@ -1008,6 +1008,7 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
                     else 0
                 ),
                 "envelopeMergeGain": partition.runtime_envelope_gain,
+                "diagnostics": partition.diagnostic_profile,
             },
         )
         return response_payload

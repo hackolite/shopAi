@@ -18,6 +18,7 @@ import json
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import TypeAlias, TypedDict
 
 from shapely import BufferJoinStyle
@@ -25,6 +26,7 @@ from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
 from models.project import SceneData, SimulationConfig, SimulationWaypoint
+from services.diagnostic_logs import append_log
 from services.spatial_model import (
     BuildingBlock,
     NavMeshFlowField,
@@ -71,6 +73,7 @@ class WalkablePartition:
     simulation_connected: Polygon | None = None
     spatial_model: SpatialModel | None = None
     runtime_envelope_gain: dict[str, float | int] = field(default_factory=dict)
+    diagnostic_profile: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -86,6 +89,7 @@ class CompiledLayout:
     static_obstacles: list[SpatialObstacle]
     building_blocks: list[BuildingBlock]
     runtime_envelope_gain: dict[str, float | int]
+    compile_profile: dict[str, object] = field(default_factory=dict)
 
 
 _COMPILED_LAYOUT_CACHE: OrderedDict[str, CompiledLayout] = OrderedDict()
@@ -529,23 +533,61 @@ def _compile_runtime_component(component: Polygon) -> Polygon:
 
 
 def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
+    build_t0 = perf_counter()
     store_polygon = _store_polygon(scene.store)
+    obstacles_t0 = perf_counter()
     obstacles, runtime_envelope_gain = _collect_scene_obstacles(scene, store_polygon)
+    obstacles_ms = round((perf_counter() - obstacles_t0) * 1000.0, 2)
+    static_obstacles_t0 = perf_counter()
     static_obstacles = _spatial_obstacles(obstacles)
+    static_obstacles_ms = round((perf_counter() - static_obstacles_t0) * 1000.0, 2)
+    building_blocks_t0 = perf_counter()
     building_blocks = _building_blocks([
         (identity, obstacle)
         for identity, obstacle in obstacles
         if identity.get("memberOsmWayIds") or identity.get("osmWayId")
     ])
+    building_blocks_ms = round((perf_counter() - building_blocks_t0) * 1000.0, 2)
+    split_t0 = perf_counter()
     walkable, splitting = _collect_splitting_obstacles(store_polygon, obstacles)
+    split_ms = round((perf_counter() - split_t0) * 1000.0, 2)
     walkable = walkable.buffer(0)
+    components_t0 = perf_counter()
     components = _walkable_components(walkable)
     runtime_components = [_compile_runtime_component(component) for component in components]
+    components_ms = round((perf_counter() - components_t0) * 1000.0, 2)
+    navmesh_t0 = perf_counter()
     navmesh_components = [
         build_navmesh_graph(runtime_component, cell_id_prefix=f"nav-{index}")
         for index, runtime_component in enumerate(runtime_components)
     ]
+    navmesh_ms = round((perf_counter() - navmesh_t0) * 1000.0, 2)
+    spatial_index_t0 = perf_counter()
     cell_size_m, obstacle_spatial_index = _build_obstacle_spatial_index(store_polygon, obstacles)
+    spatial_index_ms = round((perf_counter() - spatial_index_t0) * 1000.0, 2)
+    total_ms = round((perf_counter() - build_t0) * 1000.0, 2)
+    compile_profile = {
+        "timingMs": {
+            "obstacles": obstacles_ms,
+            "staticObstacles": static_obstacles_ms,
+            "buildingBlocks": building_blocks_ms,
+            "split": split_ms,
+            "components": components_ms,
+            "navmesh": navmesh_ms,
+            "spatialIndex": spatial_index_ms,
+            "total": total_ms,
+        },
+        "counts": {
+            "obstacleCount": len(obstacles),
+            "staticObstacleCount": len(static_obstacles),
+            "buildingBlockCount": len(building_blocks),
+            "componentCount": len(components),
+            "runtimeComponentCount": len(runtime_components),
+            "excludedObstacleCount": len(splitting),
+            "navmeshCellCountTotal": sum(len(graph.cells) for graph in navmesh_components),
+            "navmeshPortalCountTotal": sum(len(graph.portals) for graph in navmesh_components),
+        },
+    }
     return CompiledLayout(
         scene_hash=_scene_hash(scene),
         store_polygon=store_polygon,
@@ -558,25 +600,74 @@ def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
         static_obstacles=static_obstacles,
         building_blocks=building_blocks,
         runtime_envelope_gain=runtime_envelope_gain,
+        compile_profile=compile_profile,
     )
 
 
 def compiled_layout(scene: SceneData) -> CompiledLayout:
+    request_t0 = perf_counter()
     scene_hash = _scene_hash(scene)
+    lookup_t0 = perf_counter()
     with _COMPILED_LAYOUT_CACHE_LOCK:
         cached = _COMPILED_LAYOUT_CACHE.get(scene_hash)
         if cached is not None:
             _COMPILED_LAYOUT_CACHE.move_to_end(scene_hash)
+            append_log(
+                source="backend",
+                category="walkable-compile-perf",
+                level="debug",
+                message="Walkable layout cache hit",
+                details={
+                    "sceneHash": scene_hash,
+                    "cacheState": "hit",
+                    "timingMs": {
+                        "lookup": round((perf_counter() - lookup_t0) * 1000.0, 2),
+                        "total": round((perf_counter() - request_t0) * 1000.0, 2),
+                    },
+                },
+            )
             return cached
+    build_t0 = perf_counter()
     built = _build_compiled_layout(scene)
+    build_ms = round((perf_counter() - build_t0) * 1000.0, 2)
     with _COMPILED_LAYOUT_CACHE_LOCK:
         cached = _COMPILED_LAYOUT_CACHE.get(scene_hash)
         if cached is not None:
             _COMPILED_LAYOUT_CACHE.move_to_end(scene_hash)
+            append_log(
+                source="backend",
+                category="walkable-compile-perf",
+                level="info",
+                message="Walkable layout cache filled concurrently",
+                details={
+                    "sceneHash": scene_hash,
+                    "cacheState": "contended-hit",
+                    "timingMs": {
+                        "build": build_ms,
+                        "total": round((perf_counter() - request_t0) * 1000.0, 2),
+                    },
+                    "compileProfile": cached.compile_profile,
+                },
+            )
             return cached
         _COMPILED_LAYOUT_CACHE[scene_hash] = built
         while len(_COMPILED_LAYOUT_CACHE) > _MAX_COMPILED_LAYOUTS:
             _COMPILED_LAYOUT_CACHE.popitem(last=False)
+    append_log(
+        source="backend",
+        category="walkable-compile-perf",
+        level="warning" if build_ms >= 120 else "info",
+        message="Walkable layout cache miss compiled",
+        details={
+            "sceneHash": scene_hash,
+            "cacheState": "miss",
+            "timingMs": {
+                "build": build_ms,
+                "total": round((perf_counter() - request_t0) * 1000.0, 2),
+            },
+            "compileProfile": built.compile_profile,
+        },
+    )
     return built
 
 
@@ -680,6 +771,7 @@ def _waypoint_supported_by_runtime(waypoint: SimulationWaypoint, runtime_walkabl
 
 
 def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> WalkablePartition:
+    partition_t0 = perf_counter()
     layout = compiled_layout(scene)
     if not layout.components:
         raise ValueError("Unable to derive a valid walkable area from the current store layout")
@@ -705,13 +797,18 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         for waypoint in [*entries, *transit, *exits]
         if _point_in_walkable(_waypoint_point(waypoint), connected)
     }
+    fallback_navmesh_used = False
+    fallback_navmesh_build_ms = 0.0
     if any(
         waypoint.id in reachable_waypoint_ids
         and not _waypoint_supported_by_runtime(waypoint, runtime_connected)
         for waypoint in [*entries, *transit, *exits]
     ):
+        fallback_t0 = perf_counter()
         simulation_connected = connected
         navmesh = build_navmesh_graph(simulation_connected, cell_id_prefix=f"nav-fallback-{connected_index}")
+        fallback_navmesh_used = True
+        fallback_navmesh_build_ms = round((perf_counter() - fallback_t0) * 1000.0, 2)
     runtime_connected = simulation_connected
 
     walkable_surface = WalkableSurface(
@@ -737,6 +834,18 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         reachable_waypoint_ids=reachable_waypoint_ids,
         spatial_model=spatial_model,
         runtime_envelope_gain=layout.runtime_envelope_gain,
+        diagnostic_profile={
+            "sceneHash": layout.scene_hash,
+            "compileProfile": layout.compile_profile,
+            "partition": {
+                "connectedIndex": connected_index,
+                "componentCount": len(layout.components),
+                "reachableWaypointCount": len(reachable_waypoint_ids),
+                "fallbackNavmeshUsed": fallback_navmesh_used,
+                "fallbackNavmeshBuildMs": fallback_navmesh_build_ms,
+                "totalMs": round((perf_counter() - partition_t0) * 1000.0, 2),
+            },
+        },
     )
 
 

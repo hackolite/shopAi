@@ -117,7 +117,7 @@ shopAi/
 ## 4.1 Backend
 
 ```bash
-cd /home/runner/work/shopAi/shopAi/backend
+cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -129,7 +129,7 @@ API docs : `http://localhost:8000/docs`
 ## 4.2 Frontend
 
 ```bash
-cd /home/runner/work/shopAi/shopAi/frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -141,13 +141,15 @@ UI : `http://localhost:5173`
 Uniquement si vous activez le mode agent LLM externe.
 
 ```bash
-cd /home/runner/work/shopAi/shopAi/orchestrator
+cd orchestrator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
+
+`orchestrator/.env.example` est versionné dans le dépôt et sert de base de configuration.
 
 Dans le backend, configurer `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm`.
 
@@ -289,7 +291,7 @@ Principes :
 
 ## 9.1 Frontend
 ```bash
-cd /home/runner/work/shopAi/shopAi/frontend
+cd frontend
 npm run lint
 npm run build
 npx vitest run
@@ -297,7 +299,7 @@ npx vitest run
 
 ## 9.2 Backend
 ```bash
-cd /home/runner/work/shopAi/shopAi/backend
+cd backend
 python -m pytest
 ```
 

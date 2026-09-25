@@ -889,13 +889,17 @@ def test_store_layout_import_osm_aggressive_reduction_simplifies_polygons_more()
 
     default_zone = default_response.json()["payload"]["scene"]["store"]["zones"][0]
     aggressive_zone = aggressive_response.json()["payload"]["scene"]["store"]["zones"][0]
-    default_stats = default_response.json()["payload"]["scene"]["source"]["importStats"]
-    aggressive_stats = aggressive_response.json()["payload"]["scene"]["source"]["importStats"]
-
-    assert aggressive_stats["aggressiveReduction"] is True
-    assert aggressive_stats["simplifyToleranceM"] > default_stats["simplifyToleranceM"]
     assert len(aggressive_zone["points"]) < len(default_zone["points"])
     assert aggressive_zone["source"]["vertexCountSimplified"] < default_zone["source"]["vertexCountSimplified"]
+
+    logs_response = client.get("/api/platform/logs")
+    assert logs_response.status_code == 200, logs_response.text
+    assert any(
+        entry.get("category") == "osm-import"
+        and entry.get("message") == "OSM import started"
+        and entry.get("details", {}).get("aggressiveReduction") is True
+        for entry in logs_response.json()["logs"]
+    )
 
 
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:

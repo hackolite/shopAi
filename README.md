@@ -136,7 +136,7 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend (ex. `export ...` en bash ou `$env:...=...` en PowerShell).
+Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend (ex. `export ...` en bash ou `$env:...=...` en PowerShell), puis démarrer l’orchestrator.
 
 API docs : `http://localhost:8000/docs`
 
@@ -167,7 +167,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER`.
 `LLM_PROVIDER=none` est un mode valide (sans fournisseur réel). Une clé provider n'est requise que si vous activez un mode LLM (`openai`, `anthropic`, `xai`, `openrouter`).
 Avec `LLM_PROVIDER=none`, `/assistant/llm` reste appelable en mode déterministe (sans appel fournisseur) et n’interprète pas de modifications libres.
-Pré-requis obligatoire pour tout appel backend `/assistant/llm` : `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` doit être défini côté backend.
+Chaîne de prérequis `/assistant/llm` : backend avec `STUDIO_LLM_WEBHOOK_URL` + orchestrator démarré (provider réel ou `none`).
 
 Windows (PowerShell) :
 ```powershell
@@ -339,6 +339,7 @@ Principes :
 ---
 
 ## 9) Tests, lint et build (commandes de référence)
+Chaque bloc ci-dessous est autonome et doit être exécuté depuis le répertoire indiqué.
 
 ## 9.1 Frontend
 ```bash

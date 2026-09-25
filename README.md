@@ -124,7 +124,6 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-export STUDIO_LLM_WEBHOOK_URL="http://localhost:8010/webhook/llm"  # requis pour /assistant/llm
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
@@ -134,9 +133,10 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-$env:STUDIO_LLM_WEBHOOK_URL = "http://localhost:8010/webhook/llm"  # requis pour /assistant/llm
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend.
 
 API docs : `http://localhost:8000/docs`
 
@@ -356,6 +356,8 @@ npm run lint
 npm run build
 npx vitest run
 ```
+
+Le projet ne fournit pas encore de script npm `test` dédié ; `npx vitest run` est la commande de référence actuelle.
 
 ## 9.2 Backend
 ```bash

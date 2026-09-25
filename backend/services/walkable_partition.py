@@ -20,6 +20,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TypeAlias, TypedDict
 
+from shapely import BufferJoinStyle
 from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
@@ -97,11 +98,11 @@ _RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
 # Aggressive runtime envelope tuning for OSM-derived building blocks:
 # - 10 m closing gap fuses nearby buildings into larger islands.
 # - 8 m simplify strips high-frequency contour detail.
-# - 16 m² minimum area removes tiny residual islands after simplification.
+# - 15.9 m² minimum area removes tiny residual islands after simplification.
 # The goal is lower obstacle complexity and faster walkable compilation.
 _NAV_BUILDING_ENVELOPE_BUFFER_M = 10.0
 _NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 8.0
-_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 16.0
+_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 15.9
 _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
 _NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.18
 
@@ -203,7 +204,9 @@ def _is_mergeable_building_zone(zone) -> bool:
 
 
 def _polygon_vertex_count(polygon: Polygon) -> int:
-    return len(polygon.exterior.coords) + sum(len(ring.coords) for ring in polygon.interiors)
+    exterior = max(0, len(polygon.exterior.coords) - 1)
+    interiors = sum(max(0, len(ring.coords) - 1) for ring in polygon.interiors)
+    return exterior + interiors
 
 
 def _build_runtime_envelope_gain(
@@ -260,9 +263,15 @@ def _merge_building_obstacles(
         )
 
     polygon_centroids = [polygon.centroid for polygon in polygons]
-    grown = [polygon.buffer(_NAV_BUILDING_ENVELOPE_BUFFER_M) for polygon in polygons]
+    grown = [
+        polygon.buffer(_NAV_BUILDING_ENVELOPE_BUFFER_M, join_style=BufferJoinStyle.mitre)
+        for polygon in polygons
+    ]
     grown_bounds = [geometry.bounds for geometry in grown]
-    merged = unary_union(grown).buffer(-_NAV_BUILDING_ENVELOPE_BUFFER_M)
+    merged = unary_union(grown).buffer(
+        -_NAV_BUILDING_ENVELOPE_BUFFER_M,
+        join_style=BufferJoinStyle.mitre,
+    )
     islands = list(merged.geoms) if hasattr(merged, "geoms") else [merged]
     simplified: list[tuple[dict, Polygon]] = []
     for island in islands:

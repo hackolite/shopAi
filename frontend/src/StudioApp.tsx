@@ -27,6 +27,7 @@ import { resetProjectStores } from './store/projectSwitch';
 import type { FurnitureInstance, Planogram } from './types/cad';
 import { findFreeFurniturePosition } from './engine/furnitureCollision';
 import { directionFromKey, navigatePlanogramCell } from './engine/planogramCellNavigation';
+import { startFrontendPerfDiagnostics } from './engine/perfDiagnostics';
 
 const DEFAULT_PROJECT = 'retail_cad';
 /** localStorage key remembering the last opened project so F5 restores it. */
@@ -107,6 +108,14 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   useEffect(() => {
     setSaveStatus('idle');
   }, [scene, zones, simulationConfig]);
+
+  useEffect(() => {
+    const collector = startFrontendPerfDiagnostics({
+      projectId,
+      appendLog: appendClientLog,
+    });
+    collector.setProjectId(projectId);
+  }, [appendClientLog, projectId]);
 
   // Tracks the project ID currently being loaded; used to discard stale
   // responses when the user switches projects before a load completes.

@@ -6,6 +6,7 @@ import { useZoneStore } from '../../store/zoneStore';
 import { useProjectStore } from '../../store/projectStore';
 import { buildRuntimeSimulationConfig, useSimulationStore } from '../../store/simulationStore';
 import { cadApi } from '../../api/cad';
+import { platformApi } from '../../api/platform';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram, FloorZone, FloorZoneSource } from '../../types/cad';
 import { extendGondolaWidth, extendGondolaHeight, legacyCellsToSeparators, gondolaToLegacyPlanogram } from '../../engine/gondola';
@@ -15,6 +16,7 @@ import {
   computeFurnitureMetrics,
   computeImplantationMetrics,
 } from '../../engine/assortmentMetrics';
+import { getFrontendPerfDiagnosticsSnapshot } from '../../engine/perfDiagnostics';
 
 /** Minimum cm growth required before extending a linked planogram to fill new gondola space. */
 const DIMENSION_CHANGE_TOLERANCE_CM = 0.5;
@@ -26,6 +28,10 @@ const DEFAULT_COLUMN_WIDTH_CM = 40;
 /** Format an optional euro amount for display, "—" when unknown. */
 function formatEur(value: number | null | undefined): string {
   return value == null ? '—' : `${value.toFixed(2)} €`;
+}
+
+function formatPerfValue(value: number | null | undefined, suffix = ''): string {
+  return value == null ? '—' : `${value.toFixed(2)}${suffix}`;
 }
 
 const FACE_LABELS: Record<FaceId, string> = {
@@ -1011,6 +1017,10 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const setWalkablePreview = useSimulationStore((state) => state.setWalkablePreview);
   const previewRequestId = useRef(0);
+  const [perfExportBusy, setPerfExportBusy] = useState(false);
+  const [perfExportError, setPerfExportError] = useState<string | null>(null);
+  const [backendPerfLogCount, setBackendPerfLogCount] = useState<number | null>(null);
+  const [lastPerfDownloadAt, setLastPerfDownloadAt] = useState<string | null>(null);
 
   const runtimeConfig = useMemo(() => buildRuntimeSimulationConfig(simulationConfig), [simulationConfig]);
   const sceneWithZones = useMemo(
@@ -1090,6 +1100,38 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const buildingEnvelopeCount = walkablePreview?.buildingBlocks?.length ?? null;
   const excludedObstacleCount = walkablePreview?.excludedObstacles.length ?? null;
   const connectedVertices = walkablePreview?.connected.length ?? null;
+  const frontendPerfSnapshot = getFrontendPerfDiagnosticsSnapshot();
+  const latestFrontendPerfSample = frontendPerfSnapshot?.samples.at(-1) ?? null;
+  const handleDownloadPerfLogs = async () => {
+    setPerfExportBusy(true);
+    setPerfExportError(null);
+    try {
+      const backend = await platformApi.getDiagnosticLogs(2000);
+      const frontend = getFrontendPerfDiagnosticsSnapshot();
+      setBackendPerfLogCount(backend.logs.length);
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        projectId,
+        frontend,
+        backend: {
+          logCount: backend.logs.length,
+          logs: backend.logs,
+        },
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const safeProjectId = (projectId ?? 'project').replace(/[^a-z0-9_-]+/gi, '_');
+      const anchor = document.createElement('a');
+      anchor.href = URL.createObjectURL(blob);
+      anchor.download = `${safeProjectId}_perf_diagnostics.json`;
+      anchor.click();
+      URL.revokeObjectURL(anchor.href);
+      setLastPerfDownloadAt(payload.generatedAt);
+    } catch (error) {
+      setPerfExportError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPerfExportBusy(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -1315,6 +1357,48 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                   <div className="flex justify-between text-gray-400">
                     <span>Obstacles exclus</span>
                     <span className="text-gray-300">{excludedObstacleCount ?? '—'}</span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-800" />
+                  <div className="flex justify-between text-gray-400">
+                    <span>FPS front (dernier échantillon)</span>
+                    <span className="text-gray-300">{formatPerfValue(latestFrontendPerfSample?.fps)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Frame time</span>
+                    <span className="text-gray-300">{formatPerfValue(latestFrontendPerfSample?.frameTimeMs, ' ms')}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>CPU front (thread principal)</span>
+                    <span className="text-gray-300">{formatPerfValue(latestFrontendPerfSample?.cpuMainThreadBusyPct, ' %')}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Mémoire JS utilisée</span>
+                    <span className="text-gray-300">{formatPerfValue(latestFrontendPerfSample?.usedJsHeapMb, ' MB')}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Long tasks (fenêtre)</span>
+                    <span className="text-gray-300">{latestFrontendPerfSample?.longTaskCount ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>GPU (WebGL)</span>
+                    <span className="text-gray-300 text-right truncate max-w-32">
+                      {frontendPerfSnapshot?.hardware.webglRenderer ?? '—'}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-800 space-y-2">
+                    <button
+                      type="button"
+                      className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-[11px] text-gray-200 hover:border-gray-500 disabled:opacity-60"
+                      disabled={perfExportBusy}
+                      onClick={() => void handleDownloadPerfLogs()}
+                    >
+                      {perfExportBusy ? 'Export logs perf…' : 'Télécharger logs perf (front+back)'}
+                    </button>
+                    <div className="text-[11px] text-gray-500 leading-snug">
+                      {backendPerfLogCount != null && <div>Logs backend inclus: {backendPerfLogCount}</div>}
+                      {lastPerfDownloadAt && <div>Dernier export: {new Date(lastPerfDownloadAt).toLocaleTimeString()}</div>}
+                      {perfExportError && <div className="text-red-300">{perfExportError}</div>}
+                    </div>
                   </div>
                 </div>
               </div>

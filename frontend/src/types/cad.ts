@@ -345,6 +345,20 @@ export interface NavMeshPreview {
   portals: NavMeshPortalPreview[];
 }
 
+export interface NavMeshFlowCellPreview {
+  cellId: string;
+  direction: [number, number];
+  target: [number, number];
+  integrationCost: number;
+  nextCellId: string | null;
+}
+
+export interface NavMeshFlowFieldPreview {
+  destinationCellId: string;
+  destination: [number, number];
+  cells: NavMeshFlowCellPreview[];
+}
+
 /** Partition of the walkable floor area reachable (or not) from the entry. */
 export interface WalkablePreview {
   connected: [number, number][];
@@ -354,6 +368,7 @@ export interface WalkablePreview {
   navmesh?: NavMeshPreview | null;
   buildingBlocks?: WalkablePolygonPreview[];
   routeCellIds?: string[];
+  routeFlowField?: NavMeshFlowFieldPreview | null;
 }
 
 export interface Scene {

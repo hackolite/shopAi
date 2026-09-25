@@ -26,11 +26,13 @@ from shapely.ops import unary_union
 from models.project import SceneData, SimulationConfig, SimulationWaypoint
 from services.spatial_model import (
     BuildingBlock,
+    NavMeshFlowField,
     NavMeshGraph,
     SpatialModel,
     SpatialObstacle,
     WalkableSurface,
     astar_cell_path,
+    build_navmesh_flow_field,
     build_navmesh_graph,
 )
 from services.simulation import (
@@ -129,6 +131,20 @@ class NavMeshPortalPreview(TypedDict):
 class NavMeshPreview(TypedDict):
     cells: list[NavMeshCellPreview]
     portals: list[NavMeshPortalPreview]
+
+
+class NavMeshFlowCellPreview(TypedDict):
+    cellId: str
+    direction: CmPoint
+    target: CmPoint
+    integrationCost: float
+    nextCellId: str | None
+
+
+class NavMeshFlowFieldPreview(TypedDict):
+    destinationCellId: str
+    destination: CmPoint
+    cells: list[NavMeshFlowCellPreview]
 
 
 def _store_polygon(store) -> Polygon:
@@ -736,6 +752,26 @@ def navmesh_to_cm(graph: NavMeshGraph) -> NavMeshPreview:
     }
 
 
+def navmesh_flow_field_to_cm(flow_field: NavMeshFlowField) -> NavMeshFlowFieldPreview:
+    return {
+        "destinationCellId": flow_field.destination_cell_id,
+        "destination": [
+            round(_m_to_cm(flow_field.destination_point[0]), 2),
+            round(_m_to_cm(flow_field.destination_point[1]), 2),
+        ],
+        "cells": [
+            {
+                "cellId": cell.cell_id,
+                "direction": [round(cell.direction[0], 4), round(cell.direction[1], 4)],
+                "target": [round(_m_to_cm(cell.target_point[0]), 2), round(_m_to_cm(cell.target_point[1]), 2)],
+                "integrationCost": round(cell.integration_cost, 4),
+                "nextCellId": cell.next_cell_id,
+            }
+            for cell in flow_field.cells.values()
+        ],
+    }
+
+
 def navmesh_route_preview(
     partition: WalkablePartition,
     entries: list[SimulationWaypoint],
@@ -746,6 +782,21 @@ def navmesh_route_preview(
     start = _waypoint_point(entries[0])
     end = _waypoint_point(exits[0])
     return astar_cell_path(partition.spatial_model.navmesh, start, end)
+
+
+def navmesh_flow_preview(
+    partition: WalkablePartition,
+    exits: list[SimulationWaypoint],
+) -> NavMeshFlowFieldPreview | None:
+    if partition.spatial_model is None or not exits:
+        return None
+    flow_field = build_navmesh_flow_field(
+        partition.spatial_model.navmesh,
+        _waypoint_point(exits[0]),
+    )
+    if flow_field is None:
+        return None
+    return navmesh_flow_field_to_cm(flow_field)
 
 
 def route_preview_waypoints(

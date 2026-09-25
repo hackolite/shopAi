@@ -294,10 +294,13 @@ class LiveSimulationSession:
             stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 fallback_exit = self.exits[0]
-                remaining_tokens = self._expand_route_tokens(
-                    [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
+                remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
+                stage_ids = (
+                    self.route_planner.stage_ids_for_route(remaining_tokens)
+                    if self.route_planner is not None
+                    else self._route_tokens_to_stage_ids(self._expand_route_tokens(remaining_tokens))
                 )
-                stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
+                remaining_tokens = self._expand_route_tokens(remaining_tokens)
             if len(stage_ids) < 2:
                 continue
             position = simsvc._closest_walkable_point(old_pos, placement_walkable)
@@ -364,9 +367,14 @@ class LiveSimulationSession:
             and self.active_agents < max_customers
         ):
             if step_spawn_positions is None:
-                step_spawn_positions = simsvc.current_agent_positions(self.sim)
-            tokens = self._expand_route_tokens(self._build_route_tokens(self.spawned))
-            stage_ids = self._route_tokens_to_stage_ids(tokens)
+                step_spawn_positions = simsvc.current_agent_position_index(self.sim)
+            raw_tokens = self._build_route_tokens(self.spawned)
+            tokens = self._expand_route_tokens(raw_tokens)
+            stage_ids = (
+                self.route_planner.stage_ids_for_route(raw_tokens)
+                if self.route_planner is not None
+                else self._route_tokens_to_stage_ids(tokens)
+            )
             if len(stage_ids) < 2:
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
                 continue
@@ -397,7 +405,7 @@ class LiveSimulationSession:
                 )
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
                 continue
-            step_spawn_positions.append(spawn_position)
+            step_spawn_positions.insert(spawn_position)
             stable_id = self.next_stable_agent_id
             self.next_stable_agent_id += 1
             self.agent_routes[agent_id] = _LiveAgentRoute(
@@ -506,9 +514,14 @@ class LiveSimulationSession:
             if scheduled_at > self.time_seconds:
                 break
             if step_spawn_positions is None:
-                step_spawn_positions = simsvc.current_agent_positions(self.sim)
-            tokens = self._expand_route_tokens(self._pedestrian_route_tokens(plan, self.pedestrian_cursor))
-            stage_ids = self._route_tokens_to_stage_ids(tokens)
+                step_spawn_positions = simsvc.current_agent_position_index(self.sim)
+            raw_tokens = self._pedestrian_route_tokens(plan, self.pedestrian_cursor)
+            tokens = self._expand_route_tokens(raw_tokens)
+            stage_ids = (
+                self.route_planner.stage_ids_for_route(raw_tokens)
+                if self.route_planner is not None
+                else self._route_tokens_to_stage_ids(tokens)
+            )
             if len(stage_ids) < 2:
                 self.pedestrian_cursor += 1
                 continue
@@ -537,7 +550,7 @@ class LiveSimulationSession:
                     exc,
                 )
                 break
-            step_spawn_positions.append(spawn_position)
+            step_spawn_positions.insert(spawn_position)
             stable_id = self.next_stable_agent_id
             self.next_stable_agent_id += 1
             self.agent_routes[agent_id] = _LiveAgentRoute(

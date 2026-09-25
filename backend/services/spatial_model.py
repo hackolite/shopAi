@@ -59,6 +59,22 @@ class NavMeshPortal:
     width_m: float
 
 
+@dataclass(frozen=True)
+class NavMeshFlowCell:
+    cell_id: str
+    integration_cost: float
+    next_cell_id: str | None
+    direction: tuple[float, float]
+    target_point: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class NavMeshFlowField:
+    destination_cell_id: str
+    destination_point: tuple[float, float]
+    cells: dict[str, NavMeshFlowCell]
+
+
 @dataclass
 class NavMeshGraph:
     cells: list[NavMeshCell]
@@ -348,6 +364,95 @@ def astar_cell_path(
             )
             heappush(frontier, (tentative + heuristic, neighbor))
     return []
+
+
+def build_navmesh_flow_field(
+    graph: NavMeshGraph,
+    destination_point: tuple[float, float],
+) -> NavMeshFlowField | None:
+    destination_cell = locate_navmesh_cell(graph, destination_point)
+    if destination_cell is None:
+        return None
+
+    frontier: list[tuple[float, str]] = [(0.0, destination_cell.cell_id)]
+    integration_costs: dict[str, float] = {destination_cell.cell_id: 0.0}
+    next_hops: dict[str, str | None] = {destination_cell.cell_id: None}
+
+    while frontier:
+        current_cost, current_id = heappop(frontier)
+        if current_cost > integration_costs.get(current_id, math.inf):
+            continue
+        current_cell = graph.cell(current_id)
+        if current_cell is None:
+            continue
+        for neighbor_id in graph.adjacency.get(current_id, []):
+            neighbor_cell = graph.cell(neighbor_id)
+            if neighbor_cell is None:
+                continue
+            tentative = current_cost + math.hypot(
+                neighbor_cell.centroid[0] - current_cell.centroid[0],
+                neighbor_cell.centroid[1] - current_cell.centroid[1],
+            )
+            if tentative >= integration_costs.get(neighbor_id, math.inf):
+                continue
+            integration_costs[neighbor_id] = tentative
+            next_hops[neighbor_id] = current_id
+            heappush(frontier, (tentative, neighbor_id))
+
+    flow_cells: dict[str, NavMeshFlowCell] = {}
+    for cell in graph.cells:
+        next_cell_id = next_hops.get(cell.cell_id)
+        if cell.cell_id != destination_cell.cell_id and next_cell_id is None:
+            continue
+        target_point = destination_point
+        if next_cell_id is not None:
+            portal = graph.portal_between(cell.cell_id, next_cell_id)
+            next_cell = graph.cell(next_cell_id)
+            if portal is not None:
+                target_point = portal.midpoint
+            elif next_cell is not None:
+                target_point = next_cell.centroid
+        dx = target_point[0] - cell.centroid[0]
+        dy = target_point[1] - cell.centroid[1]
+        length = math.hypot(dx, dy)
+        direction = (0.0, 0.0) if length <= 1e-9 else (dx / length, dy / length)
+        flow_cells[cell.cell_id] = NavMeshFlowCell(
+            cell_id=cell.cell_id,
+            integration_cost=float(integration_costs.get(cell.cell_id, 0.0)),
+            next_cell_id=next_cell_id,
+            direction=direction,
+            target_point=target_point,
+        )
+
+    return NavMeshFlowField(
+        destination_cell_id=destination_cell.cell_id,
+        destination_point=destination_point,
+        cells=flow_cells,
+    )
+
+
+def trace_flow_field_path(
+    graph: NavMeshGraph,
+    flow_field: NavMeshFlowField,
+    start_point: tuple[float, float],
+) -> list[str]:
+    start_cell = locate_navmesh_cell(graph, start_point)
+    if start_cell is None or start_cell.cell_id not in flow_field.cells:
+        return []
+    path = [start_cell.cell_id]
+    seen = {start_cell.cell_id}
+    current_id = start_cell.cell_id
+    while current_id != flow_field.destination_cell_id:
+        flow_cell = flow_field.cells.get(current_id)
+        if flow_cell is None:
+            return []
+        next_cell_id = flow_cell.next_cell_id
+        if next_cell_id is None or next_cell_id in seen:
+            return []
+        path.append(next_cell_id)
+        seen.add(next_cell_id)
+        current_id = next_cell_id
+    return path
 
 
 def _reconstruct_path(came_from: dict[str, str | None], current: str) -> list[str]:

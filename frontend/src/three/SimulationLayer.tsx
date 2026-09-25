@@ -651,6 +651,30 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
       })),
     [preview.navmesh],
   );
+  const flowFieldLines = useMemo(() => {
+    const centroidByCellId = new Map((preview.navmesh?.cells ?? []).map((cell) => [cell.id, cell.centroid] as const));
+    return (preview.routeFlowField?.cells ?? []).flatMap((cell) => {
+      const centroid = centroidByCellId.get(cell.cellId);
+      if (!centroid) {
+        return [];
+      }
+      const dx = cell.target[0] - centroid[0];
+      const dz = cell.target[1] - centroid[1];
+      const targetDistanceCm = Math.hypot(dx, dz);
+      if (targetDistanceCm <= 1e-3) {
+        return [];
+      }
+      const drawnDistanceCm = Math.min(70, targetDistanceCm);
+      const scale = drawnDistanceCm / targetDistanceCm;
+      return [{
+        id: cell.cellId,
+        points: [
+          [centroid[0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.005, centroid[1] * CM_TO_UNIT],
+          [(centroid[0] + dx * scale) * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.005, (centroid[1] + dz * scale) * CM_TO_UNIT],
+        ] as [number, number, number][],
+      }];
+    });
+  }, [preview.navmesh, preview.routeFlowField]);
 
   const geometries = useMemo(
     () => ({
@@ -702,6 +726,17 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
           gapSize={0.04}
           transparent
           opacity={0.6}
+          depthWrite={false}
+        />
+      ))}
+      {flowFieldLines.map(({ id, points }) => (
+        <Line
+          key={`flow-${id}`}
+          points={points}
+          color="#f59e0b"
+          lineWidth={1.8}
+          transparent
+          opacity={0.8}
           depthWrite={false}
         />
       ))}

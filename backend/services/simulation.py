@@ -26,7 +26,13 @@ from models.project import (
     WaypointMetrics,
 )
 from services.flow_analytics import build_analytics
-from services.spatial_model import SpatialModel, astar_cell_path
+from services.spatial_model import (
+    NavMeshFlowField,
+    SpatialModel,
+    astar_cell_path,
+    build_navmesh_flow_field,
+    trace_flow_field_path,
+)
 
 CM_TO_M = 0.01
 M_TO_CM = 100.0
@@ -118,6 +124,28 @@ class WaypointPassageTracker:
         self._last_stage.clear()
 
 
+@dataclass
+class PositionSpatialHash:
+    cell_size_m: float
+    buckets: dict[tuple[int, int], list[tuple[float, float]]] = field(default_factory=dict)
+
+    def _bucket_key(self, point: tuple[float, float]) -> tuple[int, int]:
+        return (int(math.floor(point[0] / self.cell_size_m)), int(math.floor(point[1] / self.cell_size_m)))
+
+    def insert(self, point: tuple[float, float]) -> None:
+        self.buckets.setdefault(self._bucket_key(point), []).append(point)
+
+    def clears(self, candidate: tuple[float, float], min_dist_m: float) -> bool:
+        radius = max(1, int(math.ceil(min_dist_m / max(self.cell_size_m, 1e-6))))
+        base_col, base_row = self._bucket_key(candidate)
+        for col in range(base_col - radius, base_col + radius + 1):
+            for row in range(base_row - radius, base_row + radius + 1):
+                for occupied_x, occupied_z in self.buckets.get((col, row), []):
+                    if math.hypot(candidate[0] - occupied_x, candidate[1] - occupied_z) < min_dist_m:
+                        return False
+        return True
+
+
 def queue_wait_metrics(runtime: "_WaypointRuntime | None", current_time: float) -> dict[str, float]:
     """Return the queue waiting-time statistics of a retention waypoint.
 
@@ -167,6 +195,7 @@ class NavMeshRoutePlanner:
     hidden_stage_token_prefix: str = "nav"
     _expanded_route_cache: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
     _segment_token_cache: dict[tuple[str, str], list[str]] = field(default_factory=dict)
+    _flow_field_cache: dict[str, NavMeshFlowField] = field(default_factory=dict)
 
     def expanded_route_tokens(
         self,
@@ -212,11 +241,7 @@ class NavMeshRoutePlanner:
             tokens = [to_token]
             self._segment_token_cache[cache_key] = list(tokens)
             return tokens
-        cell_path = astar_cell_path(
-            self.spatial_model.navmesh,
-            _waypoint_point(from_waypoint),
-            _waypoint_point(to_waypoint),
-        )
+        cell_path = self._cell_path(_waypoint_point(from_waypoint), to_token, _waypoint_point(to_waypoint))
         if len(cell_path) <= 1:
             tokens = [to_token]
             self._segment_token_cache[cache_key] = list(tokens)
@@ -253,6 +278,41 @@ class NavMeshRoutePlanner:
         tokens = [*hidden_tokens, to_token]
         self._segment_token_cache[cache_key] = list(tokens)
         return tokens
+
+    def _cell_path(
+        self,
+        from_point: tuple[float, float],
+        to_token: str,
+        to_point: tuple[float, float],
+    ) -> list[str]:
+        if self.spatial_model is None:
+            return []
+        flow_field = self._flow_field_for_token(to_token, to_point)
+        if flow_field is not None:
+            flow_path = trace_flow_field_path(self.spatial_model.navmesh, flow_field, from_point)
+            if flow_path:
+                return flow_path
+        return astar_cell_path(
+            self.spatial_model.navmesh,
+            from_point,
+            to_point,
+        )
+
+    def _flow_field_for_token(
+        self,
+        to_token: str,
+        to_point: tuple[float, float],
+    ) -> NavMeshFlowField | None:
+        if self.spatial_model is None or to_token.startswith("exit_hidden:"):
+            return None
+        cached = self._flow_field_cache.get(to_token)
+        if cached is not None:
+            return cached
+        flow_field = build_navmesh_flow_field(self.spatial_model.navmesh, to_point)
+        if flow_field is None:
+            return None
+        self._flow_field_cache[to_token] = flow_field
+        return flow_field
 
 
 def _split_accessible_area_detail(
@@ -821,20 +881,19 @@ def _min_entry_radius_cm(agent_count: int) -> float:
 
 def _candidate_clears_occupied(
     candidate: tuple[float, float],
-    occupied: list[tuple[float, float]],
+    occupied: list[tuple[float, float]] | PositionSpatialHash,
 ) -> bool:
     min_dist_m = _cm_to_m(SPAWN_SPACING_CM)
-    return all(
-        math.hypot(candidate[0] - ox, candidate[1] - oz) >= min_dist_m
-        for ox, oz in occupied
-    )
+    if isinstance(occupied, PositionSpatialHash):
+        return occupied.clears(candidate, min_dist_m)
+    return all(math.hypot(candidate[0] - ox, candidate[1] - oz) >= min_dist_m for ox, oz in occupied)
 
 
 def _spawn_from_entry(
     waypoint: SimulationWaypoint,
     walkable: Polygon,
     rng: random.Random,
-    occupied_positions: list[tuple[float, float]] | None = None,
+    occupied_positions: list[tuple[float, float]] | PositionSpatialHash | None = None,
 ) -> tuple[float, float]:
     center_x, center_z = _safe_waypoint_point(
         waypoint,
@@ -843,7 +902,8 @@ def _spawn_from_entry(
     )
     occupied = occupied_positions or []
     # Use at least enough radius to avoid overlaps with already-occupied slots.
-    min_radius_cm = _min_entry_radius_cm(len(occupied) + 1)
+    occupied_count = sum(len(bucket) for bucket in occupied.buckets.values()) if isinstance(occupied, PositionSpatialHash) else len(occupied)
+    min_radius_cm = _min_entry_radius_cm(occupied_count + 1)
     radius_m = _cm_to_m(max(min_radius_cm, waypoint.radiusCm))
     spawnable = _walkable_with_clearance(walkable, AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM) or walkable
     for _ in range(240):
@@ -908,12 +968,19 @@ def current_agent_positions(sim: object) -> list[tuple[float, float]]:
     ]
 
 
+def current_agent_position_index(sim: object) -> PositionSpatialHash:
+    index = PositionSpatialHash(cell_size_m=_cm_to_m(SPAWN_SPACING_CM))
+    for position in current_agent_positions(sim):
+        index.insert(position)
+    return index
+
+
 def add_agent_with_spawn_retry(
     sim: object,
     waypoint: SimulationWaypoint,
     walkable: Polygon,
     rng: random.Random,
-    occupied_positions: list[tuple[float, float]],
+    occupied_positions: list[tuple[float, float]] | PositionSpatialHash,
     journey_id: int,
     stage_id: int,
     desired_speed: float,
@@ -1223,7 +1290,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             if step_spawn_positions is None:
-                step_spawn_positions = current_agent_positions(sim)
+                step_spawn_positions = current_agent_position_index(sim)
             selected_entry = entries[spawned % len(entries)]
             selected_tokens: list[str] = [selected_entry.id]
             for waypoint in transit_waypoints:
@@ -1248,7 +1315,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 stage_id=initial_target_stage_id(selected_stage_ids),
                 desired_speed=desired_speed,
             )
-            step_spawn_positions.append(spawn_position)
+            step_spawn_positions.insert(spawn_position)
             agent_desired_speeds[agent_id] = desired_speed
             # The agent starts already past the entry (its first target is the
             # next stage), so the entry throughput is credited at spawn time.

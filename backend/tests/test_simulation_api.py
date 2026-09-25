@@ -466,6 +466,10 @@ def test_walkable_preview_endpoint_returns_components() -> None:
     assert payload["navmesh"]["cells"]
     assert payload["navmesh"]["portals"]
     assert payload["routeCellIds"]
+    assert payload["routeFlowField"]["cells"]
+    assert payload["routeFlowField"]["destinationCellId"] in {
+        cell["id"] for cell in payload["navmesh"]["cells"]
+    }
 
 
 def test_walkable_preview_disconnected_exit_returns_422() -> None:

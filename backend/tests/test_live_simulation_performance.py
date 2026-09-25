@@ -6,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import services.simulation as simsvc
 from api.cad_projects import router
 from models.project import PedestrianPickupPlan, SceneData, SimulationConfig
 from services.live_simulation import (
@@ -162,10 +163,28 @@ def test_live_runtime_expands_routes_through_hidden_navmesh_tokens_and_caches_se
     assert hidden_tokens
     assert session.route_planner is not None
     assert session.route_planner._segment_token_cache
+    assert session.route_planner._flow_field_cache
 
     cached_before = dict(session.route_planner._segment_token_cache)
+    flow_cached_before = dict(session.route_planner._flow_field_cache)
     session.tick(1, include_waypoint_metrics=False)
     assert dict(session.route_planner._segment_token_cache) == cached_before
+    assert dict(session.route_planner._flow_field_cache) == flow_cached_before
+
+
+def test_position_spatial_hash_matches_linear_clearance_checks() -> None:
+    positions = [(1.0, 1.0), (2.0, 1.0), (5.0, 5.0)]
+    index = simsvc.PositionSpatialHash(cell_size_m=simsvc._cm_to_m(simsvc.SPAWN_SPACING_CM))
+    for position in positions:
+        index.insert(position)
+
+    near_candidate = (1.2, 1.0)
+    far_candidate = (8.0, 8.0)
+
+    assert simsvc._candidate_clears_occupied(near_candidate, positions) is False
+    assert simsvc._candidate_clears_occupied(near_candidate, index) is False
+    assert simsvc._candidate_clears_occupied(far_candidate, positions) is True
+    assert simsvc._candidate_clears_occupied(far_candidate, index) is True
 
 
 @pytest.mark.parametrize("frame_window", [8, 16])

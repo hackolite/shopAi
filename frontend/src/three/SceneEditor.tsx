@@ -2427,16 +2427,17 @@ function FloorZoneLayer() {
   // That mismatch — not the actual navmesh computation, which always runs on
   // the simplified envelope — is what made agents look choppy only when the
   // detailed buildings were visible.
-  const previewableBuildingZoneIds = useMemo(
-    () => new Set(
-      hasNavigationEnvelopePreview
-        ? visibleZones.filter((zone) => zoneIsMergeableBuilding(zone)).map((zone) => zone.id)
-        : [],
+  const zoneCanPreviewDuringPlayback = useCallback(
+    (zone: FloorZone) => (
+      zoneSupportsSimulationPreview(zone)
+      || (hasNavigationEnvelopePreview && zoneIsMergeableBuilding(zone))
     ),
-    [hasNavigationEnvelopePreview, visibleZones],
+    [hasNavigationEnvelopePreview],
   );
+  const hasPreviewableBuildings = hasNavigationEnvelopePreview
+    && visibleZones.some((zone) => zoneIsMergeableBuilding(zone));
   const useReducedZoneSet = playing && !paused && (
-    displayableZones.length > LARGE_SIMULATION_ZONE_COUNT || previewableBuildingZoneIds.size > 0
+    displayableZones.length > LARGE_SIMULATION_ZONE_COUNT || hasPreviewableBuildings
   );
   const fullDetailZoneIds = useMemo(() => {
     if (!useReducedZoneSet) return null;
@@ -2446,10 +2447,10 @@ function FloorZoneLayer() {
       ...(invalidObstacleHighlights.zoneIds ?? []),
       ...(invalidObstacleHighlights.allIds ?? []),
       ...visibleZones
-        .filter((zone) => !zoneSupportsSimulationPreview(zone) && !previewableBuildingZoneIds.has(zone.id))
+        .filter((zone) => !zoneCanPreviewDuringPlayback(zone))
         .map((zone) => zone.id),
     ]);
-  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, previewableBuildingZoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones]);
+  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones, zoneCanPreviewDuringPlayback]);
   const detailedZones = useMemo(
     () => (!useReducedZoneSet || fullDetailZoneIds == null
       ? visibleZones

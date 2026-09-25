@@ -879,7 +879,7 @@ def test_store_layout_import_osm_aggressive_reduction_simplifies_polygons_more()
     aggressive_response = client.post(
         "/api/platform/store-layouts/import-osm",
         data={
-            "name": "OSM agressif",
+            "name": "OSM aggressive",
             "description": "aggressive simplify",
             "aggressiveReduction": "true",
         },

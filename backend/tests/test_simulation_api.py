@@ -463,6 +463,9 @@ def test_walkable_preview_endpoint_returns_components() -> None:
     assert len(payload["disconnected"]) == 1, "the barrier must exclude exactly one island"
     excluded_ids = [obstacle["elementId"] for obstacle in payload["excludedObstacles"]]
     assert "blocked-aisle" in excluded_ids
+    assert payload["navmesh"]["cells"]
+    assert payload["navmesh"]["portals"]
+    assert payload["routeCellIds"]
 
 
 def test_walkable_preview_disconnected_exit_returns_422() -> None:

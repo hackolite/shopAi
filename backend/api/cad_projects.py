@@ -39,9 +39,15 @@ from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import (
     SimulationConstraintViolation,
     SimulationRuntimeValidationError,
+    _partition_waypoints,
     run_flow_simulation,
 )
-from services.walkable_partition import compute_walkable_partition, polygon_to_cm
+from services.walkable_partition import (
+    compute_walkable_partition,
+    navmesh_route_preview,
+    navmesh_to_cm,
+    polygon_to_cm,
+)
 from services.live_simulation import (
     LIVE_RESPONSE_FRAME_WINDOW,
     MAX_LIVE_TICK_STEPS,
@@ -937,11 +943,18 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
         )
         partition = compute_walkable_partition(scene, config)
         connected = polygon_to_cm(partition.connected)
+        entries, _transit, exits = _partition_waypoints(scene, config)
         return {
             "connected": connected["exterior"],
             "connectedHoles": connected["holes"],
             "disconnected": [polygon_to_cm(polygon) for polygon in partition.disconnected],
             "excludedObstacles": partition.excluded_obstacles,
+            "navmesh": navmesh_to_cm(partition.spatial_model.navmesh) if partition.spatial_model is not None else None,
+            "buildingBlocks": [
+                polygon_to_cm(block.polygon)
+                for block in (partition.spatial_model.building_blocks if partition.spatial_model is not None else [])
+            ],
+            "routeCellIds": navmesh_route_preview(partition, entries, exits),
         }
     except SimulationConstraintViolation as exc:
         raise HTTPException(status_code=422, detail=exc.detail) from exc

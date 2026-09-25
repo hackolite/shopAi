@@ -211,6 +211,71 @@ def test_runtime_walkable_supports_simulation_setup_with_reachable_waypoints() -
     assert result.frames
 
 
+def test_spatial_model_builds_navmesh_and_astar_route() -> None:
+    partition = compute_walkable_partition(_scene_with_sawtooth_obstacle(), _config())
+
+    assert partition.spatial_model is not None
+    assert partition.spatial_model.walkable_surfaces
+    assert partition.spatial_model.navmesh.cells
+    assert partition.spatial_model.navmesh.portals
+
+    route = walkable_partition.navmesh_route_preview(
+        partition,
+        [_config().waypoints[0]],
+        [_config().waypoints[1]],
+    )
+    assert route
+    assert route[0] in partition.spatial_model.navmesh.adjacency
+
+
+def test_spatial_model_exposes_building_blocks_for_osm_obstacles() -> None:
+    scene_osm = SceneData.model_validate(
+        {
+            "store": {
+                "id": "store-buildings",
+                "name": "Store",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 2500.0, "depth": 1800.0, "height": 300.0},
+                "zones": [
+                    {
+                        "id": "building-a",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Building A",
+                        "x": 200.0,
+                        "z": 300.0,
+                        "width": 400.0,
+                        "depth": 900.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "100"},
+                    },
+                    {
+                        "id": "building-b",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Building B",
+                        "x": 620.0,
+                        "z": 300.0,
+                        "width": 400.0,
+                        "depth": 900.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
+                    },
+                ],
+            },
+            "furniture": [],
+        }
+    )
+
+    partition = compute_walkable_partition(scene_osm, SimulationConfig.model_validate({"waypoints": []}))
+
+    assert partition.spatial_model is not None
+    assert partition.spatial_model.building_blocks
+    assert any(
+        set(block.member_osm_way_ids) >= {"100", "101"}
+        for block in partition.spatial_model.building_blocks
+    )
+
+
 def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
     scene_osm = SceneData.model_validate(
         {

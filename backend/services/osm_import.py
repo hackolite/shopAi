@@ -2001,7 +2001,7 @@ def osm_xml_to_retail_layout(
                     env_opacity = max(m[1][2] for m in members)
                     env_label = f"Îlot {index}"
                     representative_source = dict(members[0][2])
-                    if len(members) != 1:
+                    if len(members) != 1 or len(member_ids) != 1:
                         for key in (
                             "osmWayId",
                             "building",

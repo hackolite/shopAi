@@ -756,7 +756,12 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     project_scene = client.get(f"/api/cad/projects/{project_id}/scene")
     assert project_scene.status_code == 200, project_scene.text
     assert project_scene.json()["store"]["dimensions"] == scene["store"]["dimensions"]
-    assert project_scene.json()["store"]["zones"][0]["source"]["memberOsmWayIds"] == zones[0]["source"]["memberOsmWayIds"]
+    persisted_zones_by_members = {
+        tuple(zone["source"].get("memberOsmWayIds", [])): zone
+        for zone in project_scene.json()["store"]["zones"]
+    }
+    for members, zone in zones_by_members.items():
+        assert persisted_zones_by_members[members]["source"]["memberOsmWayIds"] == zone["source"]["memberOsmWayIds"]
 
 
 def test_store_layout_import_osm_keeps_buildings_only_by_default() -> None:

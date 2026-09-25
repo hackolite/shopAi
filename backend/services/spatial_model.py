@@ -282,13 +282,7 @@ def locate_navmesh_cell(graph: NavMeshGraph, point: tuple[float, float]) -> NavM
     for cell in graph.cells:
         if cell.polygon.covers(target):
             return cell
-    return min(
-        graph.cells,
-        key=lambda cell: (
-            cell.polygon.distance(target),
-            math.hypot(cell.centroid[0] - point[0], cell.centroid[1] - point[1]),
-        ),
-    )
+    return None
 
 
 def _candidate_cell_ids(graph: NavMeshGraph, point: tuple[float, float]) -> list[str]:

@@ -286,13 +286,19 @@ def _building_blocks(
     blocks: list[BuildingBlock] = []
     for index, (identity, obstacle) in enumerate(obstacles):
         geoms = list(obstacle.geoms) if isinstance(obstacle, MultiPolygon) else [obstacle]
-        member_element_ids = ()
-        member_osm_way_ids = ()
-        if identity.get("elementId") is not None:
+        member_element_ids = tuple(
+            str(member)
+            for member in identity.get("memberElementIds", ())
+            if member is not None
+        )
+        member_osm_way_ids = tuple(
+            str(member)
+            for member in identity.get("memberOsmWayIds", ())
+            if member is not None
+        )
+        if not member_element_ids and identity.get("elementId") is not None:
             member_element_ids = (str(identity["elementId"]),)
-        if identity.get("memberOsmWayIds"):
-            member_osm_way_ids = tuple(str(member) for member in identity["memberOsmWayIds"])
-        elif identity.get("osmWayId") is not None:
+        if not member_osm_way_ids and identity.get("osmWayId") is not None:
             member_osm_way_ids = (str(identity["osmWayId"]),)
         for geom_index, geom in enumerate(geoms):
             if not isinstance(geom, Polygon) or geom.is_empty:

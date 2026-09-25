@@ -136,7 +136,7 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend (ex. `export ...`, `$env:...=...`, ou `uvicorn ... --env-file .env`).
+Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend (ex. `export ...` en bash ou `$env:...=...` en PowerShell).
 
 API docs : `http://localhost:8000/docs`
 

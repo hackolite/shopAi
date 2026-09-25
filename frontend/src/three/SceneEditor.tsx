@@ -2415,7 +2415,30 @@ function FloorZoneLayer() {
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
   const selectedZoneVisible = selectedZone != null && visibleZones.some((zone) => zone.id === selectedZone.id);
-  const useReducedZoneSet = playing && !paused && visibleZones.length > LARGE_SIMULATION_ZONE_COUNT;
+  // OSM building zones whose obstacle role is already covered by a merged
+  // navigation envelope (used for the navmesh/JuPedSim obstacle geometry
+  // regardless of what is displayed) don't need their exact 3D extrusion
+  // while agents are moving: their footprint fill is enough. Without this,
+  // `zoneSupportsSimulationPreview` below forces every mounted building zone
+  // (ExtrudeGeometry, ~24 curveSegments, drag/resize handlers) into full
+  // detail at all times — so the "detailed" view stays expensive during
+  // playback no matter the scene size, while the "enveloppe" view (which
+  // hides these same buildings entirely) renders far fewer/cheaper meshes.
+  // That mismatch — not the actual navmesh computation, which always runs on
+  // the simplified envelope — is what made agents look choppy only when the
+  // detailed buildings were visible.
+  const zoneCanPreviewDuringPlayback = useCallback(
+    (zone: FloorZone) => (
+      zoneSupportsSimulationPreview(zone)
+      || (hasNavigationEnvelopePreview && zoneIsMergeableBuilding(zone))
+    ),
+    [hasNavigationEnvelopePreview],
+  );
+  const hasPreviewableBuildings = hasNavigationEnvelopePreview
+    && visibleZones.some((zone) => zoneIsMergeableBuilding(zone));
+  const useReducedZoneSet = playing && !paused && (
+    displayableZones.length > LARGE_SIMULATION_ZONE_COUNT || hasPreviewableBuildings
+  );
   const fullDetailZoneIds = useMemo(() => {
     if (!useReducedZoneSet) return null;
     return new Set([
@@ -2423,9 +2446,11 @@ function FloorZoneLayer() {
       ...(selectedZoneId ? [selectedZoneId] : []),
       ...(invalidObstacleHighlights.zoneIds ?? []),
       ...(invalidObstacleHighlights.allIds ?? []),
-      ...visibleZones.filter((zone) => !zoneSupportsSimulationPreview(zone)).map((zone) => zone.id),
+      ...visibleZones
+        .filter((zone) => !zoneCanPreviewDuringPlayback(zone))
+        .map((zone) => zone.id),
     ]);
-  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones]);
+  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones, zoneCanPreviewDuringPlayback]);
   const detailedZones = useMemo(
     () => (!useReducedZoneSet || fullDetailZoneIds == null
       ? visibleZones

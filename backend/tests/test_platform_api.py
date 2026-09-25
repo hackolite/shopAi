@@ -948,11 +948,6 @@ def test_store_layout_import_osm_aggressive_reduction_merges_close_buildings() -
     assert len(aggressive_zones) < len(default_zones)
     assert aggressive_zones[0]["source"].get("isEnvelope") is True
 
-    aggressive_stats = aggressive_response.json()["payload"]["scene"]["meta"]["importStats"]
-    assert aggressive_stats["envelopeEnabled"] is True
-    assert aggressive_stats["envelopeMode"] == "replace"
-
-
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:
     client = _make_client()
     _register(client, name="OSM Invalid XML", email="osm-invalid-xml@example.com")

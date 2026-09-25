@@ -96,6 +96,7 @@ export default function App() {
   const [layoutOsmDescription, setLayoutOsmDescription] = useState('');
   const [layoutOsmFile, setLayoutOsmFile] = useState<File | null>(null);
   const [layoutOsmAggressiveReduction, setLayoutOsmAggressiveReduction] = useState(false);
+  const [layoutOsmEnvelopeMode, setLayoutOsmEnvelopeMode] = useState<'replace' | 'overlay'>('replace');
   const [catalogName, setCatalogName] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
   const [catalogProjectId, setCatalogProjectId] = useState('');
@@ -287,12 +288,13 @@ export default function App() {
       layoutOsmFile,
       layoutOsmName.trim(),
       layoutOsmDescription.trim(),
-      { aggressiveReduction: layoutOsmAggressiveReduction },
+      { aggressiveReduction: layoutOsmAggressiveReduction, envelopeMode: layoutOsmEnvelopeMode },
     );
     setLayoutOsmName('');
     setLayoutOsmDescription('');
     setLayoutOsmFile(null);
     setLayoutOsmAggressiveReduction(false);
+    setLayoutOsmEnvelopeMode('replace');
     await loadAuthenticatedData();
     setStatusMessage('Implantation importée depuis OSM.');
   });
@@ -691,6 +693,31 @@ export default function App() {
                             className="accent-blue-500"
                           />
                         </label>
+                        <fieldset className="hub-small text-gray-300">
+                          <legend className="hub-muted">Enveloppe de navigation simplifiée</legend>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="layoutOsmEnvelopeMode"
+                              value="replace"
+                              checked={layoutOsmEnvelopeMode === 'replace'}
+                              onChange={() => setLayoutOsmEnvelopeMode('replace')}
+                              className="accent-blue-500"
+                            />
+                            <span>Remplacer l’affichage (bâtiments simplifiés visibles et utilisés pour la navigation)</span>
+                          </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="layoutOsmEnvelopeMode"
+                              value="overlay"
+                              checked={layoutOsmEnvelopeMode === 'overlay'}
+                              onChange={() => setLayoutOsmEnvelopeMode('overlay')}
+                              className="accent-blue-500"
+                            />
+                            <span>Garder l’aspect visuel d’origine (l’enveloppe fusionnée reste interne, invisible, et sert uniquement d’obstacle de navigation pour la simulation)</span>
+                          </label>
+                        </fieldset>
                         <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec hauteur OSM (ou `building:levels`), sinon 10m par défaut. L’option agressive augmente la simplification et fusionne les bâtiments proches en îlots pour réduire fortement le coût navigation/simulation.</p>
                         <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
                       </form>

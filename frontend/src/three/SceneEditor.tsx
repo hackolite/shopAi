@@ -2386,21 +2386,29 @@ function FloorZoneLayer() {
     }),
     [walkablePreview?.buildingBlocks],
   );
+  // Les zones "enveloppe" (import OSM en mode overlay) ne servent qu'à
+  // fournir un obstacle de navigation interne simplifié : le bâtiment
+  // d'origine (détaillé) reste affiché, l'enveloppe fusionnée ne doit
+  // jamais apparaître visuellement.
+  const displayableZones = useMemo(
+    () => zones.filter((zone) => zone.source?.isEnvelope !== true),
+    [zones],
+  );
   const visibleZones = useMemo(
     () => (
       showNavigationOverlay
       && showNavigationEnvelopeOnly
       && hasNavigationEnvelopePreview
-        ? zones.filter((zone) => (
+        ? displayableZones.filter((zone) => (
           !zoneIsMergeableBuilding(zone)
           || (
             !hiddenEnvelopeZoneRefs.elementIds.has(zone.id)
             && !hiddenEnvelopeZoneRefs.osmWayIds.has(zone.source?.osmWayId ?? '')
           )
         ))
-        : zones
+        : displayableZones
     ),
-    [hasNavigationEnvelopePreview, hiddenEnvelopeZoneRefs, showNavigationEnvelopeOnly, showNavigationOverlay, zones],
+    [displayableZones, hasNavigationEnvelopePreview, hiddenEnvelopeZoneRefs, showNavigationEnvelopeOnly, showNavigationOverlay],
   );
 
   const selectedZone = selectedZoneId

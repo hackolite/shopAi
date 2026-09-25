@@ -1000,6 +1000,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const simulationConfig = useSimulationStore((state) => state.config);
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const setWalkablePreview = useSimulationStore((state) => state.setWalkablePreview);
+  const previewRequestId = useRef(0);
 
   const runtimeConfig = useMemo(() => buildRuntimeSimulationConfig(simulationConfig), [simulationConfig]);
   const sceneWithZones = useMemo(
@@ -1014,14 +1015,15 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   useEffect(() => {
     if (!projectId || !sceneWithZones) return;
     let cancelled = false;
+    const requestId = ++previewRequestId.current;
     void cadApi
       .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
       .then((preview) => {
-        if (cancelled) return;
+        if (cancelled || requestId !== previewRequestId.current) return;
         setWalkablePreview(preview);
       })
       .catch((error) => {
-        if (cancelled) return;
+        if (cancelled || requestId !== previewRequestId.current) return;
         console.error('Failed to fetch walkable preview for Inspector:', error);
       });
     return () => {

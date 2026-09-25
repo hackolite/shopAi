@@ -2387,8 +2387,9 @@ function FloorZoneLayer() {
   );
 
   const selectedZone = selectedZoneId
-    ? visibleZones.find((z) => z.id === selectedZoneId) ?? null
+    ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
+  const selectedZoneVisible = selectedZone != null && visibleZones.some((zone) => zone.id === selectedZone.id);
   const useReducedZoneSet = playing && !paused && visibleZones.length > LARGE_SIMULATION_ZONE_COUNT;
   const fullDetailZoneIds = useMemo(() => {
     if (!useReducedZoneSet) return null;
@@ -2421,7 +2422,7 @@ function FloorZoneLayer() {
       {detailedZones.map((zone) => (
         <FloorZoneMesh key={zone.id} zone={zone} />
       ))}
-      {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (
+      {selectedZoneVisible && selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (
         <FloorZoneResizeHandles zone={selectedZone} />
       )}
     </>

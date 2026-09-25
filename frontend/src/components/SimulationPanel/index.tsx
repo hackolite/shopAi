@@ -304,6 +304,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     showNavigationEnvelopeOnly,
     setShowNavigationOverlay,
     setShowNavigationEnvelopeOnly,
+    walkablePreview,
     setWalkablePreview,
     pedestrianImport,
     setPedestrianImport,
@@ -437,6 +438,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const queueMetrics: WaypointMetrics[] = (result?.waypoints ?? []).filter(
     (metrics) => metrics.retentionSeconds > 0,
   );
+  const hasNavigationEnvelopePreview = (walkablePreview?.buildingBlocks?.length ?? 0) > 0;
 
   const loadPedestriansIntoSession = useCallback(async (sessionId: string) => {
     if (!projectId) return false;
@@ -1505,7 +1507,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               className="accent-blue-500"
             />
           </label>
-          {showNavigationOverlay && (
+          {showNavigationOverlay && hasNavigationEnvelopePreview && (
             <label className="ml-3 flex items-center justify-between text-xs text-gray-300">
               <span className="text-gray-500">Enveloppe bâtiments uniquement</span>
               <input

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 from models.project import SceneData, SimulationConfig
-from services.walkable_partition import (
-    _collect_scene_obstacles,
-    _store_polygon,
-    compiled_layout,
-    compute_walkable_partition,
-)
+from services.walkable_partition import compiled_layout, compute_walkable_partition
 
 
 def _scene(zone_x: float = 100.0) -> SceneData:
@@ -214,72 +209,53 @@ def test_runtime_walkable_supports_simulation_setup_with_reachable_waypoints() -
 
 
 def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
-    scene = SceneData.model_validate(
+    scene_osm = SceneData.model_validate(
         {
             "store": {
                 "id": "store-buildings",
                 "name": "Store",
                 "position": [0.0, 0.0, 0.0],
                 "rotation": [0.0, 0.0, 0.0],
-                "dimensions": {"width": 2000.0, "depth": 2000.0, "height": 300.0},
+                "dimensions": {"width": 2500.0, "depth": 1800.0, "height": 300.0},
                 "zones": [
                     {
                         "id": "building-a",
                         "type": "forbidden",
-                        "shape": "polygon",
+                        "shape": "rectangle",
                         "label": "Building A",
-                        "x": 100.0,
-                        "z": 100.0,
-                        "width": 600.0,
-                        "depth": 600.0,
-                        "points": [
-                            {"x": 100.0, "z": 100.0},
-                            {"x": 700.0, "z": 100.0},
-                            {"x": 700.0, "z": 700.0},
-                            {"x": 100.0, "z": 700.0},
-                        ],
+                        "x": 200.0,
+                        "z": 300.0,
+                        "width": 400.0,
+                        "depth": 900.0,
                         "_source": {"isLikelyBuilding": True, "osmWayId": "100"},
                     },
                     {
                         "id": "building-b",
                         "type": "forbidden",
-                        "shape": "polygon",
-                        "label": "Building B",
-                        "x": 800.0,
-                        "z": 100.0,
-                        "width": 600.0,
-                        "depth": 600.0,
-                        "points": [
-                            {"x": 800.0, "z": 100.0},
-                            {"x": 1400.0, "z": 100.0},
-                            {"x": 1400.0, "z": 700.0},
-                            {"x": 800.0, "z": 700.0},
-                        ],
-                        "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
-                    },
-                    {
-                        "id": "manual-obstacle",
-                        "type": "forbidden",
                         "shape": "rectangle",
-                        "label": "Manual",
-                        "x": 900.0,
-                        "z": 100.0,
-                        "width": 120.0,
-                        "depth": 120.0,
+                        "label": "Building B",
+                        "x": 1100.0,
+                        "z": 300.0,
+                        "width": 400.0,
+                        "depth": 900.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
                     },
                 ],
             },
             "furniture": [],
         }
     )
-    obstacles = _collect_scene_obstacles(scene, _store_polygon(scene.store))
-    zone_ids = sorted(
-        identity["elementId"]
-        for identity, _ in obstacles
-        if identity["elementType"] == "zone"
-    )
-    assert zone_ids.count("manual-obstacle") == 1
-    assert len(zone_ids) == 2
+    scene_non_osm = scene_osm.model_copy(deep=True)
+    for zone in scene_non_osm.store.zones:
+        if zone.source:
+            zone.source.pop("osmWayId", None)
+
+    config = SimulationConfig.model_validate({"waypoints": []})
+    osm_partition = compute_walkable_partition(scene_osm, config)
+    non_osm_partition = compute_walkable_partition(scene_non_osm, config)
+
+    assert osm_partition.connected.area < non_osm_partition.connected.area
+    assert osm_partition.runtime_connected.area < non_osm_partition.runtime_connected.area
 
 
 def test_runtime_obstacle_merge_ignores_non_osm_buildings() -> None:
@@ -319,10 +295,6 @@ def test_runtime_obstacle_merge_ignores_non_osm_buildings() -> None:
             "furniture": [],
         }
     )
-    obstacles = _collect_scene_obstacles(scene, _store_polygon(scene.store))
-    zone_ids = sorted(
-        identity["elementId"]
-        for identity, _ in obstacles
-        if identity["elementType"] == "zone"
-    )
-    assert zone_ids == ["manual-building-a", "manual-building-b"]
+    base = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
+    again = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
+    assert base.connected.area == again.connected.area

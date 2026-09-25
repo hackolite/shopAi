@@ -299,7 +299,8 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
         .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
         .then((preview) => {
           if (useProjectStore.getState().loadedProjectId !== projectId) return;
-          setNavigationPolygonCount(1 + preview.disconnected.length);
+          const connectedCount = preview.connected.length > 0 ? 1 : 0;
+          setNavigationPolygonCount(connectedCount + preview.disconnected.length);
         })
         .catch(() => {
           if (useProjectStore.getState().loadedProjectId !== projectId) return;

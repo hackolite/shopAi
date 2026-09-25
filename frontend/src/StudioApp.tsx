@@ -28,6 +28,7 @@ import type { FurnitureInstance, Planogram } from './types/cad';
 import { findFreeFurniturePosition } from './engine/furnitureCollision';
 import { directionFromKey, navigatePlanogramCell } from './engine/planogramCellNavigation';
 import { startFrontendPerfDiagnostics } from './engine/perfDiagnostics';
+import { sceneHasOsmSimulationProfile } from './engine/floorZones';
 
 const DEFAULT_PROJECT = 'retail_cad';
 /** localStorage key remembering the last opened project so F5 restores it. */
@@ -102,6 +103,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const setNavigationPolygonCount = useProjectStore((state) => state.setNavigationPolygonCount);
+  const setOsmSimulationMode = useProjectStore((state) => state.setOsmSimulationMode);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
   const simulationConfig = useSimulationStore((state) => state.config);
 
@@ -181,6 +183,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       // Discard results if the user switched to yet another project while we awaited.
       if (loadingProjectIdRef.current !== id) return;
       setScene(sceneData);
+      setOsmSimulationMode(sceneHasOsmSimulationProfile(sceneData));
       setProducts(catalog.products);
       setPlanograms(planoData.planograms);
       setZones(sceneData.store.zones ?? []);
@@ -268,6 +271,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     setZones,
     setSimulationConfig,
     setLoadedProjectId,
+    setOsmSimulationMode,
     appendClientLog,
   ]);
 

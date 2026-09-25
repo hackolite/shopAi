@@ -22,6 +22,7 @@ import { useZoneStore } from './zoneStore';
 export function resetProjectStores(): void {
   useProjectStore.getState().setLoadedProjectId(null);
   useProjectStore.getState().setNavigationPolygonCount(null);
+  useProjectStore.getState().setOsmSimulationMode(false);
   useSceneStore.getState().reset();
   useZoneStore.getState().reset();
   usePlanogramStore.getState().reset();

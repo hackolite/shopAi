@@ -3,6 +3,7 @@ import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
+import { useProjectStore } from '../../store/projectStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram, FloorZone, FloorZoneSource } from '../../types/cad';
@@ -994,6 +995,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const { activePlanogram, selectedCellIds, planograms, planogramDetails } = usePlanogramStore();
   const { products } = useCatalogStore();
   const { zones, selectedZoneId } = useZoneStore();
+  const navigationPolygonCount = useProjectStore((state) => state.navigationPolygonCount);
 
   // Project-wide implantation metrics (distinct EANs, facings, catalog coverage).
   const projectMetrics = computeImplantationMetrics(planogramDetails.values());
@@ -1160,6 +1162,10 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                     <span className="text-gray-300">
                       {scene.store.dimensions.width / 100}m × {scene.store.dimensions.depth / 100}m
                     </span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Polygones navigation</span>
+                    <span className="text-gray-300">{navigationPolygonCount ?? '—'}</span>
                   </div>
                   <div
                     className="flex justify-between text-gray-400"

@@ -206,3 +206,95 @@ def test_runtime_walkable_supports_simulation_setup_with_reachable_waypoints() -
     result = sim_svc.run_flow_simulation(scene, config)
 
     assert result.frames
+
+
+def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
+    scene_osm = SceneData.model_validate(
+        {
+            "store": {
+                "id": "store-buildings",
+                "name": "Store",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 2500.0, "depth": 1800.0, "height": 300.0},
+                "zones": [
+                    {
+                        "id": "building-a",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Building A",
+                        "x": 200.0,
+                        "z": 300.0,
+                        "width": 400.0,
+                        "depth": 900.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "100"},
+                    },
+                    {
+                        "id": "building-b",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Building B",
+                        "x": 1100.0,
+                        "z": 300.0,
+                        "width": 400.0,
+                        "depth": 900.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
+                    },
+                ],
+            },
+            "furniture": [],
+        }
+    )
+    scene_non_osm = scene_osm.model_copy(deep=True)
+    for zone in scene_non_osm.store.zones:
+        if zone.source:
+            zone.source.pop("osmWayId", None)
+
+    config = SimulationConfig.model_validate({"waypoints": []})
+    osm_partition = compute_walkable_partition(scene_osm, config)
+    non_osm_partition = compute_walkable_partition(scene_non_osm, config)
+
+    assert osm_partition.connected.area < non_osm_partition.connected.area
+    assert osm_partition.runtime_connected.area < non_osm_partition.runtime_connected.area
+
+
+def test_runtime_obstacle_merge_ignores_non_osm_buildings() -> None:
+    scene = SceneData.model_validate(
+        {
+            "store": {
+                "id": "store-non-osm",
+                "name": "Store",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 1200.0, "depth": 1200.0, "height": 300.0},
+                "zones": [
+                    {
+                        "id": "manual-building-a",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Manual A",
+                        "x": 100.0,
+                        "z": 100.0,
+                        "width": 200.0,
+                        "depth": 200.0,
+                        "_source": {"isLikelyBuilding": True},
+                    },
+                    {
+                        "id": "manual-building-b",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Manual B",
+                        "x": 500.0,
+                        "z": 100.0,
+                        "width": 200.0,
+                        "depth": 200.0,
+                        "_source": {"isLikelyBuilding": True},
+                    },
+                ],
+            },
+            "furniture": [],
+        }
+    )
+    base = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
+    again = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
+    assert base.connected.area == again.connected.area

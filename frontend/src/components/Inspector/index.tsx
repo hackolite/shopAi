@@ -1010,9 +1010,13 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
     },
     [scene, zones, zonesLoaded],
   );
+  const previewRequestKey = useMemo(
+    () => (projectId && sceneWithZones ? JSON.stringify({ projectId, scene: sceneWithZones, config: runtimeConfig }) : null),
+    [projectId, runtimeConfig, sceneWithZones],
+  );
 
   useEffect(() => {
-    if (!projectId || !sceneWithZones || walkablePreview) return;
+    if (!projectId || !sceneWithZones || !previewRequestKey) return;
     let cancelled = false;
     void cadApi
       .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
@@ -1027,7 +1031,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
     return () => {
       cancelled = true;
     };
-  }, [projectId, runtimeConfig, sceneWithZones, setWalkablePreview, walkablePreview]);
+  }, [projectId, previewRequestKey, runtimeConfig, sceneWithZones, setWalkablePreview]);
 
   // Project-wide implantation metrics (distinct EANs, facings, catalog coverage).
   const projectMetrics = computeImplantationMetrics(planogramDetails.values());

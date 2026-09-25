@@ -249,7 +249,7 @@ class NavMeshRoutePlanner:
             )
             self.token_to_stage[hidden_token] = stage_id
             self.stage_to_token[stage_id] = hidden_token
-            self.waypoint_by_stage_id[stage_id] = to_waypoint
+            self.waypoint_by_stage_id[stage_id] = hidden_waypoint
         tokens = [*hidden_tokens, to_token]
         self._segment_token_cache[cache_key] = list(tokens)
         return tokens

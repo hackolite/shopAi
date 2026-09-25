@@ -682,7 +682,10 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
           key={id}
           points={points}
           color={routeCellIds.has(id) ? "#22c55e" : "#f8fafc"}
-          lineWidth={routeCellIds.has(id) ? 2.4 : 1}
+          lineWidth={routeCellIds.has(id) ? 3.4 : 0.9}
+          dashed={!routeCellIds.has(id)}
+          dashSize={0.12}
+          gapSize={0.08}
           transparent
           opacity={routeCellIds.has(id) ? 0.95 : 0.45}
           depthWrite={false}
@@ -693,9 +696,12 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
           key={id}
           points={points}
           color="#38bdf8"
-          lineWidth={1}
+          lineWidth={1.4}
+          dashed
+          dashSize={0.06}
+          gapSize={0.04}
           transparent
-          opacity={0.35}
+          opacity={0.6}
           depthWrite={false}
         />
       ))}

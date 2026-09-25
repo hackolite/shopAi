@@ -68,25 +68,26 @@ class NavMeshGraph:
     index_cell_size_m: float
     point_index: dict[tuple[int, int], list[str]] = field(default_factory=dict)
     _cell_lookup: dict[str, NavMeshCell] = field(default_factory=dict, repr=False)
+    _portal_lookup: dict[tuple[str, str], NavMeshPortal] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         if not self._cell_lookup:
             self._cell_lookup = {cell.cell_id: cell for cell in self.cells}
+        if not self._portal_lookup:
+            self._portal_lookup = {
+                self._portal_key(portal.from_cell_id, portal.to_cell_id): portal
+                for portal in self.portals
+            }
 
     def cell(self, cell_id: str) -> NavMeshCell | None:
         return self._cell_lookup.get(cell_id)
 
+    @staticmethod
+    def _portal_key(from_cell_id: str, to_cell_id: str) -> tuple[str, str]:
+        return tuple(sorted((from_cell_id, to_cell_id)))
+
     def portal_between(self, from_cell_id: str, to_cell_id: str) -> NavMeshPortal | None:
-        for portal in self.portals:
-            if (
-                portal.from_cell_id == from_cell_id
-                and portal.to_cell_id == to_cell_id
-            ) or (
-                portal.from_cell_id == to_cell_id
-                and portal.to_cell_id == from_cell_id
-            ):
-                return portal
-        return None
+        return self._portal_lookup.get(self._portal_key(from_cell_id, to_cell_id))
 
 
 @dataclass(frozen=True)

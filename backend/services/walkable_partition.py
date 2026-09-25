@@ -637,6 +637,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     ):
         simulation_connected = connected
         navmesh = build_navmesh_graph(simulation_connected, cell_id_prefix=f"nav-fallback-{connected_index}")
+    runtime_connected = simulation_connected
 
     walkable_surface = WalkableSurface(
         surface_id=f"walkable-{connected_index}",

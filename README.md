@@ -414,50 +414,179 @@ Le JSON accepté peut prendre deux formes :
 
 ## Simulation Module
 
-The simulation engine models customer foot traffic inside the store using an agent-based approach.
+La simulation est pilotée depuis le panneau **Simulation flux piétons** du studio 3D.
+Elle combine :
 
-### Waypoint Types
+- un **éditeur de scénario** côté frontend (`SimulationPanel`, `simulationStore`);
+- une **géométrie navigable** recalculée côté backend (`walkable_partition.py`);
+- un moteur piéton **JuPedSim** avec deux modes de routage (`FlowField` ou `A*`);
+- des **analytics cumulés** (heatmap, visites, trajectoires, paniers) pour l'analyse.
 
-| Type | Role |
-|------|------|
-| `entry` | Spawns agents at the specified rate (agents/hour). First arrival scheduled at t=0, then exponential inter-arrivals. |
-| `transit` | Routes agents through the store; used for aisle traversal or dwell points. |
-| `exit` | Despawns agents once they arrive (circular exit zone of configurable radius). |
+### Flux complet
 
-### Simulation Modes
+1. L'utilisateur ouvre un projet 3D puis règle la simulation dans le panneau de droite.
+2. Il place des **entrées**, **waypoints** et **sorties** sur le sol 3D.
+3. Le backend reconstruit la zone marchable à partir du magasin, du mobilier et des zones interdites.
+4. Au lancement, le frontend démarre une session live et la fait avancer par ticks de 100 ms.
+5. Les overlays (heatmap, trajectoires, chemin navigable, rendement) se mettent à jour sans recharger le projet.
 
-| Mode | Description |
-|------|-------------|
-| **Batch** | Full offline run → produces heatmap + per-zone dwell statistics |
-| **Live** | Real-time session; frontend polls at 100 ms, backend streams agent states |
+### Deux modes d'alimentation des piétons
 
-### Live Simulation API
+| Mode | Source des piétons | Usage |
+|------|--------------------|-------|
+| **JuPedSim autonome** | Paramètres `arrivalRatePerSecond`, `desiredSpeedMps`, `speedVariation`, `randomSeed` | Génération synthétique pour tester la circulation générale du magasin |
+| **Dataset piétons & paniers** | Dataset workspace copié dans `pedestrians.json` puis injecté dans la session live | Rejouer un scénario planifié, avec horaires d'entrée, vitesse et panier produit par produit |
 
-| Endpoint | Action |
-|----------|--------|
-| `POST /{project_id}/simulation/live/start` | Start a new live session |
-| `POST /{project_id}/simulation/live/{session_id}/tick` | Advance simulation clock |
-| `POST /{project_id}/simulation/live/{session_id}/pause` | Pause session |
-| `POST /{project_id}/simulation/live/{session_id}/resume` | Resume session |
-| `POST /{project_id}/simulation/live/{session_id}/update` | Hot-update waypoint config |
-| `GET /{project_id}/simulation/live/{session_id}/analytics` | Cumulative occupancy heatmap + agent trajectories |
-| `POST /{project_id}/simulation/live/{session_id}/stop` | Stop and discard session |
+Important :
 
-### Frontend Simulation Features
+- il n'y a **pas** de case « activer dataset » ; la simple sélection d'un dataset dans le panneau l'applique au projet ;
+- quand un dataset est actif, les réglages JuPedSim restent visibles mais sont **neutralisés** pour le spawn des piétons ;
+- les flux piétons du studio 3D proviennent uniquement des **datasets du workspace**.
 
-- **SimulationPanel**: waypoint placement, live controls (play/pause/stop), agent-count display, heatmap/trajectory toggles, floor-heatmap intensity selector (traffic or exposed margin), per-waypoint queue waiting times (average, max, live)
-- **SimulationLayer**: instanced rendering of 40+ agents at 100 ms tick, 220 ms render buffer, 200 ms extrapolation cap, floor heatmap and agent trajectory overlays (analytics polled every second). The margin heatmap (`engine/marginHeatmap.ts`) is computed client-side, column by column: each planogram column radiates its cumulated facing margin onto the aisle in front of its own footprint slice, so it needs no running session.
-- **New object placement**: furniture and waypoints created from the panels appear at the bottom-left corner of the store grid
-- **Undo history**: simulation waypoint edits have their own undo stack (Ctrl/Cmd+Z in simulation context)
-- **Video recording**: on-screen labels use `TextSprite3D` (WebGL sprite) so they appear in `canvas.captureStream()` recordings
+### Configuration persistée du projet
 
-### Waypoint Placement Constraints
+La configuration est stockée dans `settings.json` via `ProjectSettings.simulation`.
 
-| Type | Clearance rule |
-|------|---------------|
-| `entry` | Centre must be ≥ `AGENT_RADIUS_CM` from any obstacle |
-| `transit` | Centre must be inside walkable area (0 cm clearance) |
-| `exit` | Centre must be ≥ `radiusCm + AGENT_RADIUS_CM` from any obstacle |
+| Champ | Rôle |
+|-------|------|
+| `enabled` | Active/désactive la simulation |
+| `arrivalRatePerSecond` | Taux d'arrivée Poisson utilisé uniquement en mode JuPedSim autonome |
+| `durationSeconds` | Durée de la simulation batch/offline |
+| `maxCustomers` | Nombre max d'agents présents ou planifiés |
+| `randomSeed` | Seed déterministe des arrivées et vitesses |
+| `desiredSpeedMps` | Vitesse moyenne cible |
+| `speedVariation` | Variance autour de la vitesse cible |
+| `pedestrianSimulationTechnology` | `jupedsim-flow` (FlowField) ou `jupedsim-astar` |
+| `precomputeEntryExitRoutes` | Pré-calcule les routes entrée/sortie pour accélérer les parcours répétitifs |
+| `waypointSystems[]` | Systèmes JuPedSim indépendants éditables dans l'UI |
+| `activeWaypointSystemId` | Système affiché/édité dans le panneau |
+
+Au runtime, **tous** les `waypointSystems` sont agrégés dans `config.waypoints` avant le start/update live : la simulation exécute donc l'ensemble des systèmes configurés, pas seulement celui actuellement affiché.
+
+### Systèmes et types de waypoints
+
+Chaque système JuPedSim possède son propre libellé, sa couleur et sa liste de waypoints. L'UI permet d'en créer plusieurs (`+ JuPedSim`) puis de changer le système actif sans perdre les autres.
+
+| Type | Rôle | Champs utiles |
+|------|------|---------------|
+| `entry` | Point d'apparition des agents | `x`, `z`, `radiusCm`, `visionAngleDeg`, `visionRangeCm` |
+| `transit` | Point intermédiaire ; peut devenir point de rétention / file | `optional`, `visitProbability`, `retentionSeconds` |
+| `exit` | Point d'approche puis sortie effective de la simulation | `radiusCm` définit la zone de disparition |
+
+Règles de placement :
+
+| Type | Contrainte |
+|------|------------|
+| `entry` | centre à au moins `AGENT_RADIUS_CM` des obstacles |
+| `transit` | centre dans la zone marchable |
+| `exit` | centre à au moins `radiusCm + AGENT_RADIUS_CM` des obstacles |
+
+Comportement de routage :
+
+- les `transit` non optionnels sont toujours visités ;
+- les `transit` optionnels sont visités selon `visitProbability` ;
+- un `transit` avec `retentionSeconds > 0` devient une **queue stage** JuPedSim ;
+- les waypoints héritent d'un cône de vision (`visionAngleDeg`, `visionRangeCm`) répercuté jusque dans les frames live.
+
+### Géométrie navigable et diagnostic « Chemin navigable »
+
+Avant chaque batch, start live ou update live, le backend calcule une partition de la surface accessible :
+
+- le magasin définit l'enveloppe initiale ;
+- le mobilier et les zones interdites soustraient des obstacles ;
+- si la surface se coupe en plusieurs îlots, le moteur conserve la composante connectée contenant des entrées/sorties valides ;
+- les îlots déconnectés sont exclus au lieu de faire échouer systématiquement la simulation.
+
+Le preview `POST /api/cad/projects/{project_id}/simulation/walkable-preview` retourne :
+
+- le polygone connecté utilisé par la simulation ;
+- les îlots exclus ;
+- les obstacles responsables de la coupure ;
+- le navmesh / flow field de preview ;
+- les gains de simplification des obstacles (`envelopeMergeGain`).
+
+Dans le studio, l'overlay **Chemin navigable** affiche :
+
+- **magenta** : zone connectée jouable ;
+- **violet** : îlots exclus ;
+- **rouge** : obstacles bloquants.
+
+La simulation renvoie `422` si aucune entrée atteignable n'existe, ou si les sorties restent déconnectées de toute entrée utilisable.
+
+### Modes d'exécution et boucle live
+
+| Mode | Endpoint principal | Résultat |
+|------|--------------------|----------|
+| **Batch** | `POST /api/cad/projects/{project_id}/simulation/run` | Frames + waypoints + summary + analytics complets |
+| **Live** | `POST /api/cad/projects/{project_id}/simulation/live/start` | Session persistante, pilotée ensuite par `tick/pause/resume/update/stop` |
+
+Boucle live :
+
+- le frontend demande un tick environ toutes les **100 ms** ;
+- chaque tick peut regrouper plusieurs pas backend, avec rattrapage progressif si l'onglet a été ralenti ;
+- le backend renvoie une fenêtre bornée de frames et d'échantillons pour garder une taille de payload stable ;
+- les analytics lourds (heatmap, visites, trajectoires) sont rafraîchis séparément toutes les **1 s** ;
+- un update live reconstruit la géométrie, les stages JuPedSim et le planner sans perdre les métriques cumulées de file d'attente ;
+- un stop supprime la session live côté backend.
+
+### API simulation
+
+| Endpoint | Usage |
+|----------|-------|
+| `POST /api/cad/projects/{project_id}/simulation/run` | Exécuter une simulation batch/offline |
+| `POST /api/cad/projects/{project_id}/simulation/walkable-preview` | Prévisualiser la géométrie marchable et le navmesh |
+| `POST /api/cad/projects/{project_id}/simulation/live/start` | Démarrer une session live |
+| `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/tick` | Avancer la session |
+| `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/pause` | Geler l'horloge live |
+| `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/resume` | Reprendre l'horloge live |
+| `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/update` | Recharger scène + config sans redémarrer la session |
+| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/analytics` | Lire analytics complets ou delta depuis `sinceSeq` |
+| `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/stop` | Arrêter et détruire la session |
+| `POST /api/cad/projects/{project_id}/simulation/import-pedestrians` | Importer un CSV piétons/paniers et construire les plans de pickup |
+| `GET /api/cad/projects/{project_id}/simulation/pedestrians` | Lire le dernier import du projet |
+| `POST /api/cad/projects/{project_id}/simulation/load-pedestrian-dataset/{dataset_id}` | Copier un dataset workspace dans le projet |
+| `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/load-pedestrians` | Injecter le plan piéton du projet dans la session live |
+| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket` | Détail du panier d'un piéton |
+| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/baskets` | Liste/delta des paniers vus dans la session |
+
+### Datasets piétons & paniers
+
+Le format CSV attendu est :
+
+- colonnes requises : `pedestrian_id`, `start_unix_ts`, `speed_mps`
+- colonnes optionnelles : `profile_json`, `ean`
+- une ligne par couple **piéton / produit**
+- `ean` peut être vide pour un piéton sans achat
+
+À l'import :
+
+1. le CSV est parsé et normalisé ;
+2. chaque EAN est résolu vers une position rayon via les planogrammes du projet ;
+3. les anomalies sont conservées (`found=false`, raison explicite) ;
+4. le résultat est sauvegardé dans `pedestrians.json` ;
+5. si `datasetName` est fourni, le même payload devient un **dataset workspace réutilisable**.
+
+Quand ce plan est chargé dans une session live :
+
+- les piétons entrent selon l'ordre de `start_unix_ts` ;
+- chaque produit résolu devient un arrêt de pickup dédié ;
+- chaque arrêt utilise une rétention de 1 à 4 secondes ;
+- le panneau **Parcours client** et le détail d'un piéton suivent l'état `picked / not picked` de chaque article.
+
+### Ce que voit l'utilisateur dans le studio
+
+- **SimulationPanel** : mode actif, dataset courant, compte d'agents, contrôle start/pause/resume/stop, édition des waypoints, temps d'attente par waypoint.
+- **SimulationLayer** : agents rendus en instancing, heatmap au sol, trajectoires, overlay de navigation.
+- **CheckoutChartsOverlay** : débit par waypoint et indicateurs de rendement.
+- **PedestrianDetailPanel** : panier détaillé du piéton cliqué dans la scène.
+
+### Notes d'exploitation
+
+- la heatmap **traffic** dépend des analytics live ;
+- la heatmap **margin** est calculée côté frontend à partir des planogrammes, sans session en cours ;
+- la heatmap **yield** combine marge exposée et densité réelle mesurée, donc nécessite une session live ;
+- l'historique undo des waypoints est séparé de celui de la scène ;
+- les labels 3D de simulation sont dessinés en sprites WebGL pour rester visibles dans les enregistrements vidéo.
 
 ---
 

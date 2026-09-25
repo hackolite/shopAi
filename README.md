@@ -511,7 +511,13 @@ Dans le studio, l'overlay **Chemin navigable** affiche :
 - **violet** : îlots exclus ;
 - **rouge** : obstacles bloquants.
 
-La simulation renvoie `422` si aucune entrée atteignable n'existe, ou si les sorties restent déconnectées de toute entrée utilisable.
+La simulation renvoie `422` sur les violations de contraintes avec un body FastAPI de la forme `{"detail": {...}}`.
+Les cas usuels documentés ici sont :
+
+- `detail.code = "splitAccessibleArea"` quand un meuble ou une zone coupe la surface accessible ;
+- `detail.message` explicite l'action corrective ;
+- `detail.blockingElementType`, `detail.blockingElementId`, `detail.blockingElementLabel` identifient l'élément bloquant quand il est connu ;
+- `detail.blockingElementIds` peut lister plusieurs obstacles quand aucune entrée atteignable ou une sortie déconnectée est détectée.
 
 ### Modes d'exécution et boucle live
 
@@ -540,14 +546,14 @@ Boucle live :
 | `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/pause` | Geler l'horloge live |
 | `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/resume` | Reprendre l'horloge live |
 | `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/update` | Recharger scène + config sans redémarrer la session |
-| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/analytics` | Lire analytics complets ou delta depuis `sinceSeq` |
+| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/analytics?sinceSeq=<int>` | Lire un snapshot complet (`full=true`, champ `analytics`) ou un delta (`full=false`, champ `analyticsDelta`) ; réponse toujours accompagnée de `seq` et des métriques `waypoints` |
 | `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/stop` | Arrêter et détruire la session |
 | `POST /api/cad/projects/{project_id}/simulation/import-pedestrians` | Importer un CSV piétons/paniers et construire les plans de pickup |
 | `GET /api/cad/projects/{project_id}/simulation/pedestrians` | Lire le dernier import du projet |
 | `POST /api/cad/projects/{project_id}/simulation/load-pedestrian-dataset/{dataset_id}` | Copier un dataset workspace dans le projet |
 | `POST /api/cad/projects/{project_id}/simulation/live/{session_id}/load-pedestrians` | Injecter le plan piéton du projet dans la session live |
-| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket` | Détail du panier d'un piéton |
-| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/baskets` | Liste/delta des paniers vus dans la session |
+| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/agents/{agent_id}/basket?sinceSeq=<int>` | Détail du panier d'un piéton ; renvoie `seq`, `changed`, puis `basket` seulement si le curseur a évolué |
+| `GET /api/cad/projects/{project_id}/simulation/live/{session_id}/baskets?sinceSeq=<int>` | Liste complète (`full=true`) ou delta (`full=false`) des paniers vus ; réponse avec `seq` et tableau `baskets` |
 
 ### Datasets piétons & paniers
 

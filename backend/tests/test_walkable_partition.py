@@ -526,3 +526,64 @@ def test_runtime_obstacle_merge_drops_small_island_after_simplification() -> Non
     assert merged == []
     assert gain["sourceObstacleCount"] == 1
     assert gain["runtimeObstacleCount"] == 0
+
+
+def test_runtime_obstacle_merge_escalates_buffer_to_fit_island_budget() -> None:
+    """Many OSM buildings spaced further apart than the default 10 m closing
+    buffer can bridge (e.g. a dense district with real streets) must not be
+    left as dozens of separate obstacle islands: JuPedSim's per-iterate cost
+    scales with the island count, not vertex count, so leaving them unfused
+    would make the crowd sim lag even with a single agent. The merge must
+    escalate the buffer until the island count fits the budget."""
+    budget = walkable_partition._NAV_BUILDING_ENVELOPE_ISLAND_BUDGET  # noqa: SLF001
+    base_buffer = walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M  # noqa: SLF001
+    building_size_m = 6.0
+    spacing_m = 30.0  # 24 m gap: needs buffer > 12 m to bridge, so the base 10 m fails.
+    count = budget + 12
+
+    obstacles: list[tuple[dict, Polygon]] = []
+    for index in range(count):
+        x0 = index * spacing_m
+        polygon = Polygon(
+            [
+                (x0, 0.0),
+                (x0 + building_size_m, 0.0),
+                (x0 + building_size_m, building_size_m),
+                (x0, building_size_m),
+            ]
+        )
+        identity = {
+            "elementType": "zone",
+            "elementId": f"bld-{index}",
+            "elementLabel": f"Bld {index}",
+            "osmWayId": str(index),
+        }
+        obstacles.append((identity, polygon))
+
+    merged, gain = walkable_partition._merge_building_obstacles(obstacles)  # noqa: SLF001
+
+    assert gain["sourceObstacleCount"] == count
+    assert gain["islandBudget"] == budget
+    assert gain["escalationSteps"] > 0
+    assert gain["bufferMetersUsed"] > base_buffer
+    assert len(merged) < count
+    assert len(merged) <= budget
+    assert gain["runtimeObstacleCount"] == len(merged)
+
+
+def test_runtime_obstacle_merge_does_not_escalate_when_budget_already_met() -> None:
+    """A handful of clustered buildings that already fuse under the default
+    buffer must not pay the extra union/simplify passes of the escalation
+    loop."""
+    polygon_a = Polygon([(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)])
+    polygon_b = Polygon([(6.0, 0.0), (10.0, 0.0), (10.0, 4.0), (6.0, 4.0)])
+    obstacles = [
+        ({"elementType": "zone", "elementId": "a", "elementLabel": "A", "osmWayId": "1"}, polygon_a),
+        ({"elementType": "zone", "elementId": "b", "elementLabel": "B", "osmWayId": "2"}, polygon_b),
+    ]
+
+    merged, gain = walkable_partition._merge_building_obstacles(obstacles)  # noqa: SLF001
+
+    assert gain["escalationSteps"] == 0
+    assert gain["bufferMetersUsed"] == walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M  # noqa: SLF001
+    assert len(merged) == 1

@@ -109,6 +109,26 @@ _NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 8.0
 _NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 15.9
 _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
 _NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.18
+# Ratio kept constant while the closing buffer escalates below, so contour
+# detail removal always scales with how aggressively buildings are fused.
+_NAV_BUILDING_ENVELOPE_SIMPLIFY_RATIO = _NAV_BUILDING_ENVELOPE_SIMPLIFY_M / _NAV_BUILDING_ENVELOPE_BUFFER_M
+# JuPedSim's per-iteration cost scales with the NUMBER of distinct obstacle
+# islands handed to it (each is a separate hole the collision-free-speed
+# model must query against), not with vertex count: benchmarking a single
+# agent against a synthetic multi-hole polygon showed ~2 µs/iterate with 0
+# holes, ~200 µs with 50, and ~5 ms with 300 — enough to blow the 100 ms live
+# tick budget well before the crowd gets large. Dense OSM imports routinely
+# produce far more than 50 separate (and often far apart) buildings, so the
+# fixed 10 m closing buffer above is not always enough to keep the merged
+# island count low. When it isn't, escalate the buffer geometrically (and
+# scale the simplify tolerance with it) until the island count fits the
+# budget below, or the safety cap is hit — whichever comes first. The cap
+# exists so a pathological scene (e.g. one giant campus of scattered sheds)
+# can't fuse the whole store into an unwalkable blob.
+_NAV_BUILDING_ENVELOPE_ISLAND_BUDGET = 48
+_NAV_BUILDING_ENVELOPE_MAX_BUFFER_M = 60.0
+_NAV_BUILDING_ENVELOPE_BUFFER_GROWTH = 1.6
+_NAV_BUILDING_ENVELOPE_MAX_ESCALATIONS = 6
 
 CmPoint: TypeAlias = list[float]
 CmRing: TypeAlias = list[CmPoint]
@@ -238,44 +258,20 @@ def _build_runtime_envelope_gain(
     }
 
 
-def _merge_building_obstacles(
-    building_obstacles: list[tuple[dict, Polygon | MultiPolygon]],
-) -> tuple[list[tuple[dict, Polygon | MultiPolygon]], dict[str, float | int]]:
-    if not building_obstacles:
-        return [], _build_runtime_envelope_gain(
-            source_count=0,
-            source_vertex_count=0,
-            merged_count=0,
-            merged_vertex_count=0,
-        )
-
-    polygons: list[Polygon] = []
-    identities: list[dict] = []
-    for identity, obstacle in building_obstacles:
-        geoms = list(obstacle.geoms) if isinstance(obstacle, MultiPolygon) else [obstacle]
-        for geom in geoms:
-            if isinstance(geom, Polygon) and not geom.is_empty:
-                polygons.append(geom)
-                identities.append(identity)
-
-    if not polygons:
-        return [], _build_runtime_envelope_gain(
-            source_count=0,
-            source_vertex_count=0,
-            merged_count=0,
-            merged_vertex_count=0,
-        )
-
-    polygon_centroids = [polygon.centroid for polygon in polygons]
-    grown = [
-        polygon.buffer(_NAV_BUILDING_ENVELOPE_BUFFER_M, join_style=BufferJoinStyle.mitre)
-        for polygon in polygons
-    ]
+def _build_building_islands(
+    polygons: list[Polygon],
+    identities: list[dict],
+    polygon_centroids: list[Point],
+    *,
+    buffer_m: float,
+    simplify_m: float,
+) -> list[tuple[dict, Polygon]]:
+    """Close nearby building polygons into fused islands at a given buffer/
+    simplify tuning. Pure function of the tuning so the caller can retry it
+    at a larger buffer without any other side effect."""
+    grown = [polygon.buffer(buffer_m, join_style=BufferJoinStyle.mitre) for polygon in polygons]
     grown_bounds = [geometry.bounds for geometry in grown]
-    merged = unary_union(grown).buffer(
-        -_NAV_BUILDING_ENVELOPE_BUFFER_M,
-        join_style=BufferJoinStyle.mitre,
-    )
+    merged = unary_union(grown).buffer(-buffer_m, join_style=BufferJoinStyle.mitre)
     islands = list(merged.geoms) if hasattr(merged, "geoms") else [merged]
     simplified: list[tuple[dict, Polygon]] = []
     for island in islands:
@@ -290,7 +286,7 @@ def _merge_building_obstacles(
             if convex is not None and convex.area <= normalized.area * _NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO:
                 envelope_island = convex
         simplified_island = _normalize_polygon(
-            envelope_island.simplify(_NAV_BUILDING_ENVELOPE_SIMPLIFY_M, preserve_topology=True)
+            envelope_island.simplify(simplify_m, preserve_topology=True)
         ) or envelope_island
         if simplified_island.area < _NAV_BUILDING_ENVELOPE_MIN_AREA_M2:
             continue
@@ -322,14 +318,96 @@ def _merge_building_obstacles(
         else:
             anchor = {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
         simplified.append((anchor, simplified_island))
+    return simplified
+
+
+def _merge_building_obstacles(
+    building_obstacles: list[tuple[dict, Polygon | MultiPolygon]],
+) -> tuple[list[tuple[dict, Polygon | MultiPolygon]], dict[str, float | int]]:
+    if not building_obstacles:
+        return [], _build_runtime_envelope_gain(
+            source_count=0,
+            source_vertex_count=0,
+            merged_count=0,
+            merged_vertex_count=0,
+        )
+
+    polygons: list[Polygon] = []
+    identities: list[dict] = []
+    for identity, obstacle in building_obstacles:
+        geoms = list(obstacle.geoms) if isinstance(obstacle, MultiPolygon) else [obstacle]
+        for geom in geoms:
+            if isinstance(geom, Polygon) and not geom.is_empty:
+                polygons.append(geom)
+                identities.append(identity)
+
+    if not polygons:
+        return [], _build_runtime_envelope_gain(
+            source_count=0,
+            source_vertex_count=0,
+            merged_count=0,
+            merged_vertex_count=0,
+        )
+
+    polygon_centroids = [polygon.centroid for polygon in polygons]
+
+    # Escalate the closing buffer geometrically until the resulting island
+    # count fits the JuPedSim-friendly budget, or the safety cap is reached.
+    # Most scenes (few, tightly-clustered buildings) resolve on the very
+    # first, non-escalated pass — the loop only ever iterates for OSM imports
+    # dense/scattered enough to still exceed the budget at the base buffer.
+    buffer_m = _NAV_BUILDING_ENVELOPE_BUFFER_M
+    simplified = _build_building_islands(
+        polygons,
+        identities,
+        polygon_centroids,
+        buffer_m=buffer_m,
+        simplify_m=buffer_m * _NAV_BUILDING_ENVELOPE_SIMPLIFY_RATIO,
+    )
+    escalation_steps = 0
+    while (
+        len(simplified) > _NAV_BUILDING_ENVELOPE_ISLAND_BUDGET
+        and buffer_m < _NAV_BUILDING_ENVELOPE_MAX_BUFFER_M
+        and escalation_steps < _NAV_BUILDING_ENVELOPE_MAX_ESCALATIONS
+    ):
+        buffer_m = min(_NAV_BUILDING_ENVELOPE_MAX_BUFFER_M, buffer_m * _NAV_BUILDING_ENVELOPE_BUFFER_GROWTH)
+        simplified = _build_building_islands(
+            polygons,
+            identities,
+            polygon_centroids,
+            buffer_m=buffer_m,
+            simplify_m=buffer_m * _NAV_BUILDING_ENVELOPE_SIMPLIFY_RATIO,
+        )
+        escalation_steps += 1
+
+    if escalation_steps:
+        append_log(
+            source="backend",
+            category="walkable-envelope-escalation",
+            level="warning" if len(simplified) > _NAV_BUILDING_ENVELOPE_ISLAND_BUDGET else "info",
+            message="OSM building envelope buffer escalated to fit the island budget",
+            details={
+                "sourceObstacleCount": len(polygons),
+                "islandBudget": _NAV_BUILDING_ENVELOPE_ISLAND_BUDGET,
+                "escalationSteps": escalation_steps,
+                "bufferMetersUsed": round(buffer_m, 2),
+                "finalIslandCount": len(simplified),
+                "budgetMet": len(simplified) <= _NAV_BUILDING_ENVELOPE_ISLAND_BUDGET,
+            },
+        )
+
     source_vertex_count = sum(_polygon_vertex_count(polygon) for polygon in polygons)
     merged_vertex_count = sum(_polygon_vertex_count(polygon) for _identity, polygon in simplified)
-    return simplified, _build_runtime_envelope_gain(
+    gain = _build_runtime_envelope_gain(
         source_count=len(polygons),
         source_vertex_count=source_vertex_count,
         merged_count=len(simplified),
         merged_vertex_count=merged_vertex_count,
     )
+    gain["islandBudget"] = _NAV_BUILDING_ENVELOPE_ISLAND_BUDGET
+    gain["bufferMetersUsed"] = round(buffer_m, 2)
+    gain["escalationSteps"] = escalation_steps
+    return simplified, gain
 
 
 def _scene_hash(scene: SceneData) -> str:

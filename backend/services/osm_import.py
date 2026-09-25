@@ -1906,6 +1906,7 @@ def osm_xml_to_retail_layout(
         building_polys = []
         building_way_ids = []
         building_attrs = []  # (hauteur, couleur, opacité) de chaque bâtiment
+        building_sources = []
 
         for zone in zones:
 
@@ -1927,6 +1928,7 @@ def osm_xml_to_retail_layout(
             building_attrs.append(
                 (zone["heightCm"], zone["color"], zone["opacity"])
             )
+            building_sources.append(dict(zone["_source"]))
 
             # Mode overlay : le bâtiment d'origine ne bloque plus.
             if envelope_mode != "replace":
@@ -1980,14 +1982,18 @@ def osm_xml_to_retail_layout(
                 env_zs = [p["z"] for p in env_points]
 
                 members = [
-                    (way_id, attrs)
-                    for way_id, poly, attrs in zip(
-                        building_way_ids, building_polys, building_attrs
+                    (way_id, attrs, source)
+                    for way_id, poly, attrs, source in zip(
+                        building_way_ids,
+                        building_polys,
+                        building_attrs,
+                        building_sources,
                     )
                     if poly.intersects(island)
                 ]
-                member_ids = [m[0] for m in members]
-
+                member_ids = [m[0] for m in members if m[0] is not None]
+                unique_member_ids = sorted({member_id for member_id in member_ids})
+ 
                 if envelope_mode == "replace" and members:
                     # L'îlot reprend l'aspect de ses bâtiments :
                     # hauteur max, couleur du premier, opacité max.
@@ -1995,9 +2001,30 @@ def osm_xml_to_retail_layout(
                     env_color = members[0][1][1]
                     env_opacity = max(m[1][2] for m in members)
                     env_label = f"Îlot {index}"
+                    representative_source = dict(members[0][2])
+                    if len(unique_member_ids) != 1:
+                        for key in (
+                            "osmWayId",
+                            "building",
+                            "buildingType",
+                            "buildingTypeRaw",
+                            "semanticType",
+                            "semanticSourceTag",
+                            "semanticRawValue",
+                            "geometryRole",
+                            "buildingConfidence",
+                            "heightSource",
+                            "defaultHeightApplied",
+                            "height",
+                            "building:levels",
+                            "name",
+                            "tags",
+                        ):
+                            representative_source.pop(key, None)
                 else:
                     env_height, env_color, env_opacity = 0.0, "#EF4444", 0.25
                     env_label = f"Enveloppe {index}"
+                    representative_source = {}
 
                 zones.append({
                     "id": f"envelope-{index}",
@@ -2019,9 +2046,10 @@ def osm_xml_to_retail_layout(
                     "opacity": env_opacity,
                     "heightCm": env_height,
                     "_source": {
+                        **representative_source,
                         "isEnvelope": True,
-                        "isLikelyBuilding": envelope_mode == "replace",
-                        "memberOsmWayIds": member_ids,
+                        "isLikelyBuilding": envelope_mode == "replace" and bool(members),
+                        "memberOsmWayIds": unique_member_ids,
                         "vertexCountSimplified": len(env_points),
                     },
                 })

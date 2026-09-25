@@ -787,6 +787,7 @@ def test_store_layout_import_osm_keeps_buildings_only_by_default() -> None:
     zones = import_response.json()["payload"]["scene"]["store"]["zones"]
     assert [zone["id"] for zone in zones] == ["building-100"]
     assert zones[0]["source"]["isLikelyBuilding"] is True
+    assert zones[0]["source"].get("isEnvelope") is not True
 
 
 def test_store_layout_import_osm_keeps_native_buildings_but_runtime_paths_merge_close_blocks() -> None:

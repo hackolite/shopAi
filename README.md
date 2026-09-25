@@ -514,7 +514,7 @@ Dans le studio, l'overlay **Chemin navigable** affiche :
 La simulation renvoie `422` sur les violations de contraintes avec un body FastAPI de la forme `{"detail": {...}}`.
 Les cas usuels documentés ici sont :
 
-- `detail.code = "splitAccessibleArea"` quand un meuble ou une zone coupe la surface accessible ;
+- `detail.code = "splitAccessibleArea"` pour les trois familles de blocage : surface coupée par un obstacle, aucune entrée atteignable, ou sortie déconnectée ;
 - `detail.message` explicite l'action corrective ;
 - `detail.blockingElementType`, `detail.blockingElementId`, `detail.blockingElementLabel` identifient l'élément bloquant quand il est connu ;
 - `detail.blockingElementIds` peut lister plusieurs obstacles quand aucune entrée atteignable ou une sortie déconnectée est détectée.

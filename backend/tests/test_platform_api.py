@@ -797,6 +797,8 @@ def test_store_layout_import_osm_keeps_buildings_only_by_default() -> None:
     assert import_response.status_code == 200, import_response.text
     zones = import_response.json()["payload"]["scene"]["store"]["zones"]
     assert len(zones) == 1
+    assert zones[0]["id"].startswith("envelope-")
+    assert zones[0]["shape"] == "polygon"
     assert zones[0]["source"]["isLikelyBuilding"] is True
     assert zones[0]["source"]["isEnvelope"] is True
     assert zones[0]["source"]["memberOsmWayIds"] == ["100"]

@@ -2253,6 +2253,24 @@ def osm_xml_to_retail_layout(
     # PAYLOAD FINAL
     # ========================================================
 
+    geometry_complexity_policy = (
+        "Dense OSM polygons increase import cost, triangulation cost, "
+        "navigation obstacle compilation, and live simulation updates. "
+    )
+    if aggressive_reduction:
+        geometry_complexity_policy += (
+            "Aggressive reduction raises contour simplification from "
+            f"{DEFAULT_SIMPLIFY_TOLERANCE_M:g} m to "
+            f"{AGGRESSIVE_SIMPLIFY_TOLERANCE_M:g} m to lower vertex count "
+            "when visual fidelity is less important than runtime speed."
+        )
+    else:
+        geometry_complexity_policy += (
+            "Standard import keeps a "
+            f"{effective_simplify_tolerance_m:g} m contour simplification "
+            "tolerance for a closer match to the source geometry."
+        )
+
     payload = {
 
         "version": "1.0",
@@ -2348,14 +2366,7 @@ def osm_xml_to_retail_layout(
             # AJOUT — visible dans le payload pour debug/tuning
             # sans avoir à relire les logs serveur.
             "importStats": import_stats,
-            "geometryComplexityPolicy": (
-                "Dense OSM polygons increase import cost, triangulation cost, "
-                "navigation obstacle compilation, and live simulation updates. "
-                "Aggressive reduction raises contour simplification from "
-                f"{DEFAULT_SIMPLIFY_TOLERANCE_M:g} m to "
-                f"{AGGRESSIVE_SIMPLIFY_TOLERANCE_M:g} m to lower vertex count "
-                "when visual fidelity is less important than runtime speed."
-            ),
+            "geometryComplexityPolicy": geometry_complexity_policy,
         },
 
         # ====================================================

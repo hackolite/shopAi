@@ -683,7 +683,7 @@ export default function App() {
                         <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
                         <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
                         <label className="hub-small flex items-center justify-between gap-3 text-gray-300">
-                          <span>Réduction agressive des polygones OSM (moins de sommets, moins fidèle, plus rapide pour la navigation et la simulation).</span>
+                          <span>Fusion + réduction agressives OSM (fusionne les bâtiments proches en îlots, réduit les sommets; moins fidèle, plus rapide).</span>
                           <input
                             type="checkbox"
                             checked={layoutOsmAggressiveReduction}
@@ -691,7 +691,7 @@ export default function App() {
                             className="accent-blue-500"
                           />
                         </label>
-                        <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec hauteur OSM (ou `building:levels`), sinon 10m par défaut. Plus la géométrie contient de sommets, plus l’import, la compilation des obstacles et les mises à jour de simulation coûtent cher; activez l’option agressive si vous privilégiez la performance à la fidélité du contour.</p>
+                        <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec hauteur OSM (ou `building:levels`), sinon 10m par défaut. L’option agressive augmente la simplification et fusionne les bâtiments proches en îlots pour réduire fortement le coût navigation/simulation.</p>
                         <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
                       </form>
                     </div>

@@ -33,6 +33,8 @@ MISSING_HEIGHT_OPACITY = 0.32
 # sur des bâtiments OSM détaillés (arrondis, décrochés).
 DEFAULT_SIMPLIFY_TOLERANCE_M = 0.5
 AGGRESSIVE_SIMPLIFY_TOLERANCE_M = 3.0
+AGGRESSIVE_ENVELOPE_BUFFER_M = 8.0
+AGGRESSIVE_ENVELOPE_SIMPLIFY_M = 4.0
 
 # Aire minimale (m²) en dessous de laquelle un objet qui N'EST
 # PAS un bâtiment (parking, landuse, bout de trottoir fermé...)
@@ -1073,6 +1075,22 @@ def osm_xml_to_retail_layout(
         if aggressive_reduction
         else simplify_tolerance_m
     )
+    effective_envelope_enabled = (
+        True if aggressive_reduction else envelope_enabled
+    )
+    effective_envelope_mode = (
+        "replace" if aggressive_reduction else envelope_mode
+    )
+    effective_envelope_buffer_m = (
+        max(envelope_buffer_m, AGGRESSIVE_ENVELOPE_BUFFER_M)
+        if aggressive_reduction
+        else envelope_buffer_m
+    )
+    effective_envelope_simplify_m = (
+        max(envelope_simplify_m, AGGRESSIVE_ENVELOPE_SIMPLIFY_M)
+        if aggressive_reduction
+        else envelope_simplify_m
+    )
 
     # ========================================================
     # PARSING
@@ -1895,7 +1913,7 @@ def osm_xml_to_retail_layout(
     envelope_vertices = 0
     envelope_source_buildings = 0
 
-    if envelope_enabled and building_count > 0:
+    if effective_envelope_enabled and building_count > 0:
 
         try:
             from shapely.geometry import Polygon
@@ -1906,8 +1924,8 @@ def osm_xml_to_retail_layout(
                 "(pip install shapely)."
             ) from exc
 
-        buffer_cm = max(envelope_buffer_m, 0.0) * 100.0
-        simplify_cm = max(envelope_simplify_m, 0.0) * 100.0
+        buffer_cm = max(effective_envelope_buffer_m, 0.0) * 100.0
+        simplify_cm = max(effective_envelope_simplify_m, 0.0) * 100.0
         min_area_cm2 = max(envelope_min_area_m2, 0.0) * 10_000.0
 
         building_polys = []
@@ -1938,7 +1956,7 @@ def osm_xml_to_retail_layout(
             building_sources.append(dict(zone["_source"]))
 
             # Mode overlay : le bâtiment d'origine ne bloque plus.
-            if envelope_mode != "replace":
+            if effective_envelope_mode != "replace":
                 zone["pedestrianObstacle"] = False
 
         envelope_source_buildings = len(building_polys)
@@ -2001,7 +2019,7 @@ def osm_xml_to_retail_layout(
                 member_ids = [m[0] for m in members if m[0] is not None]
                 unique_member_ids = sorted({member_id for member_id in member_ids})
  
-                if envelope_mode == "replace" and members:
+                if effective_envelope_mode == "replace" and members:
                     # L'îlot reprend l'aspect de ses bâtiments :
                     # hauteur max, couleur du premier, opacité max.
                     env_height = max(m[1][0] for m in members)
@@ -2055,7 +2073,7 @@ def osm_xml_to_retail_layout(
                     "_source": {
                         **representative_source,
                         "isEnvelope": True,
-                        "isLikelyBuilding": envelope_mode == "replace" and bool(members),
+                        "isLikelyBuilding": effective_envelope_mode == "replace" and bool(members),
                         "memberOsmWayIds": unique_member_ids,
                         "vertexCountSimplified": len(env_points),
                     },
@@ -2064,7 +2082,7 @@ def osm_xml_to_retail_layout(
                 envelope_count += 1
                 envelope_vertices += len(env_points)
 
-            if envelope_mode == "replace":
+            if effective_envelope_mode == "replace":
                 # Les bâtiments d'origine disparaissent : seuls
                 # les îlots restent.
                 zones[:] = [
@@ -2233,13 +2251,17 @@ def osm_xml_to_retail_layout(
         "simplifyToleranceM": effective_simplify_tolerance_m,
         "aggressiveReduction": aggressive_reduction,
         "minSurfaceAreaM2Filter": min_surface_area_m2,
-        "envelopeEnabled": envelope_enabled,
-        "envelopeMode": envelope_mode,
+        "envelopeEnabled": effective_envelope_enabled,
+        "envelopeMode": effective_envelope_mode,
+        "requestedEnvelopeEnabled": envelope_enabled,
+        "requestedEnvelopeMode": envelope_mode,
         "envelopeCount": envelope_count,
         "envelopeVertices": envelope_vertices,
         "envelopeSourceBuildings": envelope_source_buildings,
-        "envelopeBufferM": envelope_buffer_m,
-        "envelopeSimplifyM": envelope_simplify_m,
+        "envelopeBufferM": effective_envelope_buffer_m,
+        "envelopeSimplifyM": effective_envelope_simplify_m,
+        "requestedEnvelopeBufferM": envelope_buffer_m,
+        "requestedEnvelopeSimplifyM": envelope_simplify_m,
         "envelopeConvex": envelope_convex,
         "includeNonBuildingZones": include_non_building_zones,
     }
@@ -2262,6 +2284,8 @@ def osm_xml_to_retail_layout(
             "Aggressive reduction raises contour simplification from "
             f"{DEFAULT_SIMPLIFY_TOLERANCE_M:g} m to "
             f"{AGGRESSIVE_SIMPLIFY_TOLERANCE_M:g} m to lower vertex count "
+            f"and enables envelope fusion (buffer {effective_envelope_buffer_m:g} m, "
+            f"simplify {effective_envelope_simplify_m:g} m) to merge nearby buildings "
             "when visual fidelity is less important than runtime speed."
         )
     else:

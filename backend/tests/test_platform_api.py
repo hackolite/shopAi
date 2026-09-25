@@ -902,6 +902,52 @@ def test_store_layout_import_osm_aggressive_reduction_simplifies_polygons_more()
     )
 
 
+def test_store_layout_import_osm_aggressive_reduction_merges_close_buildings() -> None:
+    client = _make_client()
+    _register(client, name="OSM Merge", email="osm-merge@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <bounds minlat="14.6000" minlon="-61.0800" maxlat="14.6010" maxlon="-61.0790"/>
+  <node id="1" lat="14.6003" lon="-61.07995"/>
+  <node id="2" lat="14.6003" lon="-61.07985"/>
+  <node id="3" lat="14.6001" lon="-61.07985"/>
+  <node id="4" lat="14.6001" lon="-61.07995"/>
+  <node id="5" lat="14.6003" lon="-61.07982"/>
+  <node id="6" lat="14.6003" lon="-61.07972"/>
+  <node id="7" lat="14.6001" lon="-61.07972"/>
+  <node id="8" lat="14.6001" lon="-61.07982"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="retail"/>
+  </way>
+  <way id="200">
+    <nd ref="5"/><nd ref="6"/><nd ref="7"/><nd ref="8"/><nd ref="5"/>
+    <tag k="building" v="retail"/>
+  </way>
+</osm>
+"""
+
+    default_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM standard merge", "description": "no aggressive merge"},
+        files={"file": ("merge.osm", osm_xml, "application/xml")},
+    )
+    assert default_response.status_code == 200, default_response.text
+
+    aggressive_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM aggressive merge", "description": "aggressive merge", "aggressiveReduction": "true"},
+        files={"file": ("merge.osm", osm_xml, "application/xml")},
+    )
+    assert aggressive_response.status_code == 200, aggressive_response.text
+
+    default_zones = default_response.json()["payload"]["scene"]["store"]["zones"]
+    aggressive_zones = aggressive_response.json()["payload"]["scene"]["store"]["zones"]
+    assert len(default_zones) == 2
+    assert len(aggressive_zones) == 1
+    assert any(zone["source"].get("isEnvelope") is True for zone in aggressive_zones)
+
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:
     client = _make_client()
     _register(client, name="OSM Invalid XML", email="osm-invalid-xml@example.com")

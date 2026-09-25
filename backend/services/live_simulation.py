@@ -408,7 +408,7 @@ class LiveSimulationSession:
             self.agent_speeds[new_agent_id] = desired_speed
             if carried.queue_token is not None and carried.queued_elapsed_seconds is not None:
                 runtime = self.waypoint_runtimes.get(carried.queue_token)
-                if runtime is not None:
+                if runtime is not None and runtime.release_interval_s > 0:
                     runtime.enqueue_times[new_agent_id] = max(
                         0.0,
                         self.time_seconds - float(carried.queued_elapsed_seconds),

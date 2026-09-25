@@ -956,7 +956,7 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
                 for block in (partition.spatial_model.building_blocks if partition.spatial_model is not None else [])
             ],
             "routeCellIds": navmesh_route_preview(partition, entries, exits),
-            "routeFlowField": navmesh_flow_preview(partition, exits),
+            "routeFlowField": navmesh_flow_preview(partition, entries, exits),
         }
     except SimulationConstraintViolation as exc:
         raise HTTPException(status_code=422, detail=exc.detail) from exc

@@ -779,24 +779,40 @@ def navmesh_route_preview(
 ) -> list[str]:
     if partition.spatial_model is None or not entries or not exits:
         return []
-    start = _waypoint_point(entries[0])
-    end = _waypoint_point(exits[0])
+    selected_entry, selected_exit = preview_route_pair(entries, exits)
+    start = _waypoint_point(selected_entry)
+    end = _waypoint_point(selected_exit)
     return astar_cell_path(partition.spatial_model.navmesh, start, end)
 
 
 def navmesh_flow_preview(
     partition: WalkablePartition,
+    entries: list[SimulationWaypoint],
     exits: list[SimulationWaypoint],
 ) -> NavMeshFlowFieldPreview | None:
-    if partition.spatial_model is None or not exits:
+    if partition.spatial_model is None or not entries or not exits:
         return None
+    _selected_entry, selected_exit = preview_route_pair(entries, exits)
     flow_field = build_navmesh_flow_field(
         partition.spatial_model.navmesh,
-        _waypoint_point(exits[0]),
+        _waypoint_point(selected_exit),
     )
     if flow_field is None:
         return None
     return navmesh_flow_field_to_cm(flow_field)
+
+
+def preview_route_pair(
+    entries: list[SimulationWaypoint],
+    exits: list[SimulationWaypoint],
+    spawn_index: int = 0,
+) -> tuple[SimulationWaypoint, SimulationWaypoint]:
+    """Pick the same entry/exit pairing rule used by runtime spawning."""
+    if not entries or not exits:
+        raise ValueError("Preview route pair requires at least one entry and one exit")
+    selected_entry = entries[spawn_index % len(entries)]
+    selected_exit = exits[spawn_index % len(exits)]
+    return selected_entry, selected_exit
 
 
 def route_preview_waypoints(

@@ -1992,6 +1992,7 @@ def osm_xml_to_retail_layout(
                     if poly.intersects(island)
                 ]
                 member_ids = [m[0] for m in members if m[0] is not None]
+                unique_member_ids = sorted({member_id for member_id in member_ids})
  
                 if envelope_mode == "replace" and members:
                     # L'îlot reprend l'aspect de ses bâtiments :
@@ -2001,7 +2002,7 @@ def osm_xml_to_retail_layout(
                     env_opacity = max(m[1][2] for m in members)
                     env_label = f"Îlot {index}"
                     representative_source = dict(members[0][2])
-                    if len(members) != 1 or len(member_ids) != 1:
+                    if len(unique_member_ids) != 1:
                         for key in (
                             "osmWayId",
                             "building",
@@ -2048,7 +2049,7 @@ def osm_xml_to_retail_layout(
                         **representative_source,
                         "isEnvelope": True,
                         "isLikelyBuilding": envelope_mode == "replace" and bool(members),
-                        "memberOsmWayIds": member_ids,
+                        "memberOsmWayIds": unique_member_ids,
                         "vertexCountSimplified": len(env_points),
                     },
                 })

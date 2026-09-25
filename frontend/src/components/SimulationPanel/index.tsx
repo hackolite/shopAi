@@ -43,6 +43,10 @@ const ANALYTICS_INTERVAL_MS = 1000;
  * this is 5 simulated seconds per call.
  */
 const MAX_CATCH_UP_STEPS = 50;
+const OSM_NAVIGATION_DEBOUNCE_MS = 700;
+const OSM_NAVIGATION_DEBOUNCE_ACTIVE_MS = 1200;
+const OSM_LIVE_FRAME_WINDOW = Math.max(8, Math.floor(LIVE_FRAME_WINDOW * 0.6));
+const OSM_TICK_PERF_SAMPLE_SIZE = 30;
 
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)} s`;
@@ -316,6 +320,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setWaypointPlacementType,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
+  const osmSimulationMode = useProjectStore((state) => state.osmSimulationMode);
   const { showGrid, setShowGrid } = useUIStore();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -338,6 +343,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const journeyBasketsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingJourneyBaskets = useRef(false);
   const pendingAgentBasket = useRef(false);
+  const walkablePreviewInFlight = useRef(false);
+  const lastWalkablePreviewSignature = useRef<string | null>(null);
+  const osmTickPerf = useRef({ count: 0, totalMs: 0, maxMs: 0 });
   const [pedestrianDatasetError, setPedestrianDatasetError] = useState<string | null>(null);
   const [isLoadingPedestrians, setIsLoadingPedestrians] = useState(false);
   const [availablePedestrianDatasets, setAvailablePedestrianDatasets] = useState<PlatformPedestrianDataset[]>([]);
@@ -441,6 +449,12 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const hasNavigationEnvelopePreview = (walkablePreview?.buildingBlocks?.length ?? 0) > 0;
 
   useEffect(() => {
+    walkablePreviewInFlight.current = false;
+    lastWalkablePreviewSignature.current = null;
+    osmTickPerf.current = { count: 0, totalMs: 0, maxMs: 0 };
+  }, [osmSimulationMode, projectId]);
+
+  useEffect(() => {
     if (showNavigationOverlay && hasNavigationEnvelopePreview) return;
     if (!showNavigationEnvelopeOnly) return;
     setShowNavigationEnvelopeOnly(false);
@@ -472,11 +486,33 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const refreshWalkablePreview = useCallback(() => {
     if (!projectId || !sceneWithZones) return;
     if (!useSimulationStore.getState().showNavigationOverlay) return;
+    const requestSignature = snapshotSimulationInput(sceneWithZones, runtimeConfig);
+    if (osmSimulationMode) {
+      if (walkablePreviewInFlight.current) return;
+      if (lastWalkablePreviewSignature.current === requestSignature) return;
+      walkablePreviewInFlight.current = true;
+    }
+    const startedAt = performance.now();
     void cadApi
       .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
       .then((preview) => {
         if (isStale(projectId)) return;
         setWalkablePreview(preview);
+        if (osmSimulationMode) {
+          lastWalkablePreviewSignature.current = requestSignature;
+          void platformApi.appendClientLog({
+            source: 'frontend',
+            category: 'simulation-osm-preview-perf',
+            message: 'OSM walkable preview refreshed',
+            details: {
+              projectId,
+              durationMs: Number((performance.now() - startedAt).toFixed(2)),
+              connectedPolygonCount: preview.connected.length,
+              disconnectedPolygonCount: preview.disconnected.length,
+              buildingBlockCount: preview.buildingBlocks?.length ?? 0,
+            },
+          }).catch(() => {});
+        }
       })
       .catch((error) => {
         if (isStale(projectId)) return;
@@ -485,16 +521,46 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         if (blockingHighlights.allIds.length > 0) {
           setInvalidObstacleHighlights(blockingHighlights);
         }
+      })
+      .finally(() => {
+        if (osmSimulationMode) {
+          walkablePreviewInFlight.current = false;
+        }
       });
-  }, [isStale, projectId, runtimeConfig, sceneWithZones, setInvalidObstacleHighlights, setWalkablePreview]);
+  }, [
+    isStale,
+    osmSimulationMode,
+    projectId,
+    runtimeConfig,
+    sceneWithZones,
+    setInvalidObstacleHighlights,
+    setWalkablePreview,
+  ]);
 
   const toggleNavigationOverlay = useCallback(async (enabled: boolean) => {
     setShowNavigationOverlay(enabled);
     if (!enabled || !projectId || !sceneWithZones) return;
+    const requestSignature = snapshotSimulationInput(sceneWithZones, runtimeConfig);
+    const startedAt = performance.now();
     try {
       const preview = await cadApi.getWalkablePreview(projectId, sceneWithZones, runtimeConfig);
       if (isStale(projectId)) return;
       setWalkablePreview(preview);
+      if (osmSimulationMode) {
+        lastWalkablePreviewSignature.current = requestSignature;
+        void platformApi.appendClientLog({
+          source: 'frontend',
+          category: 'simulation-osm-preview-perf',
+          message: 'OSM walkable preview fetched on overlay enable',
+          details: {
+            projectId,
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            connectedPolygonCount: preview.connected.length,
+            disconnectedPolygonCount: preview.disconnected.length,
+            buildingBlockCount: preview.buildingBlocks?.length ?? 0,
+          },
+        }).catch(() => {});
+      }
     } catch (error) {
       if (isStale(projectId)) return;
       // Entry/exit truly disconnected: keep the last good preview on screen,
@@ -505,18 +571,42 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       console.error('Failed to fetch walkable preview:', error);
       alert(error instanceof Error ? error.message : 'Aperçu de la zone navigable impossible');
     }
-  }, [isStale, projectId, runtimeConfig, sceneWithZones, setInvalidObstacleHighlights, setShowNavigationOverlay, setWalkablePreview]);
+  }, [
+    isStale,
+    osmSimulationMode,
+    projectId,
+    runtimeConfig,
+    sceneWithZones,
+    setInvalidObstacleHighlights,
+    setShowNavigationOverlay,
+    setWalkablePreview,
+  ]);
 
   useEffect(() => {
     if (!showNavigationOverlay || !projectId || !sceneWithZones) return;
+    const activeLiveSession = Boolean(liveSessionId) && playing && !paused;
+    const delayMs = osmSimulationMode
+      ? (activeLiveSession ? OSM_NAVIGATION_DEBOUNCE_ACTIVE_MS : OSM_NAVIGATION_DEBOUNCE_MS)
+      : 150;
     const timer = window.setTimeout(() => {
       refreshWalkablePreview();
-    }, 150);
+    }, delayMs);
     return () => window.clearTimeout(timer);
-  }, [projectId, refreshWalkablePreview, sceneWithZones, showNavigationOverlay, runtimeConfig]);
+  }, [
+    liveSessionId,
+    osmSimulationMode,
+    paused,
+    playing,
+    projectId,
+    refreshWalkablePreview,
+    sceneWithZones,
+    showNavigationOverlay,
+    runtimeConfig,
+  ]);
 
   const runSimulation = useCallback(async () => {
     if (!projectId || !sceneWithZones) return;
+    const startedAt = performance.now();
     setRunning(true);
     setPedestrianDatasetError(null);
     void platformApi.appendClientLog({
@@ -557,6 +647,20 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       setPlaying(true);
       lastSimulationSignature.current = signature;
       refreshWalkablePreview();
+      if (osmSimulationMode) {
+        void platformApi.appendClientLog({
+          source: 'frontend',
+          category: 'simulation-osm-start-perf',
+          message: 'OSM simulation launch succeeded',
+          details: {
+            projectId,
+            sessionId: live.sessionId,
+            durationMs: Number((performance.now() - startedAt).toFixed(2)),
+            waypointCount: runtimeConfig.waypoints.length,
+            zoneCount: sceneWithZones.store.zones?.length ?? 0,
+          },
+        }).catch(() => {});
+      }
       void platformApi.appendClientLog({
         source: 'frontend',
         category: 'simulation-attempt',
@@ -621,6 +725,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     refreshWalkablePreview,
     runtimeConfig,
     sceneWithZones,
+    osmSimulationMode,
     selectWaypoint,
     setInvalidWaypointIds,
     setInvalidObstacleHighlights,
@@ -698,9 +803,9 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   // simulation render loop.  Full speed is restored on pause/stop.
   useEffect(() => {
     const active = Boolean(liveSessionId) && playing && !paused;
-    useAssetStore.getState().setPreloadThrottled(active);
+    useAssetStore.getState().setPreloadThrottled(active && osmSimulationMode);
     return () => { useAssetStore.getState().setPreloadThrottled(false); };
-  }, [liveSessionId, paused, playing]);
+  }, [liveSessionId, osmSimulationMode, paused, playing]);
 
   useEffect(() => {
     if (!projectId || loadedProjectId !== projectId) return;
@@ -723,8 +828,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
       const steps = Math.min(MAX_CATCH_UP_STEPS, elapsedSteps);
       lastTickAt.current = previousTickAt + steps * LIVE_TICK_INTERVAL_MS;
       pendingTick.current = true;
+      const tickStartedAt = performance.now();
+      const frameWindow = osmSimulationMode ? OSM_LIVE_FRAME_WINDOW : LIVE_FRAME_WINDOW;
       void cadApi
-        .tickLiveSimulation(projectId, liveSessionId, steps, false, LIVE_FRAME_WINDOW)
+        .tickLiveSimulation(projectId, liveSessionId, steps, false, frameWindow)
         .then((live) => {
           if (isStale(projectId)) return;
           setResult({
@@ -754,6 +861,29 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
           if (isSessionNotFoundError(error)) handleLostSession();
         })
         .finally(() => {
+          if (osmSimulationMode && !isStale(projectId)) {
+            const durationMs = performance.now() - tickStartedAt;
+            osmTickPerf.current.count += 1;
+            osmTickPerf.current.totalMs += durationMs;
+            osmTickPerf.current.maxMs = Math.max(osmTickPerf.current.maxMs, durationMs);
+            if (osmTickPerf.current.count >= OSM_TICK_PERF_SAMPLE_SIZE) {
+              const sample = osmTickPerf.current;
+              void platformApi.appendClientLog({
+                source: 'frontend',
+                category: 'simulation-osm-tick-perf',
+                message: 'OSM tick timing sample',
+                details: {
+                  projectId,
+                  sessionId: liveSessionId,
+                  frameWindow,
+                  sampleCount: sample.count,
+                  avgDurationMs: Number((sample.totalMs / sample.count).toFixed(2)),
+                  maxDurationMs: Number(sample.maxMs.toFixed(2)),
+                },
+              }).catch(() => {});
+              osmTickPerf.current = { count: 0, totalMs: 0, maxMs: 0 };
+            }
+          }
           pendingTick.current = false;
         });
     }, LIVE_TICK_INTERVAL_MS);
@@ -763,7 +893,19 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
         tickTimer.current = null;
       }
     };
-  }, [handleLostSession, isStale, liveSessionId, loadedProjectId, paused, playing, projectId, pushPickupEvents, setPaused, setResult]);
+  }, [
+    handleLostSession,
+    isStale,
+    liveSessionId,
+    loadedProjectId,
+    osmSimulationMode,
+    paused,
+    playing,
+    projectId,
+    pushPickupEvents,
+    setPaused,
+    setResult,
+  ]);
 
   // Heatmap and trajectories are only fetched while one of the overlays is on,
   // and at a much lower rate than the agent ticks: their payload is far bigger

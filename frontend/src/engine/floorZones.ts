@@ -33,6 +33,14 @@ export function zoneIsMergeableBuilding(
     && Boolean(source?.isLikelyBuilding);
 }
 
+export function sceneHasOsmSimulationProfile(
+  scene: { store?: { zones?: Pick<FloorZone, 'source'>[] } | null } | null | undefined,
+): boolean {
+  return Boolean(
+    scene?.store?.zones?.some((zone) => Boolean(zone.source?.osmWayId)),
+  );
+}
+
 export function zoneHeightCm(zone: Pick<FloorZone, 'heightCm'>): number {
   return Math.max(0, zone.heightCm ?? 120);
 }

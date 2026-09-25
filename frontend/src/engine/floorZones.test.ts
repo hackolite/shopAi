@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   floorShapePlanePointCm,
   floorZoneValidationError,
+  sceneHasOsmSimulationProfile,
   zoneHeightCm,
   zoneIsMergeableBuilding,
   zoneMounted,
@@ -57,6 +58,20 @@ describe('floorZones helpers', () => {
     expect(zoneIsMergeableBuilding(zone({
       source: { osmWayId: '42', isLikelyBuilding: true, isEnvelope: true },
     }))).toBe(false);
+  });
+
+  it('detects whether a scene should enable OSM-only simulation optimisations', () => {
+    expect(sceneHasOsmSimulationProfile({
+      store: {
+        zones: [{ source: { osmWayId: '100' } } as FloorZone],
+      },
+    })).toBe(true);
+    expect(sceneHasOsmSimulationProfile({
+      store: {
+        zones: [{ source: { isLikelyBuilding: true } } as FloorZone],
+      },
+    })).toBe(false);
+    expect(sceneHasOsmSimulationProfile(null)).toBe(false);
   });
 
   it('keeps resize handles for bounded shapes but not free polygons', () => {

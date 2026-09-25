@@ -67,6 +67,7 @@ class _WaypointRuntime:
     release_interval_s: float
     # Maps agent_id → simulation time at which that agent became enqueued (reached its slot).
     enqueue_times: dict[int, float] = field(default_factory=dict)
+    requeue_grace_ticks: dict[int, int] = field(default_factory=dict)
     released_agents: int = 0
     # Aggregated queue waiting time (seconds spent enqueued before release).
     completed_waits: int = 0
@@ -196,7 +197,7 @@ class NavMeshRoutePlanner:
     hidden_stage_token_prefix: str = "nav"
     _expanded_route_cache: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
     _segment_token_cache: dict[tuple[str, str], list[str]] = field(default_factory=dict)
-    _flow_field_cache: dict[str, NavMeshFlowField] = field(default_factory=dict)
+    _flow_field_cache: dict[tuple[float, float], NavMeshFlowField] = field(default_factory=dict)
 
     def expanded_route_tokens(
         self,
@@ -355,13 +356,14 @@ class NavMeshRoutePlanner:
     ) -> NavMeshFlowField | None:
         if self.spatial_model is None or to_token.startswith("exit_hidden:"):
             return None
-        cached = self._flow_field_cache.get(to_token)
+        cache_key = (round(float(to_point[0]), 4), round(float(to_point[1]), 4))
+        cached = self._flow_field_cache.get(cache_key)
         if cached is not None:
             return cached
         flow_field = build_navmesh_flow_field(self.spatial_model.navmesh, to_point)
         if flow_field is None:
             return None
-        self._flow_field_cache[to_token] = flow_field
+        self._flow_field_cache[cache_key] = flow_field
         return flow_field
 
 
@@ -1088,10 +1090,16 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> int |
     for agent_id in current_enqueued:
         if agent_id not in runtime.enqueue_times:
             runtime.enqueue_times[agent_id] = current_time
+        runtime.requeue_grace_ticks.pop(agent_id, None)
 
     # Clean up agents that are no longer in the stage (already released or left).
     for agent_id in list(runtime.enqueue_times):
         if agent_id not in current_enqueued:
+            grace_ticks = runtime.requeue_grace_ticks.get(agent_id, 0)
+            if grace_ticks > 0:
+                runtime.requeue_grace_ticks[agent_id] = grace_ticks - 1
+                continue
+            runtime.requeue_grace_ticks.pop(agent_id, None)
             del runtime.enqueue_times[agent_id]
 
     if not current_enqueued:
@@ -1110,6 +1118,7 @@ def _tick_queue_runtime(runtime: _WaypointRuntime, current_time: float) -> int |
         # cleanup does not find a stale record and the newly promoted front
         # agent is correctly identified from the start.
         del runtime.enqueue_times[front_agent]
+        runtime.requeue_grace_ticks.pop(front_agent, None)
         return front_agent
     return None
 

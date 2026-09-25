@@ -14,6 +14,7 @@ from models.project import PedestrianPickupPlan, SceneData, SimulationConfig
 from services.live_simulation import (
     MAX_LIVE_FRAMES,
     MAX_WAYPOINT_SAMPLES,
+    _CarriedAgentState,
     LiveSimulationSession,
     _LiveAgentRoute,
     live_simulation_manager,
@@ -41,9 +42,9 @@ def _session(agent_count: int = 0) -> LiveSimulationSession:
     session = LiveSimulationSession("performance-test", scene, config)
     if agent_count:
         session._init_runtime([
-            (
-                _LiveAgentRoute(i + 1, 1.2, ["queue", "exit", "exit_hidden:exit"]),
-                (2 + (i % 30), 2 + (i // 30)),
+            _CarriedAgentState(
+                route=_LiveAgentRoute(i + 1, 1.2, ["queue", "exit", "exit_hidden:exit"]),
+                position=(2 + (i % 30), 2 + (i // 30)),
             )
             for i in range(agent_count)
         ])
@@ -191,12 +192,73 @@ def test_live_runtime_rebuilds_carried_agents_with_new_hidden_navmesh_tokens() -
     carried_position = tuple(float(value) for value in next(agent for agent in session.sim.agents() if int(agent.id) == agent_id).position)
 
     session.scene.store.zones[0].depth = 1200
-    session._init_runtime([(carried, carried_position)])
+    session._init_runtime([_CarriedAgentState(route=carried, position=carried_position)])
 
     rebuilt = next(iter(session.agent_routes.values()))
     rebuilt_hidden = [token for token in rebuilt.route_tokens if token.startswith("nav-live:")]
     assert rebuilt_hidden
     assert rebuilt.route_tokens[-1] == "exit_hidden:exit"
+
+
+def test_live_hot_update_keeps_pending_pickup_stops() -> None:
+    session = _session()
+    plan = PedestrianPickupPlan.model_validate({
+        "pedestrianId": 1,
+        "startUnixTs": 0,
+        "speedMps": 1.2,
+        "items": [{"ean": "product-1", "found": True, "xCm": 400, "zCm": 400, "pickupDurationSeconds": 1.0}],
+    })
+    session.load_pedestrian_plans([plan])
+    session.tick(1, include_waypoint_metrics=False)
+
+    agent_id, route = next(iter(session.agent_routes.items()))
+    carried_position = tuple(float(value) for value in next(agent for agent in session.sim.agents() if int(agent.id) == agent_id).position)
+    carried = _LiveAgentRoute(
+        stable_id=route.stable_id,
+        desired_speed=route.desired_speed,
+        route_tokens=list(route.route_tokens),
+        token_index=route.token_index,
+        pedestrian_id=route.pedestrian_id,
+    )
+
+    session._init_runtime([_CarriedAgentState(route=carried, position=carried_position)])
+
+    pickup_events = []
+    for _ in range(80):
+        pickup_events.extend(session.tick(1, include_waypoint_metrics=False).pickupEvents)
+        if pickup_events:
+            break
+    assert [event.ean for event in pickup_events] == ["product-1"]
+
+
+def test_live_hot_update_preserves_elapsed_pickup_wait() -> None:
+    session = _session()
+    plan = PedestrianPickupPlan.model_validate({
+        "pedestrianId": 1,
+        "startUnixTs": 0,
+        "speedMps": 1.2,
+        "items": [{"ean": "product-2", "found": True, "xCm": 400, "zCm": 400, "pickupDurationSeconds": 2.0}],
+    })
+    session.load_pedestrian_plans([plan])
+
+    pickup_token = "pickup:1:0"
+    while pickup_token not in session.waypoint_runtimes or not session.waypoint_runtimes[pickup_token].enqueue_times:
+        session.tick(1, include_waypoint_metrics=False)
+
+    enqueued_at = next(iter(session.waypoint_runtimes[pickup_token].enqueue_times.values()))
+    update_time = session.time_seconds
+    scene = session.scene.model_copy(deep=True)
+    config = session.config.model_copy(deep=True)
+    session.update(scene, config)
+
+    pickup_events = []
+    for _ in range(40):
+        pickup_events.extend(session.tick(1, include_waypoint_metrics=False).pickupEvents)
+        if pickup_events:
+            break
+    assert [event.ean for event in pickup_events] == ["product-2"]
+    assert pickup_events[0].timeSeconds <= round(enqueued_at + 2.2, 2)
+    assert pickup_events[0].timeSeconds - update_time < 2.0
 
 
 def test_position_spatial_hash_matches_linear_clearance_checks() -> None:

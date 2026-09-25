@@ -62,6 +62,14 @@ class _LiveAgentRoute:
     pedestrian_id: int | None = None
 
 
+@dataclass
+class _CarriedAgentState:
+    route: _LiveAgentRoute
+    position: tuple[float, float]
+    queue_token: str | None = None
+    queued_elapsed_seconds: float | None = None
+
+
 class LiveSimulationSession:
     def __init__(self, project_id: str, scene: SceneData, config: SimulationConfig):
         if jps is None:
@@ -158,7 +166,7 @@ class LiveSimulationSession:
     def _route_tokens_to_stage_ids(self, tokens: list[str]) -> list[int]:
         return [self.token_to_stage[token] for token in tokens if token in self.token_to_stage]
 
-    def _init_runtime(self, carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]]) -> None:
+    def _init_runtime(self, carry_agents: list[_CarriedAgentState]) -> None:
         # Compute the walkable partition first: obstacles that split the store
         # into disconnected islands exclude the islands instead of aborting the
         # session, and waypoints that land in an excluded island are dropped.
@@ -284,6 +292,9 @@ class LiveSimulationSession:
             for waypoint in self.metrics_waypoints:
                 self.waypoint_series.setdefault(waypoint.id, [])
 
+        if self.pedestrian_plans:
+            self._register_pedestrian_pickup_stages()
+
         old_routes = carry_agents
         self.agent_routes = {}
         self.agent_speeds = {}
@@ -302,7 +313,9 @@ class LiveSimulationSession:
             )
             or self.walkable
         )
-        for route_state, old_pos in old_routes:
+        for carried in old_routes:
+            route_state = carried.route
+            old_pos = carried.position
             visible_remaining_tokens = self._visible_route_tokens(
                 route_state.route_tokens[route_state.token_index :]
             )
@@ -363,10 +376,15 @@ class LiveSimulationSession:
                 pedestrian_id=route_state.pedestrian_id,
             )
             self.agent_speeds[new_agent_id] = desired_speed
+            if carried.queue_token is not None and carried.queued_elapsed_seconds is not None:
+                runtime = self.waypoint_runtimes.get(carried.queue_token)
+                if runtime is not None:
+                    runtime.enqueue_times[new_agent_id] = max(
+                        0.0,
+                        self.time_seconds - float(carried.queued_elapsed_seconds),
+                    )
+                    runtime.requeue_grace_ticks[new_agent_id] = 1
             self.next_stable_agent_id = max(self.next_stable_agent_id, route_state.stable_id + 1)
-
-        if self.pedestrian_plans:
-            self._register_pedestrian_pickup_stages()
 
     def _ensure_next_arrival(self) -> None:
         rate = max(0.0, float(self.config.arrivalRatePerSecond))
@@ -852,12 +870,27 @@ class LiveSimulationSession:
             # on a disconnected island; waypoints still on the connected area
             # are fully validated by _init_runtime below.
             walkable_partition.compute_walkable_partition(scene, config)
-            carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]] = []
+            carry_agents: list[_CarriedAgentState] = []
             for agent in self.sim.agents():
                 route = self.agent_routes.get(int(agent.id))
                 if route is None:
                     continue
-                carry_agents.append((route, (float(agent.position[0]), float(agent.position[1]))))
+                stage_token = self.stage_to_token.get(int(agent.stage_id))
+                runtime = self.waypoint_runtimes.get(stage_token) if stage_token is not None else None
+                enqueued_at = runtime.enqueue_times.get(int(agent.id)) if runtime is not None else None
+                queued_elapsed_seconds = (
+                    max(0.0, self.time_seconds - float(enqueued_at))
+                    if enqueued_at is not None
+                    else None
+                )
+                carry_agents.append(
+                    _CarriedAgentState(
+                        route=route,
+                        position=(float(agent.position[0]), float(agent.position[1])),
+                        queue_token=stage_token if enqueued_at is not None else None,
+                        queued_elapsed_seconds=queued_elapsed_seconds,
+                    )
+                )
             previous_scene = self.scene
             previous_config = self.config
             try:

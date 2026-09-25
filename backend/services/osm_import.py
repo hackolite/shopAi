@@ -28,10 +28,10 @@ MISSING_HEIGHT_OPACITY = 0.32
 # ------------------------------------------------------------
 
 # Tolérance de simplification des contours (Douglas-Peucker),
-# en mètres. 0.5 m est un bon point de départ pour des piétons :
-# invisible à l'œil, mais réduit fortement le nombre de sommets
-# sur des bâtiments OSM détaillés (arrondis, décrochés).
-DEFAULT_SIMPLIFY_TOLERANCE_M = 0.5
+# en mètres. Réglage volontairement agressif pour les imports OSM
+# urbains volumineux : l'objectif est de réduire fortement le
+# nombre de sommets avant même la génération de la navmesh.
+DEFAULT_SIMPLIFY_TOLERANCE_M = 2.0
 
 # Aire minimale (m²) en dessous de laquelle un objet qui N'EST
 # PAS un bâtiment (parking, landuse, bout de trottoir fermé...)
@@ -49,14 +49,14 @@ DEFAULT_MIN_SURFACE_AREA_M2 = 1.0
 # ÉTROITES DEVIENNENT IMPRATICABLES. C'est voulu pour un test
 # de charge, pas pour une simulation réaliste.
 # ------------------------------------------------------------
-DEFAULT_ENVELOPE_ENABLED = False
+DEFAULT_ENVELOPE_ENABLED = True
 # "replace" : les îlots REMPLACENT les bâtiments (rien n'est ajouté).
 # "overlay" : anciens bâtiments gardés + calque rouge de debug.
 DEFAULT_ENVELOPE_MODE = "replace"
-DEFAULT_ENVELOPE_BUFFER_M = 3.0      # comble les passages < 6 m
-DEFAULT_ENVELOPE_SIMPLIFY_M = 2.0    # tolérance Douglas-Peucker
-DEFAULT_ENVELOPE_CONVEX = False      # True = enveloppe convexe par îlot
-DEFAULT_ENVELOPE_MIN_AREA_M2 = 25.0  # îlots plus petits ignorés
+DEFAULT_ENVELOPE_BUFFER_M = 8.0      # comble les passages < 16 m
+DEFAULT_ENVELOPE_SIMPLIFY_M = 6.0    # tolérance Douglas-Peucker agressive
+DEFAULT_ENVELOPE_CONVEX = True       # favorise des monoblocs simples
+DEFAULT_ENVELOPE_MIN_AREA_M2 = 10.0  # petits résidus ignorés
 
 _HEIGHT_PATTERN = re.compile(
     r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$",
@@ -1906,6 +1906,7 @@ def osm_xml_to_retail_layout(
         building_polys = []
         building_way_ids = []
         building_attrs = []  # (hauteur, couleur, opacité) de chaque bâtiment
+        building_sources = []
 
         for zone in zones:
 
@@ -1927,6 +1928,7 @@ def osm_xml_to_retail_layout(
             building_attrs.append(
                 (zone["heightCm"], zone["color"], zone["opacity"])
             )
+            building_sources.append(dict(zone["_source"]))
 
             # Mode overlay : le bâtiment d'origine ne bloque plus.
             if envelope_mode != "replace":
@@ -1980,14 +1982,17 @@ def osm_xml_to_retail_layout(
                 env_zs = [p["z"] for p in env_points]
 
                 members = [
-                    (way_id, attrs)
-                    for way_id, poly, attrs in zip(
-                        building_way_ids, building_polys, building_attrs
+                    (way_id, attrs, source)
+                    for way_id, poly, attrs, source in zip(
+                        building_way_ids,
+                        building_polys,
+                        building_attrs,
+                        building_sources,
                     )
                     if poly.intersects(island)
                 ]
-                member_ids = [m[0] for m in members]
-
+                member_ids = [m[0] for m in members if m[0] is not None]
+ 
                 if envelope_mode == "replace" and members:
                     # L'îlot reprend l'aspect de ses bâtiments :
                     # hauteur max, couleur du premier, opacité max.
@@ -1995,9 +2000,30 @@ def osm_xml_to_retail_layout(
                     env_color = members[0][1][1]
                     env_opacity = max(m[1][2] for m in members)
                     env_label = f"Îlot {index}"
+                    representative_source = dict(members[0][2])
+                    if len(member_ids) != 1:
+                        for key in (
+                            "osmWayId",
+                            "building",
+                            "buildingType",
+                            "buildingTypeRaw",
+                            "semanticType",
+                            "semanticSourceTag",
+                            "semanticRawValue",
+                            "geometryRole",
+                            "buildingConfidence",
+                            "heightSource",
+                            "defaultHeightApplied",
+                            "height",
+                            "building:levels",
+                            "name",
+                            "tags",
+                        ):
+                            representative_source.pop(key, None)
                 else:
                     env_height, env_color, env_opacity = 0.0, "#EF4444", 0.25
                     env_label = f"Enveloppe {index}"
+                    representative_source = {}
 
                 zones.append({
                     "id": f"envelope-{index}",
@@ -2019,6 +2045,7 @@ def osm_xml_to_retail_layout(
                     "opacity": env_opacity,
                     "heightCm": env_height,
                     "_source": {
+                        **representative_source,
                         "isEnvelope": True,
                         "isLikelyBuilding": envelope_mode == "replace",
                         "memberOsmWayIds": member_ids,

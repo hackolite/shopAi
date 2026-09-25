@@ -51,6 +51,39 @@ def _session(agent_count: int = 0) -> LiveSimulationSession:
     return session
 
 
+def _navmesh_session() -> LiveSimulationSession:
+    scene = SceneData.model_validate({
+        "store": {
+            "id": "nav-store",
+            "name": "Store",
+            "dimensions": {"width": 3000, "depth": 2000, "height": 300},
+            "zones": [
+                {
+                    "id": "block",
+                    "type": "forbidden",
+                    "label": "Blocker",
+                    "x": 1200,
+                    "z": 0,
+                    "width": 400,
+                    "depth": 1500,
+                }
+            ],
+        },
+        "furniture": [],
+    })
+    config = SimulationConfig.model_validate({
+        "arrivalRatePerSecond": 10.0,
+        "durationSeconds": 5,
+        "maxCustomers": 2,
+        "randomSeed": 7,
+        "waypoints": [
+            {"id": "entry", "type": "entry", "x": 200, "z": 200},
+            {"id": "exit", "type": "exit", "x": 2800, "z": 1800},
+        ],
+    })
+    return LiveSimulationSession("navmesh-test", scene, config)
+
+
 @pytest.mark.parametrize("frame_window", [8, 16])
 def test_one_hundred_real_agents_have_identical_batched_physics_frames_and_statistics(frame_window) -> None:
     batched, sequential = _session(100), _session(100)
@@ -116,6 +149,23 @@ def test_capture_retention_limits_and_pause_do_not_duplicate_samples() -> None:
     assert len(result.frames) == 8
     assert session.analytics_recorder.seq == seq
     assert session.average_load_samples == 1251
+
+
+def test_live_runtime_expands_routes_through_hidden_navmesh_tokens_and_caches_segments() -> None:
+    session = _navmesh_session()
+
+    session.tick(1, include_waypoint_metrics=False)
+
+    assert session.agent_routes
+    route = next(iter(session.agent_routes.values()))
+    hidden_tokens = [token for token in route.route_tokens if token.startswith("nav-live:")]
+    assert hidden_tokens
+    assert session.route_planner is not None
+    assert session.route_planner._segment_token_cache
+
+    cached_before = dict(session.route_planner._segment_token_cache)
+    session.tick(1, include_waypoint_metrics=False)
+    assert dict(session.route_planner._segment_token_cache) == cached_before
 
 
 @pytest.mark.parametrize("frame_window", [8, 16])

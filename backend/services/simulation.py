@@ -26,6 +26,7 @@ from models.project import (
     WaypointMetrics,
 )
 from services.flow_analytics import build_analytics
+from services.spatial_model import SpatialModel, astar_cell_path
 
 CM_TO_M = 0.01
 M_TO_CM = 100.0
@@ -153,6 +154,105 @@ class SimulationRuntimeValidationError(RuntimeError):
     def __init__(self, detail: dict[str, object]):
         super().__init__(str(detail.get("message", "Simulation runtime validation error")))
         self.detail = detail
+
+
+@dataclass
+class NavMeshRoutePlanner:
+    sim: object
+    walkable: Polygon
+    spatial_model: SpatialModel | None
+    token_to_stage: dict[str, int]
+    stage_to_token: dict[int, str]
+    waypoint_by_stage_id: dict[int, SimulationWaypoint]
+    hidden_stage_token_prefix: str = "nav"
+    _expanded_route_cache: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
+    _segment_token_cache: dict[tuple[str, str], list[str]] = field(default_factory=dict)
+
+    def expanded_route_tokens(
+        self,
+        tokens: list[str],
+    ) -> list[str]:
+        cache_key = tuple(tokens)
+        cached = self._expanded_route_cache.get(cache_key)
+        if cached is not None:
+            return list(cached)
+        if not tokens:
+            return []
+        expanded = [tokens[0]]
+        for from_token, to_token in zip(tokens[:-1], tokens[1:]):
+            expanded.extend(self._segment_tokens(from_token, to_token))
+        self._expanded_route_cache[cache_key] = list(expanded)
+        return expanded
+
+    def stage_ids_for_route(self, tokens: list[str]) -> list[int]:
+        return [
+            self.token_to_stage[token]
+            for token in self.expanded_route_tokens(tokens)
+            if token in self.token_to_stage
+        ]
+
+    def _segment_tokens(self, from_token: str, to_token: str) -> list[str]:
+        cache_key = (from_token, to_token)
+        cached = self._segment_token_cache.get(cache_key)
+        if cached is not None:
+            return list(cached)
+        if (
+            self.spatial_model is None
+            or from_token not in self.token_to_stage
+            or to_token not in self.token_to_stage
+            or to_token.startswith("exit_hidden:")
+        ):
+            tokens = [to_token]
+            self._segment_token_cache[cache_key] = list(tokens)
+            return tokens
+
+        from_waypoint = self.waypoint_by_stage_id.get(self.token_to_stage[from_token])
+        to_waypoint = self.waypoint_by_stage_id.get(self.token_to_stage[to_token])
+        if from_waypoint is None or to_waypoint is None:
+            tokens = [to_token]
+            self._segment_token_cache[cache_key] = list(tokens)
+            return tokens
+        cell_path = astar_cell_path(
+            self.spatial_model.navmesh,
+            _waypoint_point(from_waypoint),
+            _waypoint_point(to_waypoint),
+        )
+        if len(cell_path) <= 1:
+            tokens = [to_token]
+            self._segment_token_cache[cache_key] = list(tokens)
+            return tokens
+        hidden_tokens: list[str] = []
+        for index, (from_cell_id, next_cell_id) in enumerate(zip(cell_path[:-1], cell_path[1:])):
+            portal = self.spatial_model.navmesh.portal_between(from_cell_id, next_cell_id)
+            if portal is None:
+                continue
+            hidden_token = f"{self.hidden_stage_token_prefix}:{from_token}->{to_token}:{index}:{portal.portal_id}"
+            hidden_tokens.append(hidden_token)
+            if hidden_token in self.token_to_stage:
+                continue
+            hidden_waypoint = SimulationWaypoint(
+                id=hidden_token,
+                label=f"{to_waypoint.label} nav",
+                type="transit",
+                x=round(_m_to_cm(portal.midpoint[0]), 2),
+                z=round(_m_to_cm(portal.midpoint[1]), 2),
+                radiusCm=max(30.0, min(80.0, round(_m_to_cm(portal.width_m * 0.45), 2))),
+                optional=False,
+                visitProbability=1.0,
+                retentionSeconds=0.0,
+                visionAngleDeg=float(to_waypoint.visionAngleDeg),
+                visionRangeCm=float(to_waypoint.visionRangeCm),
+            )
+            stage_id = self.sim.add_waypoint_stage(
+                _safe_waypoint_point(hidden_waypoint, self.walkable),
+                _cm_to_m(hidden_waypoint.radiusCm),
+            )
+            self.token_to_stage[hidden_token] = stage_id
+            self.stage_to_token[stage_id] = hidden_token
+            self.waypoint_by_stage_id[stage_id] = to_waypoint
+        tokens = [*hidden_tokens, to_token]
+        self._segment_token_cache[cache_key] = list(tokens)
+        return tokens
 
 
 def _split_accessible_area_detail(
@@ -794,6 +894,13 @@ def _build_agent_params(
     )
 
 
+def build_journey_from_stage_ids(stage_ids: list[int]):
+    journey = jps.JourneyDescription(stage_ids)
+    for from_stage, to_stage in zip(stage_ids[:-1], stage_ids[1:]):
+        journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
+    return journey
+
+
 def current_agent_positions(sim: object) -> list[tuple[float, float]]:
     return [
         (float(agent.position[0]), float(agent.position[1]))
@@ -1017,6 +1124,8 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     waypoint_by_stage_id: dict[int, SimulationWaypoint] = {}
     waypoint_runtimes: dict[str, _WaypointRuntime] = {}
     metrics_waypoints = [*entries, *transit_waypoints, *exits]
+    stage_to_token: dict[int, str] = {}
+    token_to_stage: dict[str, int] = {}
     try:
         sim = jps.Simulation(
             model=jps.CollisionFreeSpeedModel(),
@@ -1036,7 +1145,12 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 )
                 waypoint_stage_ids[waypoint.id] = approach_stage_id
                 waypoint_by_stage_id[approach_stage_id] = waypoint
+                stage_to_token[approach_stage_id] = waypoint.id
+                token_to_stage[waypoint.id] = approach_stage_id
                 exit_stage_ids[waypoint.id] = sim.add_exit_stage(_waypoint_exit_polygon(waypoint, walkable))
+                exit_token = f"exit_hidden:{waypoint.id}"
+                stage_to_token[exit_stage_ids[waypoint.id]] = exit_token
+                token_to_stage[exit_token] = exit_stage_ids[waypoint.id]
             elif waypoint.retentionSeconds > 0:
                 stage_id = sim.add_queue_stage(
                     _queue_slot_positions(waypoint, walkable)
@@ -1050,6 +1164,8 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 waypoint_runtimes[waypoint.id] = runtime
                 waypoint_stage_ids[waypoint.id] = stage_id
                 waypoint_by_stage_id[stage_id] = waypoint
+                stage_to_token[stage_id] = waypoint.id
+                token_to_stage[waypoint.id] = stage_id
             else:
                 stage_id = sim.add_waypoint_stage(
                     _safe_waypoint_point(
@@ -1061,8 +1177,20 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
                 )
                 waypoint_stage_ids[waypoint.id] = stage_id
                 waypoint_by_stage_id[stage_id] = waypoint
+                stage_to_token[stage_id] = waypoint.id
+                token_to_stage[waypoint.id] = stage_id
     except RuntimeError as exc:
         reraise_known_simulation_runtime_error(exc, scene)
+
+    route_planner = NavMeshRoutePlanner(
+        sim=sim,
+        walkable=walkable,
+        spatial_model=partition.spatial_model,
+        token_to_stage=token_to_stage,
+        stage_to_token=stage_to_token,
+        waypoint_by_stage_id=waypoint_by_stage_id,
+        hidden_stage_token_prefix="nav-batch",
+    )
 
     arrival_times: list[float] = []
     arrival_rate = max(0.0, float(config.arrivalRatePerSecond))
@@ -1097,17 +1225,18 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             if step_spawn_positions is None:
                 step_spawn_positions = current_agent_positions(sim)
             selected_entry = entries[spawned % len(entries)]
-            selected_stage_ids: list[int] = [waypoint_stage_ids[selected_entry.id]]
+            selected_tokens: list[str] = [selected_entry.id]
             for waypoint in transit_waypoints:
                 if not waypoint.optional or rng.random() <= float(waypoint.visitProbability):
-                    selected_stage_ids.append(waypoint_stage_ids[waypoint.id])
+                    selected_tokens.append(waypoint.id)
             selected_exit = exits[spawned % len(exits)]
-            selected_stage_ids.append(waypoint_stage_ids[selected_exit.id])
-            selected_stage_ids.append(exit_stage_ids[selected_exit.id])
-            journey = jps.JourneyDescription(selected_stage_ids)
-            for from_stage, to_stage in zip(selected_stage_ids[:-1], selected_stage_ids[1:]):
-                journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
-            journey_id = sim.add_journey(journey)
+            selected_tokens.append(selected_exit.id)
+            selected_tokens.append(f"exit_hidden:{selected_exit.id}")
+            selected_stage_ids = route_planner.stage_ids_for_route(selected_tokens)
+            if len(selected_stage_ids) < 2:
+                arrival_index += 1
+                continue
+            journey_id = sim.add_journey(build_journey_from_stage_ids(selected_stage_ids))
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
             agent_id, spawn_position = add_agent_with_spawn_retry(
                 sim=sim,

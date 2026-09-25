@@ -76,6 +76,18 @@ class NavMeshGraph:
     def cell(self, cell_id: str) -> NavMeshCell | None:
         return self._cell_lookup.get(cell_id)
 
+    def portal_between(self, from_cell_id: str, to_cell_id: str) -> NavMeshPortal | None:
+        for portal in self.portals:
+            if (
+                portal.from_cell_id == from_cell_id
+                and portal.to_cell_id == to_cell_id
+            ) or (
+                portal.from_cell_id == to_cell_id
+                and portal.to_cell_id == from_cell_id
+            ):
+                return portal
+        return None
+
 
 @dataclass(frozen=True)
 class SpatialModel:

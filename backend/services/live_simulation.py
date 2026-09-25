@@ -89,6 +89,7 @@ class LiveSimulationSession:
         self.exit_stage_ids: dict[str, int] = {}
         self.waypoint_by_stage_id: dict[int, SimulationWaypoint] = {}
         self.waypoint_runtimes: dict[str, simsvc._WaypointRuntime] = {}
+        self.route_planner: simsvc.NavMeshRoutePlanner | None = None
         # Throughput of every waypoint type (queue runtimes only cover retention waypoints).
         self.passages = simsvc.WaypointPassageTracker()
         self.stage_to_waypoint_id: dict[int, str] = {}
@@ -134,7 +135,9 @@ class LiveSimulationSession:
         selected_exit = self.exits[spawn_index % len(self.exits)]
         tokens.append(selected_exit.id)
         tokens.append(self._token_for_exit_stage(selected_exit.id))
-        return tokens
+        if self.route_planner is None:
+            return tokens
+        return self.route_planner.expanded_route_tokens(tokens)
 
     def _route_tokens_to_stage_ids(self, tokens: list[str]) -> list[int]:
         return [self.token_to_stage[token] for token in tokens if token in self.token_to_stage]
@@ -249,6 +252,15 @@ class LiveSimulationSession:
             stage_id: waypoint_id for waypoint_id, stage_id in self.waypoint_stage_ids.items()
         }
         self.passages.forget_agent_positions()
+        self.route_planner = simsvc.NavMeshRoutePlanner(
+            sim=self.sim,
+            walkable=self.walkable,
+            spatial_model=partition.spatial_model,
+            token_to_stage=self.token_to_stage,
+            stage_to_token=self.stage_to_token,
+            waypoint_by_stage_id=self.waypoint_by_stage_id,
+            hidden_stage_token_prefix="nav-live",
+        )
 
         if not self.waypoint_series:
             self.waypoint_series = {waypoint.id: [] for waypoint in self.metrics_waypoints}
@@ -280,14 +292,13 @@ class LiveSimulationSession:
             if len(stage_ids) < 2:
                 fallback_exit = self.exits[0]
                 remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
+                if self.route_planner is not None:
+                    remaining_tokens = self.route_planner.expanded_route_tokens(remaining_tokens)
                 stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 continue
             position = simsvc._closest_walkable_point(old_pos, placement_walkable)
-            journey = jps.JourneyDescription(stage_ids)
-            for from_stage, to_stage in zip(stage_ids[:-1], stage_ids[1:]):
-                journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
-            journey_id = self.sim.add_journey(journey)
+            journey_id = self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
             desired_speed = max(0.5, float(route_state.desired_speed))
             try:
                 new_agent_id = self.sim.add_agent(
@@ -356,10 +367,7 @@ class LiveSimulationSession:
             if len(stage_ids) < 2:
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
                 continue
-            journey = jps.JourneyDescription(stage_ids)
-            for from_stage, to_stage in zip(stage_ids[:-1], stage_ids[1:]):
-                journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
-            journey_id = self.sim.add_journey(journey)
+            journey_id = self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
             entry_wp = self.entries[self.spawned % len(self.entries)]
             desired_speed = max(
                 0.5,
@@ -481,7 +489,9 @@ class LiveSimulationSession:
         exit_wp = self.exits[spawn_index % len(self.exits)]
         tokens.append(exit_wp.id)
         tokens.append(self._token_for_exit_stage(exit_wp.id))
-        return tokens
+        if self.route_planner is None:
+            return tokens
+        return self.route_planner.expanded_route_tokens(tokens)
 
     def _spawn_pedestrians_if_due(self) -> None:
         max_customers = max(1, int(self.config.maxCustomers))
@@ -501,10 +511,7 @@ class LiveSimulationSession:
             if len(stage_ids) < 2:
                 self.pedestrian_cursor += 1
                 continue
-            journey = jps.JourneyDescription(stage_ids)
-            for from_stage, to_stage in zip(stage_ids[:-1], stage_ids[1:]):
-                journey.set_transition_for_stage(from_stage, jps.Transition.create_fixed_transition(to_stage))
-            journey_id = self.sim.add_journey(journey)
+            journey_id = self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
             entry_wp = self.entries[self.pedestrian_cursor % len(self.entries)]
             desired_speed = max(0.3, float(plan.speedMps))
             try:

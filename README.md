@@ -28,6 +28,26 @@ Flux recommandé :
 3. Ouvrir le studio 3D pour travailler l'implantation et les planogrammes du
    projet créé.
 
+### Import OSM dans le workspace
+
+Dans `Workspace > Implantations > Importer une implantation (OSM XML)`, l'option
+**Réduction agressive des polygones OSM** simplifie plus fortement les contours
+fermés importés. Elle sert à réduire le nombre de sommets quand la priorité est
+la performance plutôt que la fidélité exacte du contour.
+
+Pourquoi c'est important :
+
+- une géométrie OSM dense coûte plus cher à importer et à stocker ;
+- plus de sommets augmentent le coût de triangulation et d'affichage ;
+- la compilation des obstacles de navigation et les mises à jour de simulation
+  deviennent plus lourdes ;
+- les zones très détaillées génèrent plus de travail pour les diagnostics
+  `Chemin navigable`.
+
+En pratique : laissez l'option désactivée pour conserver des contours plus
+fidèles, et activez-la pour des imports massifs ou des fonds OSM très détaillés
+où un contour plus grossier reste acceptable.
+
 ### Assistant intégré du studio
 
 Dans le studio 3D, le panneau **Assistant** reste un assistant local,

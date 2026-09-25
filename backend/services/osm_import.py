@@ -32,6 +32,7 @@ MISSING_HEIGHT_OPACITY = 0.32
 # invisible à l'œil, mais réduit fortement le nombre de sommets
 # sur des bâtiments OSM détaillés (arrondis, décrochés).
 DEFAULT_SIMPLIFY_TOLERANCE_M = 0.5
+AGGRESSIVE_SIMPLIFY_TOLERANCE_M = 3.0
 
 # Aire minimale (m²) en dessous de laquelle un objet qui N'EST
 # PAS un bâtiment (parking, landuse, bout de trottoir fermé...)
@@ -1063,9 +1064,15 @@ def osm_xml_to_retail_layout(
     # Conserve uniquement les vrais bâtiments par défaut pour
     # limiter la charge 3D dans le workflow Workspace.
     include_non_building_zones: bool = False,
+    aggressive_reduction: bool = False,
 ) -> dict[str, Any]:
 
     import_started_at = time.perf_counter()  # AJOUT — mesure
+    effective_simplify_tolerance_m = (
+        AGGRESSIVE_SIMPLIFY_TOLERANCE_M
+        if aggressive_reduction
+        else simplify_tolerance_m
+    )
 
     # ========================================================
     # PARSING
@@ -1418,7 +1425,7 @@ def osm_xml_to_retail_layout(
 
         simplified_coords_m = _simplify_closed_ring(
             projected_coords_m,
-            simplify_tolerance_m,
+            effective_simplify_tolerance_m,
         )
 
         stats_vertices_after_simplify += len(simplified_coords_m)  # AJOUT
@@ -2223,7 +2230,8 @@ def osm_xml_to_retail_layout(
         "vertexCountBeforeSimplify": vertices_before,
         "vertexCountAfterSimplify": vertices_after,
         "vertexReductionPercent": reduction_pct,
-        "simplifyToleranceM": simplify_tolerance_m,
+        "simplifyToleranceM": effective_simplify_tolerance_m,
+        "aggressiveReduction": aggressive_reduction,
         "minSurfaceAreaM2Filter": min_surface_area_m2,
         "envelopeEnabled": envelope_enabled,
         "envelopeMode": envelope_mode,
@@ -2244,6 +2252,24 @@ def osm_xml_to_retail_layout(
     # ========================================================
     # PAYLOAD FINAL
     # ========================================================
+
+    geometry_complexity_policy = (
+        "Dense OSM polygons increase import cost, triangulation cost, "
+        "navigation obstacle compilation, and live simulation updates. "
+    )
+    if aggressive_reduction:
+        geometry_complexity_policy += (
+            "Aggressive reduction raises contour simplification from "
+            f"{DEFAULT_SIMPLIFY_TOLERANCE_M:g} m to "
+            f"{AGGRESSIVE_SIMPLIFY_TOLERANCE_M:g} m to lower vertex count "
+            "when visual fidelity is less important than runtime speed."
+        )
+    else:
+        geometry_complexity_policy += (
+            "Standard import keeps a "
+            f"{effective_simplify_tolerance_m:g} m contour simplification "
+            "tolerance for a closer match to the source geometry."
+        )
 
     payload = {
 
@@ -2340,6 +2366,7 @@ def osm_xml_to_retail_layout(
             # AJOUT — visible dans le payload pour debug/tuning
             # sans avoir à relire les logs serveur.
             "importStats": import_stats,
+            "geometryComplexityPolicy": geometry_complexity_policy,
         },
 
         # ====================================================

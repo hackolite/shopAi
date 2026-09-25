@@ -629,11 +629,20 @@ function NavigationOverlay({
   preview,
   envelopeOnly = false,
   overlayQuality = 'high',
+  debugOverlay = false,
   onDebugStatsChange,
 }: {
   preview: WalkablePreview;
   envelopeOnly?: boolean;
   overlayQuality?: 'high' | 'medium' | 'low';
+  /**
+   * Renders the navmesh grid / portal / flow-field debug lines on top of the
+   * plain connected/disconnected fill. These are diagnostic aids (paired with
+   * the dev-only profiling HUD) that add a lot of per-frame line geometry —
+   * end users only expect the simple magenta/violet "chemin navigable" fill,
+   * so this stays off outside of DEV to avoid needless lag.
+   */
+  debugOverlay?: boolean;
   onDebugStatsChange?: (stats: {
     quality: 'high' | 'medium' | 'low';
     connectedPolygons: number;
@@ -699,7 +708,7 @@ function NavigationOverlay({
   const navmeshLines = useMemo(
     () => {
       const start = performance.now();
-      if (envelopeOnly) {
+      if (envelopeOnly || !debugOverlay) {
         navmeshBuildMsRef.current = performance.now() - start;
         return [];
       }
@@ -716,12 +725,12 @@ function NavigationOverlay({
       navmeshBuildMsRef.current = performance.now() - start;
       return lines;
     },
-    [envelopeOnly, navmeshDecimationStep, preview.navmesh, routeCellIds],
+    [envelopeOnly, navmeshDecimationStep, preview.navmesh, routeCellIds, debugOverlay],
   );
   const portalLines = useMemo(
     () => {
       const start = performance.now();
-      if (envelopeOnly || !renderPortals) {
+      if (envelopeOnly || !renderPortals || !debugOverlay) {
         portalBuildMsRef.current = performance.now() - start;
         return [];
       }
@@ -738,11 +747,11 @@ function NavigationOverlay({
       portalBuildMsRef.current = performance.now() - start;
       return lines;
     },
-    [envelopeOnly, portalDecimationStep, preview.navmesh, renderPortals],
+    [envelopeOnly, portalDecimationStep, preview.navmesh, renderPortals, debugOverlay],
   );
   const flowFieldLines = useMemo(() => {
     const start = performance.now();
-    if (envelopeOnly) {
+    if (envelopeOnly || !debugOverlay) {
       flowBuildMsRef.current = performance.now() - start;
       return [];
     }
@@ -771,7 +780,7 @@ function NavigationOverlay({
     });
     flowBuildMsRef.current = performance.now() - start;
     return lines;
-  }, [envelopeOnly, flowDecimationStep, preview.navmesh, preview.routeFlowField]);
+  }, [envelopeOnly, flowDecimationStep, preview.navmesh, preview.routeFlowField, debugOverlay]);
 
   const geometries = useMemo(
     () => ({
@@ -1320,6 +1329,7 @@ export function SimulationLayer({
           preview={walkablePreview}
           envelopeOnly={showNavigationEnvelopeOnly}
           overlayQuality={showNavigationEnvelopeOnly ? 'high' : navigationOverlayQuality}
+          debugOverlay={showProfilingHud}
           onDebugStatsChange={showProfilingHud ? handleNavigationOverlayStats : undefined}
         />
       )}

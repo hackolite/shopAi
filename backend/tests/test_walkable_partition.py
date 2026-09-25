@@ -221,7 +221,7 @@ def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
                 "name": "Store",
                 "position": [0.0, 0.0, 0.0],
                 "rotation": [0.0, 0.0, 0.0],
-                "dimensions": {"width": 1200.0, "depth": 1200.0, "height": 300.0},
+                "dimensions": {"width": 2000.0, "depth": 2000.0, "height": 300.0},
                 "zones": [
                     {
                         "id": "building-a",
@@ -230,32 +230,32 @@ def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
                         "label": "Building A",
                         "x": 100.0,
                         "z": 100.0,
-                        "width": 200.0,
-                        "depth": 200.0,
+                        "width": 600.0,
+                        "depth": 600.0,
                         "points": [
                             {"x": 100.0, "z": 100.0},
-                            {"x": 300.0, "z": 100.0},
-                            {"x": 300.0, "z": 300.0},
-                            {"x": 100.0, "z": 300.0},
+                            {"x": 700.0, "z": 100.0},
+                            {"x": 700.0, "z": 700.0},
+                            {"x": 100.0, "z": 700.0},
                         ],
-                        "_source": {"isLikelyBuilding": True},
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "100"},
                     },
                     {
                         "id": "building-b",
                         "type": "forbidden",
                         "shape": "polygon",
                         "label": "Building B",
-                        "x": 500.0,
+                        "x": 800.0,
                         "z": 100.0,
-                        "width": 200.0,
-                        "depth": 200.0,
+                        "width": 600.0,
+                        "depth": 600.0,
                         "points": [
-                            {"x": 500.0, "z": 100.0},
-                            {"x": 700.0, "z": 100.0},
-                            {"x": 700.0, "z": 300.0},
-                            {"x": 500.0, "z": 300.0},
+                            {"x": 800.0, "z": 100.0},
+                            {"x": 1400.0, "z": 100.0},
+                            {"x": 1400.0, "z": 700.0},
+                            {"x": 800.0, "z": 700.0},
                         ],
-                        "_source": {"isLikelyBuilding": True},
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
                     },
                     {
                         "id": "manual-obstacle",
@@ -280,3 +280,49 @@ def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
     )
     assert zone_ids.count("manual-obstacle") == 1
     assert len(zone_ids) == 2
+
+
+def test_runtime_obstacle_merge_ignores_non_osm_buildings() -> None:
+    scene = SceneData.model_validate(
+        {
+            "store": {
+                "id": "store-non-osm",
+                "name": "Store",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 1200.0, "depth": 1200.0, "height": 300.0},
+                "zones": [
+                    {
+                        "id": "manual-building-a",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Manual A",
+                        "x": 100.0,
+                        "z": 100.0,
+                        "width": 200.0,
+                        "depth": 200.0,
+                        "_source": {"isLikelyBuilding": True},
+                    },
+                    {
+                        "id": "manual-building-b",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Manual B",
+                        "x": 500.0,
+                        "z": 100.0,
+                        "width": 200.0,
+                        "depth": 200.0,
+                        "_source": {"isLikelyBuilding": True},
+                    },
+                ],
+            },
+            "furniture": [],
+        }
+    )
+    obstacles = _collect_scene_obstacles(scene, _store_polygon(scene.store))
+    zone_ids = sorted(
+        identity["elementId"]
+        for identity, _ in obstacles
+        if identity["elementType"] == "zone"
+    )
+    assert zone_ids == ["manual-building-a", "manual-building-b"]

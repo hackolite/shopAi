@@ -6,6 +6,7 @@ import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
+import { useProjectStore } from '../../store/projectStore';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -32,6 +33,13 @@ describe('Inspector OSM zone metadata', () => {
       selectedEan: null,
       favoriteEans: new Set<string>(),
       recentlyUsedEans: [],
+      loading: false,
+    });
+    useProjectStore.setState({
+      projects: [],
+      currentProjectId: null,
+      loadedProjectId: null,
+      navigationPolygonCount: null,
       loading: false,
     });
     useZoneStore.getState().reset();
@@ -182,5 +190,47 @@ describe('Inspector OSM zone metadata', () => {
     const updatedZone = useZoneStore.getState().zones.find((zone) => zone.id === 'zone-traversable');
     expect(updatedZone?.pedestrianObstacle).toBe(false);
     expect(cadApi.updateStore).toHaveBeenCalled();
+  });
+
+  it('shows navigation polygon count in project metrics', async () => {
+    useSceneStore.setState({
+      scene: {
+        store: {
+          id: 'store-project',
+          name: 'Project Store',
+          position: [0, 0, 0],
+          dimensions: { width: 1200, depth: 900, height: 1000 },
+          floorColor: '#1e2230',
+          wallColor: '#404060',
+          zones: [],
+        },
+        furniture: [],
+      },
+      selectedFurnitureId: null,
+      selectedFurnitureIds: new Set<string>(),
+      selection: { type: null },
+      expandedNodes: new Set<string>(),
+      loading: false,
+      clipboard: null,
+      history: [],
+    });
+    useProjectStore.getState().setNavigationPolygonCount(7);
+    useZoneStore.setState({
+      zones: [],
+      selectedZoneId: null,
+      selectedZoneIds: new Set<string>(),
+      zoneClipboard: null,
+      polygonDraft: null,
+      polygonDraftError: null,
+      zonesLoaded: true,
+    });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(<Inspector projectId={null} onOpenPlanogram={() => undefined} />);
+    });
+
+    expect(hasText(renderer, 'Polygones navigation')).toBe(true);
+    expect(hasText(renderer, '7')).toBe(true);
   });
 });

@@ -114,6 +114,8 @@ def _is_mergeable_building_zone(zone) -> bool:
     source = _zone_source_dict(zone)
     if source.get("isEnvelope"):
         return False
+    if not source.get("osmWayId"):
+        return False
     return bool(source.get("isLikelyBuilding"))
 
 

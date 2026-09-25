@@ -970,6 +970,26 @@ def _candidate_clears_occupied(
     return all(math.hypot(candidate[0] - ox, candidate[1] - oz) >= min_dist_m for ox, oz in occupied)
 
 
+def _entry_spawn_candidates(
+    center_x: float,
+    center_z: float,
+    spacing_m: float,
+    max_ring: int,
+    rng: random.Random,
+):
+    yield (center_x, center_z)
+    for ring in range(1, max_ring + 1):
+        slots = max(6, ring * 6)
+        phase = rng.uniform(0.0, math.tau)
+        ring_radius_m = spacing_m * ring
+        for slot in range(slots):
+            angle = phase + (math.tau * slot / slots)
+            yield (
+                center_x + math.cos(angle) * ring_radius_m,
+                center_z + math.sin(angle) * ring_radius_m,
+            )
+
+
 def _spawn_from_entry(
     waypoint: SimulationWaypoint,
     walkable: Polygon,
@@ -983,13 +1003,29 @@ def _spawn_from_entry(
     )
     occupied = occupied_positions or []
     # Use at least enough radius to avoid overlaps with already-occupied slots.
-    occupied_count = sum(len(bucket) for bucket in occupied.buckets.values()) if isinstance(occupied, PositionSpatialHash) else len(occupied)
+    occupied_count = (
+        sum(len(bucket) for bucket in occupied.buckets.values())
+        if isinstance(occupied, PositionSpatialHash)
+        else len(occupied)
+    )
+    spacing_m = _cm_to_m(SPAWN_SPACING_CM)
     min_radius_cm = _min_entry_radius_cm(occupied_count + 1)
-    radius_m = _cm_to_m(max(min_radius_cm, waypoint.radiusCm))
-    spawnable = _walkable_with_clearance(walkable, AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM) or walkable
+    base_radius_m = _cm_to_m(max(min_radius_cm, waypoint.radiusCm))
+    spawnable = (
+        _walkable_with_clearance(walkable, AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM)
+        or walkable
+    )
+    base_ring = max(1, int(math.ceil(base_radius_m / max(spacing_m, 1e-6))))
+    # Near an edge or corner, only part of the nominal spawn disc is available.
+    # Search a few extra spacing-aligned rings before relaxing the guarantee.
+    max_ring = max(base_ring, int(math.ceil(math.sqrt(occupied_count + 1))) * 2)
+    search_radius_m = spacing_m * max_ring
+    for candidate in _entry_spawn_candidates(center_x, center_z, spacing_m, max_ring, rng):
+        if _point_in_walkable(candidate, spawnable) and _candidate_clears_occupied(candidate, occupied):
+            return candidate
     for _ in range(240):
         angle = rng.uniform(0, math.tau)
-        r = radius_m * math.sqrt(rng.random())
+        r = search_radius_m * math.sqrt(rng.random())
         candidate = (
             center_x + math.cos(angle) * r,
             center_z + math.sin(angle) * r,
@@ -1000,7 +1036,7 @@ def _spawn_from_entry(
     # Log a warning so operators know the spacing guarantee was relaxed.
     logging.getLogger(__name__).warning(
         "spawn_from_entry: could not find a non-overlapping position for waypoint '%s' "
-        "after 240 attempts (%d agents already placed this step). "
+        "after structured search and 240 random attempts (%d agents already placed this step). "
         "Falling back to unconstrained position — 'agent too close to agent' may occur.",
         waypoint.label,
         occupied_count,

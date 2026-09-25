@@ -765,6 +765,42 @@ def test_simultaneous_spawn_no_agent_overlap() -> None:
             )
 
 
+def test_spawn_from_entry_uses_structured_search_before_fallback(caplog) -> None:
+    import services.simulation as sim_svc
+
+    class FixedRng:
+        def uniform(self, a: float, b: float) -> float:
+            return a
+
+        def random(self) -> float:
+            return 0.0
+
+    walkable = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)])
+    entry = sim_svc.SimulationWaypoint(
+        id="e1",
+        label="Entrée 1",
+        type="entry",
+        x=10.0,
+        z=10.0,
+        radiusCm=30.0,
+    )
+    occupied = [
+        sim_svc._safe_waypoint_point(
+            entry,
+            walkable,
+            clearance_cm=sim_svc.AGENT_RADIUS_CM + sim_svc.BOUNDARY_CLEARANCE_EPSILON_CM,
+        )
+    ]
+    caplog.set_level("WARNING", logger=sim_svc.__name__)
+
+    position = sim_svc._spawn_from_entry(entry, walkable, FixedRng(), occupied)
+
+    assert sim_svc._point_in_walkable(position, walkable)
+    assert sim_svc._candidate_clears_occupied(position, occupied)
+    assert position != occupied[0]
+    assert "could not find a non-overlapping position" not in caplog.text
+
+
 def test_live_simulation_lifecycle_pause_and_hot_update() -> None:
     project_id = _create_project()
     scene_response = client.get(f"/api/cad/projects/{project_id}/scene")

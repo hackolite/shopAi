@@ -364,8 +364,8 @@ python -m pytest
 ```
 
 ## 9.3 Orchestrator
-Tests présents dans `orchestrator/tests/` (ex. `test_llm_planner.py`).  
-Si `pytest` n'est pas disponible dans l'environnement orchestrator, l'installer avant exécution.
+Pas de commande de validation orchestrator imposée dans le flux standard de ce dépôt.  
+Validation optionnelle : lancer `python -m pytest tests` depuis `orchestrator` si votre environnement inclut `pytest` et des tests locaux.
 ```bash
 cd orchestrator
 python -m pytest tests

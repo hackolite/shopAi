@@ -136,7 +136,7 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend.
+Optionnel (uniquement pour activer `/assistant/llm`) : définir `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` avant le lancement du backend (ex. `export ...`, `$env:...=...`, ou `uvicorn ... --env-file .env`).
 
 API docs : `http://localhost:8000/docs`
 
@@ -159,23 +159,15 @@ cd orchestrator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cat > .env <<'EOF'
-BACKEND_BASE_URL=http://localhost:8000
-LLM_PROVIDER=none
-EOF
+export BACKEND_BASE_URL="http://localhost:8000"
+export LLM_PROVIDER="none"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
 Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER`.
 `LLM_PROVIDER=none` est un mode valide (sans fournisseur réel). Une clé provider n'est requise que si vous activez un mode LLM (`openai`, `anthropic`, `xai`, `openrouter`).
-Avec `LLM_PROVIDER=none`, `/assistant/llm` reste appelable mais fonctionne en mode déterministe borné (sans appel à un fournisseur LLM externe).
+Avec `LLM_PROVIDER=none`, `/assistant/llm` reste appelable en mode déterministe (sans appel fournisseur) et n’interprète pas de modifications libres.
 Pré-requis obligatoire pour tout appel backend `/assistant/llm` : `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` doit être défini côté backend.
-
-Exemple minimal de `.env` :
-```env
-BACKEND_BASE_URL=http://localhost:8000
-LLM_PROVIDER=none
-```
 
 Windows (PowerShell) :
 ```powershell
@@ -183,10 +175,8 @@ cd orchestrator
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-@"
-BACKEND_BASE_URL=http://localhost:8000
-LLM_PROVIDER=none
-"@ | Set-Content -NoNewline .env
+$env:BACKEND_BASE_URL = "http://localhost:8000"
+$env:LLM_PROVIDER = "none"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 

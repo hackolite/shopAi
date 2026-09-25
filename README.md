@@ -74,6 +74,9 @@ shopAi/
 │   │   ├── live_simulation.py
 │   │   ├── platform_service.py
 │   │   ├── llm_assistant.py
+│   │   ├── walkable_partition.py
+│   │   ├── pedestrian_import.py
+│   │   ├── pickup_planning.py
 │   │   └── ...
 │   ├── storage/
 │   │   ├── projects/
@@ -154,12 +157,17 @@ cd orchestrator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+# créer .env (ou copier .env.example s'il est présent)
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
-`orchestrator/.env.example` est versionné dans le dépôt et sert de base de configuration.
 Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER` (+ clé provider si mode LLM actif).
+
+Exemple minimal de `.env` :
+```env
+BACKEND_BASE_URL=http://localhost:8000
+LLM_PROVIDER=none
+```
 
 Windows (PowerShell) :
 ```powershell
@@ -167,7 +175,7 @@ cd orchestrator
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env
+# créer .env (ou copier .env.example s'il est présent)
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 

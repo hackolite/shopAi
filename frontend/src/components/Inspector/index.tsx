@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSceneStore } from '../../store/sceneStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { useProjectStore } from '../../store/projectStore';
-import { useSimulationStore } from '../../store/simulationStore';
+import { buildRuntimeSimulationConfig, useSimulationStore } from '../../store/simulationStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram, FloorZone, FloorZoneSource } from '../../types/cad';
@@ -995,9 +995,44 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const { scene, selectedFurnitureId, selection } = useSceneStore();
   const { activePlanogram, selectedCellIds, planograms, planogramDetails } = usePlanogramStore();
   const { products } = useCatalogStore();
-  const { zones, selectedZoneId } = useZoneStore();
+  const { zones, selectedZoneId, zonesLoaded } = useZoneStore();
   const navigationPolygonCount = useProjectStore((state) => state.navigationPolygonCount);
+  const simulationConfig = useSimulationStore((state) => state.config);
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
+  const setWalkablePreview = useSimulationStore((state) => state.setWalkablePreview);
+  const previewRequestId = useRef(0);
+
+  const runtimeConfig = useMemo(() => buildRuntimeSimulationConfig(simulationConfig), [simulationConfig]);
+  const sceneWithZones = useMemo(
+    () => {
+      if (!scene) return null;
+      const effectiveZones = zonesLoaded ? zones : (scene.store?.zones ?? []);
+      return { ...scene, store: { ...(scene.store ?? {}), zones: effectiveZones } };
+    },
+    [scene, zones, zonesLoaded],
+  );
+
+  useEffect(() => {
+    if (!projectId || !sceneWithZones) {
+      setWalkablePreview(null);
+      return;
+    }
+    let cancelled = false;
+    const requestId = ++previewRequestId.current;
+    void cadApi
+      .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
+      .then((preview) => {
+        if (cancelled || requestId !== previewRequestId.current) return;
+        setWalkablePreview(preview);
+      })
+      .catch((error) => {
+        if (cancelled || requestId !== previewRequestId.current) return;
+        console.error('Failed to fetch walkable preview for Inspector:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, runtimeConfig, sceneWithZones, setWalkablePreview]);
 
   // Project-wide implantation metrics (distinct EANs, facings, catalog coverage).
   const projectMetrics = computeImplantationMetrics(planogramDetails.values());

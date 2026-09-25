@@ -7,6 +7,7 @@ import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { useProjectStore } from '../../store/projectStore';
+import { useSimulationStore } from '../../store/simulationStore';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -14,6 +15,22 @@ vi.mock('../../api/cad', () => ({
   cadApi: {
     updateFurniture: vi.fn().mockResolvedValue(undefined),
     updateStore: vi.fn().mockResolvedValue(undefined),
+    getWalkablePreview: vi.fn().mockResolvedValue({
+      connected: [],
+      connectedHoles: [],
+      disconnected: [],
+      excludedObstacles: [],
+      envelopeMergeGain: {
+        sourceObstacleCount: 4,
+        runtimeObstacleCount: 2,
+        obstaclesSaved: 2,
+        obstacleReductionPct: 50,
+        sourceVertexCount: 20,
+        runtimeVertexCount: 8,
+        verticesSaved: 12,
+        vertexReductionPct: 60,
+      },
+    }),
   },
 }));
 
@@ -42,6 +59,7 @@ describe('Inspector OSM zone metadata', () => {
       navigationPolygonCount: null,
       loading: false,
     });
+    useSimulationStore.getState().reset();
     useZoneStore.getState().reset();
   });
 
@@ -232,5 +250,55 @@ describe('Inspector OSM zone metadata', () => {
 
     expect(hasText(renderer, 'Polygones navigation')).toBe(true);
     expect(hasText(renderer, '7')).toBe(true);
+  });
+
+  it('fetches the walkable preview so envelope gain is visible in Inspector', async () => {
+    useSceneStore.setState({
+      scene: {
+        store: {
+          id: 'store-preview',
+          name: 'Preview Store',
+          position: [0, 0, 0],
+          dimensions: { width: 1200, depth: 900, height: 1000 },
+          floorColor: '#1e2230',
+          wallColor: '#404060',
+          zones: [],
+        },
+        furniture: [],
+      },
+      selectedFurnitureId: null,
+      selectedFurnitureIds: new Set<string>(),
+      selection: { type: null },
+      expandedNodes: new Set<string>(),
+      loading: false,
+      clipboard: null,
+      history: [],
+    });
+    useZoneStore.setState({
+      zones: [],
+      selectedZoneId: null,
+      selectedZoneIds: new Set<string>(),
+      zoneClipboard: null,
+      polygonDraft: null,
+      polygonDraftError: null,
+      zonesLoaded: true,
+    });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(<Inspector projectId="project-1" onOpenPlanogram={() => undefined} />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(cadApi.getWalkablePreview).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        store: expect.objectContaining({ zones: [] }),
+      }),
+      expect.any(Object),
+    );
+    expect(hasText(renderer, '-50.0% obstacles · -60.0% sommets')).toBe(true);
   });
 });

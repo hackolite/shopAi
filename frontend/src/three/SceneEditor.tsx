@@ -2415,16 +2415,29 @@ function FloorZoneLayer() {
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
   const selectedZoneVisible = selectedZone != null && visibleZones.some((zone) => zone.id === selectedZone.id);
-  // The LOD threshold must reflect the true scene complexity (all displayable
-  // zones), not the post-envelope-filter count. Enabling "enveloppe only"
-  // hides many detailed building zones from `visibleZones`, which can push
-  // its length back under LARGE_SIMULATION_ZONE_COUNT and wrongly disable the
-  // reduced-detail rendering path — forcing every remaining zone (fewer, but
-  // each rendered as a full extruded FloorZoneMesh) into full detail during
-  // playback. That is *more* expensive per zone than the reduced preview
-  // mesh, which is exactly the "envelope-only lags, full detail is fast"
-  // regression reported by users.
-  const useReducedZoneSet = playing && !paused && displayableZones.length > LARGE_SIMULATION_ZONE_COUNT;
+  // OSM building zones whose obstacle role is already covered by a merged
+  // navigation envelope (used for the navmesh/JuPedSim obstacle geometry
+  // regardless of what is displayed) don't need their exact 3D extrusion
+  // while agents are moving: their footprint fill is enough. Without this,
+  // `zoneSupportsSimulationPreview` below forces every mounted building zone
+  // (ExtrudeGeometry, ~24 curveSegments, drag/resize handlers) into full
+  // detail at all times — so the "detailed" view stays expensive during
+  // playback no matter the scene size, while the "enveloppe" view (which
+  // hides these same buildings entirely) renders far fewer/cheaper meshes.
+  // That mismatch — not the actual navmesh computation, which always runs on
+  // the simplified envelope — is what made agents look choppy only when the
+  // detailed buildings were visible.
+  const previewableBuildingZoneIds = useMemo(
+    () => new Set(
+      hasNavigationEnvelopePreview
+        ? visibleZones.filter((zone) => zoneIsMergeableBuilding(zone)).map((zone) => zone.id)
+        : [],
+    ),
+    [hasNavigationEnvelopePreview, visibleZones],
+  );
+  const useReducedZoneSet = playing && !paused && (
+    displayableZones.length > LARGE_SIMULATION_ZONE_COUNT || previewableBuildingZoneIds.size > 0
+  );
   const fullDetailZoneIds = useMemo(() => {
     if (!useReducedZoneSet) return null;
     return new Set([
@@ -2432,9 +2445,11 @@ function FloorZoneLayer() {
       ...(selectedZoneId ? [selectedZoneId] : []),
       ...(invalidObstacleHighlights.zoneIds ?? []),
       ...(invalidObstacleHighlights.allIds ?? []),
-      ...visibleZones.filter((zone) => !zoneSupportsSimulationPreview(zone)).map((zone) => zone.id),
+      ...visibleZones
+        .filter((zone) => !zoneSupportsSimulationPreview(zone) && !previewableBuildingZoneIds.has(zone.id))
+        .map((zone) => zone.id),
     ]);
-  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones]);
+  }, [invalidObstacleHighlights.allIds, invalidObstacleHighlights.zoneIds, previewableBuildingZoneIds, selectedZoneId, selectedZoneIds, useReducedZoneSet, visibleZones]);
   const detailedZones = useMemo(
     () => (!useReducedZoneSet || fullDetailZoneIds == null
       ? visibleZones

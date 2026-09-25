@@ -51,6 +51,10 @@ describe('floorZones helpers', () => {
       source: { osmWayId: '42', isLikelyBuilding: true },
     }))).toBe(false);
     expect(zoneIsMergeableBuilding(zone({
+      type: 'entrance',
+      source: { osmWayId: '42', isLikelyBuilding: true },
+    }))).toBe(false);
+    expect(zoneIsMergeableBuilding(zone({
       source: { osmWayId: '42', isLikelyBuilding: true, isEnvelope: true },
     }))).toBe(false);
   });

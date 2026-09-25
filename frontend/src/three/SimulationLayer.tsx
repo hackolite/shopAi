@@ -737,6 +737,9 @@ function NavigationOverlay({
           points={points}
           color="#67e8f9"
           lineWidth={2.6}
+          dashed
+          dashSize={0.12}
+          gapSize={0.06}
           transparent
           opacity={0.95}
           depthWrite={false}

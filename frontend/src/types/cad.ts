@@ -327,6 +327,8 @@ export interface LiveAgentBasketResponse {
 export interface WalkablePolygonPreview {
   exterior: [number, number][];
   holes: [number, number][][];
+  memberElementIds?: string[];
+  memberOsmWayIds?: string[];
 }
 
 export interface NavMeshCellPreview {

@@ -2376,15 +2376,19 @@ function FloorZoneLayer() {
   const showNavigationEnvelopeOnly = useSimulationStore((state) => state.showNavigationEnvelopeOnly);
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const hasNavigationEnvelopePreview = (walkablePreview?.buildingBlocks?.length ?? 0) > 0;
+  const hiddenEnvelopeZoneIds = useMemo(
+    () => new Set((walkablePreview?.buildingBlocks ?? []).flatMap((block) => block.memberElementIds ?? [])),
+    [walkablePreview?.buildingBlocks],
+  );
   const visibleZones = useMemo(
     () => (
       showNavigationOverlay
       && showNavigationEnvelopeOnly
       && hasNavigationEnvelopePreview
-        ? zones.filter((zone) => !zoneIsMergeableBuilding(zone))
+        ? zones.filter((zone) => !zoneIsMergeableBuilding(zone) || !hiddenEnvelopeZoneIds.has(zone.id))
         : zones
     ),
-    [hasNavigationEnvelopePreview, showNavigationEnvelopeOnly, showNavigationOverlay, zones],
+    [hasNavigationEnvelopePreview, hiddenEnvelopeZoneIds, showNavigationEnvelopeOnly, showNavigationOverlay, zones],
   );
 
   const selectedZone = selectedZoneId

@@ -124,6 +124,15 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
+Windows (PowerShell) :
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
 API docs : `http://localhost:8000/docs`
 
 ## 4.2 Frontend
@@ -150,6 +159,17 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
 `orchestrator/.env.example` est versionné dans le dépôt et sert de base de configuration.
+Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER` (+ clé provider si mode LLM actif).
+
+Windows (PowerShell) :
+```powershell
+cd orchestrator
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
+```
 
 Dans le backend, configurer `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm`.
 

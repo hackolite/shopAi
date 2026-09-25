@@ -851,6 +851,12 @@ def test_store_layout_import_osm_aggressively_merges_close_buildings_into_one_bl
     manual_scene_dict, _ = split_retail_layout(manual_layout, project_name="OSM blocs bruts")
     manual_scene = SceneData.model_validate(manual_scene_dict)
     assert len(manual_scene.store.zones) == 2
+    manual_zone_ids = {zone.id for zone in manual_scene.store.zones}
+    assert manual_zone_ids == {"building-100", "building-200"}
+    for zone in manual_scene.store.zones:
+        assert zone.source is not None
+        assert zone.source.get("isEnvelope") is not True
+        assert zone.source.get("osmWayId") in {"100", "200"}
     manual_partition = compute_walkable_partition(
         manual_scene,
         SimulationConfig.model_validate({"waypoints": []}),

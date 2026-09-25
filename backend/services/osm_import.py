@@ -2047,7 +2047,7 @@ def osm_xml_to_retail_layout(
                     "_source": {
                         **representative_source,
                         "isEnvelope": True,
-                        "isLikelyBuilding": envelope_mode == "replace",
+                        "isLikelyBuilding": bool(members),
                         "memberOsmWayIds": member_ids,
                         "vertexCountSimplified": len(env_points),
                     },

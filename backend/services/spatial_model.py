@@ -131,18 +131,17 @@ def _iter_polygons(geometry) -> list[Polygon]:
     return [geom for geom in getattr(geometry, "geoms", []) if isinstance(geom, Polygon)]
 
 
-def _normalize_polygon(geometry) -> Polygon | None:
+def _normalize_polygons(geometry) -> list[Polygon]:
     if geometry is None or geometry.is_empty:
-        return None
+        return []
     geometry = geometry.buffer(0)
     if geometry.is_empty:
-        return None
-    if isinstance(geometry, Polygon):
-        return geometry if geometry.area > _NAVMESH_MIN_CELL_AREA_M2 else None
-    polygons = [polygon for polygon in _iter_polygons(geometry) if polygon.area > _NAVMESH_MIN_CELL_AREA_M2]
-    if not polygons:
-        return None
-    return max(polygons, key=lambda polygon: polygon.area)
+        return []
+    return [
+        polygon
+        for polygon in _iter_polygons(geometry)
+        if polygon.area > _NAVMESH_MIN_CELL_AREA_M2
+    ]
 
 
 def _polygon_signature(polygon: Polygon) -> str:
@@ -166,8 +165,8 @@ def build_navmesh_graph(
     *,
     cell_id_prefix: str = "nav",
 ) -> NavMeshGraph:
-    normalized_walkable = _normalize_polygon(walkable)
-    if normalized_walkable is None:
+    normalized_walkable_polygons = _normalize_polygons(walkable)
+    if not normalized_walkable_polygons:
         return NavMeshGraph(
             cells=[],
             adjacency={},
@@ -175,15 +174,17 @@ def build_navmesh_graph(
             index_bounds=(0.0, 0.0, 0.0, 0.0),
             index_cell_size_m=1.0,
         )
+    normalized_walkable = (
+        normalized_walkable_polygons[0]
+        if len(normalized_walkable_polygons) == 1
+        else MultiPolygon(normalized_walkable_polygons)
+    )
 
     seen: set[str] = set()
     cells: list[NavMeshCell] = []
     for triangle in triangulate(normalized_walkable):
         clipped = triangle.intersection(normalized_walkable)
-        for polygon in _iter_polygons(clipped):
-            normalized = _normalize_polygon(polygon)
-            if normalized is None:
-                continue
+        for normalized in _normalize_polygons(clipped):
             signature = _polygon_signature(normalized)
             if signature in seen:
                 continue
@@ -200,16 +201,18 @@ def build_navmesh_graph(
             )
 
     if not cells:
-        centroid = normalized_walkable.representative_point()
-        cells = [
-            NavMeshCell(
-                cell_id=f"{cell_id_prefix}-0000",
-                polygon=normalized_walkable,
-                centroid=(float(centroid.x), float(centroid.y)),
-                bounds=normalized_walkable.bounds,
-                area_m2=float(normalized_walkable.area),
+        cells = []
+        for polygon in normalized_walkable_polygons:
+            centroid = polygon.representative_point()
+            cells.append(
+                NavMeshCell(
+                    cell_id=f"{cell_id_prefix}-{len(cells):04d}",
+                    polygon=polygon,
+                    centroid=(float(centroid.x), float(centroid.y)),
+                    bounds=polygon.bounds,
+                    area_m2=float(polygon.area),
+                )
             )
-        ]
 
     adjacency: dict[str, list[str]] = {cell.cell_id: [] for cell in cells}
     portals: list[NavMeshPortal] = []

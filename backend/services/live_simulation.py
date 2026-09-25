@@ -168,18 +168,22 @@ class LiveSimulationSession:
             return list(tokens)
         return self.route_planner.expanded_route_tokens(tokens)
 
-    def _visible_route_tokens(self, tokens: list[str]) -> list[str]:
+    def _rebuild_route_tokens(self, tokens: list[str]) -> list[str]:
         if self.route_planner is None:
             return list(tokens)
         hidden_prefix = f"{self.route_planner.hidden_stage_token_prefix}:"
-        visible_tokens: list[str] = []
+        rebuilt_tokens: list[str] = []
+        preserving_leading_hidden = True
         for token in tokens:
             if token.startswith(hidden_prefix):
+                if preserving_leading_hidden and token in self.token_to_stage:
+                    rebuilt_tokens.append(token)
                 continue
-            if visible_tokens and visible_tokens[-1] == token:
+            preserving_leading_hidden = False
+            if rebuilt_tokens and rebuilt_tokens[-1] == token:
                 continue
-            visible_tokens.append(token)
-        return visible_tokens
+            rebuilt_tokens.append(token)
+        return rebuilt_tokens
 
     def _route_tokens_to_stage_ids(self, tokens: list[str]) -> list[int]:
         return [self.token_to_stage[token] for token in tokens if token in self.token_to_stage]
@@ -338,7 +342,7 @@ class LiveSimulationSession:
         for carried in old_routes:
             route_state = carried.route
             old_pos = carried.position
-            visible_remaining_tokens = self._visible_route_tokens(
+            visible_remaining_tokens = self._rebuild_route_tokens(
                 route_state.route_tokens[route_state.token_index :]
             )
             if self.route_planner is not None:

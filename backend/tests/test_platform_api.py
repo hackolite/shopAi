@@ -946,7 +946,7 @@ def test_store_layout_import_osm_aggressive_reduction_merges_close_buildings() -
     aggressive_zones = aggressive_response.json()["payload"]["scene"]["store"]["zones"]
     assert len(default_zones) == 2
     assert len(aggressive_zones) < len(default_zones)
-    assert aggressive_zones[0]["source"].get("isEnvelope") is True
+    assert any(zone["source"].get("isEnvelope") is True for zone in aggressive_zones)
 
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:
     client = _make_client()

@@ -393,8 +393,14 @@ async def create_store_layout_from_osm(
     name: str = Form(...),
     description: str = Form(""),
     aggressiveReduction: bool = Form(False),
+    envelopeMode: str = Form("replace"),
 ) -> dict[str, Any]:
     """Upload an OSM XML file and persist its buildings as a reusable store layout."""
+    if envelopeMode not in ("replace", "overlay"):
+        raise HTTPException(
+            status_code=422,
+            detail="envelopeMode must be 'replace' or 'overlay'",
+        )
     raw = await file.read()
     append_log(
         source="backend",
@@ -406,6 +412,7 @@ async def create_store_layout_from_osm(
             "contentType": file.content_type,
             "bytes": len(raw),
             "aggressiveReduction": aggressiveReduction,
+            "envelopeMode": envelopeMode,
         },
     )
     try:
@@ -424,6 +431,7 @@ async def create_store_layout_from_osm(
             xml_text=text,
             project_name=name.strip() or "Import OSM",
             aggressive_reduction=aggressiveReduction,
+            envelope_mode=envelopeMode,
         )
         scene_dict, planograms_list = split_retail_layout(
             layout=retail_layout,

@@ -1076,10 +1076,12 @@ def osm_xml_to_retail_layout(
         else simplify_tolerance_m
     )
     effective_envelope_enabled = (
-        True if aggressive_reduction else envelope_enabled
+        True if (aggressive_reduction or envelope_mode == "overlay") else envelope_enabled
     )
     effective_envelope_mode = (
-        "replace" if aggressive_reduction else envelope_mode
+        envelope_mode
+        if envelope_mode == "overlay"
+        else ("replace" if aggressive_reduction else envelope_mode)
     )
     effective_envelope_buffer_m = (
         max(envelope_buffer_m, AGGRESSIVE_ENVELOPE_BUFFER_M)

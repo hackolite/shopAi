@@ -354,13 +354,14 @@ export const platformApi = {
     file: File,
     name: string,
     description?: string,
-    options?: { aggressiveReduction?: boolean },
+    options?: { aggressiveReduction?: boolean; envelopeMode?: 'replace' | 'overlay' },
   ) => {
     const form = new FormData();
     form.append('file', file);
     form.append('name', name);
     form.append('description', description ?? '');
     form.append('aggressiveReduction', options?.aggressiveReduction ? 'true' : 'false');
+    form.append('envelopeMode', options?.envelopeMode ?? 'replace');
     return request<PlatformStoreLayout>('/api/platform/store-layouts/import-osm', {
       method: 'POST',
       body: form,

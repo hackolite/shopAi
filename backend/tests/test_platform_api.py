@@ -753,6 +753,42 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert project_scene.json()["store"]["zones"][0]["source"]["osmWayId"] == zones[0]["source"]["osmWayId"]
 
 
+def test_store_layout_import_osm_keeps_buildings_only_by_default() -> None:
+    client = _make_client()
+    _register(client, name="OSM Buildings Only", email="osm-buildings-only@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <bounds minlat="14.6000" minlon="-61.0800" maxlat="14.6010" maxlon="-61.0790"/>
+  <node id="1" lat="14.6009" lon="-61.0799"/>
+  <node id="2" lat="14.6009" lon="-61.0797"/>
+  <node id="3" lat="14.6007" lon="-61.0797"/>
+  <node id="4" lat="14.6007" lon="-61.0799"/>
+  <node id="5" lat="14.6006" lon="-61.0796"/>
+  <node id="6" lat="14.6006" lon="-61.0794"/>
+  <node id="7" lat="14.6004" lon="-61.0794"/>
+  <node id="8" lat="14.6004" lon="-61.0796"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="retail"/>
+  </way>
+  <way id="200">
+    <nd ref="5"/><nd ref="6"/><nd ref="7"/><nd ref="8"/><nd ref="5"/>
+    <tag k="landuse" v="grass"/>
+  </way>
+</osm>
+"""
+    import_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM bâtiments uniquement", "description": "filter non-building zones"},
+        files={"file": ("buildings-only.osm", osm_xml, "application/xml")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    zones = import_response.json()["payload"]["scene"]["store"]["zones"]
+    assert [zone["id"] for zone in zones] == ["building-100"]
+    assert zones[0]["source"]["isLikelyBuilding"] is True
+
+
 def test_store_layout_import_osm_keeps_native_buildings_but_runtime_paths_merge_close_blocks() -> None:
     client = _make_client()
     _register(client, name="OSM Runtime Merge", email="osm-runtime-merge@example.com")

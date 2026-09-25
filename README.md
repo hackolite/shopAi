@@ -43,7 +43,7 @@ Le projet fonctionne sans orchestrateur (assistant local déterministe), mais l�
 ### Orchestrateur (service séparé)
 - Python 3.11+
 - FastAPI
-- Providers LLM optionnels (OpenAI, Anthropic, xAI, OpenRouter)
+- Modes provider : `none` (déterministe) ou LLM externes (OpenAI, Anthropic, xAI, OpenRouter)
 
 ---
 

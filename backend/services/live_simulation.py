@@ -135,8 +135,11 @@ class LiveSimulationSession:
         selected_exit = self.exits[spawn_index % len(self.exits)]
         tokens.append(selected_exit.id)
         tokens.append(self._token_for_exit_stage(selected_exit.id))
+        return tokens
+
+    def _expand_route_tokens(self, tokens: list[str]) -> list[str]:
         if self.route_planner is None:
-            return tokens
+            return list(tokens)
         return self.route_planner.expanded_route_tokens(tokens)
 
     def _route_tokens_to_stage_ids(self, tokens: list[str]) -> list[int]:
@@ -291,9 +294,9 @@ class LiveSimulationSession:
             stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 fallback_exit = self.exits[0]
-                remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
-                if self.route_planner is not None:
-                    remaining_tokens = self.route_planner.expanded_route_tokens(remaining_tokens)
+                remaining_tokens = self._expand_route_tokens(
+                    [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
+                )
                 stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 continue
@@ -362,7 +365,7 @@ class LiveSimulationSession:
         ):
             if step_spawn_positions is None:
                 step_spawn_positions = simsvc.current_agent_positions(self.sim)
-            tokens = self._build_route_tokens(self.spawned)
+            tokens = self._expand_route_tokens(self._build_route_tokens(self.spawned))
             stage_ids = self._route_tokens_to_stage_ids(tokens)
             if len(stage_ids) < 2:
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
@@ -489,9 +492,7 @@ class LiveSimulationSession:
         exit_wp = self.exits[spawn_index % len(self.exits)]
         tokens.append(exit_wp.id)
         tokens.append(self._token_for_exit_stage(exit_wp.id))
-        if self.route_planner is None:
-            return tokens
-        return self.route_planner.expanded_route_tokens(tokens)
+        return tokens
 
     def _spawn_pedestrians_if_due(self) -> None:
         max_customers = max(1, int(self.config.maxCustomers))
@@ -506,7 +507,7 @@ class LiveSimulationSession:
                 break
             if step_spawn_positions is None:
                 step_spawn_positions = simsvc.current_agent_positions(self.sim)
-            tokens = self._pedestrian_route_tokens(plan, self.pedestrian_cursor)
+            tokens = self._expand_route_tokens(self._pedestrian_route_tokens(plan, self.pedestrian_cursor))
             stage_ids = self._route_tokens_to_stage_ids(tokens)
             if len(stage_ids) < 2:
                 self.pedestrian_cursor += 1

@@ -922,7 +922,7 @@ def _spawn_from_entry(
         "after 240 attempts (%d agents already placed this step). "
         "Falling back to unconstrained position — 'agent too close to agent' may occur.",
         waypoint.label,
-        len(occupied),
+        occupied_count,
     )
     return _random_point_in_polygon(spawnable, rng)
 

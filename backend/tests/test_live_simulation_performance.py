@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import random
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from shapely.geometry import Polygon
 
 import services.simulation as simsvc
 from api.cad_projects import router
@@ -185,6 +187,21 @@ def test_position_spatial_hash_matches_linear_clearance_checks() -> None:
     assert simsvc._candidate_clears_occupied(near_candidate, index) is False
     assert simsvc._candidate_clears_occupied(far_candidate, positions) is True
     assert simsvc._candidate_clears_occupied(far_candidate, index) is True
+
+
+def test_spawn_from_entry_fallback_accepts_spatial_hash(monkeypatch) -> None:
+    waypoint = SimulationConfig.model_validate({
+        "waypoints": [{"id": "entry", "type": "entry", "x": 100, "z": 100, "radiusCm": 30}],
+    }).waypoints[0]
+    walkable = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)])
+    index = simsvc.PositionSpatialHash(cell_size_m=simsvc._cm_to_m(simsvc.SPAWN_SPACING_CM))
+    index.insert((1.0, 1.0))
+
+    monkeypatch.setattr(simsvc, "_point_in_walkable", lambda candidate, polygon: True)
+    monkeypatch.setattr(simsvc, "_candidate_clears_occupied", lambda candidate, occupied: False)
+    monkeypatch.setattr(simsvc, "_random_point_in_polygon", lambda polygon, rng: (1.5, 1.5))
+
+    assert simsvc._spawn_from_entry(waypoint, walkable, random.Random(7), index) == (1.5, 1.5)
 
 
 @pytest.mark.parametrize("frame_window", [8, 16])

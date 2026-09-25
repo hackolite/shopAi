@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from shapely.geometry import Polygon
+
 from models.project import SceneData, SimulationConfig
+import services.walkable_partition as walkable_partition
 from services.walkable_partition import compiled_layout, compute_walkable_partition
 
 
@@ -352,3 +355,89 @@ def test_runtime_obstacle_merge_is_recomputed_when_osm_buildings_move() -> None:
     assert first_layout.scene_hash != moved_layout.scene_hash
     assert first_partition.connected.area != moved_partition.connected.area
     assert first_partition.runtime_connected.area != moved_partition.runtime_connected.area
+
+
+def test_runtime_obstacle_merge_convex_hull_guard_accepts_small_ratio() -> None:
+    polygon = Polygon(
+        [
+            (0.0, 0.0),
+            (80.0, 0.0),
+            (80.0, 40.0),
+            (46.0, 40.0),
+            (46.0, 34.0),
+            (34.0, 34.0),
+            (34.0, 40.0),
+            (0.0, 40.0),
+        ]
+    )
+    identity = {"elementType": "zone", "elementId": "convex-ok", "elementLabel": "Convex OK"}
+
+    normalized = walkable_partition._normalize_polygon(  # noqa: SLF001
+        polygon.buffer(walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M).buffer(  # noqa: SLF001
+            -walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M  # noqa: SLF001
+        )
+    )
+    assert normalized is not None
+    convex = walkable_partition._normalize_polygon(normalized.convex_hull)  # noqa: SLF001
+    assert convex is not None
+    assert convex.area <= normalized.area * walkable_partition._NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO  # noqa: SLF001
+
+    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+
+    assert len(merged) == 1
+    assert merged[0][1].area >= normalized.area
+
+
+def test_runtime_obstacle_merge_convex_hull_guard_rejects_large_ratio() -> None:
+    polygon = Polygon(
+        [
+            (0.0, 0.0),
+            (120.0, 0.0),
+            (120.0, 80.0),
+            (90.0, 80.0),
+            (90.0, 20.0),
+            (30.0, 20.0),
+            (30.0, 80.0),
+            (0.0, 80.0),
+        ]
+    )
+    identity = {"elementType": "zone", "elementId": "convex-no", "elementLabel": "Convex NO"}
+
+    normalized = walkable_partition._normalize_polygon(  # noqa: SLF001
+        polygon.buffer(walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M).buffer(  # noqa: SLF001
+            -walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M  # noqa: SLF001
+        )
+    )
+    assert normalized is not None
+    convex = walkable_partition._normalize_polygon(normalized.convex_hull)  # noqa: SLF001
+    assert convex is not None
+    assert convex.area > normalized.area * walkable_partition._NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO  # noqa: SLF001
+
+    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+
+    assert len(merged) == 1
+    assert merged[0][1].area < convex.area
+
+
+def test_runtime_obstacle_merge_drops_small_island_after_simplification() -> None:
+    polygon = Polygon(
+        [
+            (0.0, 0.0),
+            (8.0, 0.0),
+            (8.0, 2.0),
+            (0.0, 2.0),
+        ]
+    )
+    identity = {"elementType": "zone", "elementId": "small", "elementLabel": "Small"}
+
+    normalized = walkable_partition._normalize_polygon(  # noqa: SLF001
+        polygon.buffer(walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M).buffer(  # noqa: SLF001
+            -walkable_partition._NAV_BUILDING_ENVELOPE_BUFFER_M  # noqa: SLF001
+        )
+    )
+    assert normalized is not None
+    assert normalized.area >= walkable_partition._NAV_BUILDING_ENVELOPE_MIN_AREA_M2  # noqa: SLF001
+
+    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+
+    assert merged == []

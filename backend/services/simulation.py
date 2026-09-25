@@ -207,6 +207,7 @@ class NavMeshRoutePlanner:
     stage_to_token: dict[int, str]
     waypoint_by_stage_id: dict[int, SimulationWaypoint]
     hidden_stage_token_prefix: str = "nav"
+    use_flow_field: bool = True
     _expanded_route_cache: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
     _stage_id_route_cache: dict[tuple[str, ...], list[int]] = field(default_factory=dict)
     _segment_token_cache: dict[tuple[str, str], list[str]] = field(default_factory=dict)
@@ -367,11 +368,12 @@ class NavMeshRoutePlanner:
     ) -> list[str]:
         if self.spatial_model is None:
             return []
-        flow_field = self._flow_field_for_token(to_token, to_point)
-        if flow_field is not None:
-            flow_path = trace_flow_field_path(self.spatial_model.navmesh, flow_field, from_point)
-            if flow_path:
-                return flow_path
+        if self.use_flow_field:
+            flow_field = self._flow_field_for_token(to_token, to_point)
+            if flow_field is not None:
+                flow_path = trace_flow_field_path(self.spatial_model.navmesh, flow_field, from_point)
+                if flow_path:
+                    return flow_path
         return astar_cell_path(
             self.spatial_model.navmesh,
             from_point,
@@ -394,6 +396,19 @@ class NavMeshRoutePlanner:
             return None
         self._flow_field_cache[cache_key] = flow_field
         return flow_field
+
+    def precompute_entry_exit_routes(
+        self,
+        entries: list[SimulationWaypoint],
+        exits: list[SimulationWaypoint],
+    ) -> None:
+        for entry in entries:
+            for exit_waypoint in exits:
+                self.stage_ids_for_route([
+                    entry.id,
+                    exit_waypoint.id,
+                    f"exit_hidden:{exit_waypoint.id}",
+                ])
 
 
 def _split_accessible_area_detail(
@@ -1381,7 +1396,10 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         stage_to_token=stage_to_token,
         waypoint_by_stage_id=waypoint_by_stage_id,
         hidden_stage_token_prefix="nav-batch",
+        use_flow_field=config.pedestrianSimulationTechnology != "jupedsim-astar",
     )
+    if config.precomputeEntryExitRoutes:
+        route_planner.precompute_entry_exit_routes(entries, exits)
 
     arrival_times: list[float] = []
     arrival_rate = max(0.0, float(config.arrivalRatePerSecond))

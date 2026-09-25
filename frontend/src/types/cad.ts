@@ -142,6 +142,8 @@ export interface SimulationWaypointSystem {
   waypoints: SimulationWaypoint[];
 }
 
+export type PedestrianSimulationTechnology = 'jupedsim-flow' | 'jupedsim-astar';
+
 export interface SimulationConfig {
   enabled: boolean;
   arrivalRatePerSecond: number;
@@ -150,6 +152,8 @@ export interface SimulationConfig {
   randomSeed: number;
   desiredSpeedMps: number;
   speedVariation: number;
+  pedestrianSimulationTechnology?: PedestrianSimulationTechnology;
+  precomputeEntryExitRoutes?: boolean;
   waypoints: SimulationWaypoint[];
   waypointSystems?: SimulationWaypointSystem[];
   activeWaypointSystemId?: string | null;

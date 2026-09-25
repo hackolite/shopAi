@@ -126,6 +126,8 @@ class SimulationConfig(CADBaseModel):
     randomSeed: int = 42
     desiredSpeedMps: float = 1.25
     speedVariation: float = 0.2
+    pedestrianSimulationTechnology: Literal["jupedsim-flow", "jupedsim-astar"] = "jupedsim-flow"
+    precomputeEntryExitRoutes: bool = True
     waypoints: list[SimulationWaypoint] = Field(default_factory=list)
     waypointSystems: list[SimulationWaypointSystem] = Field(default_factory=list)
     activeWaypointSystemId: str | None = None

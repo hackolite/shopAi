@@ -24,6 +24,7 @@ import { useAssetStore } from '../../store/assetStore';
 import { useUIStore } from '../../store/uiStore';
 import type {
   AgentBasket,
+  PedestrianSimulationTechnology,
   SimulationConfig,
   SimulationWaypoint,
   WaypointMetrics,
@@ -1116,6 +1117,38 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                 : 'Aucun dataset sélectionné : la simulation passe automatiquement en mode JuPedSim, sans case à activer.'}
             </p>
           </div>
+          <label className="flex items-center gap-2 text-xs text-gray-300">
+            <span className="w-28 shrink-0 text-gray-500">Technologie</span>
+            <select
+              value={config.pedestrianSimulationTechnology ?? 'jupedsim-flow'}
+              disabled={pedestrianCsvLoaded}
+              title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
+              onChange={(event) =>
+                patchConfig({
+                  pedestrianSimulationTechnology: event.target.value as PedestrianSimulationTechnology,
+                })}
+              className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="jupedsim-flow">JuPedSim + FlowField</option>
+              <option value="jupedsim-astar">JuPedSim + A*</option>
+            </select>
+          </label>
+          <label
+            className={[
+              'flex items-center justify-between text-xs text-gray-300',
+              pedestrianCsvLoaded ? 'opacity-40' : '',
+            ].join(' ')}
+            title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
+          >
+            <span className="text-gray-500">Pré-calcul trajets entrée/sortie</span>
+            <input
+              type="checkbox"
+              checked={config.precomputeEntryExitRoutes !== false}
+              disabled={pedestrianCsvLoaded}
+              onChange={(event) => patchConfig({ precomputeEntryExitRoutes: event.target.checked })}
+              className="accent-blue-500"
+            />
+          </label>
           <NumberField
             label="Clients / sec"
             value={config.arrivalRatePerSecond}

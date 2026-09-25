@@ -103,6 +103,8 @@ function normalizeConfig(config: SimulationConfig): SimulationConfig {
   return {
     ...config,
     enabled: config.enabled !== false,
+    pedestrianSimulationTechnology: config.pedestrianSimulationTechnology ?? 'jupedsim-flow',
+    precomputeEntryExitRoutes: config.precomputeEntryExitRoutes !== false,
     waypointSystems: systems,
     activeWaypointSystemId,
     waypoints: cloneWaypoints(activeSystem.waypoints),
@@ -128,6 +130,8 @@ export const defaultSimulationConfig = (): SimulationConfig => ({
   randomSeed: 42,
   desiredSpeedMps: 1.25,
   speedVariation: 0.2,
+  pedestrianSimulationTechnology: 'jupedsim-flow',
+  precomputeEntryExitRoutes: true,
   waypoints: [],
 });
 

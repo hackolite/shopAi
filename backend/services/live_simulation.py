@@ -312,7 +312,10 @@ class LiveSimulationSession:
             stage_to_token=self.stage_to_token,
             waypoint_by_stage_id=self.waypoint_by_stage_id,
             hidden_stage_token_prefix="nav-live",
+            use_flow_field=self.config.pedestrianSimulationTechnology != "jupedsim-astar",
         )
+        if self.config.precomputeEntryExitRoutes:
+            self.route_planner.precompute_entry_exit_routes(self.entries, self.exits)
 
         if not self.waypoint_series:
             self.waypoint_series = {waypoint.id: [] for waypoint in self.metrics_waypoints}

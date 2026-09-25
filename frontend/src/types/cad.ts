@@ -71,6 +71,7 @@ export interface FloorZoneSource {
   defaultHeightApplied?: boolean;
   height?: string | null;
   'building:levels'?: string | null;
+  isEnvelope?: boolean;
   name?: string | null;
   tags?: Record<string, string>;
 }
@@ -326,6 +327,8 @@ export interface LiveAgentBasketResponse {
 export interface WalkablePolygonPreview {
   exterior: [number, number][];
   holes: [number, number][][];
+  memberElementIds?: string[];
+  memberOsmWayIds?: string[];
 }
 
 export interface NavMeshCellPreview {

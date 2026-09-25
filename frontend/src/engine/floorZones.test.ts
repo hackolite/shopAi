@@ -3,6 +3,7 @@ import {
   floorShapePlanePointCm,
   floorZoneValidationError,
   zoneHeightCm,
+  zoneIsMergeableBuilding,
   zoneMounted,
   zoneOutlinePointsCm,
   zonePathMode,
@@ -39,6 +40,23 @@ describe('floorZones helpers', () => {
     expect(zoneSupportsSimulationPreview(zone({ type: 'forbidden', mounted: false }))).toBe(true);
     expect(zoneSupportsSimulationPreview(zone({ type: 'forbidden', mounted: true }))).toBe(false);
     expect(zoneSupportsSimulationPreview(zone({ type: 'entrance', mounted: true }))).toBe(false);
+  });
+
+  it('detects OSM building obstacles that can be merged into runtime envelopes', () => {
+    expect(zoneIsMergeableBuilding(zone({
+      source: { osmWayId: '42', isLikelyBuilding: true },
+    }))).toBe(true);
+    expect(zoneIsMergeableBuilding(zone({
+      pedestrianObstacle: false,
+      source: { osmWayId: '42', isLikelyBuilding: true },
+    }))).toBe(false);
+    expect(zoneIsMergeableBuilding(zone({
+      type: 'entrance',
+      source: { osmWayId: '42', isLikelyBuilding: true },
+    }))).toBe(false);
+    expect(zoneIsMergeableBuilding(zone({
+      source: { osmWayId: '42', isLikelyBuilding: true, isEnvelope: true },
+    }))).toBe(false);
   });
 
   it('keeps resize handles for bounded shapes but not free polygons', () => {

@@ -301,7 +301,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     showTrajectories,
     setShowTrajectories,
     showNavigationOverlay,
+    showNavigationEnvelopeOnly,
     setShowNavigationOverlay,
+    setShowNavigationEnvelopeOnly,
+    walkablePreview,
     setWalkablePreview,
     pedestrianImport,
     setPedestrianImport,
@@ -435,6 +438,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const queueMetrics: WaypointMetrics[] = (result?.waypoints ?? []).filter(
     (metrics) => metrics.retentionSeconds > 0,
   );
+  const hasNavigationEnvelopePreview = (walkablePreview?.buildingBlocks?.length ?? 0) > 0;
+
+  useEffect(() => {
+    if (showNavigationOverlay && hasNavigationEnvelopePreview) return;
+    if (!showNavigationEnvelopeOnly) return;
+    setShowNavigationEnvelopeOnly(false);
+  }, [hasNavigationEnvelopePreview, setShowNavigationEnvelopeOnly, showNavigationEnvelopeOnly, showNavigationOverlay]);
 
   const loadPedestriansIntoSession = useCallback(async (sessionId: string) => {
     if (!projectId) return false;
@@ -1503,6 +1513,17 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               className="accent-blue-500"
             />
           </label>
+          {showNavigationOverlay && hasNavigationEnvelopePreview && (
+            <label className="ml-3 flex items-center justify-between text-xs text-gray-300">
+              <span className="text-gray-500">Enveloppe bâtiments uniquement</span>
+              <input
+                type="checkbox"
+                checked={showNavigationEnvelopeOnly}
+                onChange={(event) => setShowNavigationEnvelopeOnly(event.target.checked)}
+                className="accent-blue-500"
+              />
+            </label>
+          )}
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Grille au sol</span>
             <input

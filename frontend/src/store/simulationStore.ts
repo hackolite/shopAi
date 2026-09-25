@@ -174,6 +174,8 @@ interface SimulationState {
   showTrajectories: boolean;
   /** Whether the walkable-area overlay (chemin navigable) is drawn on the floor. */
   showNavigationOverlay: boolean;
+  /** Whether to show only the merged building envelopes from the walkable preview. */
+  showNavigationEnvelopeOnly: boolean;
   /** Last walkable-area partition returned by the backend, if any. */
   walkablePreview: WalkablePreview | null;
   running: boolean;
@@ -226,6 +228,7 @@ interface SimulationState {
   setHeatmapMode: (heatmapMode: HeatmapMode) => void;
   setShowTrajectories: (showTrajectories: boolean) => void;
   setShowNavigationOverlay: (showNavigationOverlay: boolean) => void;
+  setShowNavigationEnvelopeOnly: (showNavigationEnvelopeOnly: boolean) => void;
   setWalkablePreview: (walkablePreview: WalkablePreview | null) => void;
   setRunning: (running: boolean) => void;
   setPlaying: (playing: boolean) => void;
@@ -262,6 +265,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   heatmapMode: 'traffic',
   showTrajectories: false,
   showNavigationOverlay: false,
+  showNavigationEnvelopeOnly: false,
   walkablePreview: null,
   running: false,
   playing: false,
@@ -481,7 +485,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     invalidWaypointIds: [],
     invalidWaypointSuggestion: null,
     invalidObstacleHighlights: emptyInvalidSimulationObstacleHighlights(),
-    walkablePreview: null,
   }),
   setResultWaypoints: (waypoints) =>
     set((state) => ({
@@ -497,6 +500,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setHeatmapMode: (heatmapMode) => set({ heatmapMode }),
   setShowTrajectories: (showTrajectories) => set({ showTrajectories }),
   setShowNavigationOverlay: (showNavigationOverlay) => set({ showNavigationOverlay }),
+  setShowNavigationEnvelopeOnly: (showNavigationEnvelopeOnly) => set({ showNavigationEnvelopeOnly }),
   setWalkablePreview: (walkablePreview) => set({ walkablePreview }),
   setRunning: (running) => set({ running }),
   setPlaying: (playing) => set({ playing }),
@@ -565,6 +569,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       result: null,
       analytics: null,
       showNavigationOverlay: false,
+      showNavigationEnvelopeOnly: false,
       running: false,
       playing: false,
       paused: false,

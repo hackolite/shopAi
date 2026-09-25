@@ -952,7 +952,11 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
             "excludedObstacles": partition.excluded_obstacles,
             "navmesh": navmesh_to_cm(partition.spatial_model.navmesh) if partition.spatial_model is not None else None,
             "buildingBlocks": [
-                polygon_to_cm(block.polygon)
+                {
+                    **polygon_to_cm(block.polygon),
+                    "memberElementIds": list(block.member_element_ids),
+                    "memberOsmWayIds": list(block.member_osm_way_ids),
+                }
                 for block in (partition.spatial_model.building_blocks if partition.spatial_model is not None else [])
             ],
             "envelopeMergeGain": partition.runtime_envelope_gain,

@@ -472,6 +472,60 @@ def test_walkable_preview_endpoint_returns_components() -> None:
     }
 
 
+def test_walkable_preview_building_blocks_expose_member_zone_ids() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "building-a",
+            "type": "forbidden",
+            "shape": "rectangle",
+            "label": "Building A",
+            "x": 200.0,
+            "z": 300.0,
+            "width": 400.0,
+            "depth": 900.0,
+            "_source": {"isLikelyBuilding": True, "osmWayId": "100"},
+        },
+        {
+            "id": "building-b",
+            "type": "forbidden",
+            "shape": "rectangle",
+            "label": "Building B",
+            "x": 620.0,
+            "z": 300.0,
+            "width": 400.0,
+            "depth": 900.0,
+            "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
+        },
+    ]
+
+    response = client.post(
+        f"/api/cad/projects/{project_id}/simulation/walkable-preview",
+        json={
+            "scene": scene,
+            "config": {
+                "waypoints": [
+                    _waypoint("entry-main", "entry", "Entrée", 120.0, 120.0),
+                    _waypoint("exit-main", "exit", "Sortie", 2200.0, 1500.0),
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    building_blocks = response.json()["buildingBlocks"]
+    assert building_blocks
+    assert any(
+        set(block.get("memberElementIds", ())) >= {"building-a", "building-b"}
+        for block in building_blocks
+    )
+
+
 def test_walkable_preview_disconnected_exit_returns_422() -> None:
     project_id = _create_project()
 

@@ -73,9 +73,10 @@ _SPATIAL_INDEX_GRID_DIVISIONS = 32
 _RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 _RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
 _RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
-_NAV_BUILDING_ENVELOPE_BUFFER_M = 3.0
-_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 2.0
-_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 25.0
+_NAV_BUILDING_ENVELOPE_BUFFER_M = 8.0
+_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 6.0
+_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 10.0
+_NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
 
 
 def _store_polygon(store) -> Polygon:
@@ -147,9 +148,12 @@ def _merge_building_obstacles(
             continue
         if normalized.area < _NAV_BUILDING_ENVELOPE_MIN_AREA_M2:
             continue
+        envelope_island = normalized
+        if _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL:
+            envelope_island = _normalize_polygon(normalized.convex_hull) or normalized
         simplified_island = _normalize_polygon(
-            normalized.simplify(_NAV_BUILDING_ENVELOPE_SIMPLIFY_M, preserve_topology=True)
-        ) or normalized
+            envelope_island.simplify(_NAV_BUILDING_ENVELOPE_SIMPLIFY_M, preserve_topology=True)
+        ) or envelope_island
         members = [identities[index] for index, polygon in enumerate(polygons) if polygon.intersects(simplified_island)]
         anchor = members[0] if members else {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
         simplified.append((anchor, simplified_island))

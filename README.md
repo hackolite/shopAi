@@ -168,6 +168,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 
 Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER`.
 `LLM_PROVIDER=none` est un mode valide (sans fournisseur réel). Une clé provider n'est requise que si vous activez un mode LLM (`openai`, `anthropic`, `xai`, `openrouter`).
+Avec `LLM_PROVIDER=none`, `/assistant/llm` reste appelable mais fonctionne en mode déterministe borné (sans appel à un fournisseur LLM externe).
 Pré-requis obligatoire pour tout appel backend `/assistant/llm` : `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` doit être défini côté backend.
 
 Exemple minimal de `.env` :

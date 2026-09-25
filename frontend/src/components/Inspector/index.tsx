@@ -4,6 +4,7 @@ import { usePlanogramStore } from '../../store/planogramStore';
 import { useCatalogStore } from '../../store/catalogStore';
 import { useZoneStore } from '../../store/zoneStore';
 import { useProjectStore } from '../../store/projectStore';
+import { useSimulationStore } from '../../store/simulationStore';
 import { cadApi } from '../../api/cad';
 import { OVERFLOW_TOLERANCE_CM } from '../../types/cad';
 import type { FurnitureInstance, FaceId, Planogram, FloorZone, FloorZoneSource } from '../../types/cad';
@@ -996,6 +997,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const { products } = useCatalogStore();
   const { zones, selectedZoneId } = useZoneStore();
   const navigationPolygonCount = useProjectStore((state) => state.navigationPolygonCount);
+  const walkablePreview = useSimulationStore((state) => state.walkablePreview);
 
   // Project-wide implantation metrics (distinct EANs, facings, catalog coverage).
   const projectMetrics = computeImplantationMetrics(planogramDetails.values());
@@ -1035,6 +1037,7 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
     selectedEanProduct && selectedEanProduct.priceSellEur != null && selectedEanProduct.priceBuyEur != null
       ? selectedEanProduct.priceSellEur - selectedEanProduct.priceBuyEur
       : null;
+  const envelopeMergeGain = walkablePreview?.envelopeMergeGain;
 
   return (
     <div className="flex flex-col h-full">
@@ -1203,6 +1206,17 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                     <span>Couverture catalogue</span>
                     <span className="text-gray-300">
                       {coveragePct.toFixed(1)} % ({products.length} réf.)
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between text-gray-400 gap-3"
+                    title="Gain de simplification obtenu par la fusion d'enveloppes runtime des bâtiments OSM"
+                  >
+                    <span>Gain fusion enveloppes</span>
+                    <span className="text-gray-300 text-right">
+                      {envelopeMergeGain && envelopeMergeGain.sourceObstacleCount > 0
+                        ? `-${envelopeMergeGain.obstacleReductionPct.toFixed(1)}% obstacles · -${envelopeMergeGain.vertexReductionPct.toFixed(1)}% sommets`
+                        : '—'}
                     </span>
                   </div>
                 </div>

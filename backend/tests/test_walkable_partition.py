@@ -276,7 +276,7 @@ def test_spatial_model_exposes_building_blocks_for_osm_obstacles() -> None:
     )
 
 
-def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
+def test_runtime_obstacle_merge_applies_to_likely_osm_buildings_only_and_reshapes_walkable_area() -> None:
     scene_osm = SceneData.model_validate(
         {
             "store": {
@@ -322,8 +322,22 @@ def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
     osm_partition = compute_walkable_partition(scene_osm, config)
     non_osm_partition = compute_walkable_partition(scene_non_osm, config)
 
-    assert osm_partition.connected.area < non_osm_partition.connected.area
-    assert osm_partition.runtime_connected.area < non_osm_partition.runtime_connected.area
+    assert osm_partition.connected.area > non_osm_partition.connected.area
+    assert osm_partition.runtime_connected.area > non_osm_partition.runtime_connected.area
+    assert osm_partition.runtime_envelope_gain["sourceObstacleCount"] == 2
+    assert osm_partition.runtime_envelope_gain["runtimeObstacleCount"] == 1
+    assert osm_partition.runtime_envelope_gain["obstaclesSaved"] == 1
+    assert osm_partition.runtime_envelope_gain["obstacleReductionPct"] == 50.0
+    assert osm_partition.runtime_envelope_gain["sourceVertexCount"] > 0
+    assert osm_partition.runtime_envelope_gain["runtimeVertexCount"] > 0
+    assert osm_partition.runtime_envelope_gain["verticesSaved"] > 0
+    assert osm_partition.runtime_envelope_gain["vertexReductionPct"] > 0.0
+    assert non_osm_partition.runtime_envelope_gain["sourceObstacleCount"] == 0
+    assert non_osm_partition.runtime_envelope_gain["runtimeObstacleCount"] == 0
+    assert non_osm_partition.runtime_envelope_gain["obstaclesSaved"] == 0
+    assert non_osm_partition.runtime_envelope_gain["obstacleReductionPct"] == 0.0
+    assert non_osm_partition.runtime_envelope_gain["verticesSaved"] == 0
+    assert non_osm_partition.runtime_envelope_gain["vertexReductionPct"] == 0.0
 
 
 def test_runtime_obstacle_merge_ignores_non_osm_buildings() -> None:
@@ -447,10 +461,12 @@ def test_runtime_obstacle_merge_convex_hull_guard_accepts_small_ratio() -> None:
     assert convex is not None
     assert convex.area <= normalized.area * walkable_partition._NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO  # noqa: SLF001
 
-    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+    merged, gain = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
 
     assert len(merged) == 1
     assert merged[0][1].area >= normalized.area
+    assert gain["sourceObstacleCount"] == 1
+    assert gain["runtimeObstacleCount"] == 1
 
 
 def test_runtime_obstacle_merge_convex_hull_guard_rejects_large_ratio() -> None:
@@ -478,10 +494,12 @@ def test_runtime_obstacle_merge_convex_hull_guard_rejects_large_ratio() -> None:
     assert convex is not None
     assert convex.area > normalized.area * walkable_partition._NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO  # noqa: SLF001
 
-    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+    merged, gain = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
 
     assert len(merged) == 1
     assert merged[0][1].area < convex.area
+    assert gain["sourceObstacleCount"] == 1
+    assert gain["runtimeObstacleCount"] == 1
 
 
 def test_runtime_obstacle_merge_drops_small_island_after_simplification() -> None:
@@ -503,6 +521,8 @@ def test_runtime_obstacle_merge_drops_small_island_after_simplification() -> Non
     assert normalized is not None
     assert normalized.area >= walkable_partition._NAV_BUILDING_ENVELOPE_MIN_AREA_M2  # noqa: SLF001
 
-    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+    merged, gain = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
 
     assert merged == []
+    assert gain["sourceObstacleCount"] == 1
+    assert gain["runtimeObstacleCount"] == 0

@@ -955,6 +955,7 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
                 polygon_to_cm(block.polygon)
                 for block in (partition.spatial_model.building_blocks if partition.spatial_model is not None else [])
             ],
+            "envelopeMergeGain": partition.runtime_envelope_gain,
             "routeCellIds": navmesh_route_preview(partition, entries, exits),
             "routeFlowField": navmesh_flow_preview(partition, entries, exits),
         }

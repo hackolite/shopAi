@@ -69,6 +69,7 @@ class WalkablePartition:
     # connected polygon when runtime simplification would invalidate waypoints.
     simulation_connected: Polygon | None = None
     spatial_model: SpatialModel | None = None
+    runtime_envelope_gain: dict[str, float | int] = field(default_factory=dict)
 
 
 @dataclass
@@ -83,6 +84,7 @@ class CompiledLayout:
     obstacle_spatial_index: dict[tuple[int, int], list[int]]
     static_obstacles: list[SpatialObstacle]
     building_blocks: list[BuildingBlock]
+    runtime_envelope_gain: dict[str, float | int]
 
 
 _COMPILED_LAYOUT_CACHE: OrderedDict[str, CompiledLayout] = OrderedDict()
@@ -93,15 +95,15 @@ _RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 _RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
 _RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
 # Aggressive runtime envelope tuning for OSM-derived building blocks:
-# - 8 m closing gap fuses nearby buildings into larger islands.
-# - 6 m simplify strips high-frequency contour detail.
-# - 10 m² minimum area removes tiny residual islands after simplification.
+# - 10 m closing gap fuses nearby buildings into larger islands.
+# - 8 m simplify strips high-frequency contour detail.
+# - 16 m² minimum area removes tiny residual islands after simplification.
 # The goal is lower obstacle complexity and faster walkable compilation.
-_NAV_BUILDING_ENVELOPE_BUFFER_M = 8.0
-_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 6.0
-_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 10.0
+_NAV_BUILDING_ENVELOPE_BUFFER_M = 10.0
+_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 8.0
+_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 16.0
 _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
-_NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.12
+_NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.18
 
 CmPoint: TypeAlias = list[float]
 CmRing: TypeAlias = list[CmPoint]
@@ -200,11 +202,45 @@ def _is_mergeable_building_zone(zone) -> bool:
     return bool(source.get("isLikelyBuilding"))
 
 
+def _polygon_vertex_count(polygon: Polygon) -> int:
+    return len(polygon.exterior.coords) + sum(len(ring.coords) for ring in polygon.interiors)
+
+
+def _build_runtime_envelope_gain(
+    *,
+    source_count: int,
+    source_vertex_count: int,
+    merged_count: int,
+    merged_vertex_count: int,
+) -> dict[str, float | int]:
+    source_count_value = max(0, source_count)
+    source_vertex_value = max(0, source_vertex_count)
+    merged_count_value = max(0, merged_count)
+    merged_vertex_value = max(0, merged_vertex_count)
+    count_saved = max(0, source_count_value - merged_count_value)
+    vertices_saved = max(0, source_vertex_value - merged_vertex_value)
+    return {
+        "sourceObstacleCount": source_count_value,
+        "runtimeObstacleCount": merged_count_value,
+        "obstaclesSaved": count_saved,
+        "obstacleReductionPct": (count_saved / source_count_value * 100.0) if source_count_value else 0.0,
+        "sourceVertexCount": source_vertex_value,
+        "runtimeVertexCount": merged_vertex_value,
+        "verticesSaved": vertices_saved,
+        "vertexReductionPct": (vertices_saved / source_vertex_value * 100.0) if source_vertex_value else 0.0,
+    }
+
+
 def _merge_building_obstacles(
     building_obstacles: list[tuple[dict, Polygon | MultiPolygon]],
-) -> list[tuple[dict, Polygon | MultiPolygon]]:
+) -> tuple[list[tuple[dict, Polygon | MultiPolygon]], dict[str, float | int]]:
     if not building_obstacles:
-        return []
+        return [], _build_runtime_envelope_gain(
+            source_count=0,
+            source_vertex_count=0,
+            merged_count=0,
+            merged_vertex_count=0,
+        )
 
     polygons: list[Polygon] = []
     identities: list[dict] = []
@@ -216,7 +252,12 @@ def _merge_building_obstacles(
                 identities.append(identity)
 
     if not polygons:
-        return []
+        return [], _build_runtime_envelope_gain(
+            source_count=0,
+            source_vertex_count=0,
+            merged_count=0,
+            merged_vertex_count=0,
+        )
 
     polygon_centroids = [polygon.centroid for polygon in polygons]
     grown = [polygon.buffer(_NAV_BUILDING_ENVELOPE_BUFFER_M) for polygon in polygons]
@@ -268,7 +309,14 @@ def _merge_building_obstacles(
         else:
             anchor = {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
         simplified.append((anchor, simplified_island))
-    return simplified
+    source_vertex_count = sum(_polygon_vertex_count(polygon) for polygon in polygons)
+    merged_vertex_count = sum(_polygon_vertex_count(polygon) for _identity, polygon in simplified)
+    return simplified, _build_runtime_envelope_gain(
+        source_count=len(polygons),
+        source_vertex_count=source_vertex_count,
+        merged_count=len(simplified),
+        merged_vertex_count=merged_vertex_count,
+    )
 
 
 def _scene_hash(scene: SceneData) -> str:
@@ -283,7 +331,7 @@ def _scene_hash(scene: SceneData) -> str:
 def _collect_scene_obstacles(
     scene: SceneData,
     store_polygon: Polygon,
-) -> list[tuple[dict, Polygon | MultiPolygon]]:
+) -> tuple[list[tuple[dict, Polygon | MultiPolygon]], dict[str, float | int]]:
     obstacles: list[tuple[dict, Polygon | MultiPolygon]] = []
     for furniture in scene.furniture:
         obstacle = _furniture_polygon(furniture, store_polygon)
@@ -303,8 +351,9 @@ def _collect_scene_obstacles(
                 building_obstacles.append((identity, obstacle))
             else:
                 obstacles.append((identity, obstacle))
-    obstacles.extend(_merge_building_obstacles(building_obstacles))
-    return obstacles
+    merged_buildings, runtime_envelope_gain = _merge_building_obstacles(building_obstacles)
+    obstacles.extend(merged_buildings)
+    return obstacles, runtime_envelope_gain
 
 
 def _spatial_obstacles(
@@ -472,7 +521,7 @@ def _compile_runtime_component(component: Polygon) -> Polygon:
 
 def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
     store_polygon = _store_polygon(scene.store)
-    obstacles = _collect_scene_obstacles(scene, store_polygon)
+    obstacles, runtime_envelope_gain = _collect_scene_obstacles(scene, store_polygon)
     static_obstacles = _spatial_obstacles(obstacles)
     building_blocks = _building_blocks([
         (identity, obstacle)
@@ -499,6 +548,7 @@ def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
         obstacle_spatial_index=obstacle_spatial_index,
         static_obstacles=static_obstacles,
         building_blocks=building_blocks,
+        runtime_envelope_gain=runtime_envelope_gain,
     )
 
 
@@ -677,6 +727,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         excluded_obstacles=layout.excluded_obstacles,
         reachable_waypoint_ids=reachable_waypoint_ids,
         spatial_model=spatial_model,
+        runtime_envelope_gain=layout.runtime_envelope_gain,
     )
 
 

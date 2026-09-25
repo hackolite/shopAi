@@ -359,6 +359,17 @@ export interface NavMeshFlowFieldPreview {
   cells: NavMeshFlowCellPreview[];
 }
 
+export interface EnvelopeMergeGainPreview {
+  sourceObstacleCount: number;
+  runtimeObstacleCount: number;
+  obstaclesSaved: number;
+  obstacleReductionPct: number;
+  sourceVertexCount: number;
+  runtimeVertexCount: number;
+  verticesSaved: number;
+  vertexReductionPct: number;
+}
+
 /** Partition of the walkable floor area reachable (or not) from the entry. */
 export interface WalkablePreview {
   connected: [number, number][];
@@ -367,6 +378,7 @@ export interface WalkablePreview {
   excludedObstacles: { elementType: string; elementId: string | null; elementLabel: string | null }[];
   navmesh?: NavMeshPreview | null;
   buildingBlocks?: WalkablePolygonPreview[];
+  envelopeMergeGain?: EnvelopeMergeGainPreview;
   routeCellIds?: string[];
   routeFlowField?: NavMeshFlowFieldPreview | null;
 }

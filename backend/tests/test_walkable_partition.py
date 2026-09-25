@@ -447,10 +447,12 @@ def test_runtime_obstacle_merge_convex_hull_guard_accepts_small_ratio() -> None:
     assert convex is not None
     assert convex.area <= normalized.area * walkable_partition._NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO  # noqa: SLF001
 
-    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+    merged, gain = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
 
     assert len(merged) == 1
     assert merged[0][1].area >= normalized.area
+    assert gain["sourceObstacleCount"] == 1
+    assert gain["runtimeObstacleCount"] == 1
 
 
 def test_runtime_obstacle_merge_convex_hull_guard_rejects_large_ratio() -> None:
@@ -478,10 +480,12 @@ def test_runtime_obstacle_merge_convex_hull_guard_rejects_large_ratio() -> None:
     assert convex is not None
     assert convex.area > normalized.area * walkable_partition._NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO  # noqa: SLF001
 
-    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+    merged, gain = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
 
     assert len(merged) == 1
     assert merged[0][1].area < convex.area
+    assert gain["sourceObstacleCount"] == 1
+    assert gain["runtimeObstacleCount"] == 1
 
 
 def test_runtime_obstacle_merge_drops_small_island_after_simplification() -> None:
@@ -503,6 +507,8 @@ def test_runtime_obstacle_merge_drops_small_island_after_simplification() -> Non
     assert normalized is not None
     assert normalized.area >= walkable_partition._NAV_BUILDING_ENVELOPE_MIN_AREA_M2  # noqa: SLF001
 
-    merged = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
+    merged, gain = walkable_partition._merge_building_obstacles([(identity, polygon)])  # noqa: SLF001
 
     assert merged == []
+    assert gain["sourceObstacleCount"] == 1
+    assert gain["runtimeObstacleCount"] == 0

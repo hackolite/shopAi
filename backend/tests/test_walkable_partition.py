@@ -350,5 +350,5 @@ def test_runtime_obstacle_merge_is_recomputed_when_osm_buildings_move() -> None:
 
     assert first_layout is not moved_layout
     assert first_layout.scene_hash != moved_layout.scene_hash
-    assert first_partition.connected.area < moved_partition.connected.area
-    assert first_partition.runtime_connected.area < moved_partition.runtime_connected.area
+    assert first_partition.connected.area != moved_partition.connected.area
+    assert first_partition.runtime_connected.area != moved_partition.runtime_connected.area

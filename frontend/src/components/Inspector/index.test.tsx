@@ -300,5 +300,9 @@ describe('Inspector OSM zone metadata', () => {
       expect.any(Object),
     );
     expect(hasText(renderer, '-50.0% obstacles · -60.0% sommets')).toBe(true);
+    expect(hasText(renderer, '4 → 2')).toBe(true);
+    expect(hasText(renderer, '20 → 8')).toBe(true);
+    expect(hasText(renderer, 'Diagnostic perf')).toBe(true);
+    expect(hasText(renderer, 'inactif')).toBe(true);
   });
 });

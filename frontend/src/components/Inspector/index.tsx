@@ -998,6 +998,8 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   const { zones, selectedZoneId, zonesLoaded } = useZoneStore();
   const navigationPolygonCount = useProjectStore((state) => state.navigationPolygonCount);
   const simulationConfig = useSimulationStore((state) => state.config);
+  const showNavigationOverlay = useSimulationStore((state) => state.showNavigationOverlay);
+  const showNavigationEnvelopeOnly = useSimulationStore((state) => state.showNavigationEnvelopeOnly);
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const setWalkablePreview = useSimulationStore((state) => state.setWalkablePreview);
   const previewRequestId = useRef(0);
@@ -1073,6 +1075,13 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
       ? selectedEanProduct.priceSellEur - selectedEanProduct.priceBuyEur
       : null;
   const envelopeMergeGain = walkablePreview?.envelopeMergeGain;
+  const disconnectedIslands = walkablePreview?.disconnected.length ?? null;
+  const disconnectedVertices = walkablePreview
+    ? walkablePreview.disconnected.reduce((sum, polygon) => sum + polygon.exterior.length, 0)
+    : null;
+  const buildingEnvelopeCount = walkablePreview?.buildingBlocks?.length ?? null;
+  const excludedObstacleCount = walkablePreview?.excludedObstacles.length ?? null;
+  const connectedVertices = walkablePreview?.connected.length ?? null;
 
   return (
     <div className="flex flex-col h-full">
@@ -1253,6 +1262,51 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
                         ? `-${envelopeMergeGain.obstacleReductionPct.toFixed(1)}% obstacles · -${envelopeMergeGain.vertexReductionPct.toFixed(1)}% sommets`
                         : '—'}
                     </span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Obstacles navmesh</span>
+                    <span className="text-gray-300">
+                      {envelopeMergeGain
+                        ? `${envelopeMergeGain.sourceObstacleCount} → ${envelopeMergeGain.runtimeObstacleCount}`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Sommets navmesh</span>
+                    <span className="text-gray-300">
+                      {envelopeMergeGain
+                        ? `${envelopeMergeGain.sourceVertexCount} → ${envelopeMergeGain.runtimeVertexCount}`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-800" />
+                  <div className="flex justify-between text-gray-400">
+                    <span className="text-gray-500">Diagnostic perf</span>
+                    <span className="text-gray-300">{showNavigationOverlay ? 'actif' : 'inactif'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Mode enveloppe seule</span>
+                    <span className="text-gray-300">{showNavigationEnvelopeOnly ? 'oui' : 'non'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Enveloppes bâtiments</span>
+                    <span className="text-gray-300">{buildingEnvelopeCount ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Îlots déconnectés</span>
+                    <span className="text-gray-300">{disconnectedIslands ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Sommets connectés</span>
+                    <span className="text-gray-300">{connectedVertices ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Sommets déconnectés</span>
+                    <span className="text-gray-300">{disconnectedVertices ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Obstacles exclus</span>
+                    <span className="text-gray-300">{excludedObstacleCount ?? '—'}</span>
                   </div>
                 </div>
               </div>

@@ -28,10 +28,10 @@ MISSING_HEIGHT_OPACITY = 0.32
 # ------------------------------------------------------------
 
 # Tolérance de simplification des contours (Douglas-Peucker),
-# en mètres. Réglage volontairement agressif pour les imports OSM
-# urbains volumineux : l'objectif est de réduire fortement le
-# nombre de sommets avant même la génération de la navmesh.
-DEFAULT_SIMPLIFY_TOLERANCE_M = 2.0
+# en mètres. 0.5 m est un bon point de départ pour des piétons :
+# invisible à l'œil, mais réduit fortement le nombre de sommets
+# sur des bâtiments OSM détaillés (arrondis, décrochés).
+DEFAULT_SIMPLIFY_TOLERANCE_M = 0.5
 
 # Aire minimale (m²) en dessous de laquelle un objet qui N'EST
 # PAS un bâtiment (parking, landuse, bout de trottoir fermé...)
@@ -49,14 +49,14 @@ DEFAULT_MIN_SURFACE_AREA_M2 = 1.0
 # ÉTROITES DEVIENNENT IMPRATICABLES. C'est voulu pour un test
 # de charge, pas pour une simulation réaliste.
 # ------------------------------------------------------------
-DEFAULT_ENVELOPE_ENABLED = True
+DEFAULT_ENVELOPE_ENABLED = False
 # "replace" : les îlots REMPLACENT les bâtiments (rien n'est ajouté).
 # "overlay" : anciens bâtiments gardés + calque rouge de debug.
 DEFAULT_ENVELOPE_MODE = "replace"
-DEFAULT_ENVELOPE_BUFFER_M = 8.0      # comble les passages < 16 m
-DEFAULT_ENVELOPE_SIMPLIFY_M = 6.0    # tolérance Douglas-Peucker agressive
-DEFAULT_ENVELOPE_CONVEX = True       # favorise des monoblocs simples
-DEFAULT_ENVELOPE_MIN_AREA_M2 = 10.0  # petits résidus ignorés
+DEFAULT_ENVELOPE_BUFFER_M = 3.0      # comble les passages < 6 m
+DEFAULT_ENVELOPE_SIMPLIFY_M = 2.0    # tolérance Douglas-Peucker
+DEFAULT_ENVELOPE_CONVEX = False      # True = enveloppe convexe par îlot
+DEFAULT_ENVELOPE_MIN_AREA_M2 = 25.0  # îlots plus petits ignorés
 
 _HEIGHT_PATTERN = re.compile(
     r"^([0-9]+(?:\.[0-9]+)?)\s*(cm|m)?$",

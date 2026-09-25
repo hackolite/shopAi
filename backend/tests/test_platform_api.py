@@ -16,8 +16,6 @@ pm.STORAGE_ROOT = _tmp_root / "projects"
 
 from main import app  # noqa: E402
 from models.project import SceneData, SimulationConfig  # noqa: E402
-from services.osm_import import osm_xml_to_retail_layout  # noqa: E402
-from services.retail_layout import split_retail_layout  # noqa: E402
 from services import platform_service  # noqa: E402
 from services.walkable_partition import compute_walkable_partition  # noqa: E402
 
@@ -714,30 +712,26 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert len(zones) == 3
     assert payload["scene"]["furniture"] == []
 
-    zones_by_members = {
-        tuple(zone["source"].get("memberOsmWayIds", [])): zone
-        for zone in zones
-    }
-    assert zones_by_members[("100",)]["color"] == "#2A9D8F"
-    assert zones_by_members[("100",)]["opacity"] == 0.62
-    assert zones_by_members[("100",)]["heightCm"] == 900.0
-    assert zones_by_members[("100",)]["mounted"] is True
-    assert zones_by_members[("100",)]["source"]["isEnvelope"] is True
-    assert zones_by_members[("100",)]["source"]["osmWayId"] == "100"
-    assert zones_by_members[("100",)]["source"]["buildingType"] == "retail"
-    assert zones_by_members[("100",)]["source"]["heightSource"] == "height"
-    assert zones_by_members[("100",)]["source"]["height"] == "9"
-    assert zones_by_members[("200",)]["color"] == "#4D908E"
-    assert zones_by_members[("200",)]["opacity"] == 0.62
-    assert zones_by_members[("200",)]["heightCm"] == 600.0
-    assert zones_by_members[("200",)]["mounted"] is True
-    assert zones_by_members[("200",)]["source"]["heightSource"] == "building:levels"
-    assert zones_by_members[("200",)]["source"]["building:levels"] == "2"
-    assert zones_by_members[("300",)]["color"] == "#9CA3AF"
-    assert zones_by_members[("300",)]["opacity"] == 0.32
-    assert zones_by_members[("300",)]["heightCm"] == 1000.0
-    assert zones_by_members[("300",)]["mounted"] is True
-    assert zones_by_members[("300",)]["source"]["defaultHeightApplied"] is True
+    zones_by_id = {zone["id"]: zone for zone in zones}
+    assert zones_by_id["building-100"]["color"] == "#2A9D8F"
+    assert zones_by_id["building-100"]["opacity"] == 0.62
+    assert zones_by_id["building-100"]["heightCm"] == 900.0
+    assert zones_by_id["building-100"]["mounted"] is True
+    assert zones_by_id["building-200"]["color"] == "#4D908E"
+    assert zones_by_id["building-200"]["opacity"] == 0.62
+    assert zones_by_id["building-200"]["heightCm"] == 600.0
+    assert zones_by_id["building-200"]["mounted"] is True
+    assert zones_by_id["building-300"]["color"] == "#9CA3AF"
+    assert zones_by_id["building-300"]["opacity"] == 0.32
+    assert zones_by_id["building-300"]["heightCm"] == 1000.0
+    assert zones_by_id["building-300"]["mounted"] is True
+    assert zones_by_id["building-100"]["source"]["osmWayId"] == "100"
+    assert zones_by_id["building-100"]["source"]["buildingType"] == "retail"
+    assert zones_by_id["building-100"]["source"]["heightSource"] == "height"
+    assert zones_by_id["building-100"]["source"]["height"] == "9"
+    assert zones_by_id["building-200"]["source"]["heightSource"] == "building:levels"
+    assert zones_by_id["building-200"]["source"]["building:levels"] == "2"
+    assert zones_by_id["building-300"]["source"]["defaultHeightApplied"] is True
     all_x = [point["x"] for zone in zones for point in zone["points"]]
     all_z = [point["z"] for zone in zones for point in zone["points"]]
     assert min(all_x) >= 0.0
@@ -756,12 +750,7 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     project_scene = client.get(f"/api/cad/projects/{project_id}/scene")
     assert project_scene.status_code == 200, project_scene.text
     assert project_scene.json()["store"]["dimensions"] == scene["store"]["dimensions"]
-    persisted_zones_by_members = {
-        tuple(zone["source"].get("memberOsmWayIds", [])): zone
-        for zone in project_scene.json()["store"]["zones"]
-    }
-    for members, zone in zones_by_members.items():
-        assert persisted_zones_by_members[members]["source"]["memberOsmWayIds"] == zone["source"]["memberOsmWayIds"]
+    assert project_scene.json()["store"]["zones"][0]["source"]["osmWayId"] == zones[0]["source"]["osmWayId"]
 
 
 def test_store_layout_import_osm_keeps_buildings_only_by_default() -> None:
@@ -796,15 +785,12 @@ def test_store_layout_import_osm_keeps_buildings_only_by_default() -> None:
     )
     assert import_response.status_code == 200, import_response.text
     zones = import_response.json()["payload"]["scene"]["store"]["zones"]
-    assert len(zones) == 1
-    assert zones[0]["id"].startswith("envelope-")
-    assert zones[0]["shape"] == "polygon"
+    assert [zone["id"] for zone in zones] == ["building-100"]
     assert zones[0]["source"]["isLikelyBuilding"] is True
-    assert zones[0]["source"]["isEnvelope"] is True
-    assert zones[0]["source"]["memberOsmWayIds"] == ["100"]
+    assert zones[0]["source"].get("isEnvelope") is not True
 
 
-def test_store_layout_import_osm_aggressively_merges_close_buildings_into_one_block() -> None:
+def test_store_layout_import_osm_keeps_native_buildings_but_runtime_paths_merge_close_blocks() -> None:
     client = _make_client()
     _register(client, name="OSM Runtime Merge", email="osm-runtime-merge@example.com")
 
@@ -838,27 +824,15 @@ def test_store_layout_import_osm_aggressively_merges_close_buildings_into_one_bl
 
     scene_payload = import_response.json()["payload"]["scene"]
     zones = scene_payload["store"]["zones"]
-    assert len(zones) == 1
-    assert zones[0]["source"]["isEnvelope"] is True
-    assert set(zones[0]["source"]["memberOsmWayIds"]) == {"100", "200"}
+    assert [zone["id"] for zone in zones] == ["building-100", "building-200"]
 
     scene = SceneData.model_validate(scene_payload)
     merged_partition = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
 
-    manual_layout = osm_xml_to_retail_layout(
-        xml_text=osm_xml,
-        project_name="OSM blocs bruts",
-        envelope_enabled=False,
-    )
-    manual_scene_dict, _ = split_retail_layout(manual_layout, project_name="OSM blocs bruts")
-    manual_scene = SceneData.model_validate(manual_scene_dict)
-    assert len(manual_scene.store.zones) == 2
-    manual_zone_ids = {zone.id for zone in manual_scene.store.zones}
-    assert manual_zone_ids == {"building-100", "building-200"}
+    manual_scene = scene.model_copy(deep=True)
     for zone in manual_scene.store.zones:
-        assert zone.source is not None
-        assert zone.source.get("isEnvelope") is not True
-        assert zone.source.get("osmWayId") in {"100", "200"}
+        if zone.source:
+            zone.source.pop("osmWayId", None)
     manual_partition = compute_walkable_partition(
         manual_scene,
         SimulationConfig.model_validate({"waypoints": []}),

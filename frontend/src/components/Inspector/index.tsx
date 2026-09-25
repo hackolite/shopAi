@@ -718,6 +718,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
   const isPolygon = zone.shape === 'polygon';
   const isPedestrianObstacle = zone.pedestrianObstacle ?? true;
   const source = zoneSource(zone);
+  const isLikelyBuilding = Boolean(source?.isLikelyBuilding);
   const osmTags = source?.tags ? Object.entries(source.tags).sort(([left], [right]) => left.localeCompare(right)) : [];
 
   const save = (updated: FloorZone) => {
@@ -802,23 +803,30 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
                 />
               </div>
             )}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 w-16 shrink-0">Opacité</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={zone.opacity ?? 0.32}
-                  onChange={(event) => save({ ...zone, opacity: Number(event.target.value) })}
-                  className="flex-1 accent-blue-500"
-                />
-                <span className="w-10 text-right text-[11px] text-gray-400">
-                  {Math.round((zone.opacity ?? 0.32) * 100)}%
-                </span>
+            {!isLikelyBuilding && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 w-16 shrink-0">Opacité</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={zone.opacity ?? 0.32}
+                    onChange={(event) => save({ ...zone, opacity: Number(event.target.value) })}
+                    className="flex-1 accent-blue-500"
+                  />
+                  <span className="w-10 text-right text-[11px] text-gray-400">
+                    {Math.round((zone.opacity ?? 0.32) * 100)}%
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
+            {isLikelyBuilding && (
+              <p className="text-[11px] text-gray-500">
+                Bâtiment OSM : coloration pleine (sans opacité).
+              </p>
+            )}
             {isPolygon && (
               <>
                 <label className="flex items-center gap-2 text-xs text-gray-300">

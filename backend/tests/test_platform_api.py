@@ -17,6 +17,7 @@ pm.STORAGE_ROOT = _tmp_root / "projects"
 from main import app  # noqa: E402
 from models.project import SceneData, SimulationConfig  # noqa: E402
 from services.osm_import import osm_xml_to_retail_layout  # noqa: E402
+from services.retail_layout import split_retail_layout  # noqa: E402
 from services import platform_service  # noqa: E402
 from services.walkable_partition import compute_walkable_partition  # noqa: E402
 
@@ -842,7 +843,8 @@ def test_store_layout_import_osm_aggressively_merges_close_buildings_into_one_bl
         project_name="OSM blocs bruts",
         envelope_enabled=False,
     )
-    manual_scene = SceneData.model_validate(manual_layout)
+    manual_scene_dict, _ = split_retail_layout(manual_layout, project_name="OSM blocs bruts")
+    manual_scene = SceneData.model_validate(manual_scene_dict)
     assert len(manual_scene.store.zones) == 2
     manual_partition = compute_walkable_partition(
         manual_scene,

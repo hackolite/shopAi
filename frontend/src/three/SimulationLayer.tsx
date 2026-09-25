@@ -647,7 +647,7 @@ function NavigationOverlay({
   const envelopeLines = useMemo(
     () =>
       (preview.buildingBlocks ?? [])
-        .map((polygon, index) => ({
+        .map((polygon) => ({
           id: polygon.memberElementIds?.join('|')
             || polygon.memberOsmWayIds?.join('|')
             || `envelope-${polygon.exterior.map(([x, z]) => `${x}:${z}`).join(';')}`,

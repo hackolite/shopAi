@@ -2427,14 +2427,22 @@ function FloorZoneLayer() {
   // That mismatch — not the actual navmesh computation, which always runs on
   // the simplified envelope — is what made agents look choppy only when the
   // detailed buildings were visible.
+  //
+  // `walkablePreview` is fetched in the background (e.g. by the Inspector's
+  // diagnostics panel) purely for display purposes and is populated even when
+  // the "Chemin navigable" overlay is not shown. Gate this shortcut on
+  // `showNavigationOverlay` too, so opening the Inspector never silently
+  // flattens buildings into their footprint — that swap only makes sense when
+  // the user has actually turned the navigation overlay on.
+  const canUseNavigationEnvelopeShortcut = showNavigationOverlay && hasNavigationEnvelopePreview;
   const zoneCanPreviewDuringPlayback = useCallback(
     (zone: FloorZone) => (
       zoneSupportsSimulationPreview(zone)
-      || (hasNavigationEnvelopePreview && zoneIsMergeableBuilding(zone))
+      || (canUseNavigationEnvelopeShortcut && zoneIsMergeableBuilding(zone))
     ),
-    [hasNavigationEnvelopePreview],
+    [canUseNavigationEnvelopeShortcut],
   );
-  const hasPreviewableBuildings = hasNavigationEnvelopePreview
+  const hasPreviewableBuildings = canUseNavigationEnvelopeShortcut
     && visibleZones.some((zone) => zoneIsMergeableBuilding(zone));
   const useReducedZoneSet = playing && !paused && (
     displayableZones.length > LARGE_SIMULATION_ZONE_COUNT || hasPreviewableBuildings

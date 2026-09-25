@@ -157,7 +157,10 @@ cd orchestrator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-printf "BACKEND_BASE_URL=http://localhost:8000\nLLM_PROVIDER=none\n" > .env
+cat > .env <<'EOF'
+BACKEND_BASE_URL=http://localhost:8000
+LLM_PROVIDER=none
+EOF
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
@@ -278,6 +281,16 @@ Principes :
 - simulation batch/live
 - import datasets piétons sur projet
 - assistant studio (`/assistant` et `/assistant/llm`)
+- endpoints clés :
+  - `GET /api/cad/projects/`
+  - `POST /api/cad/projects/`
+  - `GET /api/cad/projects/{id}/scene`
+  - `PUT /api/cad/projects/{id}/scene/store`
+  - `POST /api/cad/projects/{id}/scene/furniture`
+  - `GET|POST|PUT|DELETE /api/cad/projects/{id}/planograms...`
+  - `POST /api/cad/projects/{id}/simulation/live/start`
+  - `POST /api/cad/projects/{id}/simulation/live/{session_id}/tick`
+  - `GET /api/cad/projects/{id}/simulation/live/{session_id}/analytics`
 
 ## 7.2 Platform (`/api/platform`)
 - auth/password + OAuth + session
@@ -285,13 +298,23 @@ Principes :
 - catalogues/layouts/simulations/datasets (create/list/get/delete/import/download)
 - logs client
 - capacités guide agent
+- endpoints clés :
+  - `POST /api/platform/auth/login`
+  - `GET /api/platform/dashboard`
+  - `POST|GET|DELETE /api/platform/catalogs...`
+  - `POST|GET|DELETE /api/platform/store-layouts...`
+  - `POST /api/platform/store-layouts/import-osm`
+  - `POST|GET|DELETE /api/platform/pedestrian-datasets...`
+  - `POST /api/platform/pedestrian-datasets/import-csv`
 
 ## 7.3 Bibliothèque mobilier (`/api/furniture-library`)
 - liste des types mobilier
 - détail d’un type
+- endpoints : `GET /api/furniture-library/`, `GET /api/furniture-library/{type}`
 
 ## 7.4 Legacy (`/api/projects`)
 - endpoints historiques de visualisation
+- exemples : `GET /api/projects/{project_id}/store`, `GET /api/projects/{project_id}/products`
 
 ---
 

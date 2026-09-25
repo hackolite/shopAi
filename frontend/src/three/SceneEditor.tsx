@@ -1945,6 +1945,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const fillColor = isBlocking ? '#ef4444' : zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
   const borderColor = isBlocking ? '#fca5a5' : zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
   const mounted = zoneMounted(zone);
+  const isLikelyBuilding = Boolean(zone.source?.isLikelyBuilding);
   const whiteEdgeColor = isBlocking ? '#fecaca' : mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
   const baseOpacity = zone.opacity ?? 0.32;
   const storeBounds = useMemo(() => (
@@ -1957,9 +1958,11 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         }
       : undefined
   ), [scene?.store]);
-  const fillOpacity = mounted
-    ? Math.max(0.08, Math.min(1, baseOpacity * (isBlocking ? 0.95 : isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
-    : Math.max(0.08, Math.min(1, isBlocking ? Math.max(baseOpacity, 0.65) : isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
+  const fillOpacity = isLikelyBuilding
+    ? 1
+    : (mounted
+      ? Math.max(0.08, Math.min(1, baseOpacity * (isBlocking ? 0.95 : isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
+      : Math.max(0.08, Math.min(1, isBlocking ? Math.max(baseOpacity, 0.65) : isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity)));
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
   const extrudedGeometry = useMemo(
     () => (mounted
@@ -2122,7 +2125,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         <shapeGeometry args={[shapeGeometry]} />
         <meshBasicMaterial
           color={fillColor}
-          transparent
+          transparent={!isLikelyBuilding}
           opacity={fillOpacity}
           depthWrite={false}
           side={THREE.DoubleSide}
@@ -2140,8 +2143,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             <primitive object={extrudedGeometry} attach="geometry" />
             <meshStandardMaterial
               color={fillColor}
-              transparent
-              opacity={Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
+              transparent={!isLikelyBuilding}
+              opacity={isLikelyBuilding ? 1 : Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
               roughness={0.85}
               metalness={0.05}
             />

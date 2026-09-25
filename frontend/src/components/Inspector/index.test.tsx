@@ -145,6 +145,8 @@ describe('Inspector OSM zone metadata', () => {
     expect(hasText(renderer, 'building=retail')).toBe(true);
     expect(hasText(renderer, 'high')).toBe(true);
     expect(hasText(renderer, 'height')).toBe(true);
+    expect(hasText(renderer, 'Bâtiment OSM : coloration pleine (sans opacité).')).toBe(true);
+    expect(hasText(renderer, 'Opacité')).toBe(false);
   });
 
   it('allows setting a forbidden zone as traversable', async () => {
@@ -300,5 +302,9 @@ describe('Inspector OSM zone metadata', () => {
       expect.any(Object),
     );
     expect(hasText(renderer, '-50.0% obstacles · -60.0% sommets')).toBe(true);
+    expect(hasText(renderer, '4 → 2')).toBe(true);
+    expect(hasText(renderer, '20 → 8')).toBe(true);
+    expect(hasText(renderer, 'Diagnostic perf')).toBe(true);
+    expect(hasText(renderer, 'inactif')).toBe(true);
   });
 });

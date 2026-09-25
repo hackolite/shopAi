@@ -632,7 +632,10 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
     () =>
       (preview.navmesh?.cells ?? []).map((cell) => {
         const ring = cell.polygon.exterior;
-        const points = ring.map(([x, z]) => [x * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.002, z * CM_TO_UNIT] as [number, number, number]);
+        const closedRing = ring.length > 0 && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])
+          ? [...ring, ring[0]]
+          : ring;
+        const points = closedRing.map(([x, z]) => [x * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.002, z * CM_TO_UNIT] as [number, number, number]);
         return { id: cell.id, points };
       }).filter((cell) => cell.points.length >= 2),
     [preview.navmesh],

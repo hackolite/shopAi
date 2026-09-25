@@ -559,7 +559,7 @@ def _build_walkable_geometry(scene: SceneData, config: SimulationConfig | None =
     from services.walkable_partition import compute_walkable_partition
 
     partition = compute_walkable_partition(scene, config or SimulationConfig())
-    return partition.runtime_connected
+    return partition.simulation_connected or partition.runtime_connected
 
 
 def _point_in_walkable(point: tuple[float, float], walkable: Polygon) -> bool:
@@ -1000,7 +1000,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
     rng = random.Random(int(config.randomSeed))
     partition = compute_walkable_partition(scene, config)
-    walkable = partition.runtime_connected
+    walkable = partition.simulation_connected or partition.runtime_connected
     all_entries, all_transit_waypoints, all_exits = _partition_waypoints(scene, config)
     entries = filter_reachable_waypoints(all_entries, partition)
     transit_waypoints = filter_reachable_waypoints(all_transit_waypoints, partition)

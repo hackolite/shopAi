@@ -62,6 +62,9 @@ class WalkablePartition:
     excluded_obstacles: list[dict] = field(default_factory=list)
     # Ids of entries/transits/exits that lie within ``connected``.
     reachable_waypoint_ids: set[str] = field(default_factory=set)
+    # Geometry actually used by the simulator; may fall back to the exact
+    # connected polygon when runtime simplification would invalidate waypoints.
+    simulation_connected: Polygon | None = None
     spatial_model: SpatialModel | None = None
 
 
@@ -582,6 +585,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     connected_index = _choose_connected_component_index(layout.components, entries)
     connected = layout.components[connected_index]
     runtime_connected = layout.runtime_components[connected_index]
+    simulation_connected = runtime_connected
     navmesh = layout.navmesh_components[connected_index]
     disconnected = [
         component for index, component in enumerate(layout.components) if index != connected_index
@@ -601,7 +605,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         and not _waypoint_supported_by_runtime(waypoint, runtime_connected)
         for waypoint in [*entries, *transit, *exits]
     ):
-        runtime_connected = connected
+        simulation_connected = connected
         navmesh = build_navmesh_graph(runtime_connected, cell_id_prefix=f"nav-fallback-{connected_index}")
 
     walkable_surface = WalkableSurface(
@@ -621,6 +625,7 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     return WalkablePartition(
         connected=connected,
         runtime_connected=runtime_connected,
+        simulation_connected=simulation_connected,
         disconnected=disconnected,
         excluded_obstacles=layout.excluded_obstacles,
         reachable_waypoint_ids=reachable_waypoint_ids,

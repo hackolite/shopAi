@@ -1013,7 +1013,10 @@ export default function Inspector({ projectId, onOpenPlanogram }: InspectorProps
   );
 
   useEffect(() => {
-    if (!projectId || !sceneWithZones) return;
+    if (!projectId || !sceneWithZones) {
+      setWalkablePreview(null);
+      return;
+    }
     let cancelled = false;
     const requestId = ++previewRequestId.current;
     void cadApi

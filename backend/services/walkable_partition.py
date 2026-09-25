@@ -73,9 +73,16 @@ _SPATIAL_INDEX_GRID_DIVISIONS = 32
 _RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 _RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
 _RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
-_NAV_BUILDING_ENVELOPE_BUFFER_M = 3.0
-_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 2.0
-_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 25.0
+# Aggressive runtime envelope tuning for OSM-derived building blocks:
+# - 8 m closing gap fuses nearby buildings into larger islands.
+# - 6 m simplify strips high-frequency contour detail.
+# - 10 m² minimum area removes tiny residual islands after simplification.
+# The goal is lower obstacle complexity and faster walkable compilation.
+_NAV_BUILDING_ENVELOPE_BUFFER_M = 8.0
+_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 6.0
+_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 10.0
+_NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
+_NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.12
 
 
 def _store_polygon(store) -> Polygon:
@@ -99,6 +106,18 @@ def _obstacle_identity(element_type: str, element_id: str | None, element_label:
         "elementId": element_id,
         "elementLabel": element_label,
     }
+
+
+def _bounds_intersect(
+    left_bounds: tuple[float, float, float, float],
+    right_bounds: tuple[float, float, float, float],
+) -> bool:
+    return not (
+        left_bounds[2] < right_bounds[0]
+        or right_bounds[2] < left_bounds[0]
+        or left_bounds[3] < right_bounds[1]
+        or right_bounds[3] < left_bounds[1]
+    )
 
 
 def _zone_source_dict(zone) -> dict:
@@ -137,7 +156,9 @@ def _merge_building_obstacles(
     if not polygons:
         return []
 
+    polygon_centroids = [polygon.centroid for polygon in polygons]
     grown = [polygon.buffer(_NAV_BUILDING_ENVELOPE_BUFFER_M) for polygon in polygons]
+    grown_bounds = [geometry.bounds for geometry in grown]
     merged = unary_union(grown).buffer(-_NAV_BUILDING_ENVELOPE_BUFFER_M)
     islands = list(merged.geoms) if hasattr(merged, "geoms") else [merged]
     simplified: list[tuple[dict, Polygon]] = []
@@ -147,11 +168,33 @@ def _merge_building_obstacles(
             continue
         if normalized.area < _NAV_BUILDING_ENVELOPE_MIN_AREA_M2:
             continue
+        envelope_island = normalized
+        if _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL:
+            convex = _normalize_polygon(normalized.convex_hull)
+            if convex is not None and convex.area <= normalized.area * _NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO:
+                envelope_island = convex
         simplified_island = _normalize_polygon(
-            normalized.simplify(_NAV_BUILDING_ENVELOPE_SIMPLIFY_M, preserve_topology=True)
-        ) or normalized
-        members = [identities[index] for index, polygon in enumerate(polygons) if polygon.intersects(simplified_island)]
-        anchor = members[0] if members else {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
+            envelope_island.simplify(_NAV_BUILDING_ENVELOPE_SIMPLIFY_M, preserve_topology=True)
+        ) or envelope_island
+        if simplified_island.area < _NAV_BUILDING_ENVELOPE_MIN_AREA_M2:
+            continue
+        island_bounds = simplified_island.bounds
+        member_indexes = [
+            index
+            for index, geometry in enumerate(grown)
+            if _bounds_intersect(grown_bounds[index], island_bounds) and geometry.intersects(simplified_island)
+        ]
+        if member_indexes:
+            anchor_index = min(
+                member_indexes,
+                key=lambda index: (
+                    polygon_centroids[index].y,
+                    polygon_centroids[index].x,
+                ),
+            )
+            anchor = identities[anchor_index]
+        else:
+            anchor = {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
         simplified.append((anchor, simplified_island))
     return simplified
 

@@ -121,6 +121,7 @@ shopAi/
 
 ```bash
 cd backend
+python --version  # attendu: 3.11+
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -165,7 +166,8 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
 Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER`.
-`LLM_PROVIDER=none` est un mode valide (sans fournisseur réel). Une clé provider n'est requise que si vous activez un mode LLM (`openai`, `anthropic`, `xai`, `openrouter`).
+Valeurs `LLM_PROVIDER` supportées : `none`, `openai`, `anthropic`, `xai`, `openrouter`.
+`LLM_PROVIDER=none` est un mode valide (sans fournisseur réel). Une clé provider n'est requise que pour `openai`, `anthropic`, `xai` ou `openrouter`.
 Avec `LLM_PROVIDER=none`, `/assistant/llm` reste appelable en mode déterministe (sans appel fournisseur) et n’interprète pas de modifications libres, à condition que le backend soit configuré avec `STUDIO_LLM_WEBHOOK_URL` et que l’orchestrator soit démarré.
 Chaîne de prérequis `/assistant/llm` : backend avec `STUDIO_LLM_WEBHOOK_URL` + orchestrator démarré (provider réel ou `none`).
 
@@ -276,7 +278,7 @@ Principes :
 - simulation batch/live
 - import datasets piétons sur projet
 - assistant studio (`/assistant` et `/assistant/llm`)
-- pré-requis `/assistant/llm` : webhook backend configuré via `STUDIO_LLM_WEBHOOK_URL`
+- pré-requis `/assistant/llm` : webhook backend configuré via `STUDIO_LLM_WEBHOOK_URL` + orchestrator démarré
 - endpoints clés :
   - `GET /api/cad/projects/`
   - `POST /api/cad/projects/`

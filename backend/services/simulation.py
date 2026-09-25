@@ -1019,7 +1019,7 @@ def _spawn_from_entry(
     # Near an edge or corner, only part of the nominal spawn disc is available.
     # Search a few extra spacing-aligned rings before relaxing the guarantee.
     max_ring = max(base_ring, int(math.ceil(math.sqrt(occupied_count + 1))) * 2)
-    search_radius_m = spacing_m * max_ring
+    search_radius_m = max(base_radius_m, spacing_m * max_ring)
     for candidate in _entry_spawn_candidates(center_x, center_z, spacing_m, max_ring, rng):
         if _point_in_walkable(candidate, spawnable) and _candidate_clears_occupied(candidate, occupied):
             return candidate

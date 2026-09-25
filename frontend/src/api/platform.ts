@@ -350,11 +350,17 @@ export const platformApi = {
       body: form,
     });
   },
-  importStoreLayoutOsm: (file: File, name: string, description?: string) => {
+  importStoreLayoutOsm: (
+    file: File,
+    name: string,
+    description?: string,
+    options?: { aggressiveReduction?: boolean },
+  ) => {
     const form = new FormData();
     form.append('file', file);
     form.append('name', name);
     form.append('description', description ?? '');
+    form.append('aggressiveReduction', options?.aggressiveReduction ? 'true' : 'false');
     return request<PlatformStoreLayout>('/api/platform/store-layouts/import-osm', {
       method: 'POST',
       body: form,

@@ -95,6 +95,7 @@ export default function App() {
   const [layoutOsmName, setLayoutOsmName] = useState('');
   const [layoutOsmDescription, setLayoutOsmDescription] = useState('');
   const [layoutOsmFile, setLayoutOsmFile] = useState<File | null>(null);
+  const [layoutOsmAggressiveReduction, setLayoutOsmAggressiveReduction] = useState(false);
   const [catalogName, setCatalogName] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
   const [catalogProjectId, setCatalogProjectId] = useState('');
@@ -282,10 +283,16 @@ export default function App() {
 
   const handleImportStoreLayoutOsm = () => runAction(async () => {
     if (!layoutOsmFile || !layoutOsmName.trim()) return;
-    await platformApi.importStoreLayoutOsm(layoutOsmFile, layoutOsmName.trim(), layoutOsmDescription.trim());
+    await platformApi.importStoreLayoutOsm(
+      layoutOsmFile,
+      layoutOsmName.trim(),
+      layoutOsmDescription.trim(),
+      { aggressiveReduction: layoutOsmAggressiveReduction },
+    );
     setLayoutOsmName('');
     setLayoutOsmDescription('');
     setLayoutOsmFile(null);
+    setLayoutOsmAggressiveReduction(false);
     await loadAuthenticatedData();
     setStatusMessage('Implantation importée depuis OSM.');
   });
@@ -675,7 +682,16 @@ export default function App() {
                         <Field label="Nom de l’implantation"><input required value={layoutOsmName} onChange={(event) => setLayoutOsmName(event.target.value)} placeholder="Ex. Quartier centre-ville" /></Field>
                         <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
                         <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
-                        <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut; les bâtiments avec hauteur trouvée sont affichés plus opaques.</p>
+                        <label className="hub-small flex items-center justify-between gap-3 text-gray-300">
+                          <span>Réduction agressive des polygones OSM (moins de sommets, moins fidèle, plus rapide pour la navigation et la simulation).</span>
+                          <input
+                            type="checkbox"
+                            checked={layoutOsmAggressiveReduction}
+                            onChange={(event) => setLayoutOsmAggressiveReduction(event.target.checked)}
+                            className="accent-blue-500"
+                          />
+                        </label>
+                        <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec hauteur OSM (ou `building:levels`), sinon 10m par défaut. Plus la géométrie contient de sommets, plus l’import, la compilation des obstacles et les mises à jour de simulation coûtent cher; activez l’option agressive si vous privilégiez la performance à la fidélité du contour.</p>
                         <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
                       </form>
                     </div>

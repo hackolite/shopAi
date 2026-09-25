@@ -842,6 +842,62 @@ def test_store_layout_import_osm_keeps_native_buildings_but_runtime_paths_merge_
     assert merged_partition.runtime_connected.area < manual_partition.runtime_connected.area
 
 
+def test_store_layout_import_osm_aggressive_reduction_simplifies_polygons_more() -> None:
+    client = _make_client()
+    _register(client, name="OSM Aggressive", email="osm-aggressive@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <bounds minlat="14.6000" minlon="-61.0800" maxlat="14.6010" maxlon="-61.0790"/>
+  <node id="1" lat="14.60090" lon="-61.07995"/>
+  <node id="2" lat="14.60091" lon="-61.07990"/>
+  <node id="3" lat="14.60089" lon="-61.07985"/>
+  <node id="4" lat="14.60091" lon="-61.07980"/>
+  <node id="5" lat="14.60089" lon="-61.07975"/>
+  <node id="6" lat="14.60090" lon="-61.07970"/>
+  <node id="7" lat="14.60070" lon="-61.07970"/>
+  <node id="8" lat="14.60069" lon="-61.07975"/>
+  <node id="9" lat="14.60071" lon="-61.07980"/>
+  <node id="10" lat="14.60069" lon="-61.07985"/>
+  <node id="11" lat="14.60071" lon="-61.07990"/>
+  <node id="12" lat="14.60070" lon="-61.07995"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="5"/><nd ref="6"/>
+    <nd ref="7"/><nd ref="8"/><nd ref="9"/><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="1"/>
+    <tag k="building" v="retail"/>
+  </way>
+</osm>
+"""
+
+    default_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM standard", "description": "default simplify"},
+        files={"file": ("aggressive.osm", osm_xml, "application/xml")},
+    )
+    assert default_response.status_code == 200, default_response.text
+
+    aggressive_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={
+            "name": "OSM agressif",
+            "description": "aggressive simplify",
+            "aggressiveReduction": "true",
+        },
+        files={"file": ("aggressive.osm", osm_xml, "application/xml")},
+    )
+    assert aggressive_response.status_code == 200, aggressive_response.text
+
+    default_zone = default_response.json()["payload"]["scene"]["store"]["zones"][0]
+    aggressive_zone = aggressive_response.json()["payload"]["scene"]["store"]["zones"][0]
+    default_stats = default_response.json()["payload"]["scene"]["source"]["importStats"]
+    aggressive_stats = aggressive_response.json()["payload"]["scene"]["source"]["importStats"]
+
+    assert aggressive_stats["aggressiveReduction"] is True
+    assert aggressive_stats["simplifyToleranceM"] > default_stats["simplifyToleranceM"]
+    assert len(aggressive_zone["points"]) < len(default_zone["points"])
+    assert aggressive_zone["source"]["vertexCountSimplified"] < default_zone["source"]["vertexCountSimplified"]
+
+
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:
     client = _make_client()
     _register(client, name="OSM Invalid XML", email="osm-invalid-xml@example.com")

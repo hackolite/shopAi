@@ -392,6 +392,7 @@ async def create_store_layout_from_osm(
     file: UploadFile = File(...),
     name: str = Form(...),
     description: str = Form(""),
+    aggressiveReduction: bool = Form(False),
 ) -> dict[str, Any]:
     """Upload an OSM XML file and persist its buildings as a reusable store layout."""
     raw = await file.read()
@@ -404,6 +405,7 @@ async def create_store_layout_from_osm(
             "filename": file.filename,
             "contentType": file.content_type,
             "bytes": len(raw),
+            "aggressiveReduction": aggressiveReduction,
         },
     )
     try:
@@ -421,6 +423,7 @@ async def create_store_layout_from_osm(
         retail_layout = osm_xml_to_retail_layout(
             xml_text=text,
             project_name=name.strip() or "Import OSM",
+            aggressive_reduction=aggressiveReduction,
         )
         scene_dict, planograms_list = split_retail_layout(
             layout=retail_layout,

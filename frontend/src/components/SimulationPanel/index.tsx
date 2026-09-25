@@ -496,6 +496,14 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     }
   }, [isStale, projectId, runtimeConfig, sceneWithZones, setInvalidObstacleHighlights, setShowNavigationOverlay, setWalkablePreview]);
 
+  useEffect(() => {
+    if (!showNavigationOverlay || !projectId || !sceneWithZones) return;
+    const timer = window.setTimeout(() => {
+      refreshWalkablePreview();
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [projectId, refreshWalkablePreview, sceneWithZones, showNavigationOverlay, runtimeConfig]);
+
   const runSimulation = useCallback(async () => {
     if (!projectId || !sceneWithZones) return;
     setRunning(true);

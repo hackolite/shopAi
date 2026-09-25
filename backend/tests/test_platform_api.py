@@ -15,7 +15,9 @@ _tmp_root = Path(tempfile.mkdtemp(prefix="shopai_platform_test_"))
 pm.STORAGE_ROOT = _tmp_root / "projects"
 
 from main import app  # noqa: E402
+from models.project import SceneData, SimulationConfig  # noqa: E402
 from services import platform_service  # noqa: E402
+from services.walkable_partition import compute_walkable_partition  # noqa: E402
 
 
 def _make_client() -> TestClient:
@@ -749,6 +751,58 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert project_scene.status_code == 200, project_scene.text
     assert project_scene.json()["store"]["dimensions"] == scene["store"]["dimensions"]
     assert project_scene.json()["store"]["zones"][0]["source"]["osmWayId"] == zones[0]["source"]["osmWayId"]
+
+
+def test_store_layout_import_osm_keeps_native_buildings_but_runtime_paths_merge_close_blocks() -> None:
+    client = _make_client()
+    _register(client, name="OSM Runtime Merge", email="osm-runtime-merge@example.com")
+
+    osm_xml = """<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6">
+  <bounds minlat="14.6000" minlon="-61.0800" maxlat="14.6004" maxlon="-61.0794"/>
+  <node id="1" lat="14.6003" lon="-61.07995"/>
+  <node id="2" lat="14.6003" lon="-61.07985"/>
+  <node id="3" lat="14.6001" lon="-61.07985"/>
+  <node id="4" lat="14.6001" lon="-61.07995"/>
+  <node id="5" lat="14.6003" lon="-61.07982"/>
+  <node id="6" lat="14.6003" lon="-61.07972"/>
+  <node id="7" lat="14.6001" lon="-61.07972"/>
+  <node id="8" lat="14.6001" lon="-61.07982"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="retail"/>
+  </way>
+  <way id="200">
+    <nd ref="5"/><nd ref="6"/><nd ref="7"/><nd ref="8"/><nd ref="5"/>
+    <tag k="building" v="retail"/>
+  </way>
+</osm>
+"""
+    import_response = client.post(
+        "/api/platform/store-layouts/import-osm",
+        data={"name": "OSM blocs contigus", "description": "native buildings + runtime merge"},
+        files={"file": ("close-buildings.osm", osm_xml, "application/xml")},
+    )
+    assert import_response.status_code == 200, import_response.text
+
+    scene_payload = import_response.json()["payload"]["scene"]
+    zones = scene_payload["store"]["zones"]
+    assert [zone["id"] for zone in zones] == ["building-100", "building-200"]
+
+    scene = SceneData.model_validate(scene_payload)
+    merged_partition = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
+
+    manual_scene = scene.model_copy(deep=True)
+    for zone in manual_scene.store.zones:
+        if zone.source:
+            zone.source.pop("osmWayId", None)
+    manual_partition = compute_walkable_partition(
+        manual_scene,
+        SimulationConfig.model_validate({"waypoints": []}),
+    )
+
+    assert merged_partition.connected.area < manual_partition.connected.area
+    assert merged_partition.runtime_connected.area < manual_partition.runtime_connected.area
 
 
 def test_store_layout_import_osm_rejects_invalid_xml() -> None:

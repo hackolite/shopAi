@@ -298,3 +298,57 @@ def test_runtime_obstacle_merge_ignores_non_osm_buildings() -> None:
     base = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
     again = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
     assert base.connected.area == again.connected.area
+
+
+def test_runtime_obstacle_merge_is_recomputed_when_osm_buildings_move() -> None:
+    scene = SceneData.model_validate(
+        {
+            "store": {
+                "id": "store-edit-osm",
+                "name": "Store",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 2000.0, "depth": 1200.0, "height": 300.0},
+                "zones": [
+                    {
+                        "id": "building-a",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Building A",
+                        "x": 100.0,
+                        "z": 100.0,
+                        "width": 300.0,
+                        "depth": 500.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "100"},
+                    },
+                    {
+                        "id": "building-b",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Building B",
+                        "x": 430.0,
+                        "z": 100.0,
+                        "width": 300.0,
+                        "depth": 500.0,
+                        "_source": {"isLikelyBuilding": True, "osmWayId": "101"},
+                    },
+                ],
+            },
+            "furniture": [],
+        }
+    )
+    moved_scene = scene.model_copy(deep=True)
+    moved_scene.store.zones[1].x = 900.0
+
+    first_layout = compiled_layout(scene)
+    moved_layout = compiled_layout(moved_scene)
+    first_partition = compute_walkable_partition(scene, SimulationConfig.model_validate({"waypoints": []}))
+    moved_partition = compute_walkable_partition(
+        moved_scene,
+        SimulationConfig.model_validate({"waypoints": []}),
+    )
+
+    assert first_layout is not moved_layout
+    assert first_layout.scene_hash != moved_layout.scene_hash
+    assert first_partition.connected.area != moved_partition.connected.area
+    assert first_partition.runtime_connected.area != moved_partition.runtime_connected.area

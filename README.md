@@ -166,7 +166,8 @@ EOF
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
-Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER` (+ clé provider si mode LLM actif).
+Variables à renseigner : voir `orchestrator/README.md` (sections *Variables d'environnement* et *Connexion avec le backend ShopAI*). Les minimums sont `BACKEND_BASE_URL` et `LLM_PROVIDER`.
+`LLM_PROVIDER=none` est un mode valide (sans fournisseur réel). Une clé provider n'est requise que si vous activez un mode LLM (`openai`, `anthropic`, `xai`, `openrouter`).
 Pré-requis obligatoire pour tout appel backend `/assistant/llm` : `STUDIO_LLM_WEBHOOK_URL=http://localhost:8010/webhook/llm` doit être défini côté backend.
 
 Exemple minimal de `.env` :
@@ -302,6 +303,7 @@ Principes :
 - catalogues/layouts/simulations/datasets (create/list/get/delete/import/download)
 - logs client
 - capacités guide agent
+- règle de flux recommandée : import catalogue au niveau workspace (`/api/platform/catalogs/import-json`) ; l’import catalogue projet (`/api/cad/projects/{id}/catalog/import`) reste surtout destiné à l’automatisation agent.
 - endpoints clés :
   - `POST /api/platform/auth/login`
   - `GET /api/platform/dashboard`
@@ -359,6 +361,14 @@ npx vitest run
 ```bash
 cd backend
 python -m pytest
+```
+
+## 9.3 Orchestrator
+Tests présents dans `orchestrator/tests/` (ex. `test_llm_planner.py`).  
+Si `pytest` n'est pas disponible dans l'environnement orchestrator, l'installer avant exécution.
+```bash
+cd orchestrator
+python -m pytest tests
 ```
 
 ---

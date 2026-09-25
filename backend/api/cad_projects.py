@@ -39,12 +39,12 @@ from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import (
     SimulationConstraintViolation,
     SimulationRuntimeValidationError,
-    _partition_waypoints,
     run_flow_simulation,
 )
 from services.walkable_partition import (
     compute_walkable_partition,
     navmesh_route_preview,
+    route_preview_waypoints,
     navmesh_to_cm,
     polygon_to_cm,
 )
@@ -943,7 +943,7 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
         )
         partition = compute_walkable_partition(scene, config)
         connected = polygon_to_cm(partition.connected)
-        entries, _transit, exits = _partition_waypoints(scene, config)
+        entries, exits = route_preview_waypoints(scene, config, partition)
         return {
             "connected": connected["exterior"],
             "connectedHoles": connected["holes"],

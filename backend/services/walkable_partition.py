@@ -606,13 +606,13 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         for waypoint in [*entries, *transit, *exits]
     ):
         simulation_connected = connected
-        navmesh = build_navmesh_graph(runtime_connected, cell_id_prefix=f"nav-fallback-{connected_index}")
+        navmesh = build_navmesh_graph(simulation_connected, cell_id_prefix=f"nav-fallback-{connected_index}")
 
     walkable_surface = WalkableSurface(
         surface_id=f"walkable-{connected_index}",
-        polygon=runtime_connected,
-        bounds=runtime_connected.bounds,
-        area_m2=float(runtime_connected.area),
+        polygon=simulation_connected,
+        bounds=simulation_connected.bounds,
+        area_m2=float(simulation_connected.area),
     )
     spatial_model = SpatialModel(
         scene_hash=layout.scene_hash,
@@ -715,3 +715,14 @@ def navmesh_route_preview(
     start = _waypoint_point(entries[0])
     end = _waypoint_point(exits[0])
     return astar_cell_path(partition.spatial_model.navmesh, start, end)
+
+
+def route_preview_waypoints(
+    scene: SceneData,
+    config: SimulationConfig,
+    partition: WalkablePartition,
+) -> tuple[list[SimulationWaypoint], list[SimulationWaypoint]]:
+    entries, _transit, exits = _partition_waypoints(scene, config)
+    reachable_entries = filter_reachable_waypoints(entries, partition)
+    reachable_exits = filter_reachable_waypoints(exits, partition)
+    return reachable_entries, reachable_exits

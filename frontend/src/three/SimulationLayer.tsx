@@ -648,7 +648,9 @@ function NavigationOverlay({
     () =>
       (preview.buildingBlocks ?? [])
         .map((polygon, index) => ({
-          id: `envelope-${index}`,
+          id: polygon.memberElementIds?.join('|')
+            || polygon.memberOsmWayIds?.join('|')
+            || `envelope-${polygon.exterior.map(([x, z]) => `${x}:${z}`).join(';')}`,
           points: walkableLinePoints(polygon.exterior, NAVIGATION_OVERLAY_Y + 0.006),
         }))
         .filter((polygon) => polygon.points.length >= 2),

@@ -2376,8 +2376,11 @@ function FloorZoneLayer() {
   const showNavigationEnvelopeOnly = useSimulationStore((state) => state.showNavigationEnvelopeOnly);
   const walkablePreview = useSimulationStore((state) => state.walkablePreview);
   const hasNavigationEnvelopePreview = (walkablePreview?.buildingBlocks?.length ?? 0) > 0;
-  const hiddenEnvelopeZoneIds = useMemo(
-    () => new Set((walkablePreview?.buildingBlocks ?? []).flatMap((block) => block.memberElementIds ?? [])),
+  const hiddenEnvelopeZoneRefs = useMemo(
+    () => ({
+      elementIds: new Set((walkablePreview?.buildingBlocks ?? []).flatMap((block) => block.memberElementIds ?? [])),
+      osmWayIds: new Set((walkablePreview?.buildingBlocks ?? []).flatMap((block) => block.memberOsmWayIds ?? [])),
+    }),
     [walkablePreview?.buildingBlocks],
   );
   const visibleZones = useMemo(
@@ -2385,10 +2388,16 @@ function FloorZoneLayer() {
       showNavigationOverlay
       && showNavigationEnvelopeOnly
       && hasNavigationEnvelopePreview
-        ? zones.filter((zone) => !zoneIsMergeableBuilding(zone) || !hiddenEnvelopeZoneIds.has(zone.id))
+        ? zones.filter((zone) => (
+          !zoneIsMergeableBuilding(zone)
+          || (
+            !hiddenEnvelopeZoneRefs.elementIds.has(zone.id)
+            && !hiddenEnvelopeZoneRefs.osmWayIds.has(zone.source?.osmWayId ?? '')
+          )
+        ))
         : zones
     ),
-    [hasNavigationEnvelopePreview, hiddenEnvelopeZoneIds, showNavigationEnvelopeOnly, showNavigationOverlay, zones],
+    [hasNavigationEnvelopePreview, hiddenEnvelopeZoneRefs, showNavigationEnvelopeOnly, showNavigationOverlay, zones],
   );
 
   const selectedZone = selectedZoneId

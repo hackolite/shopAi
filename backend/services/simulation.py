@@ -31,6 +31,7 @@ from services.spatial_model import (
     SpatialModel,
     astar_cell_path,
     build_navmesh_flow_field,
+    locate_navmesh_cell,
     trace_flow_field_path,
 )
 
@@ -220,6 +221,45 @@ class NavMeshRoutePlanner:
             if token in self.token_to_stage
         ]
 
+    def expanded_route_tokens_from_point(
+        self,
+        start_point: tuple[float, float],
+        tokens: list[str],
+    ) -> list[str]:
+        if not tokens or self.spatial_model is None or tokens[0] not in self.token_to_stage:
+            return self.expanded_route_tokens(tokens)
+        to_waypoint = self.waypoint_by_stage_id.get(self.token_to_stage[tokens[0]])
+        if to_waypoint is None:
+            return self.expanded_route_tokens(tokens)
+        cell_path = self._cell_path(start_point, tokens[0], _waypoint_point(to_waypoint))
+        expanded: list[str] = []
+        if len(cell_path) > 1:
+            start_cell = locate_navmesh_cell(self.spatial_model.navmesh, start_point)
+            if start_cell is not None:
+                expanded.extend(
+                    self._hidden_tokens_for_cell_path(
+                        source_key=f"cell:{start_cell.cell_id}",
+                        to_token=tokens[0],
+                        cell_path=cell_path,
+                        to_waypoint=to_waypoint,
+                    )
+                )
+        expanded.append(tokens[0])
+        for from_token, to_token in zip(tokens[:-1], tokens[1:]):
+            expanded.extend(self._segment_tokens(from_token, to_token))
+        return expanded
+
+    def stage_ids_for_route_from_point(
+        self,
+        start_point: tuple[float, float],
+        tokens: list[str],
+    ) -> list[int]:
+        return [
+            self.token_to_stage[token]
+            for token in self.expanded_route_tokens_from_point(start_point, tokens)
+            if token in self.token_to_stage
+        ]
+
     def _segment_tokens(self, from_token: str, to_token: str) -> list[str]:
         cache_key = (from_token, to_token)
         cached = self._segment_token_cache.get(cache_key)
@@ -246,12 +286,24 @@ class NavMeshRoutePlanner:
             tokens = [to_token]
             self._segment_token_cache[cache_key] = list(tokens)
             return tokens
+        hidden_tokens = self._hidden_tokens_for_cell_path(from_token, to_token, cell_path, to_waypoint)
+        tokens = [*hidden_tokens, to_token]
+        self._segment_token_cache[cache_key] = list(tokens)
+        return tokens
+
+    def _hidden_tokens_for_cell_path(
+        self,
+        source_key: str,
+        to_token: str,
+        cell_path: list[str],
+        to_waypoint: SimulationWaypoint,
+    ) -> list[str]:
         hidden_tokens: list[str] = []
         for index, (from_cell_id, next_cell_id) in enumerate(zip(cell_path[:-1], cell_path[1:])):
-            portal = self.spatial_model.navmesh.portal_between(from_cell_id, next_cell_id)
+            portal = self.spatial_model.navmesh.portal_between(from_cell_id, next_cell_id) if self.spatial_model is not None else None
             if portal is None:
                 continue
-            hidden_token = f"{self.hidden_stage_token_prefix}:{from_token}->{to_token}:{index}:{portal.portal_id}"
+            hidden_token = f"{self.hidden_stage_token_prefix}:{source_key}->{to_token}:{index}:{portal.portal_id}"
             hidden_tokens.append(hidden_token)
             if hidden_token in self.token_to_stage:
                 continue
@@ -275,9 +327,7 @@ class NavMeshRoutePlanner:
             self.token_to_stage[hidden_token] = stage_id
             self.stage_to_token[stage_id] = hidden_token
             self.waypoint_by_stage_id[stage_id] = hidden_waypoint
-        tokens = [*hidden_tokens, to_token]
-        self._segment_token_cache[cache_key] = list(tokens)
-        return tokens
+        return hidden_tokens
 
     def _cell_path(
         self,

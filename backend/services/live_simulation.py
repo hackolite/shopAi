@@ -142,6 +142,19 @@ class LiveSimulationSession:
             return list(tokens)
         return self.route_planner.expanded_route_tokens(tokens)
 
+    def _visible_route_tokens(self, tokens: list[str]) -> list[str]:
+        if self.route_planner is None:
+            return list(tokens)
+        hidden_prefix = f"{self.route_planner.hidden_stage_token_prefix}:"
+        visible_tokens: list[str] = []
+        for token in tokens:
+            if token.startswith(hidden_prefix):
+                continue
+            if visible_tokens and visible_tokens[-1] == token:
+                continue
+            visible_tokens.append(token)
+        return visible_tokens
+
     def _route_tokens_to_stage_ids(self, tokens: list[str]) -> list[int]:
         return [self.token_to_stage[token] for token in tokens if token in self.token_to_stage]
 
@@ -290,17 +303,34 @@ class LiveSimulationSession:
             or self.walkable
         )
         for route_state, old_pos in old_routes:
-            remaining_tokens = route_state.route_tokens[route_state.token_index :]
-            stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
+            visible_remaining_tokens = self._visible_route_tokens(
+                route_state.route_tokens[route_state.token_index :]
+            )
+            if self.route_planner is not None:
+                remaining_tokens = self.route_planner.expanded_route_tokens_from_point(
+                    old_pos,
+                    visible_remaining_tokens,
+                )
+                stage_ids = self.route_planner.stage_ids_for_route_from_point(
+                    old_pos,
+                    visible_remaining_tokens,
+                )
+            else:
+                remaining_tokens = self._expand_route_tokens(visible_remaining_tokens)
+                stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 fallback_exit = self.exits[0]
-                remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
+                visible_remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
                 stage_ids = (
-                    self.route_planner.stage_ids_for_route(remaining_tokens)
+                    self.route_planner.stage_ids_for_route_from_point(old_pos, visible_remaining_tokens)
                     if self.route_planner is not None
-                    else self._route_tokens_to_stage_ids(self._expand_route_tokens(remaining_tokens))
+                    else self._route_tokens_to_stage_ids(self._expand_route_tokens(visible_remaining_tokens))
                 )
-                remaining_tokens = self._expand_route_tokens(remaining_tokens)
+                remaining_tokens = (
+                    self.route_planner.expanded_route_tokens_from_point(old_pos, visible_remaining_tokens)
+                    if self.route_planner is not None
+                    else self._expand_route_tokens(visible_remaining_tokens)
+                )
             if len(stage_ids) < 2:
                 continue
             position = simsvc._closest_walkable_point(old_pos, placement_walkable)

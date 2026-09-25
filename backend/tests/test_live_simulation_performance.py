@@ -174,6 +174,31 @@ def test_live_runtime_expands_routes_through_hidden_navmesh_tokens_and_caches_se
     assert dict(session.route_planner._flow_field_cache) == flow_cached_before
 
 
+def test_live_runtime_rebuilds_carried_agents_with_new_hidden_navmesh_tokens() -> None:
+    session = _navmesh_session()
+    session.tick(1, include_waypoint_metrics=False)
+
+    agent_id, route = next(iter(session.agent_routes.items()))
+    hidden_tokens = [token for token in route.route_tokens if token.startswith("nav-live:")]
+    assert hidden_tokens
+    carried = _LiveAgentRoute(
+        stable_id=route.stable_id,
+        desired_speed=route.desired_speed,
+        route_tokens=list(route.route_tokens),
+        token_index=route.route_tokens.index(hidden_tokens[0]),
+        pedestrian_id=route.pedestrian_id,
+    )
+    carried_position = tuple(float(value) for value in next(agent for agent in session.sim.agents() if int(agent.id) == agent_id).position)
+
+    session.scene.store.zones[0].depth = 1200
+    session._init_runtime([(carried, carried_position)])
+
+    rebuilt = next(iter(session.agent_routes.values()))
+    rebuilt_hidden = [token for token in rebuilt.route_tokens if token.startswith("nav-live:")]
+    assert rebuilt_hidden
+    assert rebuilt.route_tokens[-1] == "exit_hidden:exit"
+
+
 def test_position_spatial_hash_matches_linear_clearance_checks() -> None:
     positions = [(1.0, 1.0), (2.0, 1.0), (5.0, 5.0)]
     index = simsvc.PositionSpatialHash(cell_size_m=simsvc._cm_to_m(simsvc.SPAWN_SPACING_CM))

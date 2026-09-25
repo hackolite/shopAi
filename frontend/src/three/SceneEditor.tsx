@@ -2415,7 +2415,16 @@ function FloorZoneLayer() {
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
   const selectedZoneVisible = selectedZone != null && visibleZones.some((zone) => zone.id === selectedZone.id);
-  const useReducedZoneSet = playing && !paused && visibleZones.length > LARGE_SIMULATION_ZONE_COUNT;
+  // The LOD threshold must reflect the true scene complexity (all displayable
+  // zones), not the post-envelope-filter count. Enabling "enveloppe only"
+  // hides many detailed building zones from `visibleZones`, which can push
+  // its length back under LARGE_SIMULATION_ZONE_COUNT and wrongly disable the
+  // reduced-detail rendering path — forcing every remaining zone (fewer, but
+  // each rendered as a full extruded FloorZoneMesh) into full detail during
+  // playback. That is *more* expensive per zone than the reduced preview
+  // mesh, which is exactly the "envelope-only lags, full detail is fast"
+  // regression reported by users.
+  const useReducedZoneSet = playing && !paused && displayableZones.length > LARGE_SIMULATION_ZONE_COUNT;
   const fullDetailZoneIds = useMemo(() => {
     if (!useReducedZoneSet) return null;
     return new Set([

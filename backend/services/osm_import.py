@@ -49,7 +49,7 @@ DEFAULT_MIN_SURFACE_AREA_M2 = 1.0
 # ÉTROITES DEVIENNENT IMPRATICABLES. C'est voulu pour un test
 # de charge, pas pour une simulation réaliste.
 # ------------------------------------------------------------
-DEFAULT_ENVELOPE_ENABLED = True
+DEFAULT_ENVELOPE_ENABLED = False
 # "replace" : les îlots REMPLACENT les bâtiments (rien n'est ajouté).
 # "overlay" : anciens bâtiments gardés + calque rouge de debug.
 DEFAULT_ENVELOPE_MODE = "replace"

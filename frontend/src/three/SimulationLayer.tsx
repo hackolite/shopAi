@@ -628,21 +628,57 @@ function walkableLinePoints(exterior: [number, number][], y: number): [number, n
 function NavigationOverlay({
   preview,
   envelopeOnly = false,
+  overlayQuality = 'high',
+  onDebugStatsChange,
 }: {
   preview: WalkablePreview;
   envelopeOnly?: boolean;
+  overlayQuality?: 'high' | 'medium' | 'low';
+  onDebugStatsChange?: (stats: {
+    quality: 'high' | 'medium' | 'low';
+    connectedPolygons: number;
+    disconnectedPolygons: number;
+    envelopePolygons: number;
+    navmeshLines: number;
+    portalLines: number;
+    flowLines: number;
+    shapeBuildMs: number;
+    navmeshBuildMs: number;
+    portalBuildMs: number;
+    flowBuildMs: number;
+  }) => void;
 }) {
+  const flowDecimationStep = overlayQuality === 'low' ? 6 : overlayQuality === 'medium' ? 3 : 1;
+  const navmeshDecimationStep = overlayQuality === 'low' ? 3 : overlayQuality === 'medium' ? 2 : 1;
+  const portalDecimationStep = overlayQuality === 'low' ? 3 : overlayQuality === 'medium' ? 2 : 1;
+  const renderDashedLines = overlayQuality === 'high';
+  const renderPortals = overlayQuality !== 'low';
+  const renderFlowMarkers = overlayQuality === 'high';
+  const shapeBuildMsRef = useRef(0);
+  const navmeshBuildMsRef = useRef(0);
+  const portalBuildMsRef = useRef(0);
+  const flowBuildMsRef = useRef(0);
   const shapes = useMemo(
-    () => ({
-      connected: walkableRingShape(preview.connected, preview.connectedHoles),
-      disconnected: preview.disconnected
+    () => {
+      const start = performance.now();
+      if (envelopeOnly) {
+        const envelopes = (preview.buildingBlocks ?? [])
+          .map((polygon) => walkableRingShape(polygon.exterior, polygon.holes))
+          .filter((shape): shape is THREE.Shape => shape !== null);
+        shapeBuildMsRef.current = performance.now() - start;
+        return { connected: null, disconnected: [] as THREE.Shape[], envelopes };
+      }
+      const connected = walkableRingShape(preview.connected, preview.connectedHoles);
+      const disconnected = preview.disconnected
         .map((polygon) => walkableRingShape(polygon.exterior, polygon.holes))
-        .filter((shape): shape is THREE.Shape => shape !== null),
-      envelopes: (preview.buildingBlocks ?? [])
+        .filter((shape): shape is THREE.Shape => shape !== null);
+      const envelopes = (preview.buildingBlocks ?? [])
         .map((polygon) => walkableRingShape(polygon.exterior, polygon.holes))
-        .filter((shape): shape is THREE.Shape => shape !== null),
-    }),
-    [preview],
+        .filter((shape): shape is THREE.Shape => shape !== null);
+      shapeBuildMsRef.current = performance.now() - start;
+      return { connected, disconnected, envelopes };
+    },
+    [envelopeOnly, preview],
   );
   const envelopeLines = useMemo(
     () =>
@@ -656,33 +692,63 @@ function NavigationOverlay({
         .filter((polygon) => polygon.points.length >= 2),
     [preview.buildingBlocks],
   );
-  const routeCellIds = useMemo(() => new Set(preview.routeCellIds ?? []), [preview.routeCellIds]);
+  const routeCellIds = useMemo(
+    () => (envelopeOnly ? new Set<string>() : new Set(preview.routeCellIds ?? [])),
+    [envelopeOnly, preview.routeCellIds],
+  );
   const navmeshLines = useMemo(
-    () =>
-      (preview.navmesh?.cells ?? []).map((cell) => {
+    () => {
+      const start = performance.now();
+      if (envelopeOnly) {
+        navmeshBuildMsRef.current = performance.now() - start;
+        return [];
+      }
+      const lines = (preview.navmesh?.cells ?? []).flatMap((cell, index) => {
+        const highlighted = routeCellIds.has(cell.id);
+        if (!highlighted && index % navmeshDecimationStep !== 0) return [];
         const ring = cell.polygon.exterior;
         const closedRing = ring.length > 0 && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])
           ? [...ring, ring[0]]
           : ring;
         const points = closedRing.map(([x, z]) => [x * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.002, z * CM_TO_UNIT] as [number, number, number]);
-        return { id: cell.id, points };
-      }).filter((cell) => cell.points.length >= 2),
-    [preview.navmesh],
+        return points.length >= 2 ? [{ id: cell.id, points }] : [];
+      });
+      navmeshBuildMsRef.current = performance.now() - start;
+      return lines;
+    },
+    [envelopeOnly, navmeshDecimationStep, preview.navmesh, routeCellIds],
   );
   const portalLines = useMemo(
-    () =>
-      (preview.navmesh?.portals ?? []).map((portal) => ({
-        id: portal.id,
-        points: [
-          [portal.segment[0][0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.003, portal.segment[0][1] * CM_TO_UNIT],
-          [portal.segment[1][0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.003, portal.segment[1][1] * CM_TO_UNIT],
-        ] as [number, number, number][],
-      })),
-    [preview.navmesh],
+    () => {
+      const start = performance.now();
+      if (envelopeOnly || !renderPortals) {
+        portalBuildMsRef.current = performance.now() - start;
+        return [];
+      }
+      const lines = (preview.navmesh?.portals ?? []).flatMap((portal, index) => {
+        if (index % portalDecimationStep !== 0) return [];
+        return [{
+          id: portal.id,
+          points: [
+            [portal.segment[0][0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.003, portal.segment[0][1] * CM_TO_UNIT],
+            [portal.segment[1][0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.003, portal.segment[1][1] * CM_TO_UNIT],
+          ] as [number, number, number][],
+        }];
+      });
+      portalBuildMsRef.current = performance.now() - start;
+      return lines;
+    },
+    [envelopeOnly, portalDecimationStep, preview.navmesh, renderPortals],
   );
   const flowFieldLines = useMemo(() => {
+    const start = performance.now();
+    if (envelopeOnly) {
+      flowBuildMsRef.current = performance.now() - start;
+      return [];
+    }
     const centroidByCellId = new Map((preview.navmesh?.cells ?? []).map((cell) => [cell.id, cell.centroid] as const));
-    return (preview.routeFlowField?.cells ?? []).flatMap((cell) => {
+    const lines = (preview.routeFlowField?.cells ?? []).flatMap((cell, index) => {
+      if (index % flowDecimationStep !== 0) return [];
       const centroid = centroidByCellId.get(cell.cellId);
       if (!centroid) {
         return [];
@@ -703,7 +769,9 @@ function NavigationOverlay({
         ] as [number, number, number][],
       }];
     });
-  }, [preview.navmesh, preview.routeFlowField]);
+    flowBuildMsRef.current = performance.now() - start;
+    return lines;
+  }, [envelopeOnly, flowDecimationStep, preview.navmesh, preview.routeFlowField]);
 
   const geometries = useMemo(
     () => ({
@@ -713,6 +781,22 @@ function NavigationOverlay({
     }),
     [shapes],
   );
+
+  useEffect(() => {
+    onDebugStatsChange?.({
+      quality: overlayQuality,
+      connectedPolygons: geometries.connected ? 1 : 0,
+      disconnectedPolygons: geometries.disconnected.length,
+      envelopePolygons: geometries.envelopes.length,
+      navmeshLines: navmeshLines.length,
+      portalLines: portalLines.length,
+      flowLines: flowFieldLines.length,
+      shapeBuildMs: shapeBuildMsRef.current,
+      navmeshBuildMs: navmeshBuildMsRef.current,
+      portalBuildMs: portalBuildMsRef.current,
+      flowBuildMs: flowBuildMsRef.current,
+    });
+  }, [flowFieldLines.length, geometries.connected, geometries.disconnected.length, geometries.envelopes.length, navmeshLines.length, onDebugStatsChange, overlayQuality, portalLines.length]);
 
   useEffect(() => () => {
     geometries.connected?.dispose();
@@ -763,7 +847,7 @@ function NavigationOverlay({
           points={points}
           color={routeCellIds.has(id) ? "#22c55e" : "#f8fafc"}
           lineWidth={routeCellIds.has(id) ? 3.4 : 0.9}
-          dashed={!routeCellIds.has(id)}
+          dashed={renderDashedLines && !routeCellIds.has(id)}
           dashSize={0.12}
           gapSize={0.08}
           transparent
@@ -777,7 +861,7 @@ function NavigationOverlay({
           points={points}
           color="#38bdf8"
           lineWidth={1.4}
-          dashed
+          dashed={renderDashedLines}
           dashSize={0.06}
           gapSize={0.04}
           transparent
@@ -795,10 +879,12 @@ function NavigationOverlay({
             opacity={0.8}
             depthWrite={false}
           />
-          <mesh position={points[1]}>
-            <sphereGeometry args={[0.025, 10, 10]} />
-            <meshBasicMaterial color="#f8fafc" transparent opacity={0.95} depthWrite={false} />
-          </mesh>
+          {renderFlowMarkers && (
+            <mesh position={points[1]}>
+              <sphereGeometry args={[0.025, 10, 10]} />
+              <meshBasicMaterial color="#f8fafc" transparent opacity={0.95} depthWrite={false} />
+            </mesh>
+          )}
         </group>
       ))}
     </group>
@@ -939,6 +1025,9 @@ export function SimulationLayer({
   playingRef.current = playing;
   const profile = useRef({ frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 });
   const [profilingText, setProfilingText] = useState('FPS -- | frame -- ms | max -- ms');
+  const [overlayProfilingText, setOverlayProfilingText] = useState('overlay --');
+  const [navigationOverlayQuality, setNavigationOverlayQuality] = useState<'high' | 'medium' | 'low'>('high');
+  const overlayBudgetRef = useRef({ elapsed: 0, ewmaMs: 16.7, level: 'high' as 'high' | 'medium' | 'low' });
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
     () => new Map(),
   );
@@ -957,6 +1046,9 @@ export function SimulationLayer({
     renderTimeRef.current = -1;
     profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
     setProfilingText('FPS -- | frame -- ms | max -- ms');
+    setOverlayProfilingText('overlay --');
+    setNavigationOverlayQuality('high');
+    overlayBudgetRef.current = { elapsed: 0, ewmaMs: 16.7, level: 'high' };
     setAgentSlots(new Map());
   }, [playing]);
 
@@ -988,6 +1080,29 @@ export function SimulationLayer({
         setProfilingText(`FPS ${fps.toFixed(0)} | frame ${avgFrameMs.toFixed(1)} ms | max ${profile.current.maxMs.toFixed(1)} ms`);
         profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
       }
+    }
+
+    if (showNavigationOverlay && !showNavigationEnvelopeOnly) {
+      const frameMs = delta * 1000;
+      const alpha = 0.12;
+      overlayBudgetRef.current.ewmaMs = overlayBudgetRef.current.ewmaMs * (1 - alpha) + frameMs * alpha;
+      overlayBudgetRef.current.elapsed += delta;
+      if (overlayBudgetRef.current.elapsed >= 0.75) {
+        overlayBudgetRef.current.elapsed = 0;
+        const previousLevel = overlayBudgetRef.current.level;
+        const nextLevel = overlayBudgetRef.current.ewmaMs > 22
+          ? 'low'
+          : overlayBudgetRef.current.ewmaMs > 17.5
+            ? 'medium'
+            : 'high';
+        if (nextLevel !== previousLevel) {
+          overlayBudgetRef.current.level = nextLevel;
+          setNavigationOverlayQuality(nextLevel);
+        }
+      }
+    } else if (overlayBudgetRef.current.level !== 'high') {
+      overlayBudgetRef.current = { elapsed: 0, ewmaMs: 16.7, level: 'high' };
+      setNavigationOverlayQuality('high');
     }
 
     const totalDuration = result.frames[result.frames.length - 1].timeSeconds ?? 0;
@@ -1187,14 +1302,26 @@ export function SimulationLayer({
         <TrajectoryOverlay trajectories={analytics.trajectories} />
       )}
       {showNavigationOverlay && walkablePreview && (
-        <NavigationOverlay preview={walkablePreview} envelopeOnly={showNavigationEnvelopeOnly} />
+        <NavigationOverlay
+          preview={walkablePreview}
+          envelopeOnly={showNavigationEnvelopeOnly}
+          overlayQuality={showNavigationEnvelopeOnly ? 'high' : navigationOverlayQuality}
+          onDebugStatsChange={showProfilingHud
+            ? (stats) => {
+              setOverlayProfilingText(
+                `ovr ${stats.quality} | build ${stats.shapeBuildMs.toFixed(1)}/${stats.navmeshBuildMs.toFixed(1)}/${stats.portalBuildMs.toFixed(1)}/${stats.flowBuildMs.toFixed(1)} ms | lines ${stats.navmeshLines}/${stats.portalLines}/${stats.flowLines}`,
+              );
+            }
+            : undefined}
+        />
       )}
       <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />
       <PickupPopups popups={pickupPopups} agentPoses={agentPoses} />
       {showProfilingHud && (
         <Html position={[0, 2.2, 0]} distanceFactor={12}>
           <div className="rounded bg-gray-950/80 px-2 py-1 text-[10px] text-gray-200 whitespace-nowrap">
-            {profilingText} · agents {agentSlots.size} · instanced
+            {profilingText} · agents {agentSlots.size} · instanced<br />
+            {overlayProfilingText}
           </div>
         </Html>
       )}

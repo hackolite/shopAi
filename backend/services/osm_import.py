@@ -1060,6 +1060,9 @@ def osm_xml_to_retail_layout(
     envelope_simplify_m: float = DEFAULT_ENVELOPE_SIMPLIFY_M,
     envelope_convex: bool = DEFAULT_ENVELOPE_CONVEX,
     envelope_min_area_m2: float = DEFAULT_ENVELOPE_MIN_AREA_M2,
+    # Conserve uniquement les vrais bâtiments par défaut pour
+    # limiter la charge 3D dans le workflow Workspace.
+    include_non_building_zones: bool = False,
 ) -> dict[str, Any]:
 
     import_started_at = time.perf_counter()  # AJOUT — mesure
@@ -1248,6 +1251,7 @@ def osm_xml_to_retail_layout(
     stats_vertices_after_simplify = 0
     stats_surfaces_dropped_by_area = 0
     stats_non_building_zone_count = 0
+    stats_non_building_zones_skipped = 0
 
     # ========================================================
     # WAYS
@@ -1470,6 +1474,13 @@ def osm_xml_to_retail_layout(
             if area_m2 < min_surface_area_m2:
                 stats_surfaces_dropped_by_area += 1  # AJOUT
                 continue
+
+        if (
+            not is_likely_building
+            and not include_non_building_zones
+        ):
+            stats_non_building_zones_skipped += 1
+            continue
 
         # ====================================================
         # BOUNDING BOX
@@ -2179,6 +2190,7 @@ def osm_xml_to_retail_layout(
         "buildingZones": building_count,
         "nonBuildingZones": non_building_count,
         "nonBuildingZonesNotAnObstacle": stats_non_building_zone_count,
+        "nonBuildingZonesSkipped": stats_non_building_zones_skipped,
         "surfacesDroppedByAreaFilter": stats_surfaces_dropped_by_area,
         "vertexCountBeforeSimplify": vertices_before,
         "vertexCountAfterSimplify": vertices_after,
@@ -2193,6 +2205,7 @@ def osm_xml_to_retail_layout(
         "envelopeBufferM": envelope_buffer_m,
         "envelopeSimplifyM": envelope_simplify_m,
         "envelopeConvex": envelope_convex,
+        "includeNonBuildingZones": include_non_building_zones,
     }
 
     # Log direct, pour voir l'effet immédiatement sans avoir

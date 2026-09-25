@@ -157,7 +157,7 @@ cd orchestrator
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# créer .env (ou copier .env.example s'il est présent)
+printf "BACKEND_BASE_URL=http://localhost:8000\nLLM_PROVIDER=none\n" > .env
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
@@ -175,7 +175,10 @@ cd orchestrator
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-# créer .env (ou copier .env.example s'il est présent)
+@"
+BACKEND_BASE_URL=http://localhost:8000
+LLM_PROVIDER=none
+"@ | Set-Content -NoNewline .env
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 

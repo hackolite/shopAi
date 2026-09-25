@@ -365,11 +365,7 @@ python -m pytest
 
 ## 9.3 Orchestrator
 Pas de commande de validation orchestrator imposée dans le flux standard de ce dépôt.  
-Validation optionnelle : lancer `python -m pytest tests` depuis `orchestrator` si votre environnement inclut `pytest` et des tests locaux.
-```bash
-cd orchestrator
-python -m pytest tests
-```
+Pour une validation orchestrator adaptée à votre environnement, se référer à `orchestrator/README.md`.
 
 ---
 

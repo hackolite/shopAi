@@ -4,6 +4,7 @@ import base64
 import json
 import re
 import threading
+from time import perf_counter
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -935,17 +936,23 @@ def run_simulation(project_id: str, payload: SimulationRunPayload):
 
 @router.post("/{project_id}/simulation/walkable-preview")
 def walkable_preview(project_id: str, payload: SimulationRunPayload):
+    request_t0 = perf_counter()
     try:
+        parse_t0 = perf_counter()
         scene = SceneData.model_validate(payload.scene) if payload.scene is not None else _load_scene(project_id)
         config = (
             SimulationConfig.model_validate(payload.config)
             if payload.config is not None
             else _load_settings(project_id).simulation
         )
+        parse_ms = round((perf_counter() - parse_t0) * 1000.0, 2)
+        partition_t0 = perf_counter()
         partition = compute_walkable_partition(scene, config)
+        partition_ms = round((perf_counter() - partition_t0) * 1000.0, 2)
+        serialize_t0 = perf_counter()
         connected = polygon_to_cm(partition.connected)
         entries, exits = route_preview_waypoints(scene, config, partition)
-        return {
+        response_payload = {
             "connected": connected["exterior"],
             "connectedHoles": connected["holes"],
             "disconnected": [polygon_to_cm(polygon) for polygon in partition.disconnected],
@@ -963,7 +970,56 @@ def walkable_preview(project_id: str, payload: SimulationRunPayload):
             "routeCellIds": navmesh_route_preview(partition, entries, exits),
             "routeFlowField": navmesh_flow_preview(partition, entries, exits),
         }
+        serialize_ms = round((perf_counter() - serialize_t0) * 1000.0, 2)
+        total_ms = round((perf_counter() - request_t0) * 1000.0, 2)
+        navmesh = partition.spatial_model.navmesh if partition.spatial_model is not None else None
+        append_log(
+            source="backend",
+            category="walkable-preview-perf",
+            level="warning" if total_ms >= 150 else "info",
+            message="Walkable preview computed",
+            details={
+                **_simulation_log_details(project_id, mode="preview", config=config, scene=scene),
+                "timingMs": {
+                    "parse": parse_ms,
+                    "partition": partition_ms,
+                    "serialize": serialize_ms,
+                    "total": total_ms,
+                },
+                "partition": {
+                    "connectedAreaM2": round(float(partition.connected.area), 3),
+                    "runtimeConnectedAreaM2": round(float(partition.runtime_connected.area), 3),
+                    "disconnectedCount": len(partition.disconnected),
+                    "excludedObstacleCount": len(partition.excluded_obstacles),
+                    "reachableWaypointCount": len(partition.reachable_waypoint_ids),
+                },
+                "navmesh": {
+                    "cellCount": len(navmesh.cells) if navmesh is not None else 0,
+                    "portalCount": len(navmesh.portals) if navmesh is not None else 0,
+                    "adjacencyEdges": (
+                        sum(len(neighbors) for neighbors in navmesh.adjacency.values())
+                        if navmesh is not None
+                        else 0
+                    ),
+                },
+                "buildingBlocks": (
+                    len(partition.spatial_model.building_blocks)
+                    if partition.spatial_model is not None
+                    else 0
+                ),
+                "envelopeMergeGain": partition.runtime_envelope_gain,
+                "diagnostics": partition.diagnostic_profile,
+            },
+        )
+        return response_payload
     except SimulationConstraintViolation as exc:
+        append_log(
+            source="backend",
+            category="walkable-preview-perf",
+            level="warning",
+            message="Walkable preview rejected by constraints",
+            details=_simulation_log_details(project_id, mode="preview", error=str(exc)),
+        )
         raise HTTPException(status_code=422, detail=exc.detail) from exc
 
 

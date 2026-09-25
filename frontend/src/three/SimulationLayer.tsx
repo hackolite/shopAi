@@ -1028,6 +1028,20 @@ export function SimulationLayer({
   const [overlayProfilingText, setOverlayProfilingText] = useState('overlay --');
   const [navigationOverlayQuality, setNavigationOverlayQuality] = useState<'high' | 'medium' | 'low'>('high');
   const overlayBudgetRef = useRef({ elapsed: 0, ewmaMs: 16.7, level: 'high' as 'high' | 'medium' | 'low' });
+  const handleNavigationOverlayStats = useCallback((stats: {
+    quality: 'high' | 'medium' | 'low';
+    shapeBuildMs: number;
+    navmeshBuildMs: number;
+    portalBuildMs: number;
+    flowBuildMs: number;
+    navmeshLines: number;
+    portalLines: number;
+    flowLines: number;
+  }) => {
+    setOverlayProfilingText(
+      `ovr ${stats.quality} | build ${stats.shapeBuildMs.toFixed(1)}/${stats.navmeshBuildMs.toFixed(1)}/${stats.portalBuildMs.toFixed(1)}/${stats.flowBuildMs.toFixed(1)} ms | lines ${stats.navmeshLines}/${stats.portalLines}/${stats.flowLines}`,
+    );
+  }, []);
   const [agentSlots, setAgentSlots] = useState<Map<number, { colorDark: string; colorLight: string }>>(
     () => new Map(),
   );
@@ -1306,13 +1320,7 @@ export function SimulationLayer({
           preview={walkablePreview}
           envelopeOnly={showNavigationEnvelopeOnly}
           overlayQuality={showNavigationEnvelopeOnly ? 'high' : navigationOverlayQuality}
-          onDebugStatsChange={showProfilingHud
-            ? (stats) => {
-              setOverlayProfilingText(
-                `ovr ${stats.quality} | build ${stats.shapeBuildMs.toFixed(1)}/${stats.navmeshBuildMs.toFixed(1)}/${stats.portalBuildMs.toFixed(1)}/${stats.flowBuildMs.toFixed(1)} ms | lines ${stats.navmeshLines}/${stats.portalLines}/${stats.flowLines}`,
-              );
-            }
-            : undefined}
+          onDebugStatsChange={showProfilingHud ? handleNavigationOverlayStats : undefined}
         />
       )}
       <InstancedAgents agentSlots={agentSlots} agentPoses={agentPoses} />

@@ -322,7 +322,16 @@ def _candidate_cell_ids(graph: NavMeshGraph, point: tuple[float, float]) -> list
     cell_size_m = max(graph.index_cell_size_m, 1e-6)
     col = min(_NAVMESH_INDEX_GRID_DIVISIONS - 1, max(0, int((point[0] - min_x) // cell_size_m)))
     row = min(_NAVMESH_INDEX_GRID_DIVISIONS - 1, max(0, int((point[1] - min_y) // cell_size_m)))
-    return graph.point_index.get((col, row), [])
+    candidate_ids: list[str] = []
+    seen: set[str] = set()
+    for candidate_col in range(max(0, col - 1), min(_NAVMESH_INDEX_GRID_DIVISIONS - 1, col + 1) + 1):
+        for candidate_row in range(max(0, row - 1), min(_NAVMESH_INDEX_GRID_DIVISIONS - 1, row + 1) + 1):
+            for cell_id in graph.point_index.get((candidate_col, candidate_row), []):
+                if cell_id in seen:
+                    continue
+                seen.add(cell_id)
+                candidate_ids.append(cell_id)
+    return candidate_ids
 
 
 def astar_cell_path(

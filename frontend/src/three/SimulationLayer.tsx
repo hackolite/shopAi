@@ -730,15 +730,20 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
         />
       ))}
       {flowFieldLines.map(({ id, points }) => (
-        <Line
-          key={`flow-${id}`}
-          points={points}
-          color="#f59e0b"
-          lineWidth={1.8}
-          transparent
-          opacity={0.8}
-          depthWrite={false}
-        />
+        <group key={`flow-${id}`}>
+          <Line
+            points={points}
+            color="#f59e0b"
+            lineWidth={1.8}
+            transparent
+            opacity={0.8}
+            depthWrite={false}
+          />
+          <mesh position={points[1]}>
+            <sphereGeometry args={[0.025, 10, 10]} />
+            <meshBasicMaterial color="#f8fafc" transparent opacity={0.95} depthWrite={false} />
+          </mesh>
+        </group>
       ))}
     </group>
   );

@@ -16,8 +16,9 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from dataclasses import dataclass, field
 from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import TypeAlias, TypedDict
 
 from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
@@ -99,6 +100,35 @@ _NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 6.0
 _NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 10.0
 _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
 _NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.12
+
+CmPoint: TypeAlias = list[float]
+CmRing: TypeAlias = list[CmPoint]
+
+
+class PolygonPreview(TypedDict):
+    exterior: CmRing
+    holes: list[CmRing]
+
+
+class NavMeshCellPreview(TypedDict):
+    id: str
+    polygon: PolygonPreview
+    centroid: CmPoint
+    neighbors: list[str]
+
+
+class NavMeshPortalPreview(TypedDict):
+    id: str
+    fromCellId: str
+    toCellId: str
+    segment: list[CmPoint]
+    midpoint: CmPoint
+    widthCm: float
+
+
+class NavMeshPreview(TypedDict):
+    cells: list[NavMeshCellPreview]
+    portals: list[NavMeshPortalPreview]
 
 
 def _store_polygon(store) -> Polygon:
@@ -664,18 +694,18 @@ def waypoints_outside_disconnected_islands(
     ]
 
 
-def m_ring_to_cm(ring) -> list[list[float]]:
+def m_ring_to_cm(ring) -> CmRing:
     return [[round(_m_to_cm(x), 2), round(_m_to_cm(z), 2)] for x, z in ring.coords]
 
 
-def polygon_to_cm(polygon: Polygon) -> dict:
+def polygon_to_cm(polygon: Polygon) -> PolygonPreview:
     return {
         "exterior": m_ring_to_cm(polygon.exterior),
         "holes": [m_ring_to_cm(ring) for ring in polygon.interiors],
     }
 
 
-def navmesh_to_cm(graph: NavMeshGraph) -> dict:
+def navmesh_to_cm(graph: NavMeshGraph) -> NavMeshPreview:
     cell_lookup = {cell.cell_id: cell for cell in graph.cells}
     return {
         "cells": [

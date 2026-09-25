@@ -6,7 +6,7 @@ import { useCatalogStore } from './store/catalogStore';
 import { usePlanogramStore } from './store/planogramStore';
 import { useAssetStore } from './store/assetStore';
 import { useUIStore } from './store/uiStore';
-import { defaultSimulationConfig, useSimulationStore } from './store/simulationStore';
+import { buildRuntimeSimulationConfig, defaultSimulationConfig, useSimulationStore } from './store/simulationStore';
 import { SceneEditor } from './three/SceneEditor';
 import Toolbar from './components/Toolbar';
 import SceneHierarchy from './components/SceneHierarchy';
@@ -99,6 +99,8 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     removeZones,
   } = useZoneStore();
   const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
+  const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
+  const setNavigationPolygonCount = useProjectStore((state) => state.setNavigationPolygonCount);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
   const simulationConfig = useSimulationStore((state) => state.config);
 
@@ -280,6 +282,32 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   useEffect(() => {
     void loadProjectData(projectId);
   }, [projectId, loadProjectData]);
+
+  useEffect(() => {
+    if (!scene || !projectId || loadedProjectId !== projectId) return;
+    const timer = window.setTimeout(() => {
+      const currentScene = useSceneStore.getState().scene;
+      if (!currentScene || useProjectStore.getState().loadedProjectId !== projectId) return;
+      const currentZones = useZoneStore.getState().zones;
+      const currentConfig = useSimulationStore.getState().config;
+      const runtimeConfig = buildRuntimeSimulationConfig(currentConfig);
+      const sceneWithZones = {
+        ...currentScene,
+        store: { ...currentScene.store, zones: currentZones },
+      };
+      cadApi
+        .getWalkablePreview(projectId, sceneWithZones, runtimeConfig)
+        .then((preview) => {
+          if (useProjectStore.getState().loadedProjectId !== projectId) return;
+          setNavigationPolygonCount(1 + preview.disconnected.length);
+        })
+        .catch(() => {
+          if (useProjectStore.getState().loadedProjectId !== projectId) return;
+          setNavigationPolygonCount(null);
+        });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [loadedProjectId, projectId, scene, zones, simulationConfig, setNavigationPolygonCount]);
 
 
   // ── Switch to a project ───────────────────────────────────────────────────

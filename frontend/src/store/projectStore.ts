@@ -12,10 +12,12 @@ interface ProjectState {
    * persisted into the newly selected project.
    */
   loadedProjectId: string | null;
+  navigationPolygonCount: number | null;
   loading: boolean;
   setProjects: (projects: ProjectMeta[]) => void;
   setCurrentProject: (id: string) => void;
   setLoadedProjectId: (id: string | null) => void;
+  setNavigationPolygonCount: (count: number | null) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -23,9 +25,11 @@ export const useProjectStore = create<ProjectState>((set) => ({
   projects: [],
   currentProjectId: null,
   loadedProjectId: null,
+  navigationPolygonCount: null,
   loading: false,
   setProjects: (projects) => set({ projects }),
   setCurrentProject: (id) => set({ currentProjectId: id }),
   setLoadedProjectId: (loadedProjectId) => set({ loadedProjectId }),
+  setNavigationPolygonCount: (navigationPolygonCount) => set({ navigationPolygonCount }),
   setLoading: (loading) => set({ loading }),
 }));

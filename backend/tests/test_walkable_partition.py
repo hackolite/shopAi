@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from models.project import SceneData, SimulationConfig
-from services.walkable_partition import compiled_layout, compute_walkable_partition
+from services.walkable_partition import (
+    _collect_scene_obstacles,
+    _store_polygon,
+    compiled_layout,
+    compute_walkable_partition,
+)
 
 
 def _scene(zone_x: float = 100.0) -> SceneData:
@@ -206,3 +211,72 @@ def test_runtime_walkable_supports_simulation_setup_with_reachable_waypoints() -
     result = sim_svc.run_flow_simulation(scene, config)
 
     assert result.frames
+
+
+def test_runtime_obstacle_merge_fuses_likely_buildings_only() -> None:
+    scene = SceneData.model_validate(
+        {
+            "store": {
+                "id": "store-buildings",
+                "name": "Store",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
+                "dimensions": {"width": 1200.0, "depth": 1200.0, "height": 300.0},
+                "zones": [
+                    {
+                        "id": "building-a",
+                        "type": "forbidden",
+                        "shape": "polygon",
+                        "label": "Building A",
+                        "x": 100.0,
+                        "z": 100.0,
+                        "width": 200.0,
+                        "depth": 200.0,
+                        "points": [
+                            {"x": 100.0, "z": 100.0},
+                            {"x": 300.0, "z": 100.0},
+                            {"x": 300.0, "z": 300.0},
+                            {"x": 100.0, "z": 300.0},
+                        ],
+                        "_source": {"isLikelyBuilding": True},
+                    },
+                    {
+                        "id": "building-b",
+                        "type": "forbidden",
+                        "shape": "polygon",
+                        "label": "Building B",
+                        "x": 500.0,
+                        "z": 100.0,
+                        "width": 200.0,
+                        "depth": 200.0,
+                        "points": [
+                            {"x": 500.0, "z": 100.0},
+                            {"x": 700.0, "z": 100.0},
+                            {"x": 700.0, "z": 300.0},
+                            {"x": 500.0, "z": 300.0},
+                        ],
+                        "_source": {"isLikelyBuilding": True},
+                    },
+                    {
+                        "id": "manual-obstacle",
+                        "type": "forbidden",
+                        "shape": "rectangle",
+                        "label": "Manual",
+                        "x": 900.0,
+                        "z": 100.0,
+                        "width": 120.0,
+                        "depth": 120.0,
+                    },
+                ],
+            },
+            "furniture": [],
+        }
+    )
+    obstacles = _collect_scene_obstacles(scene, _store_polygon(scene.store))
+    zone_ids = sorted(
+        identity["elementId"]
+        for identity, _ in obstacles
+        if identity["elementType"] == "zone"
+    )
+    assert zone_ids.count("manual-obstacle") == 1
+    assert len(zone_ids) == 2

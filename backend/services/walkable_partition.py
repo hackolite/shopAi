@@ -73,6 +73,9 @@ _SPATIAL_INDEX_GRID_DIVISIONS = 32
 _RUNTIME_OPENING_CLEARANCE_CM = AGENT_RADIUS_CM + BOUNDARY_CLEARANCE_EPSILON_CM
 _RUNTIME_SIMPLIFICATION_TOLERANCE_CM = max(5.0, AGENT_RADIUS_CM * 0.5)
 _RUNTIME_BUFFER_MIN_VERTEX_COUNT = 48
+_NAV_BUILDING_ENVELOPE_BUFFER_M = 3.0
+_NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 2.0
+_NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 25.0
 
 
 def _store_polygon(store) -> Polygon:
@@ -98,6 +101,59 @@ def _obstacle_identity(element_type: str, element_id: str | None, element_label:
     }
 
 
+def _zone_source_dict(zone) -> dict:
+    source = getattr(zone, "source", None)
+    return source if isinstance(source, dict) else {}
+
+
+def _is_mergeable_building_zone(zone) -> bool:
+    if getattr(zone, "type", None) != "forbidden":
+        return False
+    if getattr(zone, "pedestrianObstacle", None) is False:
+        return False
+    source = _zone_source_dict(zone)
+    if source.get("isEnvelope"):
+        return False
+    return bool(source.get("isLikelyBuilding"))
+
+
+def _merge_building_obstacles(
+    building_obstacles: list[tuple[dict, Polygon | MultiPolygon]],
+) -> list[tuple[dict, Polygon | MultiPolygon]]:
+    if not building_obstacles:
+        return []
+
+    polygons: list[Polygon] = []
+    identities: list[dict] = []
+    for identity, obstacle in building_obstacles:
+        geoms = list(obstacle.geoms) if isinstance(obstacle, MultiPolygon) else [obstacle]
+        for geom in geoms:
+            if isinstance(geom, Polygon) and not geom.is_empty:
+                polygons.append(geom)
+                identities.append(identity)
+
+    if not polygons:
+        return []
+
+    grown = [polygon.buffer(_NAV_BUILDING_ENVELOPE_BUFFER_M) for polygon in polygons]
+    merged = unary_union(grown).buffer(-_NAV_BUILDING_ENVELOPE_BUFFER_M)
+    islands = list(merged.geoms) if hasattr(merged, "geoms") else [merged]
+    simplified: list[tuple[dict, Polygon]] = []
+    for island in islands:
+        normalized = _normalize_polygon(island)
+        if normalized is None:
+            continue
+        if normalized.area < _NAV_BUILDING_ENVELOPE_MIN_AREA_M2:
+            continue
+        simplified_island = _normalize_polygon(
+            normalized.simplify(_NAV_BUILDING_ENVELOPE_SIMPLIFY_M, preserve_topology=True)
+        ) or normalized
+        members = [identities[index] for index, polygon in enumerate(polygons) if polygon.intersects(simplified_island)]
+        anchor = members[0] if members else {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
+        simplified.append((anchor, simplified_island))
+    return simplified
+
+
 def _scene_hash(scene: SceneData) -> str:
     payload = json.dumps(
         scene.model_dump(mode="json", by_alias=True),
@@ -118,15 +174,16 @@ def _collect_scene_obstacles(
             obstacles.append(
                 (_obstacle_identity("furniture", furniture.id, furniture.name), obstacle)
             )
+    building_obstacles: list[tuple[dict, Polygon | MultiPolygon]] = []
     for zone in getattr(scene.store, "zones", []) or []:
         obstacle = _zone_polygon(zone, store_polygon)
         if obstacle is not None:
-            obstacles.append(
-                (
-                    _obstacle_identity("zone", getattr(zone, "id", None), getattr(zone, "label", None)),
-                    obstacle,
-                )
-            )
+            identity = _obstacle_identity("zone", getattr(zone, "id", None), getattr(zone, "label", None))
+            if _is_mergeable_building_zone(zone):
+                building_obstacles.append((identity, obstacle))
+            else:
+                obstacles.append((identity, obstacle))
+    obstacles.extend(_merge_building_obstacles(building_obstacles))
     return obstacles
 
 

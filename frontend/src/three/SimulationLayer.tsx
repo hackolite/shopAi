@@ -627,6 +627,54 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
     }),
     [preview],
   );
+  const routeCellIds = useMemo(() => new Set(preview.routeCellIds ?? []), [preview.routeCellIds]);
+  const navmeshLines = useMemo(
+    () =>
+      (preview.navmesh?.cells ?? []).map((cell) => {
+        const ring = cell.polygon.exterior;
+        const closedRing = ring.length > 0 && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])
+          ? [...ring, ring[0]]
+          : ring;
+        const points = closedRing.map(([x, z]) => [x * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.002, z * CM_TO_UNIT] as [number, number, number]);
+        return { id: cell.id, points };
+      }).filter((cell) => cell.points.length >= 2),
+    [preview.navmesh],
+  );
+  const portalLines = useMemo(
+    () =>
+      (preview.navmesh?.portals ?? []).map((portal) => ({
+        id: portal.id,
+        points: [
+          [portal.segment[0][0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.003, portal.segment[0][1] * CM_TO_UNIT],
+          [portal.segment[1][0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.003, portal.segment[1][1] * CM_TO_UNIT],
+        ] as [number, number, number][],
+      })),
+    [preview.navmesh],
+  );
+  const flowFieldLines = useMemo(() => {
+    const centroidByCellId = new Map((preview.navmesh?.cells ?? []).map((cell) => [cell.id, cell.centroid] as const));
+    return (preview.routeFlowField?.cells ?? []).flatMap((cell) => {
+      const centroid = centroidByCellId.get(cell.cellId);
+      if (!centroid) {
+        return [];
+      }
+      const dx = cell.target[0] - centroid[0];
+      const dz = cell.target[1] - centroid[1];
+      const targetDistanceCm = Math.hypot(dx, dz);
+      if (targetDistanceCm <= 1e-3) {
+        return [];
+      }
+      const drawnDistanceCm = Math.min(70, targetDistanceCm);
+      const scale = drawnDistanceCm / targetDistanceCm;
+      return [{
+        id: cell.cellId,
+        points: [
+          [centroid[0] * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.005, centroid[1] * CM_TO_UNIT],
+          [(centroid[0] + dx * scale) * CM_TO_UNIT, NAVIGATION_OVERLAY_Y + 0.005, (centroid[1] + dz * scale) * CM_TO_UNIT],
+        ] as [number, number, number][],
+      }];
+    });
+  }, [preview.navmesh, preview.routeFlowField]);
 
   const geometries = useMemo(
     () => ({
@@ -652,6 +700,50 @@ function NavigationOverlay({ preview }: { preview: WalkablePreview }) {
         <mesh key={index} position={[0, NAVIGATION_OVERLAY_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={890} geometry={geometry}>
           <meshBasicMaterial color="#8b5cf6" transparent opacity={0.35} depthWrite={false} />
         </mesh>
+      ))}
+      {navmeshLines.map(({ id, points }) => (
+        <Line
+          key={id}
+          points={points}
+          color={routeCellIds.has(id) ? "#22c55e" : "#f8fafc"}
+          lineWidth={routeCellIds.has(id) ? 3.4 : 0.9}
+          dashed={!routeCellIds.has(id)}
+          dashSize={0.12}
+          gapSize={0.08}
+          transparent
+          opacity={routeCellIds.has(id) ? 0.95 : 0.45}
+          depthWrite={false}
+        />
+      ))}
+      {portalLines.map(({ id, points }) => (
+        <Line
+          key={id}
+          points={points}
+          color="#38bdf8"
+          lineWidth={1.4}
+          dashed
+          dashSize={0.06}
+          gapSize={0.04}
+          transparent
+          opacity={0.6}
+          depthWrite={false}
+        />
+      ))}
+      {flowFieldLines.map(({ id, points }) => (
+        <group key={`flow-${id}`}>
+          <Line
+            points={points}
+            color="#f59e0b"
+            lineWidth={1.8}
+            transparent
+            opacity={0.8}
+            depthWrite={false}
+          />
+          <mesh position={points[1]}>
+            <sphereGeometry args={[0.025, 10, 10]} />
+            <meshBasicMaterial color="#f8fafc" transparent opacity={0.95} depthWrite={false} />
+          </mesh>
+        </group>
       ))}
     </group>
   );

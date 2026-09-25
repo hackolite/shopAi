@@ -16,13 +16,25 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from dataclasses import dataclass, field
 from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import TypeAlias, TypedDict
 
 from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
 from models.project import SceneData, SimulationConfig, SimulationWaypoint
+from services.spatial_model import (
+    BuildingBlock,
+    NavMeshFlowField,
+    NavMeshGraph,
+    SpatialModel,
+    SpatialObstacle,
+    WalkableSurface,
+    astar_cell_path,
+    build_navmesh_flow_field,
+    build_navmesh_graph,
+)
 from services.simulation import (
     AGENT_RADIUS_CM,
     BOUNDARY_CLEARANCE_EPSILON_CM,
@@ -53,6 +65,10 @@ class WalkablePartition:
     excluded_obstacles: list[dict] = field(default_factory=list)
     # Ids of entries/transits/exits that lie within ``connected``.
     reachable_waypoint_ids: set[str] = field(default_factory=set)
+    # Geometry actually used by the simulator; may fall back to the exact
+    # connected polygon when runtime simplification would invalidate waypoints.
+    simulation_connected: Polygon | None = None
+    spatial_model: SpatialModel | None = None
 
 
 @dataclass
@@ -61,9 +77,12 @@ class CompiledLayout:
     store_polygon: Polygon
     components: list[Polygon]
     runtime_components: list[Polygon]
+    navmesh_components: list[NavMeshGraph]
     excluded_obstacles: list[dict]
     obstacle_cell_size_m: float
     obstacle_spatial_index: dict[tuple[int, int], list[int]]
+    static_obstacles: list[SpatialObstacle]
+    building_blocks: list[BuildingBlock]
 
 
 _COMPILED_LAYOUT_CACHE: OrderedDict[str, CompiledLayout] = OrderedDict()
@@ -83,6 +102,49 @@ _NAV_BUILDING_ENVELOPE_SIMPLIFY_M = 6.0
 _NAV_BUILDING_ENVELOPE_MIN_AREA_M2 = 10.0
 _NAV_BUILDING_ENVELOPE_USE_CONVEX_HULL = True
 _NAV_BUILDING_ENVELOPE_MAX_CONVEX_AREA_RATIO = 1.12
+
+CmPoint: TypeAlias = list[float]
+CmRing: TypeAlias = list[CmPoint]
+
+
+class PolygonPreview(TypedDict):
+    exterior: CmRing
+    holes: list[CmRing]
+
+
+class NavMeshCellPreview(TypedDict):
+    id: str
+    polygon: PolygonPreview
+    centroid: CmPoint
+    neighbors: list[str]
+
+
+class NavMeshPortalPreview(TypedDict):
+    id: str
+    fromCellId: str
+    toCellId: str
+    segment: list[CmPoint]
+    midpoint: CmPoint
+    widthCm: float
+
+
+class NavMeshPreview(TypedDict):
+    cells: list[NavMeshCellPreview]
+    portals: list[NavMeshPortalPreview]
+
+
+class NavMeshFlowCellPreview(TypedDict):
+    cellId: str
+    direction: CmPoint
+    target: CmPoint
+    integrationCost: float
+    nextCellId: str | None
+
+
+class NavMeshFlowFieldPreview(TypedDict):
+    destinationCellId: str
+    destination: CmPoint
+    cells: list[NavMeshFlowCellPreview]
 
 
 def _store_polygon(store) -> Polygon:
@@ -192,7 +254,17 @@ def _merge_building_obstacles(
                     polygon_centroids[index].x,
                 ),
             )
-            anchor = identities[anchor_index]
+            anchor = dict(identities[anchor_index])
+            anchor["memberElementIds"] = tuple(
+                str(identities[index]["elementId"])
+                for index in member_indexes
+                if identities[index].get("elementId") is not None
+            )
+            anchor["memberOsmWayIds"] = tuple(
+                str(identities[index]["osmWayId"])
+                for index in member_indexes
+                if identities[index].get("osmWayId") is not None
+            )
         else:
             anchor = {"elementType": "zone", "elementId": None, "elementLabel": "Bâtiment"}
         simplified.append((anchor, simplified_island))
@@ -225,11 +297,71 @@ def _collect_scene_obstacles(
         if obstacle is not None:
             identity = _obstacle_identity("zone", getattr(zone, "id", None), getattr(zone, "label", None))
             if _is_mergeable_building_zone(zone):
+                source = _zone_source_dict(zone)
+                if source.get("osmWayId") is not None:
+                    identity["osmWayId"] = str(source["osmWayId"])
                 building_obstacles.append((identity, obstacle))
             else:
                 obstacles.append((identity, obstacle))
     obstacles.extend(_merge_building_obstacles(building_obstacles))
     return obstacles
+
+
+def _spatial_obstacles(
+    obstacles: list[tuple[dict, Polygon | MultiPolygon]],
+) -> list[SpatialObstacle]:
+    spatial_obstacles: list[SpatialObstacle] = []
+    for index, (identity, obstacle) in enumerate(obstacles):
+        geoms = list(obstacle.geoms) if isinstance(obstacle, MultiPolygon) else [obstacle]
+        for geom_index, geom in enumerate(geoms):
+            if not isinstance(geom, Polygon) or geom.is_empty:
+                continue
+            spatial_obstacles.append(
+                SpatialObstacle(
+                    obstacle_id=f"obstacle-{index:04d}-{geom_index:02d}",
+                    element_type=str(identity["elementType"]),
+                    element_id=identity["elementId"],
+                    element_label=identity["elementLabel"],
+                    polygon=geom,
+                    bounds=geom.bounds,
+                )
+            )
+    return spatial_obstacles
+
+
+def _building_blocks(
+    obstacles: list[tuple[dict, Polygon | MultiPolygon]],
+) -> list[BuildingBlock]:
+    blocks: list[BuildingBlock] = []
+    for index, (identity, obstacle) in enumerate(obstacles):
+        geoms = list(obstacle.geoms) if isinstance(obstacle, MultiPolygon) else [obstacle]
+        member_element_ids = tuple(
+            str(member)
+            for member in identity.get("memberElementIds", ())
+            if member is not None
+        )
+        member_osm_way_ids = tuple(
+            str(member)
+            for member in identity.get("memberOsmWayIds", ())
+            if member is not None
+        )
+        if not member_element_ids and identity.get("elementId") is not None:
+            member_element_ids = (str(identity["elementId"]),)
+        if not member_osm_way_ids and identity.get("osmWayId") is not None:
+            member_osm_way_ids = (str(identity["osmWayId"]),)
+        for geom_index, geom in enumerate(geoms):
+            if not isinstance(geom, Polygon) or geom.is_empty:
+                continue
+            blocks.append(
+                BuildingBlock(
+                    block_id=f"building-block-{index:04d}-{geom_index:02d}",
+                    polygon=geom,
+                    bounds=geom.bounds,
+                    member_element_ids=member_element_ids,
+                    member_osm_way_ids=member_osm_way_ids,
+                )
+            )
+    return blocks
 
 
 def _build_obstacle_spatial_index(
@@ -341,19 +473,32 @@ def _compile_runtime_component(component: Polygon) -> Polygon:
 def _build_compiled_layout(scene: SceneData) -> CompiledLayout:
     store_polygon = _store_polygon(scene.store)
     obstacles = _collect_scene_obstacles(scene, store_polygon)
+    static_obstacles = _spatial_obstacles(obstacles)
+    building_blocks = _building_blocks([
+        (identity, obstacle)
+        for identity, obstacle in obstacles
+        if identity.get("memberOsmWayIds") or identity.get("osmWayId")
+    ])
     walkable, splitting = _collect_splitting_obstacles(store_polygon, obstacles)
     walkable = walkable.buffer(0)
     components = _walkable_components(walkable)
     runtime_components = [_compile_runtime_component(component) for component in components]
+    navmesh_components = [
+        build_navmesh_graph(runtime_component, cell_id_prefix=f"nav-{index}")
+        for index, runtime_component in enumerate(runtime_components)
+    ]
     cell_size_m, obstacle_spatial_index = _build_obstacle_spatial_index(store_polygon, obstacles)
     return CompiledLayout(
         scene_hash=_scene_hash(scene),
         store_polygon=store_polygon,
         components=components,
         runtime_components=runtime_components,
+        navmesh_components=navmesh_components,
         excluded_obstacles=splitting,
         obstacle_cell_size_m=cell_size_m,
         obstacle_spatial_index=obstacle_spatial_index,
+        static_obstacles=static_obstacles,
+        building_blocks=building_blocks,
     )
 
 
@@ -486,6 +631,8 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
     connected_index = _choose_connected_component_index(layout.components, entries)
     connected = layout.components[connected_index]
     runtime_connected = layout.runtime_components[connected_index]
+    simulation_connected = runtime_connected
+    navmesh = layout.navmesh_components[connected_index]
     disconnected = [
         component for index, component in enumerate(layout.components) if index != connected_index
     ]
@@ -504,13 +651,32 @@ def compute_walkable_partition(scene: SceneData, config: SimulationConfig) -> Wa
         and not _waypoint_supported_by_runtime(waypoint, runtime_connected)
         for waypoint in [*entries, *transit, *exits]
     ):
-        runtime_connected = connected
+        simulation_connected = connected
+        navmesh = build_navmesh_graph(simulation_connected, cell_id_prefix=f"nav-fallback-{connected_index}")
+    runtime_connected = simulation_connected
+
+    walkable_surface = WalkableSurface(
+        surface_id=f"walkable-{connected_index}",
+        polygon=simulation_connected,
+        bounds=simulation_connected.bounds,
+        area_m2=float(simulation_connected.area),
+    )
+    spatial_model = SpatialModel(
+        scene_hash=layout.scene_hash,
+        static_obstacles=layout.static_obstacles,
+        building_blocks=layout.building_blocks,
+        walkable_surfaces=[walkable_surface],
+        navmesh=navmesh,
+        bounds=layout.store_polygon.bounds,
+    )
     return WalkablePartition(
         connected=connected,
         runtime_connected=runtime_connected,
+        simulation_connected=simulation_connected,
         disconnected=disconnected,
         excluded_obstacles=layout.excluded_obstacles,
         reachable_waypoint_ids=reachable_waypoint_ids,
+        spatial_model=spatial_model,
     )
 
 
@@ -545,12 +711,116 @@ def waypoints_outside_disconnected_islands(
     ]
 
 
-def m_ring_to_cm(ring) -> list[list[float]]:
+def m_ring_to_cm(ring) -> CmRing:
     return [[round(_m_to_cm(x), 2), round(_m_to_cm(z), 2)] for x, z in ring.coords]
 
 
-def polygon_to_cm(polygon: Polygon) -> dict:
+def polygon_to_cm(polygon: Polygon) -> PolygonPreview:
     return {
         "exterior": m_ring_to_cm(polygon.exterior),
         "holes": [m_ring_to_cm(ring) for ring in polygon.interiors],
     }
+
+
+def navmesh_to_cm(graph: NavMeshGraph) -> NavMeshPreview:
+    cell_lookup = {cell.cell_id: cell for cell in graph.cells}
+    return {
+        "cells": [
+            {
+                "id": cell.cell_id,
+                "polygon": polygon_to_cm(cell.polygon),
+                "centroid": [round(_m_to_cm(cell.centroid[0]), 2), round(_m_to_cm(cell.centroid[1]), 2)],
+                "neighbors": graph.adjacency.get(cell.cell_id, []),
+            }
+            for cell in graph.cells
+        ],
+        "portals": [
+            {
+                "id": portal.portal_id,
+                "fromCellId": portal.from_cell_id,
+                "toCellId": portal.to_cell_id,
+                "segment": [
+                    [round(_m_to_cm(portal.segment[0][0]), 2), round(_m_to_cm(portal.segment[0][1]), 2)],
+                    [round(_m_to_cm(portal.segment[1][0]), 2), round(_m_to_cm(portal.segment[1][1]), 2)],
+                ],
+                "midpoint": [round(_m_to_cm(portal.midpoint[0]), 2), round(_m_to_cm(portal.midpoint[1]), 2)],
+                "widthCm": round(_m_to_cm(portal.width_m), 2),
+            }
+            for portal in graph.portals
+            if portal.from_cell_id in cell_lookup and portal.to_cell_id in cell_lookup
+        ],
+    }
+
+
+def navmesh_flow_field_to_cm(flow_field: NavMeshFlowField) -> NavMeshFlowFieldPreview:
+    return {
+        "destinationCellId": flow_field.destination_cell_id,
+        "destination": [
+            round(_m_to_cm(flow_field.destination_point[0]), 2),
+            round(_m_to_cm(flow_field.destination_point[1]), 2),
+        ],
+        "cells": [
+            {
+                "cellId": cell.cell_id,
+                "direction": [round(cell.direction[0], 4), round(cell.direction[1], 4)],
+                "target": [round(_m_to_cm(cell.target_point[0]), 2), round(_m_to_cm(cell.target_point[1]), 2)],
+                "integrationCost": round(cell.integration_cost, 4),
+                "nextCellId": cell.next_cell_id,
+            }
+            for cell in flow_field.cells.values()
+        ],
+    }
+
+
+def navmesh_route_preview(
+    partition: WalkablePartition,
+    entries: list[SimulationWaypoint],
+    exits: list[SimulationWaypoint],
+) -> list[str]:
+    if partition.spatial_model is None or not entries or not exits:
+        return []
+    selected_entry, selected_exit = preview_route_pair(entries, exits)
+    start = _waypoint_point(selected_entry)
+    end = _waypoint_point(selected_exit)
+    return astar_cell_path(partition.spatial_model.navmesh, start, end)
+
+
+def navmesh_flow_preview(
+    partition: WalkablePartition,
+    entries: list[SimulationWaypoint],
+    exits: list[SimulationWaypoint],
+) -> NavMeshFlowFieldPreview | None:
+    if partition.spatial_model is None or not entries or not exits:
+        return None
+    _selected_entry, selected_exit = preview_route_pair(entries, exits)
+    flow_field = build_navmesh_flow_field(
+        partition.spatial_model.navmesh,
+        _waypoint_point(selected_exit),
+    )
+    if flow_field is None:
+        return None
+    return navmesh_flow_field_to_cm(flow_field)
+
+
+def preview_route_pair(
+    entries: list[SimulationWaypoint],
+    exits: list[SimulationWaypoint],
+    spawn_index: int = 0,
+) -> tuple[SimulationWaypoint, SimulationWaypoint]:
+    """Pick the same entry/exit pairing rule used by runtime spawning."""
+    if not entries or not exits:
+        raise ValueError("Preview route pair requires at least one entry and one exit")
+    selected_entry = entries[spawn_index % len(entries)]
+    selected_exit = exits[spawn_index % len(exits)]
+    return selected_entry, selected_exit
+
+
+def route_preview_waypoints(
+    scene: SceneData,
+    config: SimulationConfig,
+    partition: WalkablePartition,
+) -> tuple[list[SimulationWaypoint], list[SimulationWaypoint]]:
+    entries, _transit, exits = _partition_waypoints(scene, config)
+    reachable_entries = filter_reachable_waypoints(entries, partition)
+    reachable_exits = filter_reachable_waypoints(exits, partition)
+    return reachable_entries, reachable_exits

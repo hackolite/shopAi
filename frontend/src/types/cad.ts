@@ -324,12 +324,51 @@ export interface WalkablePolygonPreview {
   holes: [number, number][][];
 }
 
+export interface NavMeshCellPreview {
+  id: string;
+  polygon: WalkablePolygonPreview;
+  centroid: [number, number];
+  neighbors: string[];
+}
+
+export interface NavMeshPortalPreview {
+  id: string;
+  fromCellId: string;
+  toCellId: string;
+  segment: [[number, number], [number, number]];
+  midpoint: [number, number];
+  widthCm: number;
+}
+
+export interface NavMeshPreview {
+  cells: NavMeshCellPreview[];
+  portals: NavMeshPortalPreview[];
+}
+
+export interface NavMeshFlowCellPreview {
+  cellId: string;
+  direction: [number, number];
+  target: [number, number];
+  integrationCost: number;
+  nextCellId: string | null;
+}
+
+export interface NavMeshFlowFieldPreview {
+  destinationCellId: string;
+  destination: [number, number];
+  cells: NavMeshFlowCellPreview[];
+}
+
 /** Partition of the walkable floor area reachable (or not) from the entry. */
 export interface WalkablePreview {
   connected: [number, number][];
   connectedHoles: [number, number][][];
   disconnected: WalkablePolygonPreview[];
   excludedObstacles: { elementType: string; elementId: string | null; elementLabel: string | null }[];
+  navmesh?: NavMeshPreview | null;
+  buildingBlocks?: WalkablePolygonPreview[];
+  routeCellIds?: string[];
+  routeFlowField?: NavMeshFlowFieldPreview | null;
 }
 
 export interface Scene {

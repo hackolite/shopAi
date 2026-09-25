@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import json
+import random
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from shapely.geometry import Polygon
 
+import services.simulation as simsvc
 from api.cad_projects import router
 from models.project import PedestrianPickupPlan, SceneData, SimulationConfig
 from services.live_simulation import (
     MAX_LIVE_FRAMES,
     MAX_WAYPOINT_SAMPLES,
+    _CarriedAgentState,
     LiveSimulationSession,
     _LiveAgentRoute,
     live_simulation_manager,
@@ -38,9 +42,9 @@ def _session(agent_count: int = 0) -> LiveSimulationSession:
     session = LiveSimulationSession("performance-test", scene, config)
     if agent_count:
         session._init_runtime([
-            (
-                _LiveAgentRoute(i + 1, 1.2, ["queue", "exit", "exit_hidden:exit"]),
-                (2 + (i % 30), 2 + (i // 30)),
+            _CarriedAgentState(
+                route=_LiveAgentRoute(i + 1, 1.2, ["queue", "exit", "exit_hidden:exit"]),
+                position=(2 + (i % 30), 2 + (i // 30)),
             )
             for i in range(agent_count)
         ])
@@ -49,6 +53,39 @@ def _session(agent_count: int = 0) -> LiveSimulationSession:
         session.frames.clear()
         session._capture_frame()
     return session
+
+
+def _navmesh_session() -> LiveSimulationSession:
+    scene = SceneData.model_validate({
+        "store": {
+            "id": "nav-store",
+            "name": "Store",
+            "dimensions": {"width": 3000, "depth": 2000, "height": 300},
+            "zones": [
+                {
+                    "id": "block",
+                    "type": "forbidden",
+                    "label": "Blocker",
+                    "x": 1200,
+                    "z": 0,
+                    "width": 400,
+                    "depth": 1500,
+                }
+            ],
+        },
+        "furniture": [],
+    })
+    config = SimulationConfig.model_validate({
+        "arrivalRatePerSecond": 10.0,
+        "durationSeconds": 5,
+        "maxCustomers": 2,
+        "randomSeed": 7,
+        "waypoints": [
+            {"id": "entry", "type": "entry", "x": 200, "z": 200},
+            {"id": "exit", "type": "exit", "x": 2800, "z": 1800},
+        ],
+    })
+    return LiveSimulationSession("navmesh-test", scene, config)
 
 
 @pytest.mark.parametrize("frame_window", [8, 16])
@@ -116,6 +153,144 @@ def test_capture_retention_limits_and_pause_do_not_duplicate_samples() -> None:
     assert len(result.frames) == 8
     assert session.analytics_recorder.seq == seq
     assert session.average_load_samples == 1251
+
+
+def test_live_runtime_expands_routes_through_hidden_navmesh_tokens_and_caches_segments() -> None:
+    session = _navmesh_session()
+
+    session.tick(1, include_waypoint_metrics=False)
+
+    assert session.agent_routes
+    route = next(iter(session.agent_routes.values()))
+    hidden_tokens = [token for token in route.route_tokens if token.startswith("nav-live:")]
+    assert hidden_tokens
+    assert session.route_planner is not None
+    assert session.route_planner._segment_token_cache
+    assert session.route_planner._flow_field_cache
+
+    cached_before = dict(session.route_planner._segment_token_cache)
+    flow_cached_before = dict(session.route_planner._flow_field_cache)
+    journey_cache_before = dict(session.route_planner._journey_id_cache)
+    session.tick(1, include_waypoint_metrics=False)
+    assert dict(session.route_planner._segment_token_cache) == cached_before
+    assert dict(session.route_planner._flow_field_cache) == flow_cached_before
+    assert dict(session.route_planner._journey_id_cache) == journey_cache_before
+
+
+def test_live_runtime_rebuilds_carried_agents_with_new_hidden_navmesh_tokens() -> None:
+    session = _navmesh_session()
+    session.tick(1, include_waypoint_metrics=False)
+
+    agent_id, route = next(iter(session.agent_routes.items()))
+    hidden_tokens = [token for token in route.route_tokens if token.startswith("nav-live:")]
+    assert hidden_tokens
+    carried = _LiveAgentRoute(
+        stable_id=route.stable_id,
+        desired_speed=route.desired_speed,
+        route_tokens=list(route.route_tokens),
+        token_index=route.route_tokens.index(hidden_tokens[0]),
+        pedestrian_id=route.pedestrian_id,
+    )
+    carried_position = tuple(float(value) for value in next(agent for agent in session.sim.agents() if int(agent.id) == agent_id).position)
+
+    session.scene.store.zones[0].depth = 1200
+    session._init_runtime([_CarriedAgentState(route=carried, position=carried_position)])
+
+    rebuilt = next(iter(session.agent_routes.values()))
+    rebuilt_hidden = [token for token in rebuilt.route_tokens if token.startswith("nav-live:")]
+    assert rebuilt_hidden
+    assert rebuilt.route_tokens[-1] == "exit_hidden:exit"
+
+
+def test_live_hot_update_keeps_pending_pickup_stops() -> None:
+    session = _session()
+    plan = PedestrianPickupPlan.model_validate({
+        "pedestrianId": 1,
+        "startUnixTs": 0,
+        "speedMps": 1.2,
+        "items": [{"ean": "product-1", "found": True, "xCm": 400, "zCm": 400, "pickupDurationSeconds": 1.0}],
+    })
+    session.load_pedestrian_plans([plan])
+    session.tick(1, include_waypoint_metrics=False)
+
+    agent_id, route = next(iter(session.agent_routes.items()))
+    carried_position = tuple(float(value) for value in next(agent for agent in session.sim.agents() if int(agent.id) == agent_id).position)
+    carried = _LiveAgentRoute(
+        stable_id=route.stable_id,
+        desired_speed=route.desired_speed,
+        route_tokens=list(route.route_tokens),
+        token_index=route.token_index,
+        pedestrian_id=route.pedestrian_id,
+    )
+
+    session._init_runtime([_CarriedAgentState(route=carried, position=carried_position)])
+
+    pickup_events = []
+    for _ in range(80):
+        pickup_events.extend(session.tick(1, include_waypoint_metrics=False).pickupEvents)
+        if pickup_events:
+            break
+    assert [event.ean for event in pickup_events] == ["product-1"]
+
+
+def test_live_hot_update_preserves_elapsed_pickup_wait() -> None:
+    session = _session()
+    plan = PedestrianPickupPlan.model_validate({
+        "pedestrianId": 1,
+        "startUnixTs": 0,
+        "speedMps": 1.2,
+        "items": [{"ean": "product-2", "found": True, "xCm": 400, "zCm": 400, "pickupDurationSeconds": 2.0}],
+    })
+    session.load_pedestrian_plans([plan])
+
+    pickup_token = "pickup:1:0"
+    while pickup_token not in session.waypoint_runtimes or not session.waypoint_runtimes[pickup_token].enqueue_times:
+        session.tick(1, include_waypoint_metrics=False)
+
+    enqueued_at = next(iter(session.waypoint_runtimes[pickup_token].enqueue_times.values()))
+    update_time = session.time_seconds
+    scene = session.scene.model_copy(deep=True)
+    config = session.config.model_copy(deep=True)
+    session.update(scene, config)
+
+    pickup_events = []
+    for _ in range(40):
+        pickup_events.extend(session.tick(1, include_waypoint_metrics=False).pickupEvents)
+        if pickup_events:
+            break
+    assert [event.ean for event in pickup_events] == ["product-2"]
+    assert pickup_events[0].timeSeconds <= round(enqueued_at + 2.2, 2)
+    assert pickup_events[0].timeSeconds - update_time < 2.0
+
+
+def test_position_spatial_hash_matches_linear_clearance_checks() -> None:
+    positions = [(1.0, 1.0), (2.0, 1.0), (5.0, 5.0)]
+    index = simsvc.PositionSpatialHash(cell_size_m=simsvc._cm_to_m(simsvc.SPAWN_SPACING_CM))
+    for position in positions:
+        index.insert(position)
+
+    near_candidate = (1.2, 1.0)
+    far_candidate = (8.0, 8.0)
+
+    assert simsvc._candidate_clears_occupied(near_candidate, positions) is False
+    assert simsvc._candidate_clears_occupied(near_candidate, index) is False
+    assert simsvc._candidate_clears_occupied(far_candidate, positions) is True
+    assert simsvc._candidate_clears_occupied(far_candidate, index) is True
+
+
+def test_spawn_from_entry_fallback_accepts_spatial_hash(monkeypatch) -> None:
+    waypoint = SimulationConfig.model_validate({
+        "waypoints": [{"id": "entry", "type": "entry", "x": 100, "z": 100, "radiusCm": 30}],
+    }).waypoints[0]
+    walkable = Polygon([(0, 0), (4, 0), (4, 4), (0, 4)])
+    index = simsvc.PositionSpatialHash(cell_size_m=simsvc._cm_to_m(simsvc.SPAWN_SPACING_CM))
+    index.insert((1.0, 1.0))
+
+    monkeypatch.setattr(simsvc, "_point_in_walkable", lambda candidate, polygon: True)
+    monkeypatch.setattr(simsvc, "_candidate_clears_occupied", lambda candidate, occupied: False)
+    monkeypatch.setattr(simsvc, "_random_point_in_polygon", lambda polygon, rng: (1.5, 1.5))
+
+    assert simsvc._spawn_from_entry(waypoint, walkable, random.Random(7), index) == (1.5, 1.5)
 
 
 @pytest.mark.parametrize("frame_window", [8, 16])

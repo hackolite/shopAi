@@ -124,6 +124,7 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+export STUDIO_LLM_WEBHOOK_URL="http://localhost:8010/webhook/llm"  # requis pour /assistant/llm
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
@@ -133,6 +134,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+$env:STUDIO_LLM_WEBHOOK_URL = "http://localhost:8010/webhook/llm"  # requis pour /assistant/llm
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 

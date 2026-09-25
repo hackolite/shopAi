@@ -170,9 +170,11 @@ def test_live_runtime_expands_routes_through_hidden_navmesh_tokens_and_caches_se
 
     cached_before = dict(session.route_planner._segment_token_cache)
     flow_cached_before = dict(session.route_planner._flow_field_cache)
+    journey_cache_before = dict(session.route_planner._journey_id_cache)
     session.tick(1, include_waypoint_metrics=False)
     assert dict(session.route_planner._segment_token_cache) == cached_before
     assert dict(session.route_planner._flow_field_cache) == flow_cached_before
+    assert dict(session.route_planner._journey_id_cache) == journey_cache_before
 
 
 def test_live_runtime_rebuilds_carried_agents_with_new_hidden_navmesh_tokens() -> None:

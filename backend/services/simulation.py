@@ -100,12 +100,14 @@ class WaypointPassageTracker:
         """Credit one agent to a waypoint (used for entries, cleared at spawn)."""
         self.counts[waypoint_id] = self.counts.get(waypoint_id, 0) + 1
 
-    def observe(self, sim: object, stage_to_waypoint_id: dict[int, str]) -> None:
-        """Record stage transitions since the previous call."""
+    def observe_agent_stages(
+        self,
+        agent_stages: list[tuple[int, int]],
+        stage_to_waypoint_id: dict[int, str],
+    ) -> None:
+        """Record stage transitions from a precomputed ``(agent_id, stage_id)`` snapshot."""
         seen: set[int] = set()
-        for agent in sim.agents():  # type: ignore[attr-defined]
-            agent_id = int(agent.id)
-            stage_id = int(agent.stage_id)
+        for agent_id, stage_id in agent_stages:
             seen.add(agent_id)
             previous = self._last_stage.get(agent_id)
             if previous is not None and previous != stage_id:
@@ -113,6 +115,16 @@ class WaypointPassageTracker:
             self._last_stage[agent_id] = stage_id
         for agent_id in [key for key in self._last_stage if key not in seen]:
             self._credit(self._last_stage.pop(agent_id), stage_to_waypoint_id)
+
+    def observe(self, sim: object, stage_to_waypoint_id: dict[int, str]) -> None:
+        """Record stage transitions since the previous call."""
+        self.observe_agent_stages(
+            [
+                (int(agent.id), int(agent.stage_id))
+                for agent in sim.agents()  # type: ignore[attr-defined]
+            ],
+            stage_to_waypoint_id,
+        )
 
     def released(self, waypoint_id: str) -> int:
         return self.counts.get(waypoint_id, 0)
@@ -196,8 +208,10 @@ class NavMeshRoutePlanner:
     waypoint_by_stage_id: dict[int, SimulationWaypoint]
     hidden_stage_token_prefix: str = "nav"
     _expanded_route_cache: dict[tuple[str, ...], list[str]] = field(default_factory=dict)
+    _stage_id_route_cache: dict[tuple[str, ...], list[int]] = field(default_factory=dict)
     _segment_token_cache: dict[tuple[str, str], list[str]] = field(default_factory=dict)
     _flow_field_cache: dict[tuple[float, float], NavMeshFlowField] = field(default_factory=dict)
+    _journey_id_cache: dict[tuple[int, ...], int] = field(default_factory=dict)
 
     def expanded_route_tokens(
         self,
@@ -216,11 +230,17 @@ class NavMeshRoutePlanner:
         return expanded
 
     def stage_ids_for_route(self, tokens: list[str]) -> list[int]:
-        return [
+        cache_key = tuple(tokens)
+        cached = self._stage_id_route_cache.get(cache_key)
+        if cached is not None:
+            return list(cached)
+        stage_ids = [
             self.token_to_stage[token]
             for token in self.expanded_route_tokens(tokens)
             if token in self.token_to_stage
         ]
+        self._stage_id_route_cache[cache_key] = list(stage_ids)
+        return stage_ids
 
     def expanded_route_tokens_from_point(
         self,
@@ -260,6 +280,15 @@ class NavMeshRoutePlanner:
             for token in self.expanded_route_tokens_from_point(start_point, tokens)
             if token in self.token_to_stage
         ]
+
+    def journey_id_for_stage_ids(self, stage_ids: list[int]) -> int:
+        cache_key = tuple(stage_ids)
+        cached = self._journey_id_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        journey_id = self.sim.add_journey(build_journey_from_stage_ids(stage_ids))
+        self._journey_id_cache[cache_key] = int(journey_id)
+        return int(journey_id)
 
     def _segment_tokens(self, from_token: str, to_token: str) -> list[str]:
         cache_key = (from_token, to_token)
@@ -981,7 +1010,7 @@ def _spawn_from_entry(
 
 def _random_point_in_polygon(polygon: Polygon, rng: random.Random) -> tuple[float, float]:
     min_x, min_y, max_x, max_y = polygon.bounds
-    for _ in range(500):
+    for _ in range(2000):
         x = rng.uniform(min_x, max_x)
         y = rng.uniform(min_y, max_y)
         if polygon.contains(Point(x, y)):
@@ -1362,7 +1391,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             if len(selected_stage_ids) < 2:
                 arrival_index += 1
                 continue
-            journey_id = sim.add_journey(build_journey_from_stage_ids(selected_stage_ids))
+            journey_id = route_planner.journey_id_for_stage_ids(selected_stage_ids)
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
             agent_id, spawn_position = add_agent_with_spawn_retry(
                 sim=sim,

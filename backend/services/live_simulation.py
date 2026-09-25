@@ -4,7 +4,7 @@ import logging
 import random
 import threading
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from time import time
 from typing import Any
 from uuid import uuid4
@@ -60,6 +60,12 @@ class _LiveAgentRoute:
     # Set when this agent's journey was built from an imported pedestrian CSV
     # plan rather than the default Poisson arrival process.
     pedestrian_id: int | None = None
+    token_positions: dict[str, int] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.token_positions = {}
+        for index, token in enumerate(self.route_tokens):
+            self.token_positions[token] = index
 
 
 @dataclass
@@ -68,6 +74,17 @@ class _CarriedAgentState:
     position: tuple[float, float]
     queue_token: str | None = None
     queued_elapsed_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class _LiveAgentSnapshot:
+    agent_id: int
+    stable_id: int
+    stage_id: int
+    route: _LiveAgentRoute
+    position: tuple[float, float]
+    orientation: tuple[float, float]
+    token: str | None
 
 
 class LiveSimulationSession:
@@ -101,6 +118,7 @@ class LiveSimulationSession:
         # Throughput of every waypoint type (queue runtimes only cover retention waypoints).
         self.passages = simsvc.WaypointPassageTracker()
         self.stage_to_waypoint_id: dict[int, str] = {}
+        self.metric_stage_handles: dict[str, object] = {}
         self.metrics_waypoints: list[SimulationWaypoint] = []
         self.waypoint_series: dict[str, list[Any]] = {}
         self.average_load_accumulator = 0.0
@@ -203,6 +221,7 @@ class LiveSimulationSession:
         self.metrics_waypoints = [*self.entries, *self.transit_waypoints, *self.exits]
         self.stage_to_token = {}
         self.token_to_stage = {}
+        self.metric_stage_handles = {}
         try:
             self.sim = jps.Simulation(
                 model=jps.CollisionFreeSpeedModel(),
@@ -224,6 +243,7 @@ class LiveSimulationSession:
                     self.waypoint_by_stage_id[approach_stage_id] = waypoint
                     self.stage_to_token[approach_stage_id] = waypoint.id
                     self.token_to_stage[waypoint.id] = approach_stage_id
+                    self.metric_stage_handles[waypoint.id] = self.sim.get_stage(approach_stage_id)
 
                     exit_stage_id = self.sim.add_exit_stage(simsvc._waypoint_exit_polygon(waypoint, self.walkable))
                     self.exit_stage_ids[waypoint.id] = exit_stage_id
@@ -254,6 +274,7 @@ class LiveSimulationSession:
                     self.waypoint_by_stage_id[stage_id] = waypoint
                     self.stage_to_token[stage_id] = waypoint.id
                     self.token_to_stage[waypoint.id] = stage_id
+                    self.metric_stage_handles[waypoint.id] = runtime.stage
                 else:
                     stage_id = self.sim.add_waypoint_stage(
                         simsvc._safe_waypoint_point(
@@ -267,6 +288,7 @@ class LiveSimulationSession:
                     self.waypoint_by_stage_id[stage_id] = waypoint
                     self.stage_to_token[stage_id] = waypoint.id
                     self.token_to_stage[waypoint.id] = stage_id
+                    self.metric_stage_handles[waypoint.id] = self.sim.get_stage(stage_id)
         except RuntimeError as exc:
             simsvc.reraise_known_simulation_runtime_error(exc, self.scene)
 
@@ -347,7 +369,11 @@ class LiveSimulationSession:
             if len(stage_ids) < 2:
                 continue
             position = simsvc._closest_walkable_point(old_pos, placement_walkable)
-            journey_id = self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
+            journey_id = (
+                self.route_planner.journey_id_for_stage_ids(stage_ids)
+                if self.route_planner is not None
+                else self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
+            )
             desired_speed = max(0.5, float(route_state.desired_speed))
             try:
                 new_agent_id = self.sim.add_agent(
@@ -426,7 +452,11 @@ class LiveSimulationSession:
             if len(stage_ids) < 2:
                 self.next_arrival_at = self.time_seconds + self.rng.expovariate(rate)
                 continue
-            journey_id = self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
+            journey_id = (
+                self.route_planner.journey_id_for_stage_ids(stage_ids)
+                if self.route_planner is not None
+                else self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
+            )
             entry_wp = self.entries[self.spawned % len(self.entries)]
             desired_speed = max(
                 0.5,
@@ -573,7 +603,11 @@ class LiveSimulationSession:
             if len(stage_ids) < 2:
                 self.pedestrian_cursor += 1
                 continue
-            journey_id = self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
+            journey_id = (
+                self.route_planner.journey_id_for_stage_ids(stage_ids)
+                if self.route_planner is not None
+                else self.sim.add_journey(simsvc.build_journey_from_stage_ids(stage_ids))
+            )
             entry_wp = self.entries[self.pedestrian_cursor % len(self.entries)]
             desired_speed = max(0.3, float(plan.speedMps))
             try:
@@ -703,46 +737,58 @@ class LiveSimulationSession:
                 return {"seq": basket_seq, "changed": False}
             return {"seq": basket_seq, "changed": True, "basket": basket.model_dump(mode="json")}
 
-    def _update_agent_route_indices(self) -> None:
+    def _collect_agent_snapshots(self) -> list[_LiveAgentSnapshot]:
+        snapshots: list[_LiveAgentSnapshot] = []
         for agent in self.sim.agents():
             agent_id = int(agent.id)
             route = self.agent_routes.get(agent_id)
             if route is None:
                 continue
-            token = self.stage_to_token.get(int(agent.stage_id))
-            if token is None:
-                continue
-            for idx in range(route.token_index, len(route.route_tokens)):
-                if route.route_tokens[idx] == token:
-                    route.token_index = idx
-                    break
+            stage_id = int(agent.stage_id)
+            snapshots.append(
+                _LiveAgentSnapshot(
+                    agent_id=agent_id,
+                    stable_id=route.stable_id,
+                    stage_id=stage_id,
+                    route=route,
+                    position=(float(agent.position[0]), float(agent.position[1])),
+                    orientation=(float(agent.orientation[0]), float(agent.orientation[1])),
+                    token=self.stage_to_token.get(stage_id),
+                )
+            )
+        return snapshots
 
-    def _capture_frame(self) -> None:
-        frame_agents: list[SimulationAgentFrame] = []
-        for agent in self.sim.agents():
-            route = self.agent_routes.get(int(agent.id))
-            if route is None:
+    def _update_agent_route_indices(self, snapshots: list[_LiveAgentSnapshot]) -> None:
+        for snapshot in snapshots:
+            if snapshot.token is None:
                 continue
-            heading_x, heading_z = agent.orientation
+            token_index = snapshot.route.token_positions.get(snapshot.token)
+            if token_index is not None and token_index >= snapshot.route.token_index:
+                snapshot.route.token_index = token_index
+
+    def _capture_frame(self, snapshots: list[_LiveAgentSnapshot] | None = None) -> None:
+        snapshots = snapshots if snapshots is not None else self._collect_agent_snapshots()
+        frame_agents: list[SimulationAgentFrame] = []
+        for snapshot in snapshots:
+            heading_x, heading_z = snapshot.orientation
             vision_angle_deg, vision_range_cm = simsvc._vision_for_agent(
                 self.config,
-                self.waypoint_by_stage_id.get(int(agent.stage_id)),
+                self.waypoint_by_stage_id.get(snapshot.stage_id),
             )
             picking_ean = picking_name = None
             picking_started_at = picking_duration = None
-            token = self.stage_to_token.get(int(agent.stage_id))
-            pickup_item = self.pickup_item_by_token.get(token) if token else None
+            pickup_item = self.pickup_item_by_token.get(snapshot.token) if snapshot.token else None
             if pickup_item is not None:
-                runtime = self.waypoint_runtimes.get(token)
-                enqueued_at = runtime.enqueue_times.get(int(agent.id)) if runtime else None
+                runtime = self.waypoint_runtimes.get(snapshot.token)
+                enqueued_at = runtime.enqueue_times.get(snapshot.agent_id) if runtime else None
                 if enqueued_at is not None:
                     picking_ean, picking_name, picking_duration = pickup_item
                     picking_started_at = round(enqueued_at, 2)
             frame_agents.append(
                 SimulationAgentFrame(
-                    id=route.stable_id,
-                    xCm=round(simsvc._m_to_cm(agent.position[0]), 2),
-                    zCm=round(simsvc._m_to_cm(agent.position[1]), 2),
+                    id=snapshot.stable_id,
+                    xCm=round(simsvc._m_to_cm(snapshot.position[0]), 2),
+                    zCm=round(simsvc._m_to_cm(snapshot.position[1]), 2),
                     headingX=float(heading_x) if heading_x or heading_z else 1.0,
                     headingZ=float(heading_z),
                     visionAngleDeg=vision_angle_deg,
@@ -761,10 +807,9 @@ class LiveSimulationSession:
             self.frames = self.frames[-MAX_LIVE_FRAMES:]
         waypoint_loads: list[int] = []
         for waypoint in self.metrics_waypoints:
-            stage_id = self.waypoint_stage_ids.get(waypoint.id)
-            if stage_id is None:
+            stage = self.metric_stage_handles.get(waypoint.id)
+            if stage is None:
                 continue
-            stage = self.sim.get_stage(stage_id)
             current_agents = int(stage.count_targeting())
             runtime = self.waypoint_runtimes.get(waypoint.id)
             released_agents = max(
@@ -822,10 +867,14 @@ class LiveSimulationSession:
                         del self.agent_routes[removed_id]
                     self.agent_speeds.pop(removed_id, None)
                     self.frozen_agents.discard(removed_id)
-                self._update_agent_route_indices()
-                self.passages.observe(self.sim, self.stage_to_waypoint_id)
+                agent_snapshots = self._collect_agent_snapshots()
+                self._update_agent_route_indices(agent_snapshots)
+                self.passages.observe_agent_stages(
+                    [(snapshot.agent_id, snapshot.stage_id) for snapshot in agent_snapshots],
+                    self.stage_to_waypoint_id,
+                )
                 self.time_seconds += simsvc.SIMULATION_DT_S
-                self._capture_frame()
+                self._capture_frame(agent_snapshots)
             return self.snapshot(include_waypoint_metrics=include_waypoint_metrics, frame_window=frame_window)
 
     def _record_pickup_if_applicable(self, token: str, released_agent_id: int) -> None:

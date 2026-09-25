@@ -3739,6 +3739,7 @@ function SceneContent({ projectId, adaptiveDprEnabled }: { projectId: string | n
           makeDefault
           target={initialOrbitTarget.current}
           enabled={!isResizeDragging && !lockSceneNavigation}
+          enableDamping={false}
           enableRotate={!isResizeDragging && !lockSceneNavigation && !bevMode}
           maxPolarAngle={bevMode ? BEV_MAX_POLAR_ANGLE : Math.PI}
         />
@@ -3801,6 +3802,9 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
   const { zones, zonesLoaded } = useZoneStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const { setRecording: setUIRecording } = useUIStore();
+  const simulationPlaying = useSimulationStore((state) => state.playing);
+  const simulationPaused = useSimulationStore((state) => state.paused);
+  const renderLoopMode: 'always' | 'demand' = simulationPlaying && !simulationPaused ? 'always' : 'demand';
 
   // Keep a stable ref to the latest scene so the save timer closure is always fresh.
   const sceneRef = useRef(scene);
@@ -3906,6 +3910,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
         }
       >
         <Canvas
+          frameloop={renderLoopMode}
           dpr={recordingDpr ?? DEFAULT_DPR}
           camera={{ position: [25, 15, 35], fov: 50 }}
           shadows

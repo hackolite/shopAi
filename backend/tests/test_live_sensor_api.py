@@ -147,4 +147,10 @@ def test_live_sensor_websocket_pushes_updated_snapshot():
         assert update["type"] == "snapshot"
         assert update["reason"] == "ingest"
         assert update["payload"]["sampleCount"] == 1
-        assert update["payload"]["samples"][0]["sourceId"] == "ws-1"
+        sample = update["payload"]["samples"][0]
+        assert sample["sourceId"] == "ws-1"
+        assert sample["coordinate"]["kind"] == "normalized"
+        assert sample["coordinate"]["x"] == 55.0
+        assert sample["coordinate"]["y"] == 45.0
+        assert isinstance(sample["timestampMs"], int)
+        assert sample["data"] == [{"name": "decibel", "value": 62.0, "unit": None}]

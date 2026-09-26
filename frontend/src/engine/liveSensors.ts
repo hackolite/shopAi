@@ -23,7 +23,6 @@ export interface AggregatedSensorCell {
   count: number;
   colorValue: number | null;
   heightValue: number | null;
-  sizeValue: number | null;
 }
 
 export interface ProgressiveSensorRevealState {
@@ -122,17 +121,13 @@ export function aggregateSensorCells(
   cellSizePercent: number,
   colorMetric: string | null,
   heightMetric: string | null,
-  sizeMetric: string | null,
 ): AggregatedSensorCell[] {
-  const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
-  const cellSizeCm = Math.max(50, (cellSizePercent / 100) * minSideCm);
+  const cellSizeCm = getSensorCellSizeCm(store, cellSizePercent);
   const buckets = new Map<string, AggregatedSensorCell & {
     colorSum: number;
     colorCount: number;
     heightSum: number;
     heightCount: number;
-    sizeSum: number;
-    sizeCount: number;
   }>();
 
   for (const sample of samples) {
@@ -147,18 +142,14 @@ export function aggregateSensorCells(
       count: 0,
       colorValue: null,
       heightValue: null,
-      sizeValue: null,
       colorSum: 0,
       colorCount: 0,
       heightSum: 0,
       heightCount: 0,
-      sizeSum: 0,
-      sizeCount: 0,
     };
     existing.count += 1;
     const colorValue = getMetricValue(sample, colorMetric);
     const heightValue = getMetricValue(sample, heightMetric);
-    const sizeValue = getMetricValue(sample, sizeMetric);
     if (colorValue != null) {
       existing.colorSum += colorValue;
       existing.colorCount += 1;
@@ -167,27 +158,26 @@ export function aggregateSensorCells(
       existing.heightSum += heightValue;
       existing.heightCount += 1;
     }
-    if (sizeValue != null) {
-      existing.sizeSum += sizeValue;
-      existing.sizeCount += 1;
-    }
     existing.colorValue = existing.colorCount ? existing.colorSum / existing.colorCount : null;
     existing.heightValue = existing.heightCount ? existing.heightSum / existing.heightCount : null;
-    existing.sizeValue = existing.sizeCount ? existing.sizeSum / existing.sizeCount : null;
     buckets.set(key, existing);
   }
 
   return [...buckets.values()]
     .sort((left, right) => left.key.localeCompare(right.key))
-    .map(({ key, xCm, zCm, count, colorValue, heightValue, sizeValue }) => ({
+    .map(({ key, xCm, zCm, count, colorValue, heightValue }) => ({
       key,
       xCm,
       zCm,
       count,
       colorValue,
       heightValue,
-      sizeValue,
     }));
+}
+
+export function getSensorCellSizeCm(store: StoreConfig, cellSizePercent: number): number {
+  const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
+  return Math.max(50, (cellSizePercent / 100) * minSideCm);
 }
 
 export function reconcileProgressiveSensorReveal(

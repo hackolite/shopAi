@@ -3,6 +3,7 @@ import {
   aggregateSensorCells,
   buildMetricStats,
   filterSensorSamples,
+  getSensorCellSizeCm,
   normalizeMetricValue,
   projectSensorSample,
   reconcileProgressiveSensorReveal,
@@ -85,7 +86,7 @@ describe('live sensor helpers', () => {
   });
 
   it('aggregates samples into grid cells', () => {
-    const cells = aggregateSensorCells(snapshot.samples, store, snapshot, 20, 'temperature', 'temperature', 'temperature');
+    const cells = aggregateSensorCells(snapshot.samples, store, snapshot, 20, 'temperature', 'temperature');
     expect(cells).toEqual([
       {
         key: '1:2',
@@ -94,7 +95,6 @@ describe('live sensor helpers', () => {
         count: 1,
         colorValue: 10,
         heightValue: 10,
-        sizeValue: 10,
       },
       {
         key: '3:2',
@@ -103,9 +103,40 @@ describe('live sensor helpers', () => {
         count: 1,
         colorValue: 30,
         heightValue: 30,
-        sizeValue: 30,
       },
     ]);
+  });
+
+  it('averages buffered sensor values inside the same bar cell', () => {
+    const cells = aggregateSensorCells([
+      {
+        id: 'a',
+        sourceId: 's1',
+        coordinate: { kind: 'normalized', x: 24, y: 48 },
+        data: [{ name: 'temperature', value: 10 }],
+      },
+      {
+        id: 'b',
+        sourceId: 's2',
+        coordinate: { kind: 'normalized', x: 26, y: 52 },
+        data: [{ name: 'temperature', value: 30 }],
+      },
+    ], store, snapshot, 20, 'temperature', 'temperature');
+
+    expect(cells).toEqual([
+      {
+        key: '1:2',
+        xCm: 240,
+        zCm: 400,
+        count: 2,
+        colorValue: 20,
+        heightValue: 20,
+      },
+    ]);
+  });
+
+  it('computes a live bar width from the current cell percentage', () => {
+    expect(getSensorCellSizeCm(store, 20)).toBe(160);
   });
 
   it('keeps visible samples and queues only unseen ones for progressive live reveal', () => {

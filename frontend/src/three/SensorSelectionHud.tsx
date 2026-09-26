@@ -36,7 +36,6 @@ export function SensorSelectionHud() {
   const selectedSourceIds = useSensorStore((state) => state.selectedSourceIds);
   const colorMetric = useSensorStore((state) => state.colorMetric);
   const heightMetric = useSensorStore((state) => state.heightMetric);
-  const renderMode = useSensorStore((state) => state.renderMode);
   const showLayer = useSensorStore((state) => state.showLayer);
   const spriteRef = useRef<THREE.Sprite>(null);
 
@@ -47,12 +46,12 @@ export function SensorSelectionHud() {
       .map((sourceId) => snapshot.sourceLabels[sourceId] || sourceId);
     const extra = selectedSourceIds.length > 4 ? ` +${selectedSourceIds.length - 4}` : '';
     return [
-      `Live ${renderMode.toUpperCase()}`,
+      'Live BAR',
       `Capteurs: ${labels.join(',')}${extra}`,
       `Couleur: ${colorMetric ?? '—'}`,
       `Hauteur: ${heightMetric ?? '—'}`,
     ];
-  }, [colorMetric, heightMetric, renderMode, selectedSourceIds, showLayer, snapshot]);
+  }, [colorMetric, heightMetric, selectedSourceIds, showLayer, snapshot]);
 
   const texture = useMemo(() => (lines.length > 0 ? drawTexture(lines) : null), [lines]);
 

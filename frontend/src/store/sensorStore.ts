@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { mergeResidualSensorSectors, type AggregatedSensorSector } from '../engine/liveSensors';
+import { mergeResidualSensorSectors, type AggregatedSensorSector, type SensorMetricBounds } from '../engine/liveSensors';
 import type { SensorLiveSettings, SensorSnapshot } from '../types/cad';
 export type SensorSocketStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 export type SensorColorRampName = 'yellow-red' | 'blue-red' | 'green-red' | 'cyan-blue';
@@ -19,6 +19,11 @@ interface SensorState {
   socketStatus: SensorSocketStatus;
   colorMetric: string | null;
   heightMetric: string | null;
+  /** Manual per-metric min/max used only to normalize sensor *color* (never bar/sector
+   * height, which always keeps scaling against the live buffer's min/max and can
+   * exceed its configured max size). Keyed by metric name; a metric without an entry
+   * falls back to the live min/max, same as before this feature existed. */
+  colorMetricBounds: Record<string, SensorMetricBounds>;
   selectedSourceIds: string[];
   /** Sources the user explicitly hid via toggleSource/setAllSources(false). Any source
    * not in this set is visible by default, including newly discovered ones, so that
@@ -46,6 +51,7 @@ interface SensorState {
   setSocketStatus: (status: SensorSocketStatus) => void;
   setColorMetric: (metric: string | null) => void;
   setHeightMetric: (metric: string | null) => void;
+  setColorMetricBounds: (metricName: string, bounds: SensorMetricBounds | null) => void;
   toggleSource: (sourceId: string) => void;
   setAllSources: (selected: boolean) => void;
   setFilterMetric: (metric: string | null) => void;
@@ -69,6 +75,7 @@ const baseState = {
   socketStatus: 'disconnected' as SensorSocketStatus,
   colorMetric: null,
   heightMetric: null,
+  colorMetricBounds: {} as Record<string, SensorMetricBounds>,
   selectedSourceIds: [] as string[],
   excludedSourceIds: [] as string[],
   filterMetric: null,
@@ -109,6 +116,15 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   setSocketStatus: (socketStatus) => set({ socketStatus }),
   setColorMetric: (colorMetric) => set({ colorMetric }),
   setHeightMetric: (heightMetric) => set({ heightMetric }),
+  setColorMetricBounds: (metricName, bounds) => set((state) => {
+    const next = { ...state.colorMetricBounds };
+    if (bounds) {
+      next[metricName] = bounds;
+    } else {
+      delete next[metricName];
+    }
+    return { colorMetricBounds: next };
+  }),
   toggleSource: (sourceId) => set((state) => {
     const sourceIds = state.snapshot?.sources ?? [];
     const excludedSourceIds = state.excludedSourceIds.includes(sourceId)

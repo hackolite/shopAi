@@ -56,3 +56,24 @@ describe('sensorStore live source selection', () => {
     expect(useSensorStore.getState().selectedSourceIds).toEqual(['sensor-a', 'sensor-b']);
   });
 });
+
+describe('sensorStore color metric bounds', () => {
+  afterEach(() => {
+    useSensorStore.getState().reset();
+  });
+
+  it('sets and clears manual color bounds per metric without touching other metrics', () => {
+    const store = useSensorStore.getState();
+    store.setColorMetricBounds('affluence', { min: 0, max: 50 });
+    store.setColorMetricBounds('temperature', { min: 10, max: 30 });
+    expect(useSensorStore.getState().colorMetricBounds).toEqual({
+      affluence: { min: 0, max: 50 },
+      temperature: { min: 10, max: 30 },
+    });
+
+    useSensorStore.getState().setColorMetricBounds('affluence', null);
+    expect(useSensorStore.getState().colorMetricBounds).toEqual({
+      temperature: { min: 10, max: 30 },
+    });
+  });
+});

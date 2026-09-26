@@ -20,6 +20,7 @@ export function SensorLayer() {
     snapshot,
     colorMetric,
     heightMetric,
+    colorMetricBounds,
     selectedSourceIds,
     filterMetric,
     filterMinNormalized,
@@ -111,8 +112,17 @@ export function SensorLayer() {
   return (
     <group>
     {aggregatedSectors.map((sector) => {
-      const colorValue = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''));
-      const heightValue = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''));
+      // Color is normalized against the manual bounds for `colorMetric` when set
+      // (stable, user-controlled scale), falling back to the live min/max otherwise.
+      // Height never uses those manual bounds and is never clamped upper: it always
+      // scales against the live min/max and can grow past `barMaxHeightCm` if a
+      // sample ever exceeds it, instead of being visually capped.
+      const colorValue = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''), {
+        bounds: colorMetric ? colorMetricBounds[colorMetric] : undefined,
+      });
+      const heightValue = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''), {
+        clampUpper: false,
+      });
       const heightCm = 20 + heightValue * barMaxHeightCm;
       // Sector footprint is derived from the shared grid resolution as a percentage of
       // the store bounds, the same coordinate-kind-agnostic projection used for GPS and

@@ -17,6 +17,25 @@ export interface SensorMetricFilter {
   maxNormalized: number;
 }
 
+/** Manual min/max bounds a user can set for one metric, used only to normalize
+ * the *color* of sensor bars/sectors so the color scale stays stable over time
+ * instead of drifting with the live buffer's min/max. Bar/sector *height* never
+ * uses these bounds: it always keeps normalizing against the live min/max. */
+export interface SensorMetricBounds {
+  min: number;
+  max: number;
+}
+
+export interface NormalizeMetricValueOptions {
+  /** Overrides `stats.min`/`stats.max` when provided (used for color bounding). */
+  bounds?: SensorMetricBounds | null;
+  /** When false, the normalized ratio is only clamped at 0 (no floor of the value
+   * below the range) and is allowed to exceed 1 above the range, so a bar/sector
+   * can grow past its configured max size instead of being capped. Defaults to
+   * true (clamp to [0, 1]), which is required for color ramps. */
+  clampUpper?: boolean;
+}
+
 export interface AggregatedSensorSector {
   key: string;
   col: number;
@@ -99,11 +118,18 @@ export function getMetricValue(sample: SensorSampleRecord, metricName: string | 
   return metric ? metric.value : null;
 }
 
-export function normalizeMetricValue(value: number | null, stats: SensorMetricStats | undefined): number {
-  if (value == null || !stats) return 0;
-  const span = stats.max - stats.min;
+export function normalizeMetricValue(
+  value: number | null,
+  stats: SensorMetricStats | undefined,
+  options?: NormalizeMetricValueOptions,
+): number {
+  const bounds = options?.bounds ?? stats;
+  if (value == null || !bounds) return 0;
+  const span = bounds.max - bounds.min;
   if (!Number.isFinite(span) || span <= 0) return 1;
-  return Math.max(0, Math.min(1, (value - stats.min) / span));
+  const ratio = (value - bounds.min) / span;
+  const clampUpper = options?.clampUpper ?? true;
+  return clampUpper ? Math.max(0, Math.min(1, ratio)) : Math.max(0, ratio);
 }
 
 export function sensorColor(value: number, ramp: SensorColorRampName): string {

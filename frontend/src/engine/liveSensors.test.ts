@@ -65,6 +65,23 @@ describe('live sensor helpers', () => {
     expect(normalizeMetricValue(20, snapshot.metrics[0])).toBeCloseTo(0.5);
   });
 
+  it('normalizes against explicit override bounds instead of stats when provided (manual color bounding)', () => {
+    // Value 20 sits at 50% of the live 10..30 range, but only at 25% of a manual
+    // 0..80 range — the override must take priority over `stats` when present.
+    expect(normalizeMetricValue(20, snapshot.metrics[0], { bounds: { min: 0, max: 80 } })).toBeCloseTo(0.25);
+  });
+
+  it('clamps the normalized ratio to [0, 1] by default, even past the live max', () => {
+    // Height/color both clamp upper by default unless `clampUpper: false` is set.
+    expect(normalizeMetricValue(50, snapshot.metrics[0])).toBeCloseTo(1);
+  });
+
+  it('lets the normalized ratio exceed 1 above the range when clampUpper is false (bar height overflow)', () => {
+    // A value beyond the metric's max must still be able to size a bar past its
+    // configured max height, instead of being visually capped at 1.
+    expect(normalizeMetricValue(50, snapshot.metrics[0], { clampUpper: false })).toBeCloseTo(2);
+  });
+
   it('builds metric stats from the currently visible sample set', () => {
     expect(buildMetricStats([snapshot.samples[0]])).toEqual([
       { name: 'temperature', min: 10, max: 10, unit: null, count: 1 },

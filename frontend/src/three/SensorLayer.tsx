@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import {
   aggregateSensorCells,
+  buildMetricStats,
   filterSensorSamples,
   getMetricValue,
   metricStatsByName,
@@ -78,6 +79,7 @@ export function SensorLayer() {
       ...snapshot,
       sampleCount: samples.length,
       samples,
+      metrics: buildMetricStats(samples),
     };
   }, [snapshot, visibleSampleIds]);
 
@@ -90,7 +92,7 @@ export function SensorLayer() {
     [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, visibleSnapshot],
   );
 
-  const statsByName = useMemo(() => metricStatsByName(snapshot), [snapshot]);
+  const statsByName = useMemo(() => metricStatsByName(visibleSnapshot), [visibleSnapshot]);
 
   const aggregatedCells = useMemo(() => {
     if (!scene || !showLayer) return [];

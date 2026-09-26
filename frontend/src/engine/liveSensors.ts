@@ -35,6 +35,30 @@ export function metricStatsByName(snapshot: SensorSnapshot | null): Map<string, 
   return new Map((snapshot?.metrics ?? []).map((metric) => [metric.name, metric]));
 }
 
+export function buildMetricStats(samples: SensorSampleRecord[]): SensorMetricStats[] {
+  const metrics = new Map<string, SensorMetricStats>();
+  for (const sample of samples) {
+    for (const metric of sample.data) {
+      const current = metrics.get(metric.name);
+      if (!current) {
+        metrics.set(metric.name, {
+          name: metric.name,
+          min: metric.value,
+          max: metric.value,
+          unit: metric.unit ?? null,
+          count: 1,
+        });
+        continue;
+      }
+      current.min = Math.min(current.min, metric.value);
+      current.max = Math.max(current.max, metric.value);
+      current.count += 1;
+      if (!current.unit && metric.unit) current.unit = metric.unit;
+    }
+  }
+  return [...metrics.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
 export function getMetricValue(sample: SensorSampleRecord, metricName: string | null): number | null {
   if (!metricName) return null;
   const metric = sample.data.find((item) => item.name === metricName);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   aggregateSensorCells,
+  buildMetricStats,
   filterSensorSamples,
   normalizeMetricValue,
   projectSensorSample,
@@ -57,6 +58,12 @@ describe('live sensor helpers', () => {
 
   it('normalizes metric values within min/max bounds', () => {
     expect(normalizeMetricValue(20, snapshot.metrics[0])).toBeCloseTo(0.5);
+  });
+
+  it('builds metric stats from the currently visible sample set', () => {
+    expect(buildMetricStats([snapshot.samples[0]])).toEqual([
+      { name: 'temperature', min: 10, max: 10, unit: null, count: 1 },
+    ]);
   });
 
   it('filters samples by selected sources and metric range', () => {

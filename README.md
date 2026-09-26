@@ -477,6 +477,51 @@ Le bouton **Mode démo** émet uniquement des JSON en coordonnées normalisées
 `100×100`, avec un rythme et un volume aléatoires, pour simuler des arrivées
 capteurs réelles.
 
+#### Pourquoi un espace entre les colonnes (`bar`) sur la grille 100×100 ?
+
+En mode `bar`, chaque colonne 3D est volontairement rendue à **72 %** de la
+taille de sa cellule de grille (`frontend/src/three/SensorLayer.tsx`,
+`footprint.widthCm * 0.72` / `footprint.depthCm * 0.72`), afin que les colonnes
+voisines restent visuellement séparées au lieu de former un bloc plein. Cet
+espacement est proportionnel à la résolution de grille (`mapGridResolution`,
+100 par défaut) : il ne disparaît pas en augmentant la résolution, mais les
+cellules — et donc l'espace visible entre les colonnes — deviennent plus
+petites.
+
+#### Pousser un échantillon en coordonnées GPS
+
+En plus des coordonnées normalisées `100×100`, l'API live accepte des
+échantillons en coordonnées GPS (`kind: "gps"`) via
+`POST /api/cad/projects/{project_id}/live/ingest` :
+
+```bash
+curl -X POST \
+  "http://localhost:8000/api/cad/projects/${PROJECT_ID}/live/ingest" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "samples": [
+      {
+        "sourceId": "capteur-gps-1",
+        "sourceLabel": "Entrée principale",
+        "timestampMs": 1717000000000,
+        "coordinate": {
+          "kind": "gps",
+          "lat": 48.858370,
+          "lon": 2.294481
+        },
+        "data": [
+          { "name": "affluence", "value": 42, "unit": "personnes" }
+        ]
+      }
+    ]
+  }'
+```
+
+Les coordonnées GPS sont automatiquement projetées sur la grille du magasin
+(bornes min/max calculées à partir de tous les échantillons `gps` reçus), donc
+elles peuvent être mélangées avec des échantillons `normalized` sur la même
+carte.
+
 ### Waypoint Placement Constraints
 
 | Type | Clearance rule |

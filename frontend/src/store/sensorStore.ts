@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { SensorLiveSettings, SensorSnapshot } from '../types/cad';
 
-export type SensorRenderMode = 'point' | 'heatmap' | 'grid' | 'bar';
+export type SensorRenderMode = 'point' | 'heatmap' | 'bar';
 export type SensorSocketStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 export const defaultSensorLiveSettings = (): SensorLiveSettings => ({

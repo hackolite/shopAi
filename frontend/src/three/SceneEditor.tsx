@@ -1821,9 +1821,15 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         }
       : undefined
   ), [scene?.store]);
-  const fillOpacity = mounted
-    ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
-    : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
+  // Zones imported with an explicit full opacity (e.g. OSM buildings) are
+  // solid volumes: their walls must render as opaque, full-strength colors
+  // instead of washed-out/transparent ones, even when hovered or selected.
+  const isSolidWall = mounted && baseOpacity >= 0.99;
+  const fillOpacity = isSolidWall
+    ? 1
+    : mounted
+      ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
+      : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
   const extrudedGeometry = useMemo(
     () => (mounted
@@ -2004,8 +2010,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             <primitive object={extrudedGeometry} attach="geometry" />
             <meshStandardMaterial
               color={fillColor}
-              transparent
-              opacity={Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
+              transparent={!isSolidWall}
+              opacity={isSolidWall ? 1 : Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
               roughness={0.85}
               metalness={0.05}
             />

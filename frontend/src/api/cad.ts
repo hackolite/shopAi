@@ -11,6 +11,8 @@ import type {
   ProjectMeta,
   ProjectSettings,
   Scene,
+  SensorSampleInput,
+  SensorSnapshot,
   SimulationAnalytics,
   SimulationConfig,
   LiveSimulationResponse,
@@ -38,6 +40,13 @@ export interface LlmAssistantStatus {
   reachable: boolean;
   status: 'ready' | 'missing' | 'unreachable' | 'error';
   message: string;
+}
+
+export interface SensorLiveIngestResponse {
+  inserted: number;
+  purged: number;
+  retentionSeconds: number;
+  snapshot: SensorSnapshot;
 }
 
 export type AssistantCategory =
@@ -251,6 +260,25 @@ export const cadApi = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+  getLiveSensorSnapshot: (id: string) =>
+    request<SensorSnapshot>(`${BASE}/${id}/live/snapshot`),
+  getLiveSensorMetrics: (id: string) =>
+    request<Pick<SensorSnapshot, 'metrics' | 'sources' | 'sourceLabels' | 'coordinateKinds' | 'retentionSeconds'>>(
+      `${BASE}/${id}/live/metrics`,
+    ),
+  ingestLiveSensorSamples: (id: string, samples: SensorSampleInput[]) =>
+    request<SensorLiveIngestResponse>(`${BASE}/${id}/live/ingest`, {
+      method: 'POST',
+      body: JSON.stringify({ samples }),
+    }),
+  clearLiveSensorSamples: (id: string) =>
+    request<{ deleted: number; projectId: string }>(`${BASE}/${id}/live/samples`, {
+      method: 'DELETE',
+    }),
+  liveSensorWebSocketUrl: (id: string) => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}${BASE}/${id}/live/ws`;
+  },
   runSimulation: (id: string, scene: Scene, config: SimulationConfig) =>
     request<SimulationResult>(`${BASE}/${id}/simulation/run`, {
       method: 'POST',

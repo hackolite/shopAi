@@ -19,6 +19,8 @@ import type { ActiveTool } from '../store/uiStore';
 import type { FurnitureInstance, StoreConfig } from '../types/cad';
 import { SimulationLayer } from './SimulationLayer';
 import { JourneyMetricsHud } from './JourneyMetricsHud';
+import { SensorLayer } from './SensorLayer';
+import { SensorSelectionHud } from './SensorSelectionHud';
 import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
@@ -3512,6 +3514,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
           isSelected={storeBoundarySelected}
           onSelect={handleSelectBoundary}
         />
+        <SensorLayer />
         <SimulationLayer setSceneNavigationDragging={setIsResizeDragging} />
         <FloorZoneLayer />
         <PolygonDraftTool store={scene.store} />
@@ -3753,6 +3756,7 @@ function SceneEditor({ projectId }: { projectId: string | null }) {
           <Suspense fallback={null}>
             <SceneContent projectId={projectId} />
             <JourneyMetricsHud />
+            <SensorSelectionHud />
             <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
               <GizmoViewport axisColors={['#e84545', '#52b788', '#4a9eff']} />
             </GizmoHelper>

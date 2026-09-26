@@ -185,6 +185,30 @@ def ensure_platform_schema() -> None:
                 FOREIGN KEY (owner_user_id) REFERENCES users(id)
             );
 
+            CREATE TABLE IF NOT EXISTS sensor_live_buffers (
+                project_id TEXT PRIMARY KEY,
+                retention_seconds INTEGER NOT NULL DEFAULT 300,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS sensor_live_samples (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                source_label TEXT,
+                timestamp_ms INTEGER NOT NULL,
+                coordinate_kind TEXT NOT NULL,
+                normalized_x REAL,
+                normalized_y REAL,
+                latitude REAL,
+                longitude REAL,
+                metrics_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_sensor_live_samples_project_time
+            ON sensor_live_samples(project_id, timestamp_ms);
+
             CREATE TABLE IF NOT EXISTS catalog_workspaces (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,

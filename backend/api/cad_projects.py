@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import re
@@ -7,7 +8,7 @@ import threading
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Body, Form, HTTPException, Request, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, StrictBool, StringConstraints
 
@@ -21,6 +22,8 @@ from models.project import (
     Product,
     ProjectSettings,
     SceneData,
+    SensorSampleInput,
+    SensorSnapshot,
     SimulationConfig,
     Store,
 )
@@ -36,6 +39,7 @@ from services import platform_service
 from services.retail_layout import build_retail_layout, split_retail_layout
 from services.simulation import SimulationConstraintViolation, run_flow_simulation
 from services.live_simulation import live_simulation_manager
+from services.live_sensor_manager import live_sensor_manager
 from services.pedestrian_import import parse_pedestrian_csv
 from services.pickup_planning import build_pickup_plans
 from services.studio_assistant import run_studio_assistant
@@ -156,6 +160,10 @@ class SimulationRunPayload(BaseModel):
 
 class SimulationLiveTickPayload(BaseModel):
     steps: int = 1
+
+
+class SensorLiveIngestPayload(BaseModel):
+    samples: list[SensorSampleInput]
 
 
 def _load_scene(project_id: str) -> SceneData:
@@ -814,6 +822,71 @@ def update_settings(project_id: str, payload: dict[str, Any] = Body(...)):
         settings = _merge_model(ProjectSettings, _load_settings(project_id), payload)
         _save_settings(project_id, settings)
     return settings.model_dump(mode="json")
+
+
+@router.get("/{project_id}/live/snapshot", response_model=SensorSnapshot)
+def get_live_sensor_snapshot(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
+    return live_sensor_manager.get_snapshot(project_id)
+
+
+@router.get("/{project_id}/live/metrics")
+def get_live_sensor_metrics(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
+    snapshot = live_sensor_manager.get_snapshot(project_id)
+    return {
+        "metrics": snapshot.metrics,
+        "sources": snapshot.sources,
+        "sourceLabels": snapshot.sourceLabels,
+        "coordinateKinds": snapshot.coordinateKinds,
+        "retentionSeconds": snapshot.retentionSeconds,
+    }
+
+
+@router.post("/{project_id}/live/ingest")
+def ingest_live_sensor_samples(project_id: str, payload: SensorLiveIngestPayload):
+    platform_service.require_current_user_project_access(project_id)
+    if not payload.samples:
+        raise HTTPException(status_code=422, detail="At least one live sensor sample is required")
+    return live_sensor_manager.ingest(project_id, payload.samples)
+
+
+@router.delete("/{project_id}/live/samples")
+def clear_live_sensor_samples(project_id: str):
+    platform_service.require_current_user_project_access(project_id)
+    return live_sensor_manager.clear(project_id)
+
+
+@router.websocket("/{project_id}/live/ws")
+async def live_sensor_websocket(project_id: str, websocket: WebSocket):
+    if not load_project_file(project_id, "project.json"):
+        await websocket.close(code=4404, reason="Unknown project")
+        return
+    await websocket.accept()
+    event_state = live_sensor_manager.get_event_state(project_id)
+    snapshot = live_sensor_manager.get_snapshot(project_id)
+    await websocket.send_json({
+        "type": "snapshot",
+        "reason": event_state["reason"],
+        "version": event_state["version"],
+        "payload": snapshot.model_dump(mode="json"),
+    })
+    last_version = int(event_state["version"])
+    try:
+        while True:
+            await asyncio.sleep(0.35)
+            event_state = live_sensor_manager.get_event_state(project_id)
+            if int(event_state["version"]) != last_version:
+                snapshot = live_sensor_manager.get_snapshot(project_id)
+                await websocket.send_json({
+                    "type": "snapshot",
+                    "reason": event_state["reason"],
+                    "version": event_state["version"],
+                    "payload": snapshot.model_dump(mode="json"),
+                })
+                last_version = int(event_state["version"])
+    except WebSocketDisconnect:
+        return
 
 
 @router.post("/{project_id}/simulation/run")

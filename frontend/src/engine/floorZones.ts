@@ -298,8 +298,25 @@ function intervalOverlapLength(aMin: number, aMax: number, bMin: number, bMax: n
 }
 
 export function zoneBoundsOverlap(a: ZoneBoundsCm, b: ZoneBoundsCm, toleranceCm = 0.1): boolean {
+  /**
+   * Touching bounds are allowed by design (strict overlap only): callers get
+   * `true` only when both axes overlap by more than tolerance.
+   * This uses axis-aligned bounds (AABB), not exact polygon intersections.
+   */
   return intervalOverlapLength(a.minX, a.maxX, b.minX, b.maxX) > toleranceCm
     && intervalOverlapLength(a.minZ, a.maxZ, b.minZ, b.maxZ) > toleranceCm;
+}
+
+export function axisAlignedRectZonesOverlap(
+  a: Pick<FloorZone, 'x' | 'z' | 'width' | 'depth' | 'shape' | 'rotationDeg'>,
+  b: Pick<FloorZone, 'x' | 'z' | 'width' | 'depth' | 'shape' | 'rotationDeg'>,
+  toleranceCm = 0.1,
+): boolean {
+  if ((a.shape ?? 'rectangle') !== 'rectangle' || (b.shape ?? 'rectangle') !== 'rectangle') return false;
+  if (Math.abs(a.rotationDeg ?? 0) > 1e-6 || Math.abs(b.rotationDeg ?? 0) > 1e-6) return false;
+  const aBounds: ZoneBoundsCm = { minX: a.x, maxX: a.x + a.width, minZ: a.z, maxZ: a.z + a.depth };
+  const bBounds: ZoneBoundsCm = { minX: b.x, maxX: b.x + b.width, minZ: b.z, maxZ: b.z + b.depth };
+  return zoneBoundsOverlap(aBounds, bBounds, toleranceCm);
 }
 
 export function magnetiseZoneOriginCm(
@@ -324,23 +341,23 @@ export function magnetiseZoneOriginCm(
 
   const computeXCandidates = (moved: ZoneBoundsCm) => neighbourBounds.flatMap((other) => {
     const overlapZ = intervalOverlapLength(moved.minZ, moved.maxZ, other.minZ, other.maxZ);
-    if (overlapZ <= -tolerance) return [];
+    if (overlapZ <= tolerance) return [];
     const leftGap = other.minX - moved.maxX;
     const rightGap = moved.minX - other.maxX;
     return [
-      Math.abs(leftGap) <= thresholdCm ? leftGap : null,
-      Math.abs(rightGap) <= thresholdCm ? -rightGap : null,
+      leftGap >= -tolerance && leftGap <= thresholdCm ? leftGap : null,
+      rightGap >= -tolerance && rightGap <= thresholdCm ? -rightGap : null,
     ].filter((value): value is number => value != null);
   });
 
   const computeZCandidates = (moved: ZoneBoundsCm) => neighbourBounds.flatMap((other) => {
     const overlapX = intervalOverlapLength(moved.minX, moved.maxX, other.minX, other.maxX);
-    if (overlapX <= -tolerance) return [];
+    if (overlapX <= tolerance) return [];
     const topGap = other.minZ - moved.maxZ;
     const bottomGap = moved.minZ - other.maxZ;
     return [
-      Math.abs(topGap) <= thresholdCm ? topGap : null,
-      Math.abs(bottomGap) <= thresholdCm ? -bottomGap : null,
+      topGap >= -tolerance && topGap <= thresholdCm ? topGap : null,
+      bottomGap >= -tolerance && bottomGap <= thresholdCm ? -bottomGap : null,
     ].filter((value): value is number => value != null);
   });
 

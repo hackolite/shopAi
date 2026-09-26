@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  axisAlignedRectZonesOverlap,
   floorShapePlanePointCm,
   floorZoneValidationError,
   magnetiseZoneOriginCm,
@@ -149,9 +150,17 @@ describe('floorZones helpers', () => {
   it('snaps building bounds magnetically to neighbour bounds', () => {
     const moving = zone({ id: 'building-a', mounted: true, x: 0, z: 0, width: 100, depth: 100 });
     const fixed = zone({ id: 'building-b', mounted: true, x: 170, z: 0, width: 100, depth: 100 });
-    const snapped = magnetiseZoneOriginCm(moving, 95, 0, [fixed], 80);
+    const snapped = magnetiseZoneOriginCm(moving, 40, 0, [fixed], 80);
     expect(snapped.x).toBe(70);
     expect(snapped.z).toBe(0);
+  });
+
+  it('snaps vertically when approaching neighbour from top/bottom', () => {
+    const moving = zone({ id: 'building-a', mounted: true, x: 0, z: 0, width: 100, depth: 100 });
+    const fixed = zone({ id: 'building-b', mounted: true, x: 0, z: 170, width: 100, depth: 100 });
+    const snapped = magnetiseZoneOriginCm(moving, 0, 40, [fixed], 80);
+    expect(snapped.x).toBe(0);
+    expect(snapped.z).toBe(70);
   });
 
   it('flags strict overlap but allows touching bounds', () => {
@@ -160,5 +169,7 @@ describe('floorZones helpers', () => {
     const overlapping = zoneBoundsCm(zone({ x: 90, z: 0, width: 100, depth: 100 }));
     expect(zoneBoundsOverlap(first, touching)).toBe(false);
     expect(zoneBoundsOverlap(first, overlapping)).toBe(true);
+    expect(axisAlignedRectZonesOverlap(zone({ x: 0, z: 0, width: 100, depth: 100 }), zone({ x: 100, z: 0, width: 100, depth: 100 }))).toBe(false);
+    expect(axisAlignedRectZonesOverlap(zone({ x: 0, z: 0, width: 100, depth: 100 }), zone({ x: 95, z: 0, width: 100, depth: 100 }))).toBe(true);
   });
 });

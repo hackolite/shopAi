@@ -32,10 +32,9 @@ import {
 } from '../engine/gridSnap';
 import { canPlaceFurniture } from '../engine/furnitureCollision';
 import {
+  axisAlignedRectZonesOverlap,
   floorShapePlanePointCm,
   magnetiseZoneOriginCm,
-  zoneBoundsCm,
-  zoneBoundsOverlap,
   zoneCenterCm,
   zoneDisplayLabel,
   zoneHeightCm,
@@ -1821,6 +1820,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
   const mounted = zoneMounted(zone);
   const isBuildingZone = zoneIsLikelyBuilding(zone);
+  const isAxisAlignedRectBuilding = isBuildingZone && zoneShape(zone) === 'rectangle' && Math.abs(rotationDeg) < 1e-6;
   const whiteEdgeColor = mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
   const baseOpacity = zone.opacity ?? 0.32;
   const storeBounds = useMemo(() => (
@@ -1841,12 +1841,13 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const lineDepthTest = isSolidWall;
   const zoneLabel = zoneDisplayLabel(zone);
   const buildingNeighbours = useMemo(
-    () => zones.filter((other) => other.id !== zone.id && zoneIsLikelyBuilding(other)),
+    () => zones.filter((other) => (
+      other.id !== zone.id
+      && zoneIsLikelyBuilding(other)
+      && zoneShape(other) === 'rectangle'
+      && Math.abs(zoneRotationDeg(other)) < 1e-6
+    )),
     [zones, zone.id],
-  );
-  const buildingNeighbourBounds = useMemo(
-    () => buildingNeighbours.map((other) => zoneBoundsCm(other)),
-    [buildingNeighbours],
   );
   const fillOpacity = isSolidWall
     ? 1
@@ -1895,21 +1896,23 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
-        if (!isBuildingZone) {
+        if (!isAxisAlignedRectBuilding) {
           updateZone(moveZone(base, dx / CM_TO_UNIT, dz / CM_TO_UNIT));
           return;
         }
         const target = moveZone(base, dx / CM_TO_UNIT, dz / CM_TO_UNIT);
         const snapped = magnetiseZoneOriginCm(base, target.x, target.z, buildingNeighbours);
         const candidate = moveZone(base, snapped.x - base.x, snapped.z - base.z);
-        const candidateBounds = zoneBoundsCm(candidate);
-        const overlapsNeighbour = buildingNeighbourBounds.some((otherBounds) => zoneBoundsOverlap(candidateBounds, otherBounds));
+        const overlapsNeighbour = buildingNeighbours.some((other) => axisAlignedRectZonesOverlap(candidate, other));
         if (!overlapsNeighbour) {
           lastFreeZoneRef.current = candidate;
           updateZone(candidate);
           return;
         }
-        updateZone(lastFreeZoneRef.current);
+        const lastFree = lastFreeZoneRef.current;
+        if (Math.abs(curZoneRef.current.x - lastFree.x) > 1e-6 || Math.abs(curZoneRef.current.z - lastFree.z) > 1e-6) {
+          updateZone(lastFree);
+        }
       });
     };
 
@@ -1918,8 +1921,11 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       isDragging.current = false;
       setResizeDragging(false);
-      if (isBuildingZone) {
-        updateZone(lastFreeZoneRef.current);
+      if (isAxisAlignedRectBuilding) {
+        const lastFree = lastFreeZoneRef.current;
+        if (Math.abs(curZoneRef.current.x - lastFree.x) > 1e-6 || Math.abs(curZoneRef.current.z - lastFree.z) > 1e-6) {
+          updateZone(lastFree);
+        }
         return;
       }
       const cur = curZoneRef.current;
@@ -1947,9 +1953,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     dragPlane,
     updateZone,
     setResizeDragging,
-    isBuildingZone,
+    isAxisAlignedRectBuilding,
     buildingNeighbours,
-    buildingNeighbourBounds,
   ]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);

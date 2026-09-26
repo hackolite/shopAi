@@ -451,6 +451,27 @@ The simulation engine models customer foot traffic inside the store using an age
 - **Undo history**: simulation waypoint edits have their own undo stack (Ctrl/Cmd+Z in simulation context)
 - **Video recording**: on-screen labels use `TextSprite3D` (WebGL sprite) so they appear in `canvas.captureStream()` recordings
 
+### Live capteurs (démo) : pourquoi la map ne se colore pas ?
+
+Dans le panneau **Live capteurs**, le bouton **Mode démo** envoie bien des
+échantillons, mais la coloration visible dépend des réglages de rendu.
+
+Checklist rapide si vous ne voyez rien :
+
+1. Vérifier que **Échantillons > 0** et **Socket: connected**.
+2. Laisser **Afficher la couche 3D** activé.
+3. Dans **Rendu > Mode** :
+   - `point` affiche des marqueurs 3D (pas de nappe colorée au sol),
+   - `heatmap`, `grid` ou `bar` affichent une coloration/agrégation sur la carte.
+4. Vérifier que **Couleur** pointe vers une métrique (ex: `affluence`).
+5. Dans **Capteurs**, cliquer **Tous** (sinon tout peut être filtré).
+6. Dans **Filtres**, remettre **Min % = 0** et **Max % = 100** pour éviter un filtre
+   trop strict.
+
+En pratique, l'absence de coloration vient le plus souvent d'un mode `point`,
+d'une métrique non sélectionnée, d'une source décochée ou d'un filtre trop
+restrictif.
+
 ### Waypoint Placement Constraints
 
 | Type | Clearance rule |

@@ -17,15 +17,6 @@ export interface SensorMetricFilter {
   maxNormalized: number;
 }
 
-export interface AggregatedSensorCell {
-  key: string;
-  xCm: number;
-  zCm: number;
-  count: number;
-  colorValue: number | null;
-  heightValue: number | null;
-}
-
 export interface AggregatedSensorSector {
   key: string;
   col: number;
@@ -191,67 +182,6 @@ export function filterSensorSamples(
   });
 }
 
-export function aggregateSensorCells(
-  samples: SensorSampleRecord[],
-  store: StoreConfig,
-  snapshot: SensorSnapshot | null,
-  cellSizePercent: number,
-  colorMetric: string | null,
-  heightMetric: string | null,
-): AggregatedSensorCell[] {
-  const cellSizeCm = getSensorCellSizeCm(store, cellSizePercent);
-  const buckets = new Map<string, AggregatedSensorCell & {
-    colorSum: number;
-    colorCount: number;
-    heightSum: number;
-    heightCount: number;
-  }>();
-
-  for (const sample of samples) {
-    const point = projectSensorSample(sample, store, snapshot);
-    const col = Math.max(0, Math.floor(point.xCm / cellSizeCm));
-    const row = Math.max(0, Math.floor(point.zCm / cellSizeCm));
-    const key = `${col}:${row}`;
-    const existing = buckets.get(key) ?? {
-      key,
-      xCm: col * cellSizeCm + cellSizeCm / 2,
-      zCm: row * cellSizeCm + cellSizeCm / 2,
-      count: 0,
-      colorValue: null,
-      heightValue: null,
-      colorSum: 0,
-      colorCount: 0,
-      heightSum: 0,
-      heightCount: 0,
-    };
-    existing.count += 1;
-    const colorValue = getMetricValue(sample, colorMetric);
-    const heightValue = getMetricValue(sample, heightMetric);
-    if (colorValue != null) {
-     existing.colorSum += colorValue;
-     existing.colorCount += 1;
-    }
-    if (heightValue != null) {
-     existing.heightSum += heightValue;
-     existing.heightCount += 1;
-    }
-    existing.colorValue = existing.colorCount ? existing.colorSum / existing.colorCount : null;
-    existing.heightValue = existing.heightCount ? existing.heightSum / existing.heightCount : null;
-    buckets.set(key, existing);
-  }
-
-  return [...buckets.values()]
-    .sort((left, right) => left.key.localeCompare(right.key))
-    .map(({ key, xCm, zCm, count, colorValue, heightValue }) => ({
-      key,
-      xCm,
-      zCm,
-      count,
-      colorValue,
-      heightValue,
-    }));
-}
-
 export function aggregateSensorSectors(
   samples: SensorSampleRecord[],
   snapshot: SensorSnapshot | null,
@@ -317,9 +247,44 @@ export function aggregateSensorSectors(
     }));
 }
 
-export function getSensorCellSizeCm(store: StoreConfig, cellSizePercent: number): number {
-  const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
-  return Math.max(50, (cellSizePercent / 100) * minSideCm);
+/**
+ * Merges freshly aggregated sensor sectors into a residual baseline so that a sector
+ * which already received data keeps displaying its last known average instead of
+ * disappearing when the live buffer momentarily has no sample for it. Sectors that
+ * never received any data are never added: "if it has no data, nothing is shown".
+ */
+export function mergeResidualSensorSectors(
+  previous: AggregatedSensorSector[],
+  next: AggregatedSensorSector[],
+): AggregatedSensorSector[] {
+  const merged = new Map<string, AggregatedSensorSector>();
+  for (const sector of previous) {
+    merged.set(sector.key, sector);
+  }
+  for (const sector of next) {
+    const existing = merged.get(sector.key);
+    merged.set(sector.key, {
+      ...sector,
+      colorValue: sector.colorValue ?? existing?.colorValue ?? null,
+      heightValue: sector.heightValue ?? existing?.heightValue ?? null,
+      count: sector.count || existing?.count || 0,
+    });
+  }
+  return [...merged.values()].sort((left, right) => (left.row - right.row) || (left.col - right.col));
+}
+
+export function sensorSectorFootprintCm(
+  sector: Pick<AggregatedSensorSector, 'centerX' | 'centerY'>,
+  gridResolution: number,
+  store: StoreConfig,
+): { xCm: number; zCm: number; widthCm: number; depthCm: number } {
+  const resolvedGridResolution = Math.max(1, Math.min(300, Math.round(gridResolution)));
+  return {
+    xCm: (sector.centerX / 100) * store.dimensions.width,
+    zCm: (sector.centerY / 100) * store.dimensions.depth,
+    widthCm: store.dimensions.width / resolvedGridResolution,
+    depthCm: store.dimensions.depth / resolvedGridResolution,
+  };
 }
 
 export function reconcileProgressiveSensorReveal(

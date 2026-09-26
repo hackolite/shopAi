@@ -103,6 +103,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     socketStatus,
     colorMetric,
     heightMetric,
+    colorMetricBounds,
     selectedSourceIds,
     filterMetric,
     filterMinNormalized,
@@ -119,6 +120,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setSocketStatus,
     setColorMetric,
     setHeightMetric,
+    setColorMetricBounds,
     toggleSource,
     setAllSources,
     setFilterMetric,
@@ -470,6 +472,41 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             Mode fixe: barres 3D par secteur (grille "Vue 2D live" ci-dessous), hauteur/couleur issues des moyennes du tampon courant. La largeur des barres suit toujours la même grille en pourcentage du magasin, compatible coordonnées GPS ou normalisées.
           </div>
           <SelectField label="Couleur" value={colorMetric} options={metricNames} onChange={setColorMetric} />
+          {colorMetric && (
+            <div className="space-y-2 rounded border border-gray-800 bg-gray-900/50 p-2">
+              <div className="flex items-center justify-between text-[11px] text-gray-300">
+                <span className="text-gray-500">Bornage couleur ({colorMetric})</span>
+                <button
+                  type="button"
+                  className="text-cyan-300 hover:text-cyan-200"
+                  onClick={() => setColorMetricBounds(colorMetric, null)}
+                >
+                  Auto
+                </button>
+              </div>
+              <NumberField
+                label="Min couleur"
+                value={colorMetricBounds[colorMetric]?.min ?? statsByName.get(colorMetric)?.min ?? 0}
+                onChange={(value) => setColorMetricBounds(colorMetric, {
+                  min: value,
+                  max: colorMetricBounds[colorMetric]?.max ?? statsByName.get(colorMetric)?.max ?? value,
+                })}
+              />
+              <NumberField
+                label="Max couleur"
+                value={colorMetricBounds[colorMetric]?.max ?? statsByName.get(colorMetric)?.max ?? 0}
+                onChange={(value) => setColorMetricBounds(colorMetric, {
+                  min: colorMetricBounds[colorMetric]?.min ?? statsByName.get(colorMetric)?.min ?? value,
+                  max: value,
+                })}
+              />
+              <div className="text-[11px] text-gray-500">
+                {colorMetricBounds[colorMetric]
+                  ? 'Bornage manuel actif — utilisé uniquement pour la couleur, jamais pour la hauteur des barres.'
+                  : 'Auto: min/max du tampon live. La hauteur des barres reste toujours sur ce mode auto et peut dépasser "Bar max cm".'}
+              </div>
+            </div>
+          )}
           <SelectField label="Hauteur" value={heightMetric} options={metricNames} onChange={setHeightMetric} />
           <SelectField
             label="Gamme"
@@ -512,8 +549,12 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
               })}
               {mapSectors.map((sector) => {
                 const sectorSize = 100 / mapGridResolution;
-                const normalizedColor = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''));
-                const normalizedHeight = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''));
+                const normalizedColor = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''), {
+                  bounds: colorMetric ? colorMetricBounds[colorMetric] : undefined,
+                });
+                const normalizedHeight = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''), {
+                  clampUpper: false,
+                });
                 const barHeight = Math.max(0, normalizedHeight * sectorSize * 0.85);
                 const sectorFill = sector.colorValue == null ? '#1f2937' : sensorColor(normalizedColor, colorRamp);
                 const sectorFillOpacity = sector.colorValue == null ? 0.18 : 0.2 + normalizedColor * 0.75;

@@ -20,6 +20,7 @@ export function SensorLayer() {
     snapshot,
     colorMetric,
     heightMetric,
+    colorMetricBounds,
     selectedSourceIds,
     filterMetric,
     filterMinNormalized,
@@ -77,15 +78,23 @@ export function SensorLayer() {
   }, [snapshot, visibleSampleIds]);
 
   const filteredSamples = useMemo(
+    // `visibleSnapshot` only restricts which samples are progressively revealed;
+    // the metric filter's min/max normalization must still come from the full
+    // snapshot (every sample of that metric across the whole map), so `snapshot`
+    // is passed as the stats source explicitly.
     () => filterSensorSamples(visibleSnapshot, selectedSourceIds, {
       metricName: filterMetric,
       minNormalized: filterMinNormalized,
       maxNormalized: filterMaxNormalized,
-    }),
-    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, visibleSnapshot],
+    }, snapshot),
+    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, snapshot, visibleSnapshot],
   );
 
-  const statsByName = useMemo(() => metricStatsByName(visibleSnapshot), [visibleSnapshot]);
+  // Color/height normalization must use the min/max of every sample of that metric
+  // across the whole map (the full snapshot), not just the progressively-revealed
+  // subset in `visibleSnapshot` — otherwise bar colors/heights would keep rescaling
+  // as more sensors get revealed instead of reflecting a stable, map-wide range.
+  const statsByName = useMemo(() => metricStatsByName(snapshot), [snapshot]);
 
   const aggregatedSectors = useMemo(() => {
     if (!scene || !showLayer || !isLiveTabActive) return [];
@@ -103,8 +112,17 @@ export function SensorLayer() {
   return (
     <group>
     {aggregatedSectors.map((sector) => {
-      const colorValue = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''));
-      const heightValue = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''));
+      // Color is normalized against the manual bounds for `colorMetric` when set
+      // (stable, user-controlled scale), falling back to the live min/max otherwise.
+      // Height never uses those manual bounds and is never clamped upper: it always
+      // scales against the live min/max and can grow past `barMaxHeightCm` if a
+      // sample ever exceeds it, instead of being visually capped.
+      const colorValue = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''), {
+        bounds: colorMetric ? colorMetricBounds[colorMetric] : undefined,
+      });
+      const heightValue = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''), {
+        clampUpper: false,
+      });
       const heightCm = 20 + heightValue * barMaxHeightCm;
       // Sector footprint is derived from the shared grid resolution as a percentage of
       // the store bounds, the same coordinate-kind-agnostic projection used for GPS and

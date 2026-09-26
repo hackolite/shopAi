@@ -110,7 +110,7 @@ describe('SensorPanel', () => {
     expect(getLiveSensorSnapshot).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      vi.advanceTimersByTime(6_000);
+      vi.advanceTimersByTime(4_000);
       await flushPromises();
     });
 

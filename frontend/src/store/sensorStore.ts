@@ -6,11 +6,11 @@ export type SensorColorRampName = 'yellow-red' | 'blue-red' | 'green-red' | 'cya
 
 export const DEFAULT_DEMO_SENSOR_COUNT = 100;
 export const MIN_DEMO_SENSOR_COUNT = 4;
-export const MAX_DEMO_SENSOR_COUNT = 500;
+export const MAX_DEMO_SENSOR_COUNT = 1000;
 
 export const defaultSensorLiveSettings = (): SensorLiveSettings => ({
   bufferSeconds: 300,
-  updateIntervalSeconds: 2,
+  updateIntervalSeconds: 1,
 });
 
 interface SensorState {
@@ -20,7 +20,10 @@ interface SensorState {
   colorMetric: string | null;
   heightMetric: string | null;
   selectedSourceIds: string[];
-  sourceSelectionTouched: boolean;
+  /** Sources the user explicitly hid via toggleSource/setAllSources(false). Any source
+   * not in this set is visible by default, including newly discovered ones, so that
+   * live sensors stay visible as soon as they are found unless a person hides them. */
+  excludedSourceIds: string[];
   filterMetric: string | null;
   filterMinNormalized: number;
   filterMaxNormalized: number;
@@ -67,7 +70,7 @@ const baseState = {
   colorMetric: null,
   heightMetric: null,
   selectedSourceIds: [] as string[],
-  sourceSelectionTouched: false,
+  excludedSourceIds: [] as string[],
   filterMetric: null,
   filterMinNormalized: 0,
   filterMaxNormalized: 1,
@@ -90,32 +93,39 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     const current = get();
     const metricNames = snapshot?.metrics.map((metric) => metric.name) ?? [];
     const sourceIds = snapshot?.sources ?? [];
-    const sourceSelectionTouched = sourceIds.length > 0 ? current.sourceSelectionTouched : false;
-    const selectedSourceIds = sourceSelectionTouched
-      ? current.selectedSourceIds.filter((sourceId) => sourceIds.includes(sourceId))
-      : sourceIds;
+    // Prune excluded ids that no longer exist so a source id can never stay hidden
+    // forever after disappearing and later being reused for a different sensor.
+    const excludedSourceIds = current.excludedSourceIds.filter((sourceId) => sourceIds.includes(sourceId));
+    const selectedSourceIds = sourceIds.filter((sourceId) => !excludedSourceIds.includes(sourceId));
     set({
       snapshot,
       colorMetric: metricNames.includes(current.colorMetric ?? '') ? current.colorMetric : (metricNames[0] ?? null),
       heightMetric: metricNames.includes(current.heightMetric ?? '') ? current.heightMetric : (metricNames[1] ?? metricNames[0] ?? null),
       filterMetric: metricNames.includes(current.filterMetric ?? '') ? current.filterMetric : (metricNames[0] ?? null),
       selectedSourceIds,
-      sourceSelectionTouched,
+      excludedSourceIds,
     });
   },
   setSocketStatus: (socketStatus) => set({ socketStatus }),
   setColorMetric: (colorMetric) => set({ colorMetric }),
   setHeightMetric: (heightMetric) => set({ heightMetric }),
-  toggleSource: (sourceId) => set((state) => ({
-    selectedSourceIds: state.selectedSourceIds.includes(sourceId)
-      ? state.selectedSourceIds.filter((item) => item !== sourceId)
-      : [...state.selectedSourceIds, sourceId],
-    sourceSelectionTouched: true,
-  })),
-  setAllSources: (selected) => set((state) => ({
-    selectedSourceIds: selected ? (state.snapshot?.sources ?? []) : [],
-    sourceSelectionTouched: true,
-  })),
+  toggleSource: (sourceId) => set((state) => {
+    const sourceIds = state.snapshot?.sources ?? [];
+    const excludedSourceIds = state.excludedSourceIds.includes(sourceId)
+      ? state.excludedSourceIds.filter((item) => item !== sourceId)
+      : [...state.excludedSourceIds, sourceId];
+    return {
+      excludedSourceIds,
+      selectedSourceIds: sourceIds.filter((id) => !excludedSourceIds.includes(id)),
+    };
+  }),
+  setAllSources: (selected) => set((state) => {
+    const sourceIds = state.snapshot?.sources ?? [];
+    return {
+      excludedSourceIds: selected ? [] : sourceIds,
+      selectedSourceIds: selected ? sourceIds : [],
+    };
+  }),
   setFilterMetric: (filterMetric) => set({ filterMetric }),
   setFilterRange: (filterMinNormalized, filterMaxNormalized) => set({
     filterMinNormalized,

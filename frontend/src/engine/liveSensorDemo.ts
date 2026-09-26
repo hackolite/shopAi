@@ -75,31 +75,36 @@ const DEMO_SENSOR_TYPES: DemoSensorType[] = [
   },
 ];
 
+// Anchors are spread across roughly 80% of the map span (from 10% to 90% on each
+// axis) so the hand-placed demo zones cover most of the store instead of clustering
+// near the center.
 const DEMO_SENSOR_ANCHORS: DemoSensorAnchor[] = [
-  { id: 'north-west', label: 'Nord-Ouest', x: 12, y: 16 },
-  { id: 'north-mid', label: 'Nord-Centre', x: 34, y: 18 },
-  { id: 'north-east', label: 'Nord-Est', x: 82, y: 15 },
-  { id: 'west-mid', label: 'Ouest-Centre', x: 16, y: 42 },
+  { id: 'north-west', label: 'Nord-Ouest', x: 10, y: 10 },
+  { id: 'north-mid', label: 'Nord-Centre', x: 34, y: 12 },
+  { id: 'north-east', label: 'Nord-Est', x: 90, y: 10 },
+  { id: 'west-mid', label: 'Ouest-Centre', x: 12, y: 42 },
   { id: 'center-a', label: 'Centre A', x: 36, y: 48 },
   { id: 'center-b', label: 'Centre B', x: 58, y: 44 },
-  { id: 'east-mid', label: 'Est-Centre', x: 84, y: 40 },
-  { id: 'south-west', label: 'Sud-Ouest', x: 18, y: 74 },
-  { id: 'south-mid', label: 'Sud-Centre', x: 44, y: 76 },
-  { id: 'south-east', label: 'Sud-Est', x: 82, y: 78 },
-  { id: 'checkout-lane', label: 'Caisses', x: 66, y: 62 },
-  { id: 'promo-island', label: 'Îlot promo', x: 52, y: 28 },
+  { id: 'east-mid', label: 'Est-Centre', x: 90, y: 40 },
+  { id: 'south-west', label: 'Sud-Ouest', x: 10, y: 90 },
+  { id: 'south-mid', label: 'Sud-Centre', x: 44, y: 88 },
+  { id: 'south-east', label: 'Sud-Est', x: 90, y: 90 },
+  { id: 'checkout-lane', label: 'Caisses', x: 72, y: 68 },
+  { id: 'promo-island', label: 'Îlot promo', x: 52, y: 22 },
 ];
 
 /** Default number of simulated demo sensors: a hundred gives a dense, realistic grid. */
 export const DEFAULT_DEMO_SENSOR_COUNT = 100;
 export const MIN_DEMO_SENSOR_COUNT = 4;
-export const MAX_DEMO_SENSOR_COUNT = 500;
+/** Maximum number of demo sensors: up to a thousand for a very dense, city-scale grid. */
+export const MAX_DEMO_SENSOR_COUNT = 1000;
 
 /**
  * Builds `count` sensor anchor points spread across the store. The first anchors reuse
  * the hand-placed named zones for readable labels; any extra anchors needed to reach
- * `count` are distributed on a jittered grid so the demo can simulate up to a few
- * hundred sensors instead of a fixed dozen.
+ * `count` are distributed on a jittered grid covering roughly 80% of the map (from 10%
+ * to 90% on each axis) so the demo can simulate up to a thousand sensors instead of a
+ * fixed dozen while still keeping a wide, even spatial repartition.
  */
 function buildDemoAnchors(count: number, random: () => number): DemoSensorAnchor[] {
   const safeCount = Math.max(1, Math.round(count));
@@ -113,10 +118,10 @@ function buildDemoAnchors(count: number, random: () => number): DemoSensorAnchor
   for (let index = 0; index < remaining; index += 1) {
     const col = index % columns;
     const row = Math.floor(index / columns);
-    const cellWidth = 88 / columns;
-    const cellHeight = 88 / rows;
-    const baseX = 6 + (col + 0.5) * cellWidth;
-    const baseY = 6 + (row + 0.5) * cellHeight;
+    const cellWidth = 80 / columns;
+    const cellHeight = 80 / rows;
+    const baseX = 10 + (col + 0.5) * cellWidth;
+    const baseY = 10 + (row + 0.5) * cellHeight;
     const jitterX = (random() - 0.5) * cellWidth * 0.5;
     const jitterY = (random() - 0.5) * cellHeight * 0.5;
     anchors.push({

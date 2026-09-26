@@ -122,7 +122,7 @@ function buildSensorMetrics(
   random: () => number,
 ): SensorMetricValue[] {
   const { metrics, phase } = definition;
-  return [
+  const allMetrics: SensorMetricValue[] = [
     {
       name: 'temperature',
       value: randomMetricValue(
@@ -172,6 +172,8 @@ function buildSensorMetrics(
       unit: '%',
     },
   ];
+  const randomized = shuffle(allMetrics, random).filter(() => random() >= 0.35);
+  return randomized.length > 0 ? randomized : [allMetrics[randomInt(0, allMetrics.length - 1, random)]];
 }
 
 export function createDemoSensorDefinitions(random: () => number = Math.random): DemoSensorDefinition[] {
@@ -200,8 +202,7 @@ export function buildDemoSamples(
   const random = options?.random ?? Math.random;
   const nowMs = options?.nowMs ?? Date.now();
   if (definitions.length === 0) return [];
-  const emissionCount = randomInt(1, Math.min(4, definitions.length), random);
-  const selectedDefinitions = shuffle(definitions, random).slice(0, emissionCount);
+  const selectedDefinitions = shuffle(definitions, random).slice(0, 1);
   return selectedDefinitions.map((definition, index) => ({
     sourceId: definition.sourceId,
     sourceLabel: definition.sourceLabel,

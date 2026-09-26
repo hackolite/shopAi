@@ -360,7 +360,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             onChange={(updateIntervalSeconds) => setSettings({ ...settings, updateIntervalSeconds })}
           />
           <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
-            Démo: envoi batché via REST puis push WebSocket environ toutes les {settings.updateIntervalSeconds.toFixed(1)}s.
+            Démo: envoi live (1 échantillon à la fois) via REST puis push WebSocket environ toutes les {settings.updateIntervalSeconds.toFixed(1)}s.
           </div>
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Afficher la couche 3D</span>
@@ -391,7 +391,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             <span>{COLOR_RAMP_OPTIONS.find((option) => option.value === colorRamp)?.label ?? colorRamp}</span>
           </div>
           <NumberField label="Opacité" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} />
-          <NumberField label="Largeur bar %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
+          <NumberField label="Largeur barres 3D %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
           <NumberField label="Bar max cm" value={barMaxHeightCm} min={50} max={1500} step={25} onChange={setBarMaxHeightCm} />
         </section>
 

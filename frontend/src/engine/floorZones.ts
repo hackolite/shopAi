@@ -240,3 +240,132 @@ export function zoneOutlinePointsCm(zone: FloorZone, options?: StoreBoundsOption
 export function zoneSupportsResizeHandles(zone: FloorZone): boolean {
   return zoneShape(zone) !== 'polygon' && Math.abs(zoneRotationDeg(zone)) < 1e-6;
 }
+
+export function zoneIsLikelyBuilding(
+  zone: Pick<FloorZone, 'id' | 'type' | 'mounted' | 'source'>,
+): boolean {
+  if (zone.mounted !== true || zone.type !== 'forbidden') return false;
+  if (zone.source?.isLikelyBuilding === true) return true;
+  if ((zone.source?.building ?? '').trim().length > 0) return true;
+  if (zone.id.startsWith('building-')) return true;
+  return false;
+}
+
+export function zoneDisplayLabel(zone: Pick<FloorZone, 'label' | 'source'>): string {
+  const tags = zone.source?.tags;
+  const sourceName = [
+    tags?.name,
+    zone.source?.name,
+    tags?.official_name,
+    tags?.alt_name,
+    tags?.ref,
+  ]
+    .map((value) => value?.trim())
+    .find((value): value is string => Boolean(value));
+  return sourceName ?? zone.label;
+}
+
+export interface ZoneBoundsCm {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+export function zoneBoundsCm(zone: FloorZone): ZoneBoundsCm {
+  const outline = zoneOutlinePointsCm(zone);
+  const xs = outline.map((point) => point.x);
+  const zs = outline.map((point) => point.z);
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minZ: Math.min(...zs),
+    maxZ: Math.max(...zs),
+  };
+}
+
+function translateBounds(bounds: ZoneBoundsCm, dxCm: number, dzCm: number): ZoneBoundsCm {
+  return {
+    minX: bounds.minX + dxCm,
+    maxX: bounds.maxX + dxCm,
+    minZ: bounds.minZ + dzCm,
+    maxZ: bounds.maxZ + dzCm,
+  };
+}
+
+function intervalOverlapLength(aMin: number, aMax: number, bMin: number, bMax: number): number {
+  return Math.min(aMax, bMax) - Math.max(aMin, bMin);
+}
+
+export function zoneBoundsOverlap(a: ZoneBoundsCm, b: ZoneBoundsCm, toleranceCm = 0.1): boolean {
+  /**
+   * Touching bounds are allowed by design (strict overlap only): callers get
+   * `true` only when both axes overlap by more than tolerance.
+   * This uses axis-aligned bounds (AABB), not exact polygon intersections.
+   */
+  return intervalOverlapLength(a.minX, a.maxX, b.minX, b.maxX) > toleranceCm
+    && intervalOverlapLength(a.minZ, a.maxZ, b.minZ, b.maxZ) > toleranceCm;
+}
+
+export function axisAlignedRectZonesOverlap(
+  a: Pick<FloorZone, 'x' | 'z' | 'width' | 'depth' | 'shape' | 'rotationDeg'>,
+  b: Pick<FloorZone, 'x' | 'z' | 'width' | 'depth' | 'shape' | 'rotationDeg'>,
+  toleranceCm = 0.1,
+): boolean {
+  if ((a.shape ?? 'rectangle') !== 'rectangle' || (b.shape ?? 'rectangle') !== 'rectangle') return false;
+  if (Math.abs(a.rotationDeg ?? 0) > 1e-6 || Math.abs(b.rotationDeg ?? 0) > 1e-6) return false;
+  const aBounds: ZoneBoundsCm = { minX: a.x, maxX: a.x + a.width, minZ: a.z, maxZ: a.z + a.depth };
+  const bBounds: ZoneBoundsCm = { minX: b.x, maxX: b.x + b.width, minZ: b.z, maxZ: b.z + b.depth };
+  return zoneBoundsOverlap(aBounds, bBounds, toleranceCm);
+}
+
+export function magnetiseZoneOriginCm(
+  zone: FloorZone,
+  targetXCm: number,
+  targetZCm: number,
+  neighbours: FloorZone[],
+  thresholdCm = 60,
+): { x: number; z: number } {
+  const ownBaseBounds = zoneBoundsCm(zone);
+  const neighbourBounds = neighbours
+    .filter((other) => other.id !== zone.id)
+    .map((other) => zoneBoundsCm(other));
+  const tolerance = 0.1;
+
+  const pickNearest = (values: number[]) => (
+    values.reduce<number | null>((best, current) => {
+      if (best == null) return current;
+      return Math.abs(current) < Math.abs(best) ? current : best;
+    }, null) ?? 0
+  );
+
+  const computeXCandidates = (moved: ZoneBoundsCm) => neighbourBounds.flatMap((other) => {
+    const overlapZ = intervalOverlapLength(moved.minZ, moved.maxZ, other.minZ, other.maxZ);
+    if (overlapZ <= tolerance) return [];
+    const leftGap = other.minX - moved.maxX;
+    const rightGap = moved.minX - other.maxX;
+    return [
+      leftGap >= -tolerance && leftGap <= thresholdCm ? leftGap : null,
+      rightGap >= -tolerance && rightGap <= thresholdCm ? -rightGap : null,
+    ].filter((value): value is number => value != null);
+  });
+
+  const computeZCandidates = (moved: ZoneBoundsCm) => neighbourBounds.flatMap((other) => {
+    const overlapX = intervalOverlapLength(moved.minX, moved.maxX, other.minX, other.maxX);
+    if (overlapX <= tolerance) return [];
+    const topGap = other.minZ - moved.maxZ;
+    const bottomGap = moved.minZ - other.maxZ;
+    return [
+      topGap >= -tolerance && topGap <= thresholdCm ? topGap : null,
+      bottomGap >= -tolerance && bottomGap <= thresholdCm ? -bottomGap : null,
+    ].filter((value): value is number => value != null);
+  });
+
+  const baseMoved = translateBounds(ownBaseBounds, targetXCm - zone.x, targetZCm - zone.z);
+  const snapDx = pickNearest(computeXCandidates(baseMoved));
+  const xSnapped = targetXCm + snapDx;
+  const movedAfterX = translateBounds(ownBaseBounds, xSnapped - zone.x, targetZCm - zone.z);
+  const snapDz = pickNearest(computeZCandidates(movedAfterX));
+
+  return { x: xSnapped, z: targetZCm + snapDz };
+}

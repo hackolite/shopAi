@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  axisAlignedRectZonesOverlap,
   floorShapePlanePointCm,
   floorZoneValidationError,
+  magnetiseZoneOriginCm,
+  zoneBoundsCm,
+  zoneBoundsOverlap,
+  zoneDisplayLabel,
   zoneHeightCm,
+  zoneIsLikelyBuilding,
   zoneMounted,
   zoneOutlinePointsCm,
   zonePathMode,
@@ -118,5 +124,52 @@ describe('floorZones helpers', () => {
     expect(Math.max(...outline.map((point) => point.x))).toBeLessThanOrEqual(150);
     expect(Math.min(...outline.map((point) => point.z))).toBeGreaterThanOrEqual(0);
     expect(Math.max(...outline.map((point) => point.z))).toBeLessThanOrEqual(150);
+  });
+
+  it('detects mounted OSM-like building zones', () => {
+    expect(zoneIsLikelyBuilding(zone({
+      id: 'building-42',
+      mounted: true,
+      source: { isLikelyBuilding: true },
+    }))).toBe(true);
+    expect(zoneIsLikelyBuilding(zone({
+      id: 'zone-42',
+      mounted: false,
+      source: { isLikelyBuilding: true },
+    }))).toBe(false);
+  });
+
+  it('prefers OSM tag names for building labels when available', () => {
+    expect(zoneDisplayLabel(zone({
+      label: 'Bâtiment',
+      source: { tags: { name: 'Monoprix Bastille' } },
+    }))).toBe('Monoprix Bastille');
+    expect(zoneDisplayLabel(zone({ label: 'Zone fallback' }))).toBe('Zone fallback');
+  });
+
+  it('snaps building bounds magnetically to neighbour bounds', () => {
+    const moving = zone({ id: 'building-a', mounted: true, x: 0, z: 0, width: 100, depth: 100 });
+    const fixed = zone({ id: 'building-b', mounted: true, x: 170, z: 0, width: 100, depth: 100 });
+    const snapped = magnetiseZoneOriginCm(moving, 40, 0, [fixed], 80);
+    expect(snapped.x).toBe(70);
+    expect(snapped.z).toBe(0);
+  });
+
+  it('snaps vertically when approaching neighbour from top/bottom', () => {
+    const moving = zone({ id: 'building-a', mounted: true, x: 0, z: 0, width: 100, depth: 100 });
+    const fixed = zone({ id: 'building-b', mounted: true, x: 0, z: 170, width: 100, depth: 100 });
+    const snapped = magnetiseZoneOriginCm(moving, 0, 40, [fixed], 80);
+    expect(snapped.x).toBe(0);
+    expect(snapped.z).toBe(70);
+  });
+
+  it('flags strict overlap but allows touching bounds', () => {
+    const first = zoneBoundsCm(zone({ x: 0, z: 0, width: 100, depth: 100 }));
+    const touching = zoneBoundsCm(zone({ x: 100, z: 0, width: 100, depth: 100 }));
+    const overlapping = zoneBoundsCm(zone({ x: 90, z: 0, width: 100, depth: 100 }));
+    expect(zoneBoundsOverlap(first, touching)).toBe(false);
+    expect(zoneBoundsOverlap(first, overlapping)).toBe(true);
+    expect(axisAlignedRectZonesOverlap(zone({ x: 0, z: 0, width: 100, depth: 100 }), zone({ x: 100, z: 0, width: 100, depth: 100 }))).toBe(false);
+    expect(axisAlignedRectZonesOverlap(zone({ x: 0, z: 0, width: 100, depth: 100 }), zone({ x: 95, z: 0, width: 100, depth: 100 }))).toBe(true);
   });
 });

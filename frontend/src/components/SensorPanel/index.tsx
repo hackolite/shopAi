@@ -221,8 +221,14 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
         if (!closed) setError(cause instanceof Error ? cause.message : String(cause));
       }
     };
+    const stopSnapshotPoll = () => {
+      if (snapshotPollTimer !== null) {
+        window.clearTimeout(snapshotPollTimer);
+        snapshotPollTimer = null;
+      }
+    };
     const scheduleSnapshotPoll = () => {
-      if (closed) return;
+      if (closed || snapshotPollTimer !== null) return;
       snapshotPollTimer = window.setTimeout(async () => {
         snapshotPollTimer = null;
         await refreshSnapshot();
@@ -245,6 +251,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       }, sensorSocketConnectTimeoutMs(settings.updateIntervalSeconds));
       nextSocket.onopen = () => {
         clearConnectTimeout();
+        stopSnapshotPoll();
         if (!closed) setSocketStatus('connected');
         reconnectAttempt = 0;
       };
@@ -262,13 +269,15 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       nextSocket.onerror = () => {
         if (closed) return;
         setSocketStatus('error');
-        scheduleReconnect();
+        scheduleSnapshotPoll();
+        nextSocket.close();
       };
       nextSocket.onclose = () => {
         clearConnectTimeout();
         if (closed) return;
         if (socket === nextSocket) socket = null;
         setSocketStatus('disconnected');
+        scheduleSnapshotPoll();
         scheduleReconnect();
       };
     };
@@ -278,7 +287,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     return () => {
       closed = true;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      if (snapshotPollTimer !== null) window.clearTimeout(snapshotPollTimer);
+      stopSnapshotPoll();
       clearConnectTimeout();
       socket?.close();
       setSocketStatus('disconnected');

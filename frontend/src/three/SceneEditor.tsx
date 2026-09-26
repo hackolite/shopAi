@@ -33,8 +33,13 @@ import {
 import { canPlaceFurniture } from '../engine/furnitureCollision';
 import {
   floorShapePlanePointCm,
+  magnetiseZoneOriginCm,
+  zoneBoundsCm,
+  zoneBoundsOverlap,
   zoneCenterCm,
+  zoneDisplayLabel,
   zoneHeightCm,
+  zoneIsLikelyBuilding,
   zoneMounted,
   zoneOutlinePointsCm,
   zoneRotationDeg,
@@ -1792,7 +1797,7 @@ function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
 
 // ─── Floor zone mesh (movable) ────────────────────────────────────────────────
 function FloorZoneMesh({ zone }: { zone: FloorZone }) {
-  const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds } = useZoneStore();
+  const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds, zones } = useZoneStore();
   const { selectFurniture, scene } = useSceneStore();
   const { activeTool } = useUIStore();
   const { gl, raycaster, camera } = useThree();
@@ -1815,6 +1820,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const fillColor = zone.type === 'forbidden' ? (zone.color ?? palette.fill) : palette.fill;
   const borderColor = zone.type === 'forbidden' ? (zone.color ?? palette.border) : palette.border;
   const mounted = zoneMounted(zone);
+  const isBuildingZone = zoneIsLikelyBuilding(zone);
   const whiteEdgeColor = mounted && zone.type === 'forbidden' ? '#ffffff' : (isSelected ? '#ffffff' : borderColor);
   const baseOpacity = zone.opacity ?? 0.32;
   const storeBounds = useMemo(() => (
@@ -1830,8 +1836,18 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   // Zones imported with an explicit full opacity (e.g. OSM buildings) are
   // solid volumes: their walls must render as opaque, full-strength colors
   // instead of washed-out/transparent ones, even when hovered or selected.
-  // We also make sure all buildings (source.isLikelyBuilding === true) are solid/opaque.
-  const isSolidWall = mounted && (baseOpacity >= 0.99 || zone.source?.isLikelyBuilding === true);
+  // We also make sure all imported buildings are solid/opaque.
+  const isSolidWall = mounted && (baseOpacity >= 0.99 || isBuildingZone);
+  const lineDepthTest = isSolidWall;
+  const zoneLabel = zoneDisplayLabel(zone);
+  const buildingNeighbours = useMemo(
+    () => zones.filter((other) => other.id !== zone.id && zoneIsLikelyBuilding(other)),
+    [zones, zone.id],
+  );
+  const buildingNeighbourBounds = useMemo(
+    () => buildingNeighbours.map((other) => zoneBoundsCm(other)),
+    [buildingNeighbours],
+  );
   const fillOpacity = isSolidWall
     ? 1
     : mounted
@@ -1858,6 +1874,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const baseZoneRef  = useRef<FloorZone>(zone);
   const curZoneRef   = useRef<FloorZone>(zone);
   curZoneRef.current = zone;
+  const lastFreeZoneRef = useRef<FloorZone>(zone);
+  useEffect(() => {
+    lastFreeZoneRef.current = zone;
+  }, [zone]);
 
   const _ndc  = useRef(new THREE.Vector2());
   const _hit  = useRef(new THREE.Vector3());
@@ -1875,7 +1895,21 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, clientX, clientY, _ndc.current, _hit.current)) return;
         const dx = _hit.current.x - dragStart.current.x;
         const dz = _hit.current.z - dragStart.current.z;
-        updateZone(moveZone(base, dx / CM_TO_UNIT, dz / CM_TO_UNIT));
+        if (!isBuildingZone) {
+          updateZone(moveZone(base, dx / CM_TO_UNIT, dz / CM_TO_UNIT));
+          return;
+        }
+        const target = moveZone(base, dx / CM_TO_UNIT, dz / CM_TO_UNIT);
+        const snapped = magnetiseZoneOriginCm(base, target.x, target.z, buildingNeighbours);
+        const candidate = moveZone(base, snapped.x - base.x, snapped.z - base.z);
+        const candidateBounds = zoneBoundsCm(candidate);
+        const overlapsNeighbour = buildingNeighbourBounds.some((otherBounds) => zoneBoundsOverlap(candidateBounds, otherBounds));
+        if (!overlapsNeighbour) {
+          lastFreeZoneRef.current = candidate;
+          updateZone(candidate);
+          return;
+        }
+        updateZone(lastFreeZoneRef.current);
       });
     };
 
@@ -1884,6 +1918,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       isDragging.current = false;
       setResizeDragging(false);
+      if (isBuildingZone) {
+        updateZone(lastFreeZoneRef.current);
+        return;
+      }
       const cur = curZoneRef.current;
       const snappedX = snapToCell(cur.x, gridOriginRef.current.x);
       const snappedZ = snapToCell(cur.z, gridOriginRef.current.z);
@@ -1902,7 +1940,17 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       // cleared and OrbitControls doesn't stay disabled forever.
       onUp();
     };
-  }, [gl, raycaster, camera, dragPlane, updateZone, setResizeDragging]);
+  }, [
+    gl,
+    raycaster,
+    camera,
+    dragPlane,
+    updateZone,
+    setResizeDragging,
+    isBuildingZone,
+    buildingNeighbours,
+    buildingNeighbourBounds,
+  ]);
 
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
@@ -1918,6 +1966,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     selectFurniture(null);
     if (!getWorldHitPoint(gl, raycaster, camera, dragPlane, e.clientX, e.clientY, _ndc.current, dragStart.current)) return;
     baseZoneRef.current = curZoneRef.current;
+    lastFreeZoneRef.current = curZoneRef.current;
     isDragging.current  = true;
     // Freeze OrbitControls for the whole body-drag so the camera cannot
     // rotate/pan at the same time as the zone is being moved.
@@ -2061,7 +2110,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             points={topBorderPts}
             color={whiteEdgeColor}
             lineWidth={isSelected ? 3 : 2}
-            depthTest={false}
+            depthTest={lineDepthTest}
             renderOrder={2}
           />
           {verticalEdgePts.map((points, index) => (
@@ -2070,7 +2119,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
               points={points}
               color={whiteEdgeColor}
               lineWidth={isSelected ? 2.5 : 1.5}
-              depthTest={false}
+              depthTest={lineDepthTest}
               renderOrder={2}
             />
           ))}
@@ -2090,7 +2139,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         points={borderPts}
         color={whiteEdgeColor}
         lineWidth={isSelected ? 3 : 2}
-        depthTest={false}
+        depthTest={lineDepthTest}
         renderOrder={2}
       />
 
@@ -2099,7 +2148,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
 
       {/* Label — 3D sprite so it is captured by canvas.captureStream */}
       <TextSprite3D
-        text={zone.label}
+        text={zoneLabel}
         position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
         scale={1.2}
       />

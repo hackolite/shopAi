@@ -26,6 +26,11 @@ export interface AggregatedSensorCell {
   sizeValue: number | null;
 }
 
+export interface ProgressiveSensorRevealState {
+  visibleIds: string[];
+  pendingIds: string[];
+}
+
 export function metricStatsByName(snapshot: SensorSnapshot | null): Map<string, SensorMetricStats> {
   return new Map((snapshot?.metrics ?? []).map((metric) => [metric.name, metric]));
 }
@@ -159,4 +164,30 @@ export function aggregateSensorCells(
       heightValue,
       sizeValue,
     }));
+}
+
+export function reconcileProgressiveSensorReveal(
+  previousVisibleIds: string[],
+  previousPendingIds: string[],
+  samples: SensorSampleRecord[],
+): ProgressiveSensorRevealState {
+  const sampleIds = samples.map((sample) => sample.id);
+  const sampleIdSet = new Set(sampleIds);
+  const visibleIds = previousVisibleIds.filter((id) => sampleIdSet.has(id));
+  const visibleIdSet = new Set(visibleIds);
+  const pendingIds = previousPendingIds.filter((id) => sampleIdSet.has(id) && !visibleIdSet.has(id));
+  const queuedIds = new Set([...visibleIds, ...pendingIds]);
+  for (const sampleId of sampleIds) {
+    if (!queuedIds.has(sampleId)) {
+      pendingIds.push(sampleId);
+    }
+  }
+  return { visibleIds, pendingIds };
+}
+
+export function sensorRevealBatchSize(pendingCount: number): number {
+  if (pendingCount >= 120) return 6;
+  if (pendingCount >= 60) return 4;
+  if (pendingCount >= 24) return 2;
+  return 1;
 }

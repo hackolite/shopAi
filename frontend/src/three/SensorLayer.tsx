@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import {
@@ -8,6 +8,8 @@ import {
   metricStatsByName,
   normalizeMetricValue,
   projectSensorSample,
+  reconcileProgressiveSensorReveal,
+  sensorRevealBatchSize,
 } from '../engine/liveSensors';
 import { useSceneStore } from '../store/sceneStore';
 import { useSensorStore } from '../store/sensorStore';
@@ -35,14 +37,57 @@ export function SensorLayer() {
     barMaxHeightCm,
     showLayer,
   } = useSensorStore();
+  const [visibleSampleIds, setVisibleSampleIds] = useState<string[]>([]);
+  const [pendingSampleIds, setPendingSampleIds] = useState<string[]>([]);
+  const visibleSampleIdsRef = useRef<string[]>([]);
+  const pendingSampleIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    const next = reconcileProgressiveSensorReveal(
+      visibleSampleIdsRef.current,
+      pendingSampleIdsRef.current,
+      snapshot?.samples ?? [],
+    );
+    visibleSampleIdsRef.current = next.visibleIds;
+    pendingSampleIdsRef.current = next.pendingIds;
+    setVisibleSampleIds(next.visibleIds);
+    setPendingSampleIds(next.pendingIds);
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (pendingSampleIds.length === 0) return;
+    const delayMs = visibleSampleIds.length === 0 ? 0 : 140;
+    const timer = window.setTimeout(() => {
+      const revealCount = sensorRevealBatchSize(pendingSampleIdsRef.current.length);
+      const revealedIds = pendingSampleIdsRef.current.slice(0, revealCount);
+      const nextVisible = [...visibleSampleIdsRef.current, ...revealedIds];
+      const nextPending = pendingSampleIdsRef.current.slice(revealCount);
+      visibleSampleIdsRef.current = nextVisible;
+      pendingSampleIdsRef.current = nextPending;
+      setVisibleSampleIds(nextVisible);
+      setPendingSampleIds(nextPending);
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [pendingSampleIds.length, visibleSampleIds.length]);
+
+  const visibleSnapshot = useMemo(() => {
+    if (!snapshot) return null;
+    const visibleIdSet = new Set(visibleSampleIds);
+    const samples = snapshot.samples.filter((sample) => visibleIdSet.has(sample.id));
+    return {
+      ...snapshot,
+      sampleCount: samples.length,
+      samples,
+    };
+  }, [snapshot, visibleSampleIds]);
 
   const filteredSamples = useMemo(
-    () => filterSensorSamples(snapshot, selectedSourceIds, {
+    () => filterSensorSamples(visibleSnapshot, selectedSourceIds, {
       metricName: filterMetric,
       minNormalized: filterMinNormalized,
       maxNormalized: filterMaxNormalized,
     }),
-    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, snapshot],
+    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, visibleSnapshot],
   );
 
   const statsByName = useMemo(() => metricStatsByName(snapshot), [snapshot]);
@@ -69,17 +114,17 @@ export function SensorLayer() {
         const colorValue = normalizeMetricValue(getMetricValue(sample, colorMetric), statsByName.get(colorMetric ?? ''));
         const heightValue = normalizeMetricValue(getMetricValue(sample, heightMetric), statsByName.get(heightMetric ?? ''));
         const sizeValue = normalizeMetricValue(getMetricValue(sample, sizeMetric), statsByName.get(sizeMetric ?? ''));
-        const radiusCm = 18 + sizeValue * 42 * pointScale;
-        const heightCm = 20 + heightValue * barMaxHeightCm * 0.25;
+        const radiusCm = 20 + sizeValue * 36 * pointScale;
+        const haloRadiusCm = radiusCm * (1.55 + heightValue * 0.45);
         return (
           <group key={sample.id} position={[point.xCm * CM_TO_UNIT, 0, point.zCm * CM_TO_UNIT]}>
-            <mesh position={[0, (heightCm * CM_TO_UNIT) / 2, 0]} renderOrder={1200}>
-              <cylinderGeometry args={[radiusCm * CM_TO_UNIT * 0.45, radiusCm * CM_TO_UNIT, heightCm * CM_TO_UNIT, 12]} />
-              <meshStandardMaterial color={sensorColor(colorValue)} transparent opacity={opacity} emissive={sensorColor(colorValue)} emissiveIntensity={0.2} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]} renderOrder={1200}>
+              <circleGeometry args={[haloRadiusCm * CM_TO_UNIT, 24]} />
+              <meshBasicMaterial color={sensorColor(colorValue)} transparent opacity={Math.max(0.06, opacity * 0.22)} depthWrite={false} />
             </mesh>
-            <mesh position={[0, heightCm * CM_TO_UNIT + radiusCm * CM_TO_UNIT * 0.5, 0]} renderOrder={1201}>
-              <sphereGeometry args={[radiusCm * CM_TO_UNIT * 0.45, 16, 16]} />
-              <meshStandardMaterial color={sensorColor(colorValue)} transparent opacity={Math.min(1, opacity + 0.1)} emissive={sensorColor(colorValue)} emissiveIntensity={0.4} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} renderOrder={1201}>
+              <circleGeometry args={[radiusCm * CM_TO_UNIT, 20]} />
+              <meshBasicMaterial color={sensorColor(colorValue)} transparent opacity={Math.max(0.18, opacity * (0.55 + heightValue * 0.35))} depthWrite={false} />
             </mesh>
           </group>
         );

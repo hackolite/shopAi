@@ -251,7 +251,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       setZones(sceneData.store.zones ?? []);
       setProjectName(meta.name ?? id);
       setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
-      setSensorSettings(settings.live ?? { bufferSeconds: 300 });
+      setSensorSettings(settings.live ?? { bufferSeconds: 300, updateIntervalSeconds: 2 });
       setLoadedProjectId(id);
 
       // Track the remaining work so the viewport can show a progress gauge:

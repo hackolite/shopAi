@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import type { SensorLiveSettings, SensorSnapshot } from '../types/cad';
 export type SensorSocketStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type SensorColorRampName = 'yellow-red' | 'blue-red' | 'green-red' | 'cyan-blue';
 
 export const defaultSensorLiveSettings = (): SensorLiveSettings => ({
   bufferSeconds: 300,
+  updateIntervalSeconds: 2,
 });
 
 interface SensorState {
@@ -20,6 +22,8 @@ interface SensorState {
   opacity: number;
   cellSizePercent: number;
   barMaxHeightCm: number;
+  mapGridResolution: number;
+  colorRamp: SensorColorRampName;
   demoRunning: boolean;
   showLayer: boolean;
   setSettings: (settings: SensorLiveSettings) => void;
@@ -34,6 +38,8 @@ interface SensorState {
   setOpacity: (opacity: number) => void;
   setCellSizePercent: (size: number) => void;
   setBarMaxHeightCm: (height: number) => void;
+  setMapGridResolution: (resolution: number) => void;
+  setColorRamp: (ramp: SensorColorRampName) => void;
   setDemoRunning: (running: boolean) => void;
   setShowLayer: (show: boolean) => void;
   reset: () => void;
@@ -53,6 +59,8 @@ const baseState = {
   opacity: 0.85,
   cellSizePercent: 8,
   barMaxHeightCm: 600,
+  mapGridResolution: 100,
+  colorRamp: 'yellow-red' as SensorColorRampName,
   demoRunning: false,
   showLayer: true,
 };
@@ -98,6 +106,8 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   setOpacity: (opacity) => set({ opacity }),
   setCellSizePercent: (cellSizePercent) => set({ cellSizePercent }),
   setBarMaxHeightCm: (barMaxHeightCm) => set({ barMaxHeightCm }),
+  setMapGridResolution: (mapGridResolution) => set({ mapGridResolution: Math.max(5, Math.min(100, Math.round(mapGridResolution))) }),
+  setColorRamp: (colorRamp) => set({ colorRamp }),
   setDemoRunning: (demoRunning) => set({ demoRunning }),
   setShowLayer: (showLayer) => set({ showLayer }),
   reset: () => set({ ...baseState }),

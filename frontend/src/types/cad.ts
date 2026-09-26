@@ -203,6 +203,7 @@ export interface SensorGpsBounds {
 
 export interface SensorLiveSettings {
   bufferSeconds: number;
+  updateIntervalSeconds: number;
 }
 
 export interface SensorSnapshot {

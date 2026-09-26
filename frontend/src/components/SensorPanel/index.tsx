@@ -446,7 +446,9 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                     </span>
                   </div>
                   <div className="text-gray-400">
-                    100×100: {sample.coordinate.x?.toFixed(2) ?? '—'}, {sample.coordinate.y?.toFixed(2) ?? '—'}
+                    {sample.coordinate.kind === 'normalized'
+                      ? `100×100: ${sample.coordinate.x?.toFixed(2) ?? '—'}, ${sample.coordinate.y?.toFixed(2) ?? '—'}`
+                      : `GPS: ${sample.coordinate.lat?.toFixed(6) ?? '—'}, ${sample.coordinate.lon?.toFixed(6) ?? '—'}`}
                   </div>
                   <div className="truncate text-gray-400">
                     {sample.data.map((metric) => `${metric.name}: ${metric.value.toFixed(2)}${metric.unit ? ` ${metric.unit}` : ''}`).join(' · ')}

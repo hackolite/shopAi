@@ -350,5 +350,6 @@ export function sensorRevealBatchSize(pendingCount: number): number {
 
 export function isSensorSampleRecent(sample: SensorSampleRecord, nowMs: number, windowMs: number): boolean {
   if (sample.timestampMs == null) return false;
-  return nowMs - sample.timestampMs <= windowMs;
+  const ageMs = nowMs - sample.timestampMs;
+  return ageMs >= 0 && ageMs <= windowMs;
 }

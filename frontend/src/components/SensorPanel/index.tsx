@@ -138,13 +138,14 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     () => aggregateSensorSectors(filteredSamples, snapshot, mapGridResolution, colorMetric, heightMetric),
     [colorMetric, filteredSamples, heightMetric, mapGridResolution, snapshot],
   );
-  const recentSamples = useMemo(
-    () => filteredSamples.filter((sample) => isSensorSampleRecent(
+  const recentWindowMs = Math.max(1200, settings.updateIntervalSeconds * 1000 * 0.9);
+  const mappedSamples = useMemo(
+    () => filteredSamples.map((sample) => ({
       sample,
-      nowMs,
-      Math.max(1200, settings.updateIntervalSeconds * 1000 * 0.9),
-    )),
-    [filteredSamples, nowMs, settings.updateIntervalSeconds],
+      point: projectSensorSampleToGridPercent(sample, snapshot),
+      recent: isSensorSampleRecent(sample, nowMs, recentWindowMs),
+    })),
+    [filteredSamples, nowMs, recentWindowMs, snapshot],
   );
   const arrivalAgeMs = snapshot?.latestTimestampMs ? Math.max(0, nowMs - snapshot.latestTimestampMs) : null;
   const arrivalStatus = arrivalAgeMs == null
@@ -169,9 +170,13 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   };
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNowMs(Date.now()), 250);
+    if (!demoRunning && !(snapshot?.sampleCount ?? 0) && !snapshot?.latestTimestampMs) return undefined;
+    const timer = window.setInterval(
+      () => setNowMs(Date.now()),
+      Math.max(250, Math.min(1000, settings.updateIntervalSeconds * 500)),
+    );
     return () => window.clearInterval(timer);
-  }, []);
+  }, [demoRunning, settings.updateIntervalSeconds, snapshot?.latestTimestampMs, snapshot?.sampleCount]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -451,28 +456,23 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                   </g>
                 );
               })}
-              {filteredSamples.map((sample) => {
-                const point = projectSensorSampleToGridPercent(sample, snapshot);
-                return (
+              {mappedSamples.map(({ sample, point, recent }) => (
+                <g key={`sensor-${sample.id}`}>
                   <circle
-                    key={`sensor-${sample.id}`}
                     cx={point.x}
                     cy={point.y}
                     r={0.7}
                     fill="#e2e8f0"
-                    opacity={0.8}
+                    opacity={recent ? 0.98 : 0.8}
                   />
-                );
-              })}
-              {recentSamples.map((sample) => {
-                const point = projectSensorSampleToGridPercent(sample, snapshot);
-                return (
-                  <g key={`pulse-${sample.id}`}>
-                    <circle cx={point.x} cy={point.y} r={2.8} fill="none" stroke="#fef08a" strokeWidth="0.6" opacity={0.7} />
-                    <circle cx={point.x} cy={point.y} r={1.3} fill="#fef08a" opacity={0.95} />
-                  </g>
-                );
-              })}
+                  {recent && (
+                    <>
+                      <circle cx={point.x} cy={point.y} r={2.8} fill="none" stroke="#fef08a" strokeWidth="0.6" opacity={0.7} />
+                      <circle cx={point.x} cy={point.y} r={1.3} fill="#fef08a" opacity={0.95} />
+                    </>
+                  )}
+                </g>
+              ))}
             </svg>
           </div>
         </section>
@@ -560,7 +560,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                       : `GPS: ${sample.coordinate.lat?.toFixed(6) ?? '—'}, ${sample.coordinate.lon?.toFixed(6) ?? '—'}`}
                   </div>
                   <div className="text-[10px] text-amber-300">
-                    {sample.timestampMs && nowMs - sample.timestampMs <= Math.max(1200, settings.updateIntervalSeconds * 1000 * 0.9)
+                    {sample.timestampMs && nowMs - sample.timestampMs >= 0 && nowMs - sample.timestampMs <= recentWindowMs
                       ? 'Arrivée récente'
                       : 'Tampon'}
                   </div>

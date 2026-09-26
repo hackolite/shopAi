@@ -98,6 +98,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     filterMinNormalized,
     filterMaxNormalized,
     opacity,
+    cellSizePercent,
     barMaxHeightCm,
     mapGridResolution,
     colorRamp,
@@ -113,6 +114,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setFilterMetric,
     setFilterRange,
     setOpacity,
+    setCellSizePercent,
     setBarMaxHeightCm,
     setMapGridResolution,
     setColorRamp,
@@ -389,6 +391,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             <span>{COLOR_RAMP_OPTIONS.find((option) => option.value === colorRamp)?.label ?? colorRamp}</span>
           </div>
           <NumberField label="Opacité" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} />
+          <NumberField label="Largeur barres 3D %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
           <NumberField label="Bar max cm" value={barMaxHeightCm} min={50} max={1500} step={25} onChange={setBarMaxHeightCm} />
         </section>
 

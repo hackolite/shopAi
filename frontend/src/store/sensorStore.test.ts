@@ -34,12 +34,25 @@ describe('sensorStore live source selection', () => {
     expect(useSensorStore.getState().selectedSourceIds).toEqual(['sensor-a', 'sensor-b']);
   });
 
-  it('preserves manual source filtering when new live sources arrive', () => {
+  it('keeps newly discovered sources visible even after a manual deselection', () => {
     const store = useSensorStore.getState();
     store.setSnapshot(buildSnapshot(['sensor-a', 'sensor-b']));
     useSensorStore.getState().toggleSource('sensor-b');
 
     useSensorStore.getState().setSnapshot(buildSnapshot(['sensor-a', 'sensor-b', 'sensor-c']));
+    expect(useSensorStore.getState().selectedSourceIds).toEqual(['sensor-a', 'sensor-c']);
+  });
+
+  it('forgets a manual exclusion once the source disappears and reappears later', () => {
+    const store = useSensorStore.getState();
+    store.setSnapshot(buildSnapshot(['sensor-a', 'sensor-b']));
+    useSensorStore.getState().toggleSource('sensor-b');
     expect(useSensorStore.getState().selectedSourceIds).toEqual(['sensor-a']);
+
+    useSensorStore.getState().setSnapshot(buildSnapshot(['sensor-a']));
+    expect(useSensorStore.getState().excludedSourceIds).toEqual([]);
+
+    useSensorStore.getState().setSnapshot(buildSnapshot(['sensor-a', 'sensor-b']));
+    expect(useSensorStore.getState().selectedSourceIds).toEqual(['sensor-a', 'sensor-b']);
   });
 });

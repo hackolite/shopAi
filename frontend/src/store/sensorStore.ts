@@ -1,7 +1,12 @@
 import { create } from 'zustand';
+import { mergeResidualSensorSectors, type AggregatedSensorSector } from '../engine/liveSensors';
 import type { SensorLiveSettings, SensorSnapshot } from '../types/cad';
 export type SensorSocketStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 export type SensorColorRampName = 'yellow-red' | 'blue-red' | 'green-red' | 'cyan-blue';
+
+export const DEFAULT_DEMO_SENSOR_COUNT = 100;
+export const MIN_DEMO_SENSOR_COUNT = 4;
+export const MAX_DEMO_SENSOR_COUNT = 300;
 
 export const defaultSensorLiveSettings = (): SensorLiveSettings => ({
   bufferSeconds: 300,
@@ -20,12 +25,16 @@ interface SensorState {
   filterMinNormalized: number;
   filterMaxNormalized: number;
   opacity: number;
-  cellSizePercent: number;
   barMaxHeightCm: number;
   mapGridResolution: number;
   colorRamp: SensorColorRampName;
   demoRunning: boolean;
+  demoSensorCount: number;
   showLayer: boolean;
+  /** Persisted per-zone averages: a zone that received data keeps showing its last
+   * known average instead of disappearing when the live buffer momentarily empties. */
+  residualSectors: AggregatedSensorSector[];
+  residualSignature: string;
   setSettings: (settings: SensorLiveSettings) => void;
   setSnapshot: (snapshot: SensorSnapshot | null) => void;
   setSocketStatus: (status: SensorSocketStatus) => void;
@@ -36,12 +45,14 @@ interface SensorState {
   setFilterMetric: (metric: string | null) => void;
   setFilterRange: (min: number, max: number) => void;
   setOpacity: (opacity: number) => void;
-  setCellSizePercent: (size: number) => void;
   setBarMaxHeightCm: (height: number) => void;
   setMapGridResolution: (resolution: number) => void;
   setColorRamp: (ramp: SensorColorRampName) => void;
   setDemoRunning: (running: boolean) => void;
+  setDemoSensorCount: (count: number) => void;
   setShowLayer: (show: boolean) => void;
+  mergeResidualSectors: (freshSectors: AggregatedSensorSector[], signature: string) => void;
+  clearResidualSectors: () => void;
   reset: () => void;
 }
 
@@ -57,12 +68,14 @@ const baseState = {
   filterMinNormalized: 0,
   filterMaxNormalized: 1,
   opacity: 0.85,
-  cellSizePercent: 8,
   barMaxHeightCm: 600,
   mapGridResolution: 100,
   colorRamp: 'yellow-red' as SensorColorRampName,
   demoRunning: false,
+  demoSensorCount: DEFAULT_DEMO_SENSOR_COUNT,
   showLayer: true,
+  residualSectors: [] as AggregatedSensorSector[],
+  residualSignature: '',
 };
 
 export const useSensorStore = create<SensorState>((set, get) => ({
@@ -104,11 +117,21 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     filterMaxNormalized,
   }),
   setOpacity: (opacity) => set({ opacity }),
-  setCellSizePercent: (cellSizePercent) => set({ cellSizePercent }),
   setBarMaxHeightCm: (barMaxHeightCm) => set({ barMaxHeightCm }),
   setMapGridResolution: (mapGridResolution) => set({ mapGridResolution: Math.max(5, Math.min(100, Math.round(mapGridResolution))) }),
   setColorRamp: (colorRamp) => set({ colorRamp }),
   setDemoRunning: (demoRunning) => set({ demoRunning }),
+  setDemoSensorCount: (demoSensorCount) => set({
+    demoSensorCount: Math.max(MIN_DEMO_SENSOR_COUNT, Math.min(MAX_DEMO_SENSOR_COUNT, Math.round(demoSensorCount))),
+  }),
   setShowLayer: (showLayer) => set({ showLayer }),
+  mergeResidualSectors: (freshSectors, signature) => set((state) => {
+    const baseline = state.residualSignature === signature ? state.residualSectors : [];
+    return {
+      residualSectors: mergeResidualSensorSectors(baseline, freshSectors),
+      residualSignature: signature,
+    };
+  }),
+  clearResidualSectors: () => set({ residualSectors: [], residualSignature: '' }),
   reset: () => set({ ...baseState }),
 }));

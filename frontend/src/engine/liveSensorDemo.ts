@@ -90,6 +90,45 @@ const DEMO_SENSOR_ANCHORS: DemoSensorAnchor[] = [
   { id: 'promo-island', label: 'Îlot promo', x: 52, y: 28 },
 ];
 
+/** Default number of simulated demo sensors: a hundred gives a dense, realistic grid. */
+export const DEFAULT_DEMO_SENSOR_COUNT = 100;
+export const MIN_DEMO_SENSOR_COUNT = 4;
+export const MAX_DEMO_SENSOR_COUNT = 300;
+
+/**
+ * Builds `count` sensor anchor points spread across the store. The first anchors reuse
+ * the hand-placed named zones for readable labels; any extra anchors needed to reach
+ * `count` are distributed on a jittered grid so the demo can simulate up to a few
+ * hundred sensors instead of a fixed dozen.
+ */
+function buildDemoAnchors(count: number, random: () => number): DemoSensorAnchor[] {
+  const safeCount = Math.max(1, Math.round(count));
+  if (safeCount <= DEMO_SENSOR_ANCHORS.length) {
+    return DEMO_SENSOR_ANCHORS.slice(0, safeCount);
+  }
+  const anchors = DEMO_SENSOR_ANCHORS.slice();
+  const remaining = safeCount - anchors.length;
+  const columns = Math.max(1, Math.ceil(Math.sqrt(remaining)));
+  const rows = Math.max(1, Math.ceil(remaining / columns));
+  for (let index = 0; index < remaining; index += 1) {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const cellWidth = 88 / columns;
+    const cellHeight = 88 / rows;
+    const baseX = 6 + (col + 0.5) * cellWidth;
+    const baseY = 6 + (row + 0.5) * cellHeight;
+    const jitterX = (random() - 0.5) * cellWidth * 0.5;
+    const jitterY = (random() - 0.5) * cellHeight * 0.5;
+    anchors.push({
+      id: `grid-${index}`,
+      label: `Capteur ${anchors.length + 1}`,
+      x: Math.max(2, Math.min(98, baseX + jitterX)),
+      y: Math.max(2, Math.min(98, baseY + jitterY)),
+    });
+  }
+  return anchors;
+}
+
 function randomInt(min: number, max: number, random: () => number): number {
   return Math.floor(random() * (max - min + 1)) + min;
 }

@@ -71,7 +71,6 @@ function randomInt(min: number, max: number): number {
 
 function randomNormalizedCoordinate() {
   return {
-    kind: 'normalized' as const,
     x: Number((Math.random() * 100).toFixed(2)),
     y: Number((Math.random() * 100).toFixed(2)),
   };
@@ -83,18 +82,29 @@ function randomMetricValue(base: number, amplitude: number, tick: number, phase:
   return Number((base + wave * amplitude + noise).toFixed(2));
 }
 
-function buildDemoSamples(tick: number): SensorSampleInput[] {
+function coordinateForSource(
+  sourceId: string,
+  cache: Record<string, { x: number; y: number }>,
+): { kind: 'normalized'; x: number; y: number } {
+  if (!cache[sourceId]) {
+    cache[sourceId] = randomNormalizedCoordinate();
+  }
+  return { kind: 'normalized', x: cache[sourceId].x, y: cache[sourceId].y };
+}
+
+function buildDemoSamples(tick: number, coordinateCache: Record<string, { x: number; y: number }>): SensorSampleInput[] {
   const spotCount = randomInt(4, 28);
   const emissionCount = randomInt(1, spotCount);
   const now = Date.now();
   return Array.from({ length: emissionCount }, (_, index) => {
     const sourceIndex = randomInt(1, spotCount);
+    const sourceId = `demo-${sourceIndex}`;
     const phase = sourceIndex * 0.41 + index * 0.27;
     return {
-      sourceId: `demo-${sourceIndex}`,
+      sourceId,
       sourceLabel: `Capteur ${sourceIndex}`,
       timestampMs: now + index,
-      coordinate: randomNormalizedCoordinate(),
+      coordinate: coordinateForSource(sourceId, coordinateCache),
       data: [
         { name: 'temperature', value: randomMetricValue(18, 12, tick, phase, 1.8), unit: '°C' },
         { name: 'decibel', value: randomMetricValue(42, 34, tick, phase + 0.4, 3.5), unit: 'dB' },
@@ -145,6 +155,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
+  const demoCoordinateCacheRef = useRef<Record<string, { x: number; y: number }>>({});
 
   const metricNames = useMemo(() => snapshot?.metrics.map((metric) => metric.name) ?? [], [snapshot]);
 
@@ -259,7 +270,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     const runBurst = () => {
       if (cancelled) return;
       demoTickRef.current += 1;
-      void sendSequentially(buildDemoSamples(demoTickRef.current), 0);
+      void sendSequentially(buildDemoSamples(demoTickRef.current, demoCoordinateCacheRef.current), 0);
     };
     runBurst();
     return () => {

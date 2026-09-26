@@ -17,7 +17,7 @@ describe('buildSensorHudLines', () => {
     })).toEqual(['Bâtiment A']);
   });
 
-  it('returns the live sensor summary when no building is selected', () => {
+  it('returns the live sensor summary without listing sensor names when no building is selected', () => {
     expect(buildSensorHudLines({
       selectedBuildingName: null,
       showLayer: true,
@@ -26,7 +26,6 @@ describe('buildSensorHudLines', () => {
       heightMetric: 'densité',
     })).toEqual([
       'Live BAR',
-      'Capteurs: Entrée,Sortie,Caisse 1,Caisse 2 +1',
       'Couleur: flux',
       'Hauteur: densité',
     ]);

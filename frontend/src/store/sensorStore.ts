@@ -6,7 +6,7 @@ export type SensorColorRampName = 'yellow-red' | 'blue-red' | 'green-red' | 'cya
 
 export const DEFAULT_DEMO_SENSOR_COUNT = 100;
 export const MIN_DEMO_SENSOR_COUNT = 4;
-export const MAX_DEMO_SENSOR_COUNT = 300;
+export const MAX_DEMO_SENSOR_COUNT = 500;
 
 export const defaultSensorLiveSettings = (): SensorLiveSettings => ({
   bufferSeconds: 300,
@@ -26,12 +26,14 @@ interface SensorState {
   filterMaxNormalized: number;
   opacity: number;
   barMaxHeightCm: number;
-  cellSizePercent: number;
   mapGridResolution: number;
   colorRamp: SensorColorRampName;
   demoRunning: boolean;
   demoSensorCount: number;
   showLayer: boolean;
+  /** True only while the "Live" studio tab is the active right-panel tab: the 3D
+   * sensor bars and their HUD must never linger on the map outside of that tab. */
+  isLiveTabActive: boolean;
   /** Persisted per-zone averages: a zone that received data keeps showing its last
    * known average instead of disappearing when the live buffer momentarily empties. */
   residualSectors: AggregatedSensorSector[];
@@ -47,12 +49,12 @@ interface SensorState {
   setFilterRange: (min: number, max: number) => void;
   setOpacity: (opacity: number) => void;
   setBarMaxHeightCm: (height: number) => void;
-  setCellSizePercent: (percent: number) => void;
   setMapGridResolution: (resolution: number) => void;
   setColorRamp: (ramp: SensorColorRampName) => void;
   setDemoRunning: (running: boolean) => void;
   setDemoSensorCount: (count: number) => void;
   setShowLayer: (show: boolean) => void;
+  setLiveTabActive: (active: boolean) => void;
   mergeResidualSectors: (freshSectors: AggregatedSensorSector[], signature: string) => void;
   clearResidualSectors: () => void;
   reset: () => void;
@@ -71,12 +73,12 @@ const baseState = {
   filterMaxNormalized: 1,
   opacity: 0.85,
   barMaxHeightCm: 600,
-  cellSizePercent: 20,
   mapGridResolution: 100,
   colorRamp: 'yellow-red' as SensorColorRampName,
   demoRunning: false,
   demoSensorCount: DEFAULT_DEMO_SENSOR_COUNT,
   showLayer: true,
+  isLiveTabActive: false,
   residualSectors: [] as AggregatedSensorSector[],
   residualSignature: '',
 };
@@ -121,7 +123,6 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   }),
   setOpacity: (opacity) => set({ opacity }),
   setBarMaxHeightCm: (barMaxHeightCm) => set({ barMaxHeightCm }),
-  setCellSizePercent: (cellSizePercent) => set({ cellSizePercent: Math.max(2, Math.min(50, Math.round(cellSizePercent))) }),
   setMapGridResolution: (mapGridResolution) => set({ mapGridResolution: Math.max(5, Math.min(100, Math.round(mapGridResolution))) }),
   setColorRamp: (colorRamp) => set({ colorRamp }),
   setDemoRunning: (demoRunning) => set({ demoRunning }),
@@ -129,6 +130,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     demoSensorCount: Math.max(MIN_DEMO_SENSOR_COUNT, Math.min(MAX_DEMO_SENSOR_COUNT, Math.round(demoSensorCount))),
   }),
   setShowLayer: (showLayer) => set({ showLayer }),
+  setLiveTabActive: (isLiveTabActive) => set({ isLiveTabActive }),
   mergeResidualSectors: (freshSectors, signature) => set((state) => {
     const baseline = state.residualSignature === signature ? state.residualSectors : [];
     return {

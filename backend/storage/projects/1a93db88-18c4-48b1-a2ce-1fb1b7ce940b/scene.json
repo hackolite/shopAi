@@ -1,0 +1,23 @@
+{
+  "store": {
+    "id": "f29d6fad-ea69-4ff4-8335-1abbe37cf461",
+    "name": "WS test",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "dimensions": {
+      "width": 5000.0,
+      "depth": 3000.0,
+      "height": 400.0
+    },
+    "walls": []
+  },
+  "furniture": []
+}

@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CM_TO_UNIT } from '../constants';
 import {
-  aggregateSensorCells,
+  aggregateSensorSectors,
   buildMetricStats,
   filterSensorSamples,
-  getSensorCellSizeCm,
   metricStatsByName,
   normalizeMetricValue,
   reconcileProgressiveSensorReveal,
   sensorColor,
   sensorRevealBatchSize,
+  sensorSectorFootprintCm,
 } from '../engine/liveSensors';
 import { useSceneStore } from '../store/sceneStore';
 import { useSensorStore } from '../store/sensorStore';
@@ -25,10 +25,11 @@ export function SensorLayer() {
     filterMinNormalized,
     filterMaxNormalized,
     opacity,
-    cellSizePercent,
+    mapGridResolution,
     barMaxHeightCm,
     colorRamp,
     showLayer,
+    isLiveTabActive,
   } = useSensorStore();
   const [visibleSampleIds, setVisibleSampleIds] = useState<string[]>([]);
   const [pendingSampleIds, setPendingSampleIds] = useState<string[]>([]);
@@ -86,34 +87,36 @@ export function SensorLayer() {
 
   const statsByName = useMemo(() => metricStatsByName(visibleSnapshot), [visibleSnapshot]);
 
-  const aggregatedCells = useMemo(() => {
-    if (!scene || !showLayer) return [];
-    return aggregateSensorCells(
+  const aggregatedSectors = useMemo(() => {
+    if (!scene || !showLayer || !isLiveTabActive) return [];
+    return aggregateSensorSectors(
       filteredSamples,
-      scene.store,
       snapshot,
-      cellSizePercent,
+      mapGridResolution,
       colorMetric,
       heightMetric,
     );
-  }, [cellSizePercent, colorMetric, filteredSamples, heightMetric, scene, showLayer, snapshot]);
+  }, [colorMetric, filteredSamples, heightMetric, isLiveTabActive, mapGridResolution, scene, showLayer, snapshot]);
 
-  if (!scene || !snapshot || !showLayer) return null;
-  const cellSizeCm = getSensorCellSizeCm(scene.store, cellSizePercent);
+  if (!scene || !snapshot || !showLayer || !isLiveTabActive) return null;
 
   return (
     <group>
-    {aggregatedCells.map((cell) => {
-      const colorValue = normalizeMetricValue(cell.colorValue, statsByName.get(colorMetric ?? ''));
-      const heightValue = normalizeMetricValue(cell.heightValue, statsByName.get(heightMetric ?? ''));
+    {aggregatedSectors.map((sector) => {
+      const colorValue = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''));
+      const heightValue = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''));
       const heightCm = 20 + heightValue * barMaxHeightCm;
+      // Sector footprint is derived from the shared grid resolution as a percentage of
+      // the store bounds, the same coordinate-kind-agnostic projection used for GPS and
+      // normalized samples alike, so bar width stays correct for GPS-sourced sensors.
+      const footprint = sensorSectorFootprintCm(sector, mapGridResolution, scene.store);
       return (
           <mesh
-            key={cell.key}
-            position={[cell.xCm * CM_TO_UNIT, (heightCm * CM_TO_UNIT) / 2, cell.zCm * CM_TO_UNIT]}
+            key={sector.key}
+            position={[footprint.xCm * CM_TO_UNIT, (heightCm * CM_TO_UNIT) / 2, footprint.zCm * CM_TO_UNIT]}
             renderOrder={1102}
           >
-            <boxGeometry args={[cellSizeCm * CM_TO_UNIT * 0.72, heightCm * CM_TO_UNIT, cellSizeCm * CM_TO_UNIT * 0.72]} />
+            <boxGeometry args={[footprint.widthCm * CM_TO_UNIT * 0.72, heightCm * CM_TO_UNIT, footprint.depthCm * CM_TO_UNIT * 0.72]} />
             <meshStandardMaterial color={sensorColor(colorValue, colorRamp)} transparent opacity={opacity} emissive={sensorColor(colorValue, colorRamp)} emissiveIntensity={0.25} />
           </mesh>
         );

@@ -1,0 +1,1469 @@
+{
+  "store": {
+    "id": "ebfc6429-b049-40f0-884d-bd875259904f",
+    "name": "Carrefour Express 110 m² – Zone touristique",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "dimensions": {
+      "width": 1100.0,
+      "depth": 1000.0,
+      "height": 400.0
+    },
+    "walls": [
+      {
+        "id": "c02073b4-5fd3-453e-84c4-dd3be3ab75c9",
+        "name": "Mur arrière",
+        "position": [
+          550.0,
+          150.0,
+          990.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "depth": 20.0,
+          "width": 1100.0,
+          "height": 300.0
+        },
+        "materialId": "solid_blue",
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "260775ad-0e09-49f9-96bf-f61174f59c46",
+        "name": "Mur gauche",
+        "position": [
+          10.0,
+          150.0,
+          500.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "depth": 20.0,
+          "width": 1000.0,
+          "height": 300.0
+        },
+        "materialId": "solid_blue",
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "120f44fa-d431-48e2-9fce-173e813f91b9",
+        "name": "Mur droit",
+        "position": [
+          1090.0,
+          150.0,
+          500.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "depth": 20.0,
+          "width": 1000.0,
+          "height": 300.0
+        },
+        "materialId": "solid_blue",
+        "visible": true,
+        "locked": false
+      },
+      {
+        "id": "258c7253-6387-4100-96b1-36fa64f967a4",
+        "name": "Mur façade",
+        "position": [
+          550.0,
+          150.0,
+          10.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "dimensions": {
+          "depth": 20.0,
+          "width": 1100.0,
+          "height": 300.0
+        },
+        "materialId": "solid_red",
+        "visible": true,
+        "locked": false
+      }
+    ],
+    "floorColor": "#1e2230",
+    "wallColor": "#404060",
+    "zones": [
+      {
+        "id": "1275a3e0-cdda-43b0-b24b-ab5a6fbefe15",
+        "type": "entrance",
+        "label": "Entrée",
+        "x": 760.0,
+        "z": 20.0,
+        "width": 280.0,
+        "depth": 60.0,
+        "rows": null,
+        "cols": null
+      },
+      {
+        "id": "a549c63c-0490-4cb6-a6b0-4a871bd4729c",
+        "type": "exit",
+        "label": "Sortie caisses",
+        "x": 120.0,
+        "z": 20.0,
+        "width": 300.0,
+        "depth": 60.0,
+        "rows": null,
+        "cols": null
+      }
+    ]
+  },
+  "furniture": [
+    {
+      "id": "a6849e8f-042c-409e-b996-822648885716",
+      "name": "Gondole A-01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        220.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d69cb0ec-b016-4dfb-bd55-c1920546d79a",
+      "name": "Gondole A-02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        340.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d5facc67-ce76-43b2-9b06-7ad1cfb99124",
+      "name": "Gondole A-03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        460.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f1f0e9fd-576c-4997-a80c-3d7ae40a6b25",
+      "name": "Gondole A-04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        580.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b049e989-d5e6-49d7-9d89-8c0ba2e93266",
+      "name": "Gondole A-05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        700.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d96794f9-fbce-45b4-8807-bb1c78816aff",
+      "name": "Gondole B-01",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        220.0,
+        0.0,
+        500.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "1d81bc86-58e3-4328-86a3-735b119175dc",
+      "name": "Gondole B-02",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        340.0,
+        0.0,
+        500.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f59822db-b6ac-4a57-a854-ac129dc4f4d9",
+      "name": "Gondole B-03",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        460.0,
+        0.0,
+        500.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "efe3da3b-8139-4111-99ac-ab65c67350eb",
+      "name": "Gondole B-04",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        580.0,
+        0.0,
+        500.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "cedbc9ba-4736-4844-80a6-cc32c78d31ac",
+      "name": "Gondole B-05",
+      "type": "gondola_double",
+      "libraryId": "gondola_double",
+      "position": [
+        700.0,
+        0.0,
+        500.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "metal_gray",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a9acae29-d033-499e-ab64-cf0719d18031",
+      "name": "Rayon mur gauche 01",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        -30.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2aa5b41d-9830-4592-84d0-eeaa1b123d7d",
+      "name": "Rayon mur gauche 02",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        -30.0,
+        0.0,
+        420.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "708c0aa9-4870-4892-8c66-f5b99a3552b6",
+      "name": "Rayon mur gauche 03",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        -30.0,
+        0.0,
+        550.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4f07af1b-069f-4e56-b88c-92a44d5b5ce9",
+      "name": "Rayon mur gauche 04",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        -30.0,
+        0.0,
+        680.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "4c3afe4e-6907-491f-9022-a7b08047c3b7",
+      "name": "Rayon mur gauche 05",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        -30.0,
+        0.0,
+        810.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "553e65d8-fce9-4866-a791-2e86a187d8aa",
+      "name": "Rayon mur droit 01",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1010.0,
+        0.0,
+        290.0
+      ],
+      "rotation": [
+        0.0,
+        270.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "d79fca13-2f28-4598-b17b-22da3eb482e8",
+      "name": "Rayon mur droit 02",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1010.0,
+        0.0,
+        420.0
+      ],
+      "rotation": [
+        0.0,
+        270.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a2134d7d-7d0c-4837-a5c3-7a5511712dfd",
+      "name": "Rayon mur droit 03",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1010.0,
+        0.0,
+        550.0
+      ],
+      "rotation": [
+        0.0,
+        270.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "7c9c073a-6743-44b4-ab00-7eabec81ac26",
+      "name": "Rayon mur droit 04",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1010.0,
+        0.0,
+        680.0
+      ],
+      "rotation": [
+        0.0,
+        270.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "b12ad687-fced-4880-9714-147887292814",
+      "name": "Rayon mur droit 05",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        1010.0,
+        0.0,
+        810.0
+      ],
+      "rotation": [
+        0.0,
+        270.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "0ecf8319-5ee3-4d77-8a6f-558c36ae08dc",
+      "name": "Frigo mural 01",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        40.0,
+        0.0,
+        900.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100.0,
+        "depth": 80.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "242b24a2-17de-43ec-9d56-88e79697957d",
+      "name": "Frigo mural 02",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        150.0,
+        0.0,
+        900.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100.0,
+        "depth": 80.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "18dc9d88-2ea3-44f9-bb0b-5f005b24867b",
+      "name": "Frigo mural 03",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        260.0,
+        0.0,
+        900.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100.0,
+        "depth": 80.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a58428df-2036-4a91-bb2e-cb9873cb4fc9",
+      "name": "Frigo mural 04",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        370.0,
+        0.0,
+        900.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100.0,
+        "depth": 80.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "a762e566-ffc6-403e-b349-b41cfd877c03",
+      "name": "Frigo mural 05",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        480.0,
+        0.0,
+        900.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100.0,
+        "depth": 80.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "5dc4e5fd-f31a-4343-8182-73d6093ee1b5",
+      "name": "Frigo mural 06",
+      "type": "fridge",
+      "libraryId": "fridge",
+      "position": [
+        590.0,
+        0.0,
+        900.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 100.0,
+        "depth": 80.0,
+        "height": 210.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "2d4fcdae-71e5-44f6-8e12-90d5ab120d6d",
+      "name": "Rayon fond 01",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        700.0,
+        0.0,
+        920.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f3e72804-9dce-4fee-b90e-103452054241",
+      "name": "Rayon fond 02",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        830.0,
+        0.0,
+        920.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "6b468e79-a231-4b89-97db-fa66c4f044fb",
+      "name": "Rayon fond 03",
+      "type": "gondola_single",
+      "libraryId": "gondola_single",
+      "position": [
+        960.0,
+        0.0,
+        920.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 60.0,
+        "height": 200.0
+      },
+      "materialId": "metal_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "92d61c6f-eac5-4a9f-a689-31fe7accf129",
+      "name": "Frigo horizontal 1",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        250.0,
+        0.0,
+        700.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300.0,
+        "depth": 100.0,
+        "height": 100.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "f3edd8a6-f83a-4f27-9c95-d8a9359eddbb",
+      "name": "Frigo horizontal 2",
+      "type": "fridge_horizontal",
+      "libraryId": "fridge_horizontal",
+      "position": [
+        550.0,
+        0.0,
+        700.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 300.0,
+        "depth": 100.0,
+        "height": 100.0
+      },
+      "materialId": "glass_clear",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e8c649fa-e59c-45b3-ac5c-00aa91618a70",
+      "name": "Caisse 1",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        140.0,
+        0.0,
+        120.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80.0,
+        "depth": 60.0,
+        "height": 90.0
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "08990c4f-7c87-4953-8f96-7541402fc338",
+      "name": "Caisse 2",
+      "type": "register",
+      "libraryId": "register",
+      "position": [
+        340.0,
+        0.0,
+        120.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 80.0,
+        "depth": 60.0,
+        "height": 90.0
+      },
+      "materialId": "plastic_dark",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "972961e6-8cb0-44e9-97cf-4124aeec0429",
+      "name": "Présentoir caisse 1",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        520.0,
+        0.0,
+        120.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60.0,
+        "depth": 40.0,
+        "height": 180.0
+      },
+      "materialId": "plastic_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "9af25a11-a25c-462a-9f92-cc12e1ebadaa",
+      "name": "Présentoir caisse 2",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        580.0,
+        0.0,
+        120.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60.0,
+        "depth": 40.0,
+        "height": 180.0
+      },
+      "materialId": "plastic_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "e7ddf0a8-efcb-4522-b1b9-0a64cf587943",
+      "name": "Présentoir caisse 3",
+      "type": "display",
+      "libraryId": "display",
+      "position": [
+        640.0,
+        0.0,
+        120.0
+      ],
+      "rotation": [
+        0.0,
+        180.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 60.0,
+        "depth": 40.0,
+        "height": 180.0
+      },
+      "materialId": "plastic_white",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "8e3f1362-0ece-4ae5-b895-1315d51fab8f",
+      "name": "Palette promo 1",
+      "type": "pallet",
+      "libraryId": "pallet",
+      "position": [
+        900.0,
+        0.0,
+        140.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    {
+      "id": "97f69138-a337-4e97-9f50-fe6f493d8387",
+      "name": "Palette promo 2",
+      "type": "pallet",
+      "libraryId": "pallet",
+      "position": [
+        980.0,
+        0.0,
+        140.0
+      ],
+      "rotation": [
+        0.0,
+        90.0,
+        0.0
+      ],
+      "dimensions": {
+        "width": 120.0,
+        "depth": 80.0,
+        "height": 200.0
+      },
+      "materialId": "wood_light",
+      "visible": true,
+      "locked": false,
+      "mounted": true,
+      "parentId": null,
+      "childIds": [],
+      "faces": {
+        "front": null,
+        "back": null,
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    }
+  ]
+}

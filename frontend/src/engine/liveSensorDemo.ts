@@ -93,7 +93,7 @@ const DEMO_SENSOR_ANCHORS: DemoSensorAnchor[] = [
 /** Default number of simulated demo sensors: a hundred gives a dense, realistic grid. */
 export const DEFAULT_DEMO_SENSOR_COUNT = 100;
 export const MIN_DEMO_SENSOR_COUNT = 4;
-export const MAX_DEMO_SENSOR_COUNT = 300;
+export const MAX_DEMO_SENSOR_COUNT = 500;
 
 /**
  * Builds `count` sensor anchor points spread across the store. The first anchors reuse
@@ -215,12 +215,16 @@ function buildSensorMetrics(
   return randomized.length > 0 ? randomized : [allMetrics[randomInt(0, allMetrics.length - 1, random)]];
 }
 
-export function createDemoSensorDefinitions(random: () => number = Math.random): DemoSensorDefinition[] {
+export function createDemoSensorDefinitions(
+  random: () => number = Math.random,
+  count: number = DEFAULT_DEMO_SENSOR_COUNT,
+): DemoSensorDefinition[] {
+  const anchors = buildDemoAnchors(count, random);
   const typeOrder = shuffle(
-    DEMO_SENSOR_ANCHORS.map((_, index) => DEMO_SENSOR_TYPES[index % DEMO_SENSOR_TYPES.length]),
+    anchors.map((_, index) => DEMO_SENSOR_TYPES[index % DEMO_SENSOR_TYPES.length]),
     random,
   );
-  return DEMO_SENSOR_ANCHORS.map((anchor, index) => {
+  return anchors.map((anchor, index) => {
     const type = typeOrder[index] ?? DEMO_SENSOR_TYPES[index % DEMO_SENSOR_TYPES.length];
     return {
       sourceId: `demo-${anchor.id}`,

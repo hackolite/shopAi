@@ -18,6 +18,8 @@ interface UIState {
   flyToFurnitureFace: string | null;
   /** Whether a video recording is currently in progress. Shared so other views can show indicator. */
   recording: boolean;
+  /** Whether the 3D floor snap grid is drawn. Toggled from the toolbar. */
+  showGrid: boolean;
   setActivePanel: (panel: ActivePanel) => void;
   setActiveTool: (tool: ActiveTool) => void;
   setViewMode: (mode: ViewMode) => void;
@@ -26,6 +28,8 @@ interface UIState {
   setBevMode: (v: boolean) => void;
   setFlyToFurnitureId: (id: string | null, face?: string | null) => void;
   setRecording: (v: boolean) => void;
+  setShowGrid: (v: boolean) => void;
+  toggleShowGrid: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -38,6 +42,7 @@ export const useUIStore = create<UIState>((set) => ({
   flyToFurnitureId: null,
   flyToFurnitureFace: null,
   recording: false,
+  showGrid: true,
   setActivePanel: (panel) => set({ activePanel: panel }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setViewMode: (mode) => set({ viewMode: mode }),
@@ -47,4 +52,6 @@ export const useUIStore = create<UIState>((set) => ({
   setBevMode: (bevMode) => set({ bevMode }),
   setFlyToFurnitureId: (id, face = null) => set({ flyToFurnitureId: id, flyToFurnitureFace: face }),
   setRecording: (recording) => set({ recording }),
+  setShowGrid: (showGrid) => set({ showGrid }),
+  toggleShowGrid: () => set((state) => ({ showGrid: !state.showGrid })),
 }));

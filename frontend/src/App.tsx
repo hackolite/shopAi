@@ -627,7 +627,7 @@ export default function App() {
 
               <div className="hub-panel" role="tabpanel" id="panel-layouts" aria-labelledby="tab-layouts" hidden={activeTab !== 'layouts'} tabIndex={0}>
                 {activeTab === 'layouts' && <Section title="Implantations (Store Layout)" subtitle="Réutilisez un plan de magasin (mobilier + implantation) indépendamment de son projet d’origine.">
-                  <div className="hub-two-column hub-workspace-grid">
+                  <div className="hub-upload-row">
                     <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateStoreLayout(); }}>
                       <h3>Nouvelle implantation</h3>
                       <Field label="Nom de l’implantation"><input required value={layoutName} onChange={(event) => setLayoutName(event.target.value)} placeholder="Ex. Implantation type hypermarché" /></Field>
@@ -651,31 +651,31 @@ export default function App() {
                       <Field label="Nom de l’implantation"><input required value={layoutOsmName} onChange={(event) => setLayoutOsmName(event.target.value)} placeholder="Ex. Quartier centre-ville" /></Field>
                       <Field label="Description (facultatif)"><textarea rows={4} value={layoutOsmDescription} onChange={(event) => setLayoutOsmDescription(event.target.value)} /></Field>
                       <Field label="Fichier OSM/XML"><input required type="file" accept=".osm,.xml,text/xml,application/xml" onChange={(event) => setLayoutOsmFile(event.target.files?.[0] ?? null)} /></Field>
-                      <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut; les bâtiments avec hauteur trouvée sont affichés plus opaques.</p>
+                      <p className="hub-small hub-muted">Import des polygones `building=*` OSM avec géométrie native, hauteur OSM (ou `building:levels`), sinon 10m par défaut; les bâtiments sont affichés en couleur pleine (opaque).</p>
                       <button className="hub-primary" type="submit" disabled={busy || !layoutOsmFile || !layoutOsmName.trim()}>Importer OSM</button>
                     </form>
-                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Implantations enregistrées">
-                      {dashboard?.storeLayouts.length ? <ul className="hub-resource-list">{dashboard.storeLayouts.map((layout) => (
-                        <li key={layout.id}>
-                          <div className="hub-resource-item-header">
-                            <h4>{layout.name}</h4>
-                            <div className="hub-resource-actions">
-                              <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadStoreLayout(layout.id, layout.name)}>Télécharger</button>
-                              <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteStoreLayout(layout.id, layout.name)}>Supprimer</button>
-                            </div>
+                  </div>
+                  <div className="hub-form-card hub-resource-panel" role="region" aria-label="Implantations enregistrées">
+                    {dashboard?.storeLayouts.length ? <ul className="hub-resource-list hub-resource-list--grid">{dashboard.storeLayouts.map((layout) => (
+                      <li key={layout.id}>
+                        <div className="hub-resource-item-header">
+                          <h4>{layout.name}</h4>
+                          <div className="hub-resource-actions">
+                            <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadStoreLayout(layout.id, layout.name)}>Télécharger</button>
+                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteStoreLayout(layout.id, layout.name)}>Supprimer</button>
                           </div>
-                          <p>{layout.description || 'Sans description'}</p>
-                          <span className="hub-small hub-muted">{layout.furnitureCount} meubles · Mis à jour le {formatDate(layout.updatedAt)}</span>
-                        </li>
-                      ))}</ul> : <p className="hub-empty">Aucune implantation enregistrée. Créez-en une depuis un projet existant.</p>}
-                    </div>
+                        </div>
+                        <p>{layout.description || 'Sans description'}</p>
+                        <span className="hub-small hub-muted">{layout.furnitureCount} meubles · Mis à jour le {formatDate(layout.updatedAt)}</span>
+                      </li>
+                    ))}</ul> : <p className="hub-empty">Aucune implantation enregistrée. Créez-en une depuis un projet existant.</p>}
                   </div>
                 </Section>}
               </div>
 
               <div className="hub-panel" role="tabpanel" id="panel-catalogs" aria-labelledby="tab-catalogs" hidden={activeTab !== 'catalogs'} tabIndex={0}>
                 {activeTab === 'catalogs' && <Section title="Catalogues" subtitle="Organisez vos référentiels produits, avec ou sans projet associé.">
-                  <div className="hub-two-column hub-workspace-grid">
+                  <div className="hub-upload-row">
                     <form className="hub-form hub-form-card hub-equal-card" onSubmit={(event) => { event.preventDefault(); void handleCreateCatalog(); }}>
                       <h3>Nouveau catalogue</h3>
                       <Field label="Nom du catalogue"><input required value={catalogName} onChange={(event) => setCatalogName(event.target.value)} placeholder="Ex. Collection printemps" /></Field>
@@ -690,21 +690,21 @@ export default function App() {
                       <p className="hub-small hub-muted">Accepte le format brut `assortment.json` (barcode, product_name, image_url, etc.) et aussi un objet JSON déjà normalisé avec une clé `products`.</p>
                       <button className="hub-primary" type="submit" disabled={busy || !catalogCsvFile || !catalogCsvName.trim()}>Importer le JSON</button>
                     </form>
-                    <div className="hub-form-card hub-equal-card hub-resource-panel" role="region" aria-label="Catalogues enregistrés">
-                      {dashboard?.catalogs.length ? <ul className="hub-resource-list">{dashboard.catalogs.map((catalog) => (
-                        <li key={catalog.id}>
-                          <div className="hub-resource-item-header">
-                            <h4>{catalog.name}</h4>
-                            <div className="hub-resource-actions">
-                              <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadCatalog(catalog.id, catalog.name)}>Télécharger</button>
-                              <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteCatalog(catalog.id, catalog.name)}>Supprimer</button>
-                            </div>
+                  </div>
+                  <div className="hub-form-card hub-resource-panel" role="region" aria-label="Catalogues enregistrés">
+                    {dashboard?.catalogs.length ? <ul className="hub-resource-list hub-resource-list--grid">{dashboard.catalogs.map((catalog) => (
+                      <li key={catalog.id}>
+                        <div className="hub-resource-item-header">
+                          <h4>{catalog.name}</h4>
+                          <div className="hub-resource-actions">
+                            <button type="button" className="hub-link-button" disabled={busy} onClick={() => void handleDownloadCatalog(catalog.id, catalog.name)}>Télécharger</button>
+                            <button type="button" className="hub-danger" disabled={busy} onClick={() => void handleDeleteCatalog(catalog.id, catalog.name)}>Supprimer</button>
                           </div>
-                          <p>{catalog.description || 'Sans description'}</p>
-                          <span className="hub-small hub-muted">{catalog.productCount} produits · Mis à jour le {formatDate(catalog.updatedAt)}</span>
-                        </li>
-                      ))}</ul> : <p className="hub-empty">Aucun catalogue pour le moment. Créez votre premier référentiel.</p>}
-                    </div>
+                        </div>
+                        <p>{catalog.description || 'Sans description'}</p>
+                        <span className="hub-small hub-muted">{catalog.productCount} produits · Mis à jour le {formatDate(catalog.updatedAt)}</span>
+                      </li>
+                    ))}</ul> : <p className="hub-empty">Aucun catalogue pour le moment. Créez votre premier référentiel.</p>}
                   </div>
                 </Section>}
               </div>

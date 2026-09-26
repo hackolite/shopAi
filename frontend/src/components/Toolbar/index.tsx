@@ -31,7 +31,7 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
 ];
 
 export default function Toolbar({ projectName, projects, saveStatus, onNew, onLoad, onDelete, onSave, onSaveAs, onExport, onImport, onBack }: ToolbarProps) {
-  const { activeTool, setActiveTool, viewMode, setViewMode, bevMode, setBevMode } = useUIStore();
+  const { activeTool, setActiveTool, viewMode, setViewMode, bevMode, setBevMode, showGrid, toggleShowGrid } = useUIStore();
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [loadMenuOpen, setLoadMenuOpen] = useState(false);
 
@@ -185,6 +185,20 @@ export default function Toolbar({ projectName, projects, saveStatus, onNew, onLo
                 <span className="hidden sm:inline">BEV</span>
               </button>
             )}
+            <button
+              title="Afficher/masquer la grille"
+              onClick={() => toggleShowGrid()}
+              aria-pressed={showGrid}
+              className={[
+                'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+                showGrid
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800 border border-gray-700',
+              ].join(' ')}
+            >
+              <span>▦</span>
+              <span className="hidden sm:inline">Grille</span>
+            </button>
             <div className="flex items-center rounded overflow-hidden border border-gray-800">
               {VIEW_MODES.map((mode) => (
                 <button

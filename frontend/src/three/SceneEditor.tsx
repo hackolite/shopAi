@@ -1087,6 +1087,7 @@ function StoreFloor({ store }: { store: StoreConfig }) {
   const { selectZone } = useZoneStore();
   const addWaypoint = useSimulationStore((state) => state.addWaypoint);
   const waypointPlacementType = useSimulationStore((state) => state.waypointPlacementType);
+  const showGrid = useUIStore((s) => s.showGrid);
   const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
   const w = store.dimensions.width  * CM_TO_UNIT;
@@ -1133,19 +1134,21 @@ function StoreFloor({ store }: { store: StoreConfig }) {
       </mesh>
 
       {/* Fine grid: 0.5 m cells matching the snap step, subtle blue tint */}
-      <Grid
-        position={[gridX.centreCm * CM_TO_UNIT, GRID_Y_OFFSET, gridZ.centreCm * CM_TO_UNIT]}
-        args={[gridX.sizeCm * CM_TO_UNIT, gridZ.sizeCm * CM_TO_UNIT]}
-        cellSize={SNAP_UNIT}
-        cellThickness={1.2}
-        cellColor="#2e4d6e"
-        sectionSize={5.0}
-        sectionThickness={0.9}
-        sectionColor="#2a4a6a"
-        fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
-        fadeStrength={1.2}
-        infiniteGrid={false}
-      />
+      {showGrid && (
+        <Grid
+          position={[gridX.centreCm * CM_TO_UNIT, GRID_Y_OFFSET, gridZ.centreCm * CM_TO_UNIT]}
+          args={[gridX.sizeCm * CM_TO_UNIT, gridZ.sizeCm * CM_TO_UNIT]}
+          cellSize={SNAP_UNIT}
+          cellThickness={1.2}
+          cellColor="#2e4d6e"
+          sectionSize={5.0}
+          sectionThickness={0.9}
+          sectionColor="#2a4a6a"
+          fadeDistance={Math.max(w, d) * GRID_FADE_MULTIPLIER}
+          fadeStrength={1.2}
+          infiniteGrid={false}
+        />
+      )}
     </group>
   );
 }

@@ -461,8 +461,9 @@ Checklist rapide si vous ne voyez rien :
 1. Vérifier que **Échantillons > 0** et **Socket: connected**.
 2. Laisser **Afficher la couche 3D** activé.
 3. Dans **Rendu > Mode** :
-   - `point` affiche des marqueurs 3D (pas de nappe colorée au sol),
-   - `heatmap`, `grid` ou `bar` affichent une coloration/agrégation sur la carte.
+   - `point` affiche des marqueurs plaqués au sol (2D),
+   - `heatmap` affiche une nappe texture 2D calculée côté frontend,
+   - `bar` affiche des colonnes 3D.
 4. Vérifier que **Couleur** pointe vers une métrique (ex: `affluence`).
 5. Dans **Capteurs**, cliquer **Tous** (sinon tout peut être filtré).
 6. Dans **Filtres**, remettre **Min % = 0** et **Max % = 100** pour éviter un filtre
@@ -471,6 +472,10 @@ Checklist rapide si vous ne voyez rien :
 En pratique, l'absence de coloration vient le plus souvent d'un mode `point`,
 d'une métrique non sélectionnée, d'une source décochée ou d'un filtre trop
 restrictif.
+
+Le bouton **Mode démo** émet uniquement des JSON en coordonnées normalisées
+`100×100`, avec un rythme et un volume aléatoires, pour simuler des arrivées
+capteurs réelles.
 
 ### Waypoint Placement Constraints
 

@@ -8,8 +8,6 @@ interface SensorPanelProps {
   projectId: string | null;
 }
 
-type DemoCoordinateMode = 'normalized' | 'gps';
-
 function NumberField({
   label,
   value,
@@ -67,32 +65,56 @@ function SelectField({
   );
 }
 
-function buildDemoSamples(tick: number, mode: DemoCoordinateMode): SensorSampleInput[] {
-  return Array.from({ length: 9 }, (_, index) => {
-    const angle = tick * 0.18 + index * 0.7;
-    const pulse = (Math.sin(tick * 0.12 + index) + 1) / 2;
-    const normalizedX = 12 + (index % 3) * 28 + Math.sin(angle) * 8;
-    const normalizedY = 18 + Math.floor(index / 3) * 22 + Math.cos(angle * 0.8) * 7;
-    const coordinate = mode === 'gps'
-      ? {
-        kind: 'gps' as const,
-        lat: 48.8566 + (normalizedY / 100 - 0.5) * 0.02,
-        lon: 2.3522 + (normalizedX / 100 - 0.5) * 0.03,
-      }
-      : {
-        kind: 'normalized' as const,
-        x: normalizedX,
-        y: normalizedY,
-      };
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomNormalizedCoordinate() {
+  return {
+    x: Number((Math.random() * 100).toFixed(2)),
+    y: Number((Math.random() * 100).toFixed(2)),
+  };
+}
+
+function randomMetricValue(base: number, amplitude: number, tick: number, phase: number, noiseSpan: number): number {
+  const wave = (Math.sin(tick * 0.22 + phase) + 1) / 2;
+  const noise = (Math.random() - 0.5) * noiseSpan;
+  return Number((base + wave * amplitude + noise).toFixed(2));
+}
+
+function coordinateForSource(
+  sourceId: string,
+  cache: Record<string, { x: number; y: number }>,
+): { kind: 'normalized'; x: number; y: number } {
+  if (!cache[sourceId]) {
+    cache[sourceId] = randomNormalizedCoordinate();
+  }
+  return { kind: 'normalized', x: cache[sourceId].x, y: cache[sourceId].y };
+}
+
+function buildDemoSamples(tick: number, coordinateCache: Record<string, { x: number; y: number }>): SensorSampleInput[] {
+  const spotCount = randomInt(4, 28);
+  const emissionCount = randomInt(1, spotCount);
+  const now = Date.now();
+  const availableSourceIndexes = Array.from({ length: spotCount }, (_, index) => index + 1);
+  for (let index = availableSourceIndexes.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(0, index);
+    const current = availableSourceIndexes[index];
+    availableSourceIndexes[index] = availableSourceIndexes[swapIndex];
+    availableSourceIndexes[swapIndex] = current;
+  }
+  return availableSourceIndexes.slice(0, emissionCount).map((sourceIndex, index) => {
+    const sourceId = `demo-${sourceIndex}`;
+    const phase = sourceIndex * 0.41 + index * 0.27;
     return {
-      sourceId: `demo-${index + 1}`,
-      sourceLabel: `Capteur ${index + 1}`,
-      timestampMs: Date.now(),
-      coordinate,
+      sourceId,
+      sourceLabel: `Capteur ${sourceIndex}`,
+      timestampMs: now + index,
+      coordinate: coordinateForSource(sourceId, coordinateCache),
       data: [
-        { name: 'temperature', value: 18 + pulse * 11, unit: '°C' },
-        { name: 'decibel', value: 42 + pulse * 33, unit: 'dB' },
-        { name: 'affluence', value: 8 + pulse * 92, unit: '%' },
+        { name: 'temperature', value: randomMetricValue(18, 12, tick, phase, 1.8), unit: '°C' },
+        { name: 'decibel', value: randomMetricValue(42, 34, tick, phase + 0.4, 3.5), unit: 'dB' },
+        { name: 'affluence', value: Math.max(0, Math.min(100, randomMetricValue(10, 88, tick, phase + 0.9, 8))), unit: '%' },
       ],
     };
   });
@@ -137,9 +159,9 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   } = useSensorStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const [error, setError] = useState<string | null>(null);
-  const [demoCoordinateMode, setDemoCoordinateMode] = useState<DemoCoordinateMode>('normalized');
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
+  const demoCoordinateCacheRef = useRef<Record<string, { x: number; y: number }>>({});
 
   const metricNames = useMemo(() => snapshot?.metrics.map((metric) => metric.name) ?? [], [snapshot]);
 
@@ -222,14 +244,46 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
 
   useEffect(() => {
     if (!demoRunning || !projectId) return;
-    const timer = window.setInterval(() => {
-      demoTickRef.current += 1;
-      void cadApi.ingestLiveSensorSamples(projectId, buildDemoSamples(demoTickRef.current, demoCoordinateMode)).catch((cause) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
+    let cancelled = false;
+    let timer: number | null = null;
+    const schedule = (delayMs: number, fn: () => void) => {
+      timer = window.setTimeout(() => {
+        timer = null;
+        fn();
+      }, delayMs);
+    };
+    const sendSequentially = async (samples: SensorSampleInput[], index: number) => {
+      if (cancelled) return;
+      if (index >= samples.length) {
+        schedule(randomInt(250, 1200), runBurst);
+        return;
+      }
+      try {
+        await cadApi.ingestLiveSensorSamples(projectId, [samples[index]]);
+        setError(null);
+      } catch (cause) {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+          setDemoRunning(false);
+        }
+        return;
+      }
+      if (cancelled) return;
+      schedule(randomInt(60, 220), () => {
+        void sendSequentially(samples, index + 1);
       });
-    }, 700);
-    return () => window.clearInterval(timer);
-  }, [demoCoordinateMode, demoRunning, projectId]);
+    };
+    const runBurst = () => {
+      if (cancelled) return;
+      demoTickRef.current += 1;
+      void sendSequentially(buildDemoSamples(demoTickRef.current, demoCoordinateCacheRef.current), 0);
+    };
+    runBurst();
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [demoRunning, projectId, setDemoRunning]);
 
   useEffect(() => {
     persistReadyRef.current = loadedProjectId === projectId && projectId !== null;
@@ -296,17 +350,9 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             step={10}
             onChange={(bufferSeconds) => setSettings({ ...settings, bufferSeconds })}
           />
-          <label className="flex items-center gap-2 text-xs text-gray-300">
-            <span className="w-28 shrink-0 text-gray-500">Démo coords</span>
-            <select
-              value={demoCoordinateMode}
-              onChange={(event) => setDemoCoordinateMode(event.target.value as DemoCoordinateMode)}
-              className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="normalized">100×100</option>
-              <option value="gps">GPS</option>
-            </select>
-          </label>
+          <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
+            Démo: envoi séquentiel aléatoire de JSON en coordonnées normalisées 100×100.
+          </div>
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Afficher la couche 3D</span>
             <input
@@ -329,7 +375,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             >
               <option value="point">Point</option>
               <option value="heatmap">Heatmap</option>
-              <option value="grid">Grid</option>
               <option value="bar">Bar</option>
             </select>
           </label>
@@ -401,6 +446,35 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="space-y-2 rounded border border-gray-800 bg-gray-950/70 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Live reçu</h4>
+          <div className="max-h-44 space-y-2 overflow-y-auto">
+            {(snapshot?.samples ?? [])
+              .slice()
+              .sort((left, right) => (right.timestampMs ?? 0) - (left.timestampMs ?? 0))
+              .slice(0, 16)
+              .map((sample) => (
+                <div key={sample.id} className="rounded border border-gray-800 bg-gray-900/60 px-2 py-1 text-[11px] text-gray-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate">{sample.sourceLabel || sample.sourceId}</span>
+                    <span className="text-gray-500">
+                      {sample.timestampMs ? new Date(sample.timestampMs).toLocaleTimeString('fr-FR') : '—'}
+                    </span>
+                  </div>
+                  <div className="text-gray-400">
+                    {sample.coordinate.kind === 'normalized'
+                      ? `100×100: ${sample.coordinate.x?.toFixed(2) ?? '—'}, ${sample.coordinate.y?.toFixed(2) ?? '—'}`
+                      : `GPS: ${sample.coordinate.lat?.toFixed(6) ?? '—'}, ${sample.coordinate.lon?.toFixed(6) ?? '—'}`}
+                  </div>
+                  <div className="truncate text-gray-400">
+                    {sample.data.map((metric) => `${metric.name}: ${metric.value.toFixed(2)}${metric.unit ? ` ${metric.unit}` : ''}`).join(' · ')}
+                  </div>
+                </div>
+              ))}
+            {!(snapshot?.samples.length) && <p className="text-xs text-gray-500">Aucune réception live.</p>}
           </div>
         </section>
 

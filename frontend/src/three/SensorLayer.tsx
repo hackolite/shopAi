@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
+import { buildHeatmapPixels } from '../engine/heatmap';
 import {
   aggregateSensorCells,
   buildMetricStats,
@@ -14,6 +15,7 @@ import {
 } from '../engine/liveSensors';
 import { useSceneStore } from '../store/sceneStore';
 import { useSensorStore } from '../store/sensorStore';
+import type { SimulationHeatmap } from '../types/cad';
 
 function sensorColor(value: number): string {
   const hue = (1 - Math.max(0, Math.min(1, value))) * 0.66;
@@ -107,6 +109,66 @@ export function SensorLayer() {
     );
   }, [cellSizePercent, colorMetric, filteredSamples, heightMetric, scene, showLayer, sizeMetric, snapshot]);
 
+  const sensorHeatmap = useMemo<SimulationHeatmap | null>(() => {
+    if (!scene || aggregatedCells.length === 0) return null;
+    const cellSizeCm = Math.max(50, (cellSizePercent / 100) * Math.max(100, Math.min(scene.store.dimensions.width, scene.store.dimensions.depth)));
+    const cols = Math.max(1, Math.ceil(scene.store.dimensions.width / cellSizeCm));
+    const rows = Math.max(1, Math.ceil(scene.store.dimensions.depth / cellSizeCm));
+    const counts = new Array(cols * rows).fill(0);
+    const colorStats = statsByName.get(colorMetric ?? '');
+    let maxCount = 0;
+    for (const cell of aggregatedCells) {
+      const [colToken = '0', rowToken = '0'] = cell.key.split(':');
+      const rawCol = Number(colToken);
+      const rawRow = Number(rowToken);
+      const col = Math.max(0, Math.min(cols - 1, Math.floor(Number.isFinite(rawCol) ? rawCol : 0)));
+      const row = Math.max(0, Math.min(rows - 1, Math.floor(Number.isFinite(rawRow) ? rawRow : 0)));
+      const intensity = normalizeMetricValue(cell.colorValue, colorStats);
+      const count = Math.max(0, Math.round(intensity * 1000));
+      const index = row * cols + col;
+      counts[index] = Math.max(counts[index], count);
+      maxCount = Math.max(maxCount, counts[index]);
+    }
+    if (maxCount <= 0) return null;
+    return {
+      cellSizeCm,
+      originXCm: 0,
+      originZCm: 0,
+      cols,
+      rows,
+      maxCount,
+      counts,
+    };
+  }, [aggregatedCells, cellSizePercent, colorMetric, scene, statsByName]);
+
+  const heatmapTexture = useMemo(() => {
+    if (!sensorHeatmap) return null;
+    const texture = new THREE.DataTexture(
+      new Uint8Array(sensorHeatmap.cols * sensorHeatmap.rows * 4),
+      sensorHeatmap.cols,
+      sensorHeatmap.rows,
+      THREE.RGBAFormat,
+      THREE.UnsignedByteType,
+    );
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.generateMipmaps = false;
+    texture.needsUpdate = true;
+    return texture;
+  }, [sensorHeatmap]);
+
+  useEffect(() => {
+    if (!sensorHeatmap || !heatmapTexture || !(heatmapTexture.image.data instanceof Uint8Array)) return;
+    heatmapTexture.image.data.set(buildHeatmapPixels(sensorHeatmap));
+    heatmapTexture.needsUpdate = true;
+  }, [sensorHeatmap, heatmapTexture]);
+
+  useEffect(() => () => {
+    heatmapTexture?.dispose();
+  }, [heatmapTexture]);
+
   if (!scene || !snapshot || !showLayer) return null;
 
   return (
@@ -132,44 +194,26 @@ export function SensorLayer() {
         );
       })}
 
-      {renderMode === 'heatmap' && aggregatedCells.map((cell) => {
-        const colorValue = normalizeMetricValue(cell.colorValue, statsByName.get(colorMetric ?? ''));
-        const cellSizeCm = Math.max(50, (cellSizePercent / 100) * Math.max(100, Math.min(scene.store.dimensions.width, scene.store.dimensions.depth)));
-        return (
-          <mesh
-            key={cell.key}
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[cell.xCm * CM_TO_UNIT, 0.02, cell.zCm * CM_TO_UNIT]}
-            renderOrder={1100}
-          >
-            <planeGeometry args={[cellSizeCm * CM_TO_UNIT, cellSizeCm * CM_TO_UNIT]} />
-            <meshBasicMaterial
-              color={sensorColor(colorValue)}
-              transparent
-              opacity={Math.max(0.08, opacity * colorValue)}
-              side={THREE.DoubleSide}
-              depthWrite={false}
-            />
-          </mesh>
-        );
-      })}
-
-      {renderMode === 'grid' && aggregatedCells.map((cell) => {
-        const colorValue = normalizeMetricValue(cell.colorValue, statsByName.get(colorMetric ?? ''));
-        const heightValue = normalizeMetricValue(cell.heightValue, statsByName.get(heightMetric ?? ''));
-        const cellSizeCm = Math.max(50, (cellSizePercent / 100) * Math.max(100, Math.min(scene.store.dimensions.width, scene.store.dimensions.depth)));
-        const heightCm = 10 + heightValue * 120;
-        return (
-          <mesh
-            key={cell.key}
-            position={[cell.xCm * CM_TO_UNIT, (heightCm * CM_TO_UNIT) / 2, cell.zCm * CM_TO_UNIT]}
-            renderOrder={1101}
-          >
-            <boxGeometry args={[cellSizeCm * CM_TO_UNIT * 0.92, heightCm * CM_TO_UNIT, cellSizeCm * CM_TO_UNIT * 0.92]} />
-            <meshStandardMaterial color={sensorColor(colorValue)} transparent opacity={opacity * 0.7} wireframe />
-          </mesh>
-        );
-      })}
+      {renderMode === 'heatmap' && sensorHeatmap && heatmapTexture && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[
+            (sensorHeatmap.originXCm + (sensorHeatmap.cols * sensorHeatmap.cellSizeCm) / 2) * CM_TO_UNIT,
+            0.022,
+            (sensorHeatmap.originZCm + (sensorHeatmap.rows * sensorHeatmap.cellSizeCm) / 2) * CM_TO_UNIT,
+          ]}
+          renderOrder={1100}
+        >
+          <planeGeometry args={[sensorHeatmap.cols * sensorHeatmap.cellSizeCm * CM_TO_UNIT, sensorHeatmap.rows * sensorHeatmap.cellSizeCm * CM_TO_UNIT]} />
+          <meshBasicMaterial
+            map={heatmapTexture}
+            transparent
+            opacity={Math.max(0.18, opacity)}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
       {renderMode === 'bar' && aggregatedCells.map((cell) => {
         const colorValue = normalizeMetricValue(cell.colorValue, statsByName.get(colorMetric ?? ''));

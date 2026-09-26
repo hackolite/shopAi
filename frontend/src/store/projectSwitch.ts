@@ -3,6 +3,7 @@ import { useCatalogStore } from './catalogStore';
 import { usePlanogramStore } from './planogramStore';
 import { useProjectStore } from './projectStore';
 import { useSceneStore } from './sceneStore';
+import { useSensorStore } from './sensorStore';
 import { useSimulationStore } from './simulationStore';
 import { useZoneStore } from './zoneStore';
 
@@ -25,6 +26,7 @@ export function resetProjectStores(): void {
   useZoneStore.getState().reset();
   usePlanogramStore.getState().reset();
   useSimulationStore.getState().reset();
+  useSensorStore.getState().reset();
   useCatalogStore.getState().setProducts([]);
   useAssetStore.getState().reset();
 }

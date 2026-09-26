@@ -153,6 +153,71 @@ export interface SimulationConfig {
   activeWaypointSystemId?: string | null;
 }
 
+export interface SensorMetricValue {
+  name: string;
+  value: number;
+  unit?: string | null;
+}
+
+export interface SensorCoordinate {
+  kind: 'normalized' | 'gps';
+  x?: number | null;
+  y?: number | null;
+  lat?: number | null;
+  lon?: number | null;
+}
+
+export interface SensorSampleInput {
+  sourceId: string;
+  sourceLabel?: string | null;
+  timestampMs?: number | null;
+  coordinate: SensorCoordinate;
+  data: SensorMetricValue[];
+}
+
+export interface SensorSampleRecord extends SensorSampleInput {
+  id: string;
+}
+
+export interface SensorMetricStats {
+  name: string;
+  min: number;
+  max: number;
+  unit?: string | null;
+  count: number;
+}
+
+export interface SensorNormalizedBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+export interface SensorGpsBounds {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+}
+
+export interface SensorLiveSettings {
+  bufferSeconds: number;
+}
+
+export interface SensorSnapshot {
+  retentionSeconds: number;
+  sampleCount: number;
+  samples: SensorSampleRecord[];
+  metrics: SensorMetricStats[];
+  sources: string[];
+  sourceLabels: Record<string, string>;
+  latestTimestampMs?: number | null;
+  coordinateKinds: Array<'normalized' | 'gps'>;
+  normalizedBounds?: SensorNormalizedBounds | null;
+  gpsBounds?: SensorGpsBounds | null;
+}
+
 export interface SimulationAgentFrame {
   id: number;
   xCm: number;
@@ -404,6 +469,7 @@ export interface ProjectSettings {
   cameraMode: string;
   ambientLight: number;
   simulation: SimulationConfig;
+  live: SensorLiveSettings;
 }
 
 // ─── Selection ────────────────────────────────────────────────────────────────

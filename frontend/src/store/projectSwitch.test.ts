@@ -5,6 +5,7 @@ import { usePlanogramStore } from './planogramStore';
 import { useSimulationStore } from './simulationStore';
 import { useProjectStore } from './projectStore';
 import { useCatalogStore } from './catalogStore';
+import { useSensorStore } from './sensorStore';
 import { resetProjectStores } from './projectSwitch';
 import type { CADProduct, Planogram, Scene } from '../types/cad';
 
@@ -97,6 +98,7 @@ describe('project switch cleanup', () => {
     useZoneStore.getState().addZone('supply', 1000, 800);
     usePlanogramStore.getState().setPlanogramDetail(planogram);
     useSimulationStore.getState().addWaypoint('entry');
+    useSensorStore.getState().setDemoRunning(true);
     useCatalogStore.getState().setProducts([{ ean: '1', name: 'P', brand: 'B' } as unknown as CADProduct]);
 
     resetProjectStores();
@@ -107,6 +109,8 @@ describe('project switch cleanup', () => {
     expect(useZoneStore.getState().zonesLoaded).toBe(false);
     expect(usePlanogramStore.getState().planogramDetails.size).toBe(0);
     expect(useSimulationStore.getState().config.waypoints).toEqual([]);
+    expect(useSensorStore.getState().demoRunning).toBe(false);
+    expect(useSensorStore.getState().snapshot).toBeNull();
     expect(useCatalogStore.getState().products).toEqual([]);
     expect(useCatalogStore.getState().filteredProducts).toEqual([]);
   });

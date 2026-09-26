@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response, WebSocket
 from pydantic import ValidationError
 
 import services.project_manager as project_manager
@@ -184,6 +184,30 @@ def ensure_platform_schema() -> None:
                 FOREIGN KEY (tenant_id) REFERENCES tenants(id),
                 FOREIGN KEY (owner_user_id) REFERENCES users(id)
             );
+
+            CREATE TABLE IF NOT EXISTS sensor_live_buffers (
+                project_id TEXT PRIMARY KEY,
+                retention_seconds INTEGER NOT NULL DEFAULT 300,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS sensor_live_samples (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                source_label TEXT,
+                timestamp_ms INTEGER NOT NULL,
+                coordinate_kind TEXT NOT NULL,
+                normalized_x REAL,
+                normalized_y REAL,
+                latitude REAL,
+                longitude REAL,
+                metrics_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_sensor_live_samples_project_time
+            ON sensor_live_samples(project_id, timestamp_ms);
 
             CREATE TABLE IF NOT EXISTS catalog_workspaces (
                 id TEXT PRIMARY KEY,
@@ -762,13 +786,7 @@ def _request_uses_forwarded_session(request: Request) -> bool:
     )
 
 
-def resolve_session_user(request: Request) -> dict[str, Any] | None:
-    ensure_platform_schema()
-    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
-    if _request_uses_forwarded_session(request):
-        token = _resolve_forwarded_session_token(request)
-    else:
-        token = cookie_token
+def _load_session_user_from_token(token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
     now = datetime.now(timezone.utc)
@@ -799,6 +817,22 @@ def resolve_session_user(request: Request) -> dict[str, Any] | None:
     if row is None:
         return None
     return _row_to_user_payload(row)
+
+
+def resolve_session_user(request: Request) -> dict[str, Any] | None:
+    ensure_platform_schema()
+    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if _request_uses_forwarded_session(request):
+        token = _resolve_forwarded_session_token(request)
+    else:
+        token = cookie_token
+    return _load_session_user_from_token(token)
+
+
+def resolve_websocket_user(websocket: WebSocket) -> dict[str, Any] | None:
+    ensure_platform_schema()
+    token = websocket.headers.get(SESSION_HEADER_NAME) or websocket.cookies.get(SESSION_COOKIE_NAME)
+    return _load_session_user_from_token(token)
 
 
 def set_current_user(user: dict[str, Any] | None):

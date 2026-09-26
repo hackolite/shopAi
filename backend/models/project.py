@@ -87,6 +87,101 @@ class Face(str, Enum):
     bottom = "bottom"
 
 
+class SensorMetricValue(CADBaseModel):
+    name: str
+    value: float
+    unit: str | None = None
+
+
+class SensorCoordinate(CADBaseModel):
+    kind: Literal["normalized", "gps"] = "normalized"
+    x: float | None = None
+    y: float | None = None
+    lat: float | None = None
+    lon: float | None = None
+
+    @model_validator(mode="after")
+    def validate_coordinate(self):
+        if self.kind == "normalized":
+            if self.x is None or self.y is None:
+                raise ValueError("normalized coordinates require x and y")
+            if not 0 <= float(self.x) <= 100 or not 0 <= float(self.y) <= 100:
+                raise ValueError("normalized coordinates must stay within [0,100]")
+            self.lat = None
+            self.lon = None
+            return self
+        if self.lat is None or self.lon is None:
+            raise ValueError("gps coordinates require lat and lon")
+        if not -90 <= float(self.lat) <= 90 or not -180 <= float(self.lon) <= 180:
+            raise ValueError("gps coordinates are out of range")
+        self.x = None
+        self.y = None
+        return self
+
+
+class SensorSampleInput(CADBaseModel):
+    sourceId: str = "sensor"
+    sourceLabel: str | None = None
+    timestampMs: int | None = None
+    coordinate: SensorCoordinate
+    data: list[SensorMetricValue]
+
+    @field_validator("data")
+    @classmethod
+    def validate_data(cls, value: list[SensorMetricValue]) -> list[SensorMetricValue]:
+        if not value:
+            raise ValueError("sensor sample data must not be empty")
+        return value
+
+
+class SensorSampleRecord(SensorSampleInput):
+    id: str
+
+
+class SensorMetricStats(CADBaseModel):
+    name: str
+    min: float
+    max: float
+    unit: str | None = None
+    count: int
+
+
+class SensorNormalizedBounds(CADBaseModel):
+    minX: float
+    maxX: float
+    minY: float
+    maxY: float
+
+
+class SensorGpsBounds(CADBaseModel):
+    minLat: float
+    maxLat: float
+    minLon: float
+    maxLon: float
+
+
+class SensorLiveSettings(CADBaseModel):
+    bufferSeconds: int = 300
+
+    @field_validator("bufferSeconds")
+    @classmethod
+    def validate_buffer_seconds(cls, value: int) -> int:
+        return max(10, min(86_400, int(value)))
+
+
+class SensorSnapshot(CADBaseModel):
+    retentionSeconds: int
+    sampleCount: int
+    samples: list[SensorSampleRecord] = Field(default_factory=list)
+    metrics: list[SensorMetricStats] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    sourceLabels: dict[str, str] = Field(default_factory=dict)
+    latestTimestampMs: int | None = None
+    coordinateKinds: list[Literal["normalized", "gps"]] = Field(default_factory=list)
+    normalizedBounds: SensorNormalizedBounds | None = None
+    gpsBounds: SensorGpsBounds | None = None
+
+
 class ProjectSettings(CADBaseModel):
     gridSize: float = 100.0
     snapEnabled: bool = True
@@ -95,6 +190,8 @@ class ProjectSettings(CADBaseModel):
     cameraMode: str = "perspective"
     ambientLight: float = 0.8
     simulation: "SimulationConfig" = Field(default_factory=lambda: SimulationConfig())
+    live: SensorLiveSettings = Field(default_factory=lambda: SensorLiveSettings())
+
 
 
 class SimulationWaypoint(CADBaseModel):

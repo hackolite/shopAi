@@ -18,11 +18,13 @@ import ExportDialog from './components/ExportDialog';
 import ImportDialog from './components/ImportDialog';
 import SimulationPanel from './components/SimulationPanel';
 import StudioAssistant from './components/StudioAssistant';
+import SensorPanel from './components/SensorPanel';
 import type { ImportFormat } from './components/ImportDialog';
 import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore, type FloorZone } from './store/zoneStore';
 import { useProjectStore } from './store/projectStore';
 import { resetProjectStores } from './store/projectSwitch';
+import { useSensorStore } from './store/sensorStore';
 import type { FurnitureInstance, Planogram } from './types/cad';
 import { findFreeFurniturePosition } from './engine/furnitureCollision';
 import { directionFromKey, navigatePlanogramCell } from './engine/planogramCellNavigation';
@@ -58,7 +60,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const [saveStatus, setSaveStatus]   = useState<'idle' | 'saving' | 'saved'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'assistant' | 'inspector' | 'simulation' | 'pedestrian'>('assistant');
+  const [rightTab, setRightTab] = useState<'assistant' | 'inspector' | 'simulation' | 'pedestrian' | 'live'>('assistant');
   const [leftPanelOpen, setLeftPanelOpen] = useState(false);
 
   // Dialog states
@@ -89,6 +91,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const setLoadedProjectId = useProjectStore((state) => state.setLoadedProjectId);
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
   const simulationConfig = useSimulationStore((state) => state.config);
+  const setSensorSettings = useSensorStore((state) => state.setSettings);
 
   useEffect(() => {
     setSaveStatus('idle');
@@ -162,6 +165,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       setZones(sceneData.store.zones ?? []);
       setProjectName(meta.name ?? id);
       setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
+      setSensorSettings(settings.live ?? { bufferSeconds: 300 });
       setLoadedProjectId(id);
 
       // Track the remaining work so the viewport can show a progress gauge:
@@ -233,6 +237,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     setPlanogramDetail,
     setZones,
     setSimulationConfig,
+    setSensorSettings,
     setLoadedProjectId,
   ]);
 
@@ -827,7 +832,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
         </main>
 
         {/* ── Right panel (280px) ──────────────────────────────────────── */}
-        <aside className="h-[45vh] w-full shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:h-auto md:w-96 md:max-w-[48vw]">
+        <aside className="h-[45vh] w-full shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:h-auto md:w-[32rem] md:max-w-[52vw]">
           <div className="flex flex-wrap shrink-0 border-b border-gray-800" aria-label="Outils du studio">
             <button type="button" aria-pressed={rightTab === 'assistant'}
               onClick={() => setRightTab('assistant')}
@@ -845,6 +850,18 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
               aria-pressed={rightTab === 'simulation'}
             >
               Simulation
+            </button>
+            <button
+              className={[
+                'flex-1 px-2 py-3 text-sm font-medium transition-colors',
+                rightTab === 'live'
+                  ? 'border-b-2 border-cyan-400 text-cyan-300'
+                  : 'text-gray-500 hover:text-gray-300',
+              ].join(' ')}
+              onClick={() => setRightTab('live')}
+              aria-pressed={rightTab === 'live'}
+            >
+              Live
             </button>
             <button
               className={[
@@ -892,6 +909,9 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
                 agents could never restart. */}
             <div className={rightTab === 'simulation' ? 'h-full' : 'hidden'}>
               <SimulationPanel projectId={projectId} />
+            </div>
+            <div className={rightTab === 'live' ? 'h-full' : 'hidden'}>
+              <SensorPanel projectId={projectId} />
             </div>
             {rightTab === 'inspector' && (
               <Inspector

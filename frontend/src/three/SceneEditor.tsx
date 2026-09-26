@@ -1973,31 +1973,43 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     }
   }
 
+  // When the zone is "mounted" (extruded into a volume), the extrude's own
+  // bottom cap already occupies the exact same plane as the flat fill mesh
+  // below. Rendering both at once puts two coincident, differently
+  // triangulated surfaces at the same depth, which the GPU can't reliably
+  // order — a classic z-fighting artefact that shows up as flickering
+  // "volume paint". So the flat fill plane is only rendered for flat
+  // (non-mounted) zones; mounted zones get their pointer/hover handling
+  // moved onto the extruded mesh instead.
+  const showFlatFill = !(mounted && extrudedGeometry);
+
   return (
     <group>
-      {/* Semi-transparent fill plane */}
-      <mesh
-        position={[cx, y, cz]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        onPointerDown={handlePointerDown}
-        onClick={handleClick}
-        onPointerOver={(e) => {
-          if (activeTool === 'measure') return;
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'move';
-        }}
-        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
-      >
-        <shapeGeometry args={[shapeGeometry]} />
-        <meshBasicMaterial
-          color={fillColor}
-          transparent
-          opacity={fillOpacity}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      {/* Semi-transparent fill plane (flat zones only — see showFlatFill above) */}
+      {showFlatFill && (
+        <mesh
+          position={[cx, y, cz]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          onPointerDown={handlePointerDown}
+          onClick={handleClick}
+          onPointerOver={(e) => {
+            if (activeTool === 'measure') return;
+            e.stopPropagation();
+            setHovered(true);
+            document.body.style.cursor = 'move';
+          }}
+          onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
+        >
+          <shapeGeometry args={[shapeGeometry]} />
+          <meshBasicMaterial
+            color={fillColor}
+            transparent
+            opacity={fillOpacity}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
 
       {mounted && extrudedGeometry && (
         <>
@@ -2006,6 +2018,13 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             rotation={[-Math.PI / 2, 0, 0]}
             onPointerDown={handlePointerDown}
             onClick={handleClick}
+            onPointerOver={(e) => {
+              if (activeTool === 'measure') return;
+              e.stopPropagation();
+              setHovered(true);
+              document.body.style.cursor = 'move';
+            }}
+            onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
           >
             <primitive object={extrudedGeometry} attach="geometry" />
             <meshStandardMaterial
@@ -2014,6 +2033,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
               opacity={isSolidWall ? 1 : Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
               roughness={0.85}
               metalness={0.05}
+              polygonOffset
+              polygonOffsetFactor={1}
+              polygonOffsetUnits={1}
             />
           </mesh>
           <Line

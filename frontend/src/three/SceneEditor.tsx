@@ -2043,6 +2043,14 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
               opacity={isSolidWall ? 1 : Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
               roughness={0.85}
               metalness={0.05}
+              // OSM-imported polygons can have either clockwise or
+              // counter-clockwise winding, which flips the extruded side
+              // faces' normals. With the default FrontSide only, that makes
+              // some building walls invisible (looking "transparent") when
+              // viewed from outside. Render both faces so solid buildings
+              // always show a full, opaque colored wall regardless of the
+              // source polygon's winding order.
+              side={THREE.DoubleSide}
               polygonOffset
               polygonOffsetFactor={1}
               polygonOffsetUnits={1}

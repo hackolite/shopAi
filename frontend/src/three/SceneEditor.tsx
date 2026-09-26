@@ -1830,7 +1830,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   // Zones imported with an explicit full opacity (e.g. OSM buildings) are
   // solid volumes: their walls must render as opaque, full-strength colors
   // instead of washed-out/transparent ones, even when hovered or selected.
-  const isSolidWall = mounted && baseOpacity >= 0.99;
+  // We also make sure all buildings (source.isLikelyBuilding === true) are solid/opaque.
+  const isSolidWall = mounted && (baseOpacity >= 0.99 || zone.source?.isLikelyBuilding === true);
   const fillOpacity = isSolidWall
     ? 1
     : mounted

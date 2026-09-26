@@ -1369,15 +1369,47 @@ def osm_xml_to_retail_layout(
 
         if not name:
 
-            if semantic_type != "other":
+            french_names = {
+                "residential": "Bâtiment résidentiel",
+                "apartments": "Immeuble d'habitation",
+                "house": "Maison",
+                "commercial": "Bâtiment commercial",
+                "retail": "Commerce / Magasin",
+                "office": "Bureaux",
+                "industrial": "Bâtiment industriel",
+                "warehouse": "Entrepôt",
+                "civic": "Bâtiment public",
+                "school": "École / Établissement scolaire",
+                "hospital": "Hôpital / Clinique",
+                "religious": "Lieu de culte",
+                "garage": "Garage / Abri",
+                "parking": "Parking",
+                "park": "Parc",
+                "garden": "Jardin",
+                "water": "Plan d'eau",
+                "road": "Route / Rue",
+                "path": "Chemin piéton",
+                "cycleway": "Piste cyclable",
+                "pedestrian": "Zone piétonne",
+                "station": "Gare / Station",
+                "sports": "Zone sportive",
+                "recreation": "Espace de loisirs",
+                "landuse": "Zone d'aménagement",
+                "natural": "Espace naturel",
+                "railway": "Voie ferrée",
+            }
 
-                name = semantic_type
+            if semantic_type in french_names:
+
+                name = french_names[semantic_type]
+
+            elif is_likely_building:
+
+                name = "Bâtiment"
 
             else:
 
-                name = (
-                    f"OSM {way_id}"
-                )
+                name = "Zone"
 
         # ====================================================
         # SOURCE

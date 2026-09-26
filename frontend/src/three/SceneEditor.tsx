@@ -1210,7 +1210,13 @@ function StoreBoundary({
 
   return (
     <>
-      <Line points={corners} color={lineColor} lineWidth={isSelected ? 4 : hovered ? 3.5 : 3} />
+      <Line
+        points={corners}
+        color={lineColor}
+        lineWidth={isSelected ? 4 : hovered ? 3.5 : 3}
+        depthTest={false}
+        renderOrder={2}
+      />
       {hitBoxes.map((hb, i) => (
         <mesh
           key={i}
@@ -1957,6 +1963,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
           points={[[gx, gridLineY, bz], [gx, gridLineY, bz + D]] as [number, number, number][]}
           color={gridColor}
           lineWidth={1}
+          depthTest={false}
+          renderOrder={2}
         />,
       );
     }
@@ -1968,6 +1976,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
           points={[[bx, gridLineY, gz], [bx + W, gridLineY, gz]] as [number, number, number][]}
           color={gridColor}
           lineWidth={1}
+          depthTest={false}
+          renderOrder={2}
         />,
       );
     }
@@ -2042,6 +2052,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             points={topBorderPts}
             color={whiteEdgeColor}
             lineWidth={isSelected ? 3 : 2}
+            depthTest={false}
+            renderOrder={2}
           />
           {verticalEdgePts.map((points, index) => (
             <Line
@@ -2049,16 +2061,28 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
               points={points}
               color={whiteEdgeColor}
               lineWidth={isSelected ? 2.5 : 1.5}
+              depthTest={false}
+              renderOrder={2}
             />
           ))}
         </>
       )}
 
-      {/* Border outline */}
+      {/*
+        Border outline — this bottom-of-zone line sits exactly on the same
+        plane as the floor slab/grid (and, for mounted zones, the extruded
+        volume's own base edge). Depth-testing it against those coincident
+        surfaces is what caused the "arêtes de sol" flicker: tiny per-frame
+        floating-point differences flip which surface wins the depth test.
+        Rendering it after everything else, with depth testing disabled,
+        keeps it stable regardless of camera distance/angle.
+      */}
       <Line
         points={borderPts}
         color={whiteEdgeColor}
         lineWidth={isSelected ? 3 : 2}
+        depthTest={false}
+        renderOrder={2}
       />
 
       {/* Interior grid lines (supply zones only) */}

@@ -157,7 +157,7 @@ export function SensorLayer() {
     texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
-  }, [sensorHeatmap?.cols, sensorHeatmap?.rows]);
+  }, [sensorHeatmap]);
 
   useEffect(() => {
     if (!sensorHeatmap || !heatmapTexture || !(heatmapTexture.image.data instanceof Uint8Array)) return;

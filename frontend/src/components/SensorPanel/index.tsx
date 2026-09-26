@@ -247,7 +247,9 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       } catch (cause) {
         if (!cancelled) {
           setError(cause instanceof Error ? cause.message : String(cause));
+          setDemoRunning(false);
         }
+        return;
       }
       if (cancelled) return;
       schedule(randomInt(60, 220), () => {
@@ -264,7 +266,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [demoRunning, projectId]);
+  }, [demoRunning, projectId, setDemoRunning]);
 
   useEffect(() => {
     persistReadyRef.current = loadedProjectId === projectId && projectId !== null;

@@ -11,7 +11,7 @@ import {
   sensorColor,
 } from '../../engine/liveSensors';
 import { useProjectStore } from '../../store/projectStore';
-import { useSensorStore } from '../../store/sensorStore';
+import { useSensorStore, type SensorColorRampName } from '../../store/sensorStore';
 import type { SensorSnapshot } from '../../types/cad';
 
 interface SensorPanelProps {
@@ -81,6 +81,10 @@ const COLOR_RAMP_OPTIONS = [
   { value: 'green-red', label: 'Vert → rouge' },
   { value: 'cyan-blue', label: 'Cyan → bleu' },
 ] as const;
+
+function isSensorColorRampName(value: string | null): value is SensorColorRampName {
+  return COLOR_RAMP_OPTIONS.some((option) => option.value === value);
+}
 
 export default function SensorPanel({ projectId }: SensorPanelProps) {
   const {
@@ -380,7 +384,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             label="Gamme"
             value={colorRamp}
             options={[...COLOR_RAMP_OPTIONS.map((option) => option.value)]}
-            onChange={(value) => setColorRamp((value ?? 'yellow-red') as typeof colorRamp)}
+            onChange={(value) => setColorRamp(isSensorColorRampName(value) ? value : 'yellow-red')}
           />
           <div className="flex items-center justify-between gap-2 rounded border border-gray-800 bg-gray-900/60 px-2 py-1 text-[11px] text-gray-300">
             <span>Palette active</span>

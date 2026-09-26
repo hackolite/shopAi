@@ -239,6 +239,10 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       if (closed) return;
       clearConnectTimeout();
       if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
         socket.close();
       }
       setSocketStatus('connecting');

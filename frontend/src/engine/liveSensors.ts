@@ -304,7 +304,7 @@ export function aggregateSensorSectors(
   }
 
   return [...buckets.values()]
-    .sort((left, right) => left.key.localeCompare(right.key))
+    .sort((left, right) => (left.row - right.row) || (left.col - right.col))
     .map(({ key, col, row, centerX, centerY, count, colorValue, heightValue }) => ({
       key,
       col,

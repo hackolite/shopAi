@@ -421,6 +421,8 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                 const normalizedColor = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''));
                 const normalizedHeight = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''));
                 const barHeight = Math.max(0, normalizedHeight * sectorSize * 0.85);
+                const sectorFill = sector.colorValue == null ? '#1f2937' : sensorColor(normalizedColor, colorRamp);
+                const sectorFillOpacity = sector.colorValue == null ? 0.18 : 0.2 + normalizedColor * 0.75;
                 return (
                   <g key={sector.key}>
                     <rect
@@ -428,8 +430,8 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                       y={sector.row * sectorSize}
                       width={sectorSize}
                       height={sectorSize}
-                      fill={sensorColor(normalizedColor, colorRamp)}
-                      fillOpacity={0.2 + normalizedColor * 0.75}
+                      fill={sectorFill}
+                      fillOpacity={sectorFillOpacity}
                       stroke="#0f172a"
                       strokeWidth="0.18"
                     />

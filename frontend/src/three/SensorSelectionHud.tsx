@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { buildSensorHudLines } from '../engine/liveSensorHud';
+import { zoneDisplayLabel, zoneIsLikelyBuilding } from '../engine/floorZones';
 import { useSensorStore } from '../store/sensorStore';
+import { useZoneStore } from '../store/zoneStore';
 
 const HUD_DISTANCE = 10;
 const ROW_HEIGHT_PX = 72;
@@ -37,21 +40,29 @@ export function SensorSelectionHud() {
   const colorMetric = useSensorStore((state) => state.colorMetric);
   const heightMetric = useSensorStore((state) => state.heightMetric);
   const showLayer = useSensorStore((state) => state.showLayer);
+  const zones = useZoneStore((state) => state.zones);
+  const selectedZoneId = useZoneStore((state) => state.selectedZoneId);
   const spriteRef = useRef<THREE.Sprite>(null);
 
+  const selectedBuildingName = useMemo(() => {
+    if (!selectedZoneId) return null;
+    const zone = zones.find((item) => item.id === selectedZoneId);
+    if (!zone || !zoneIsLikelyBuilding(zone)) return null;
+    return zoneDisplayLabel(zone);
+  }, [selectedZoneId, zones]);
+
   const lines = useMemo(() => {
-    if (!showLayer || !snapshot || selectedSourceIds.length === 0) return [];
-    const labels = selectedSourceIds
-      .slice(0, 4)
-      .map((sourceId) => snapshot.sourceLabels[sourceId] || sourceId);
-    const extra = selectedSourceIds.length > 4 ? ` +${selectedSourceIds.length - 4}` : '';
-    return [
-      'Live BAR',
-      `Capteurs: ${labels.join(',')}${extra}`,
-      `Couleur: ${colorMetric ?? '—'}`,
-      `Hauteur: ${heightMetric ?? '—'}`,
-    ];
-  }, [colorMetric, heightMetric, selectedSourceIds, showLayer, snapshot]);
+    const selectedSourceLabels = !snapshot
+      ? []
+      : selectedSourceIds.map((sourceId) => snapshot.sourceLabels[sourceId] || sourceId);
+    return buildSensorHudLines({
+      selectedBuildingName,
+      showLayer,
+      selectedSourceLabels,
+      colorMetric,
+      heightMetric,
+    });
+  }, [colorMetric, heightMetric, selectedBuildingName, selectedSourceIds, showLayer, snapshot]);
 
   const texture = useMemo(() => (lines.length > 0 ? drawTexture(lines) : null), [lines]);
 

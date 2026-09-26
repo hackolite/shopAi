@@ -109,14 +109,17 @@ body {
 .hub-empty h3 { color: #e5e7eb; margin-bottom: 10px; }
 .hub-two-column { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 40px; align-items: start; }
 .hub-workspace-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+.hub-upload-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
 .hub-form { display: flex; flex-direction: column; gap: 20px; }
 .hub-form-card { background: #111827; border: 1px solid #1f2937; border-radius: 16px; padding: 28px; }
 .hub-equal-card { height: 100%; }
 .hub-equal-card button { margin-top: auto; }
+.hub-resource-panel { margin-top: 32px; }
 .hub-resource-panel .hub-resource-list,
 .hub-resource-panel .hub-empty { margin-top: 0; }
 .hub-count { display: inline-block; margin-left: 8px; padding: 2px 10px; background: #1f2937; color: #d1d5db; border-radius: 20px; font-size: 14px; }
 .hub-resource-list { padding: 0; list-style: none; margin: 20px 0 0; display: grid; gap: 16px; }
+.hub-resource-list--grid { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
 .hub-resource-list > li { padding: 24px; background: #111827; border: 1px solid #1f2937; border-radius: 14px; overflow-wrap: anywhere; }
 .hub-resource-list p { margin: 8px 0 12px; white-space: pre-wrap; }
 .hub-resource-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -175,6 +178,7 @@ body {
   .hub-container { padding: 0 24px; }
   .hub-welcome { gap: 32px; grid-template-columns: 1fr 1fr; padding: 40px 0; }
   .hub-two-column { gap: 24px; }
+  .hub-upload-row, .hub-resource-list--grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hub-tabs { gap: 4px; }
   .hub-tabs button { padding: 12px 16px; }
 }
@@ -189,6 +193,7 @@ body {
   .hub-welcome-copy ul { margin-top: 20px; }
   .hub-auth, .hub-form-card { padding: 24px; }
   .hub-two-column, .hub-capabilities { grid-template-columns: 1fr; }
+  .hub-upload-row, .hub-resource-list--grid { grid-template-columns: 1fr; }
   .hub-create-project { align-items: stretch; flex-direction: column; padding: 20px; }
   .hub-panel { padding-top: 28px; }
   .hub-tabs button { padding: 12px 14px; }

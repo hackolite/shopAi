@@ -6,7 +6,7 @@ export type SensorColorRampName = 'yellow-red' | 'blue-red' | 'green-red' | 'cya
 
 export const DEFAULT_DEMO_SENSOR_COUNT = 100;
 export const MIN_DEMO_SENSOR_COUNT = 4;
-export const MAX_DEMO_SENSOR_COUNT = 300;
+export const MAX_DEMO_SENSOR_COUNT = 500;
 
 export const defaultSensorLiveSettings = (): SensorLiveSettings => ({
   bufferSeconds: 300,

@@ -10,6 +10,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        // Without this the dev server never upgrades the live-sensor `/live/ws`
+        // handshake: the WebSocket connect() call above times out repeatedly and
+        // the client's reconnect loop retries every few seconds, which looks like
+        // "a new websocket connection on every data send" during the live demo.
+        ws: true,
       },
     },
   },

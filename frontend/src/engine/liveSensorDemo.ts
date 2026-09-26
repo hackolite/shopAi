@@ -93,7 +93,7 @@ const DEMO_SENSOR_ANCHORS: DemoSensorAnchor[] = [
 /** Default number of simulated demo sensors: a hundred gives a dense, realistic grid. */
 export const DEFAULT_DEMO_SENSOR_COUNT = 100;
 export const MIN_DEMO_SENSOR_COUNT = 4;
-export const MAX_DEMO_SENSOR_COUNT = 300;
+export const MAX_DEMO_SENSOR_COUNT = 500;
 
 /**
  * Builds `count` sensor anchor points spread across the store. The first anchors reuse

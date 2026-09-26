@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
+import { buildDemoSamples, createDemoSensorDefinitions } from '../../engine/liveSensorDemo';
 import { useProjectStore } from '../../store/projectStore';
 import { useSensorStore } from '../../store/sensorStore';
 import type { SensorSampleInput, SensorSnapshot } from '../../types/cad';
@@ -69,63 +70,11 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function randomNormalizedCoordinate() {
-  return {
-    x: Number((Math.random() * 100).toFixed(2)),
-    y: Number((Math.random() * 100).toFixed(2)),
-  };
-}
-
-function randomMetricValue(base: number, amplitude: number, tick: number, phase: number, noiseSpan: number): number {
-  const wave = (Math.sin(tick * 0.22 + phase) + 1) / 2;
-  const noise = (Math.random() - 0.5) * noiseSpan;
-  return Number((base + wave * amplitude + noise).toFixed(2));
-}
-
-function coordinateForSource(
-  sourceId: string,
-  cache: Record<string, { x: number; y: number }>,
-): { kind: 'normalized'; x: number; y: number } {
-  if (!cache[sourceId]) {
-    cache[sourceId] = randomNormalizedCoordinate();
-  }
-  return { kind: 'normalized', x: cache[sourceId].x, y: cache[sourceId].y };
-}
-
-function buildDemoSamples(tick: number, coordinateCache: Record<string, { x: number; y: number }>): SensorSampleInput[] {
-  const spotCount = randomInt(4, 28);
-  const emissionCount = randomInt(1, spotCount);
-  const now = Date.now();
-  const availableSourceIndexes = Array.from({ length: spotCount }, (_, index) => index + 1);
-  for (let index = availableSourceIndexes.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomInt(0, index);
-    const current = availableSourceIndexes[index];
-    availableSourceIndexes[index] = availableSourceIndexes[swapIndex];
-    availableSourceIndexes[swapIndex] = current;
-  }
-  return availableSourceIndexes.slice(0, emissionCount).map((sourceIndex, index) => {
-    const sourceId = `demo-${sourceIndex}`;
-    const phase = sourceIndex * 0.41 + index * 0.27;
-    return {
-      sourceId,
-      sourceLabel: `Capteur ${sourceIndex}`,
-      timestampMs: now + index,
-      coordinate: coordinateForSource(sourceId, coordinateCache),
-      data: [
-        { name: 'temperature', value: randomMetricValue(18, 12, tick, phase, 1.8), unit: '°C' },
-        { name: 'decibel', value: randomMetricValue(42, 34, tick, phase + 0.4, 3.5), unit: 'dB' },
-        { name: 'affluence', value: Math.max(0, Math.min(100, randomMetricValue(10, 88, tick, phase + 0.9, 8))), unit: '%' },
-      ],
-    };
-  });
-}
-
 export default function SensorPanel({ projectId }: SensorPanelProps) {
   const {
     settings,
     snapshot,
     socketStatus,
-    renderMode,
     colorMetric,
     heightMetric,
     sizeMetric,
@@ -134,7 +83,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     filterMinNormalized,
     filterMaxNormalized,
     opacity,
-    pointScale,
     cellSizePercent,
     barMaxHeightCm,
     demoRunning,
@@ -142,7 +90,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setSettings,
     setSnapshot,
     setSocketStatus,
-    setRenderMode,
     setColorMetric,
     setHeightMetric,
     setSizeMetric,
@@ -151,7 +98,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setFilterMetric,
     setFilterRange,
     setOpacity,
-    setPointScale,
     setCellSizePercent,
     setBarMaxHeightCm,
     setDemoRunning,
@@ -161,7 +107,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
-  const demoCoordinateCacheRef = useRef<Record<string, { x: number; y: number }>>({});
+  const demoDefinitionsRef = useRef(createDemoSensorDefinitions());
 
   const metricNames = useMemo(() => snapshot?.metrics.map((metric) => metric.name) ?? [], [snapshot]);
 
@@ -276,7 +222,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     const runBurst = () => {
       if (cancelled) return;
       demoTickRef.current += 1;
-      void sendSequentially(buildDemoSamples(demoTickRef.current, demoCoordinateCacheRef.current), 0);
+      void sendSequentially(buildDemoSamples(demoTickRef.current, demoDefinitionsRef.current), 0);
     };
     runBurst();
     return () => {
@@ -290,7 +236,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   }, [loadedProjectId, projectId]);
 
   const latestTimestamp = snapshot?.latestTimestampMs
-    ? new Date(snapshot.latestTimestampMs).toLocaleTimeString('fr-FR')
+    ? new Date(snapshot.latestTimestampMs).toLocaleString('fr-FR')
     : '—';
 
   return (
@@ -298,7 +244,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       <div className="border-b border-gray-700 p-5">
         <h2 className="text-lg font-semibold">Live capteurs</h2>
         <p className="mt-2 text-sm text-gray-300">
-          REST pour l’ingestion, WebSocket pour le push, rendu 3D sélectionnable côté front.
+         REST pour l’ingestion, WebSocket pour le push, et barres 3D calculées sur la moyenne du tampon live.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full bg-gray-950/70 px-2.5 py-1 text-gray-300">
@@ -351,7 +297,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             onChange={(bufferSeconds) => setSettings({ ...settings, bufferSeconds })}
           />
           <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
-            Démo: envoi séquentiel aléatoire de JSON en coordonnées normalisées 100×100.
+            Démo: capteurs typés à coordonnées fixes, envoyés goutte-à-goutte en JSON normalisé 100×100.
           </div>
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Afficher la couche 3D</span>
@@ -366,24 +312,14 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
 
         <section className="space-y-3 rounded border border-gray-800 bg-gray-950/70 p-3">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Rendu</h4>
-          <label className="flex items-center gap-2 text-xs text-gray-300">
-            <span className="w-28 shrink-0 text-gray-500">Mode</span>
-            <select
-              value={renderMode}
-              onChange={(event) => setRenderMode(event.target.value as typeof renderMode)}
-              className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="point">Point</option>
-              <option value="heatmap">Heatmap</option>
-              <option value="bar">Bar</option>
-            </select>
-          </label>
+          <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
+            Mode fixe: barres 3D par cellule, hauteur/couleur issues des moyennes du tampon courant.
+          </div>
           <SelectField label="Couleur" value={colorMetric} options={metricNames} onChange={setColorMetric} />
           <SelectField label="Hauteur" value={heightMetric} options={metricNames} onChange={setHeightMetric} />
           <SelectField label="Taille" value={sizeMetric} options={metricNames} onChange={setSizeMetric} />
           <NumberField label="Opacité" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} />
-          <NumberField label="Échelle point" value={pointScale} min={0.25} max={4} step={0.25} onChange={setPointScale} />
-          <NumberField label="Cellule %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
+          <NumberField label="Largeur bar %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
           <NumberField label="Bar max cm" value={barMaxHeightCm} min={50} max={1500} step={25} onChange={setBarMaxHeightCm} />
         </section>
 
@@ -461,7 +397,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate">{sample.sourceLabel || sample.sourceId}</span>
                     <span className="text-gray-500">
-                      {sample.timestampMs ? new Date(sample.timestampMs).toLocaleTimeString('fr-FR') : '—'}
+                      {sample.timestampMs ? new Date(sample.timestampMs).toLocaleString('fr-FR') : '—'}
                     </span>
                   </div>
                   <div className="text-gray-400">
@@ -469,9 +405,13 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                       ? `100×100: ${sample.coordinate.x?.toFixed(2) ?? '—'}, ${sample.coordinate.y?.toFixed(2) ?? '—'}`
                       : `GPS: ${sample.coordinate.lat?.toFixed(6) ?? '—'}, ${sample.coordinate.lon?.toFixed(6) ?? '—'}`}
                   </div>
-                  <div className="truncate text-gray-400">
-                    {sample.data.map((metric) => `${metric.name}: ${metric.value.toFixed(2)}${metric.unit ? ` ${metric.unit}` : ''}`).join(' · ')}
-                  </div>
+                  <ul className="mt-1 space-y-0.5 text-gray-400">
+                    {sample.data.map((metric) => (
+                      <li key={`${sample.id}-${metric.name}`}>
+                        {metric.name}: {metric.value.toFixed(2)}{metric.unit ? ` ${metric.unit}` : ''}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             {!(snapshot?.samples.length) && <p className="text-xs text-gray-500">Aucune réception live.</p>}

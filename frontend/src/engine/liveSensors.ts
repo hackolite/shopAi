@@ -124,8 +124,7 @@ export function aggregateSensorCells(
   heightMetric: string | null,
   sizeMetric: string | null,
 ): AggregatedSensorCell[] {
-  const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
-  const cellSizeCm = Math.max(50, (cellSizePercent / 100) * minSideCm);
+  const cellSizeCm = getSensorCellSizeCm(store, cellSizePercent);
   const buckets = new Map<string, AggregatedSensorCell & {
     colorSum: number;
     colorCount: number;
@@ -162,6 +161,11 @@ export function aggregateSensorCells(
     if (colorValue != null) {
       existing.colorSum += colorValue;
       existing.colorCount += 1;
+    }
+
+    export function getSensorCellSizeCm(store: StoreConfig, cellSizePercent: number): number {
+      const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
+      return Math.max(50, (cellSizePercent / 100) * minSideCm);
     }
     if (heightValue != null) {
       existing.heightSum += heightValue;

@@ -31,5 +31,7 @@ describe('live sensor demo helpers', () => {
       expect(sample.coordinate).toEqual(definition?.coordinate);
       expect(sample.data.map((metric) => metric.name)).toEqual(['temperature', 'decibel', 'affluence', 'humidity']);
     }
+    expect(first.map((sample) => sample.timestampMs)).toEqual(first.map((_, index) => 1_000 + index * 25));
+    expect(second.map((sample) => sample.timestampMs)).toEqual(second.map((_, index) => 2_000 + index * 25));
   });
 });

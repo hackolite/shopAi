@@ -134,7 +134,7 @@ export function SensorLayer() {
             position={[footprint.xCm * CM_TO_UNIT, (heightCm * CM_TO_UNIT) / 2, footprint.zCm * CM_TO_UNIT]}
             renderOrder={1102}
           >
-            <boxGeometry args={[footprint.widthCm * CM_TO_UNIT * 0.72, heightCm * CM_TO_UNIT, footprint.depthCm * CM_TO_UNIT * 0.72]} />
+            <boxGeometry args={[footprint.widthCm * CM_TO_UNIT * 0.9, heightCm * CM_TO_UNIT, footprint.depthCm * CM_TO_UNIT * 0.9]} />
             <meshStandardMaterial color={sensorColor(colorValue, colorRamp)} transparent opacity={opacity} emissive={sensorColor(colorValue, colorRamp)} emissiveIntensity={0.25} />
           </mesh>
         );

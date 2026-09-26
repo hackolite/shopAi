@@ -243,11 +243,13 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       }
       setSocketStatus('connecting');
       const nextSocket = new WebSocket(cadApi.liveSensorWebSocketUrl(projectId));
+      let reconnectQueuedForThisSocket = false;
       socket = nextSocket;
       connectTimeout = window.setTimeout(() => {
         if (closed || nextSocket.readyState !== WebSocket.CONNECTING) return;
         setSocketStatus('error');
         scheduleSnapshotPoll();
+        reconnectQueuedForThisSocket = true;
         scheduleReconnect();
         nextSocket.close();
       }, sensorSocketConnectTimeoutMs(settings.updateIntervalSeconds));
@@ -280,7 +282,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
         if (socket === nextSocket) socket = null;
         setSocketStatus('disconnected');
         scheduleSnapshotPoll();
-        scheduleReconnect();
+        if (!reconnectQueuedForThisSocket) scheduleReconnect();
       };
     };
     void refreshSnapshot();

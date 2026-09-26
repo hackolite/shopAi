@@ -57,6 +57,7 @@ class MockWebSocket {
   static CLOSING = 2;
   static CLOSED = 3;
   static instances: MockWebSocket[] = [];
+  static emitCloseOnClose = false;
 
   readonly url: string;
   readyState = MockWebSocket.CONNECTING;
@@ -72,6 +73,7 @@ class MockWebSocket {
 
   close() {
     this.readyState = MockWebSocket.CLOSED;
+    if (MockWebSocket.emitCloseOnClose) this.onclose?.();
   }
 }
 
@@ -80,6 +82,7 @@ describe('SensorPanel', () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     MockWebSocket.instances = [];
+    MockWebSocket.emitCloseOnClose = false;
     getLiveSensorSnapshot.mockResolvedValue(buildSnapshot());
     liveSensorWebSocketUrl.mockReturnValue('ws://example.test/live');
     updateSettings.mockResolvedValue(undefined);
@@ -121,5 +124,21 @@ describe('SensorPanel', () => {
     expect(MockWebSocket.instances).toHaveLength(2);
     expect(getLiveSensorSnapshot.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(hasText(renderer, 'Socket: connecting')).toBe(true);
+  });
+
+  it('queues only one reconnect when timeout and close both happen', async () => {
+    MockWebSocket.emitCloseOnClose = true;
+
+    await act(async () => {
+      create(<SensorPanel projectId="project-1" />);
+      await flushPromises();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(7_200);
+      await flushPromises();
+    });
+
+    expect(MockWebSocket.instances).toHaveLength(2);
   });
 });

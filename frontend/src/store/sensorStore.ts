@@ -12,7 +12,6 @@ interface SensorState {
   socketStatus: SensorSocketStatus;
   colorMetric: string | null;
   heightMetric: string | null;
-  sizeMetric: string | null;
   selectedSourceIds: string[];
   sourceSelectionTouched: boolean;
   filterMetric: string | null;
@@ -28,7 +27,6 @@ interface SensorState {
   setSocketStatus: (status: SensorSocketStatus) => void;
   setColorMetric: (metric: string | null) => void;
   setHeightMetric: (metric: string | null) => void;
-  setSizeMetric: (metric: string | null) => void;
   toggleSource: (sourceId: string) => void;
   setAllSources: (selected: boolean) => void;
   setFilterMetric: (metric: string | null) => void;
@@ -47,7 +45,6 @@ const baseState = {
   socketStatus: 'disconnected' as SensorSocketStatus,
   colorMetric: null,
   heightMetric: null,
-  sizeMetric: null,
   selectedSourceIds: [] as string[],
   sourceSelectionTouched: false,
   filterMetric: null,
@@ -75,7 +72,6 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       snapshot,
       colorMetric: metricNames.includes(current.colorMetric ?? '') ? current.colorMetric : (metricNames[0] ?? null),
       heightMetric: metricNames.includes(current.heightMetric ?? '') ? current.heightMetric : (metricNames[1] ?? metricNames[0] ?? null),
-      sizeMetric: metricNames.includes(current.sizeMetric ?? '') ? current.sizeMetric : (metricNames[2] ?? metricNames[0] ?? null),
       filterMetric: metricNames.includes(current.filterMetric ?? '') ? current.filterMetric : (metricNames[0] ?? null),
       selectedSourceIds,
       sourceSelectionTouched,
@@ -84,7 +80,6 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   setSocketStatus: (socketStatus) => set({ socketStatus }),
   setColorMetric: (colorMetric) => set({ colorMetric }),
   setHeightMetric: (heightMetric) => set({ heightMetric }),
-  setSizeMetric: (sizeMetric) => set({ sizeMetric }),
   toggleSource: (sourceId) => set((state) => ({
     selectedSourceIds: state.selectedSourceIds.includes(sourceId)
       ? state.selectedSourceIds.filter((item) => item !== sourceId)

@@ -77,7 +77,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     socketStatus,
     colorMetric,
     heightMetric,
-    sizeMetric,
     selectedSourceIds,
     filterMetric,
     filterMinNormalized,
@@ -92,7 +91,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setSocketStatus,
     setColorMetric,
     setHeightMetric,
-    setSizeMetric,
     toggleSource,
     setAllSources,
     setFilterMetric,
@@ -317,7 +315,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
           </div>
           <SelectField label="Couleur" value={colorMetric} options={metricNames} onChange={setColorMetric} />
           <SelectField label="Hauteur" value={heightMetric} options={metricNames} onChange={setHeightMetric} />
-          <SelectField label="Taille" value={sizeMetric} options={metricNames} onChange={setSizeMetric} />
           <NumberField label="Opacité" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} />
           <NumberField label="Largeur bar %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
           <NumberField label="Bar max cm" value={barMaxHeightCm} min={50} max={1500} step={25} onChange={setBarMaxHeightCm} />

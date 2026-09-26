@@ -86,7 +86,7 @@ describe('live sensor helpers', () => {
   });
 
   it('aggregates samples into grid cells', () => {
-    const cells = aggregateSensorCells(snapshot.samples, store, snapshot, 20, 'temperature', 'temperature', 'temperature');
+    const cells = aggregateSensorCells(snapshot.samples, store, snapshot, 20, 'temperature', 'temperature');
     expect(cells).toEqual([
       {
         key: '1:2',
@@ -95,7 +95,6 @@ describe('live sensor helpers', () => {
         count: 1,
         colorValue: 10,
         heightValue: 10,
-        sizeValue: 10,
       },
       {
         key: '3:2',
@@ -104,7 +103,6 @@ describe('live sensor helpers', () => {
         count: 1,
         colorValue: 30,
         heightValue: 30,
-        sizeValue: 30,
       },
     ]);
   });
@@ -123,7 +121,7 @@ describe('live sensor helpers', () => {
         coordinate: { kind: 'normalized', x: 26, y: 52 },
         data: [{ name: 'temperature', value: 30 }],
       },
-    ], store, snapshot, 20, 'temperature', 'temperature', 'temperature');
+    ], store, snapshot, 20, 'temperature', 'temperature');
 
     expect(cells).toEqual([
       {
@@ -133,7 +131,6 @@ describe('live sensor helpers', () => {
         count: 2,
         colorValue: 20,
         heightValue: 20,
-        sizeValue: 20,
       },
     ]);
   });

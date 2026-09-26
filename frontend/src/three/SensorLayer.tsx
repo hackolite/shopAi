@@ -25,7 +25,6 @@ export function SensorLayer() {
     snapshot,
     colorMetric,
     heightMetric,
-    sizeMetric,
     selectedSourceIds,
     filterMetric,
     filterMinNormalized,
@@ -100,20 +99,19 @@ export function SensorLayer() {
       cellSizePercent,
       colorMetric,
       heightMetric,
-      sizeMetric,
     );
-  }, [cellSizePercent, colorMetric, filteredSamples, heightMetric, scene, showLayer, sizeMetric, snapshot]);
+  }, [cellSizePercent, colorMetric, filteredSamples, heightMetric, scene, showLayer, snapshot]);
 
   if (!scene || !snapshot || !showLayer) return null;
+  const cellSizeCm = getSensorCellSizeCm(scene.store, cellSizePercent);
 
   return (
     <group>
-      {aggregatedCells.map((cell) => {
-        const colorValue = normalizeMetricValue(cell.colorValue, statsByName.get(colorMetric ?? ''));
-        const heightValue = normalizeMetricValue(cell.heightValue, statsByName.get(heightMetric ?? ''));
-        const cellSizeCm = getSensorCellSizeCm(scene.store, cellSizePercent);
-        const heightCm = 20 + heightValue * barMaxHeightCm;
-        return (
+    {aggregatedCells.map((cell) => {
+      const colorValue = normalizeMetricValue(cell.colorValue, statsByName.get(colorMetric ?? ''));
+      const heightValue = normalizeMetricValue(cell.heightValue, statsByName.get(heightMetric ?? ''));
+      const heightCm = 20 + heightValue * barMaxHeightCm;
+      return (
           <mesh
             key={cell.key}
             position={[cell.xCm * CM_TO_UNIT, (heightCm * CM_TO_UNIT) / 2, cell.zCm * CM_TO_UNIT]}

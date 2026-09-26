@@ -194,7 +194,6 @@ export function SensorLayer() {
         );
       })}
 
-      {renderMode === 'heatmap' && aggregatedCells.map((cell) => {
       {renderMode === 'heatmap' && sensorHeatmap && heatmapTexture && (
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}

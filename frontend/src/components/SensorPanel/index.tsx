@@ -105,7 +105,10 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
-  const demoDefinitionsRef = useRef(createDemoSensorDefinitions());
+  const demoDefinitionsRef = useRef<ReturnType<typeof createDemoSensorDefinitions> | null>(null);
+  if (!demoDefinitionsRef.current) {
+    demoDefinitionsRef.current = createDemoSensorDefinitions();
+  }
 
   const metricNames = useMemo(() => snapshot?.metrics.map((metric) => metric.name) ?? [], [snapshot]);
 
@@ -220,7 +223,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     const runBurst = () => {
       if (cancelled) return;
       demoTickRef.current += 1;
-      void sendSequentially(buildDemoSamples(demoTickRef.current, demoDefinitionsRef.current), 0);
+      void sendSequentially(buildDemoSamples(demoTickRef.current, demoDefinitionsRef.current ?? []), 0);
     };
     runBurst();
     return () => {

@@ -479,14 +479,14 @@ capteurs réelles.
 
 #### Pourquoi un espace entre les colonnes (`bar`) sur la grille 100×100 ?
 
-En mode `bar`, chaque colonne 3D est volontairement rendue à **72 %** de la
+En mode `bar`, chaque colonne 3D est volontairement rendue à **90 %** de la
 taille de sa cellule de grille (`frontend/src/three/SensorLayer.tsx`,
-`footprint.widthCm * 0.72` / `footprint.depthCm * 0.72`), afin que les colonnes
-voisines restent visuellement séparées au lieu de former un bloc plein. Cet
-espacement est proportionnel à la résolution de grille (`mapGridResolution`,
-100 par défaut) : il ne disparaît pas en augmentant la résolution, mais les
-cellules — et donc l'espace visible entre les colonnes — deviennent plus
-petites.
+`footprint.widthCm * 0.9` / `footprint.depthCm * 0.9`), afin que les colonnes
+voisines restent visuellement séparées au lieu de former un bloc plein, tout en
+gardant un espace réduit. Cet espacement est proportionnel à la résolution de
+grille (`mapGridResolution`, 100 par défaut) : il ne disparaît pas en
+augmentant la résolution, mais les cellules — et donc l'espace visible entre
+les colonnes — deviennent plus petites.
 
 #### Pousser un échantillon en coordonnées GPS
 

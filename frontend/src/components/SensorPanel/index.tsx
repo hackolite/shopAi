@@ -96,8 +96,14 @@ function buildDemoSamples(tick: number, coordinateCache: Record<string, { x: num
   const spotCount = randomInt(4, 28);
   const emissionCount = randomInt(1, spotCount);
   const now = Date.now();
-  return Array.from({ length: emissionCount }, (_, index) => {
-    const sourceIndex = randomInt(1, spotCount);
+  const availableSourceIndexes = Array.from({ length: spotCount }, (_, index) => index + 1);
+  for (let index = availableSourceIndexes.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(0, index);
+    const current = availableSourceIndexes[index];
+    availableSourceIndexes[index] = availableSourceIndexes[swapIndex];
+    availableSourceIndexes[swapIndex] = current;
+  }
+  return availableSourceIndexes.slice(0, emissionCount).map((sourceIndex, index) => {
     const sourceId = `demo-${sourceIndex}`;
     const phase = sourceIndex * 0.41 + index * 0.27;
     return {

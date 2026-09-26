@@ -162,11 +162,6 @@ export function aggregateSensorCells(
       existing.colorSum += colorValue;
       existing.colorCount += 1;
     }
-
-    export function getSensorCellSizeCm(store: StoreConfig, cellSizePercent: number): number {
-      const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
-      return Math.max(50, (cellSizePercent / 100) * minSideCm);
-    }
     if (heightValue != null) {
       existing.heightSum += heightValue;
       existing.heightCount += 1;
@@ -192,6 +187,11 @@ export function aggregateSensorCells(
       heightValue,
       sizeValue,
     }));
+}
+
+export function getSensorCellSizeCm(store: StoreConfig, cellSizePercent: number): number {
+  const minSideCm = Math.max(100, Math.min(store.dimensions.width, store.dimensions.depth));
+  return Math.max(50, (cellSizePercent / 100) * minSideCm);
 }
 
 export function reconcileProgressiveSensorReveal(

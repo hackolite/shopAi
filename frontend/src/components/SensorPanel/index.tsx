@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
 import { buildDemoSamples, createDemoSensorDefinitions } from '../../engine/liveSensorDemo';
 import {
+  sensorSnapshotPollIntervalMs,
+  sensorSocketConnectTimeoutMs,
+  sensorSocketReconnectDelayMs,
+} from '../../engine/liveSensorHud';
+import {
   aggregateSensorSectors,
   filterSensorSamples,
   isSensorSampleRecent,
@@ -187,14 +192,78 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     let closed = false;
     let socket: WebSocket | null = null;
     let reconnectTimer: number | null = null;
+    let connectTimeout: number | null = null;
+    let snapshotPollTimer: number | null = null;
+    let reconnectAttempt = 0;
+    const clearConnectTimeout = () => {
+      if (connectTimeout !== null) {
+        window.clearTimeout(connectTimeout);
+        connectTimeout = null;
+      }
+    };
+    const scheduleReconnect = () => {
+      if (closed || reconnectTimer !== null) return;
+      const delayMs = sensorSocketReconnectDelayMs(reconnectAttempt);
+      reconnectAttempt += 1;
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delayMs);
+    };
+    const refreshSnapshot = async () => {
+      try {
+        const nextSnapshot = await cadApi.getLiveSensorSnapshot(projectId);
+        if (!closed) {
+          setSnapshot(nextSnapshot);
+          setError(null);
+        }
+      } catch (cause) {
+        if (!closed) setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    };
+    const stopSnapshotPoll = () => {
+      if (snapshotPollTimer !== null) {
+        window.clearTimeout(snapshotPollTimer);
+        snapshotPollTimer = null;
+      }
+    };
+    const scheduleSnapshotPoll = () => {
+      if (closed || snapshotPollTimer !== null) return;
+      snapshotPollTimer = window.setTimeout(async () => {
+        snapshotPollTimer = null;
+        await refreshSnapshot();
+        scheduleSnapshotPoll();
+      }, sensorSnapshotPollIntervalMs(settings.updateIntervalSeconds));
+    };
     const connect = () => {
       if (closed) return;
+      clearConnectTimeout();
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close();
+      }
       setSocketStatus('connecting');
-      socket = new WebSocket(cadApi.liveSensorWebSocketUrl(projectId));
-      socket.onopen = () => {
+      const nextSocket = new WebSocket(cadApi.liveSensorWebSocketUrl(projectId));
+      let reconnectQueuedForThisSocket = false;
+      socket = nextSocket;
+      connectTimeout = window.setTimeout(() => {
+        if (closed || nextSocket.readyState !== WebSocket.CONNECTING) return;
+        setSocketStatus('error');
+        scheduleSnapshotPoll();
+        reconnectQueuedForThisSocket = true;
+        scheduleReconnect();
+        nextSocket.close();
+      }, sensorSocketConnectTimeoutMs(settings.updateIntervalSeconds));
+      nextSocket.onopen = () => {
+        clearConnectTimeout();
+        stopSnapshotPoll();
         if (!closed) setSocketStatus('connected');
+        reconnectAttempt = 0;
       };
-      socket.onmessage = (event) => {
+      nextSocket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as { type?: string; payload?: unknown };
           if (message.type === 'snapshot' && message.payload) {
@@ -205,33 +274,33 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
           setError(cause instanceof Error ? cause.message : String(cause));
         }
       };
-      socket.onerror = () => {
-        if (!closed) setSocketStatus('error');
-      };
-      socket.onclose = () => {
+      nextSocket.onerror = () => {
         if (closed) return;
+        setSocketStatus('error');
+        scheduleSnapshotPoll();
+        nextSocket.close();
+      };
+      nextSocket.onclose = () => {
+        clearConnectTimeout();
+        if (closed) return;
+        if (socket === nextSocket) socket = null;
         setSocketStatus('disconnected');
-        reconnectTimer = window.setTimeout(connect, 1200);
+        scheduleSnapshotPoll();
+        if (!reconnectQueuedForThisSocket) scheduleReconnect();
       };
     };
-    cadApi.getLiveSensorSnapshot(projectId)
-      .then((nextSnapshot) => {
-        if (!closed) {
-          setSnapshot(nextSnapshot);
-          setError(null);
-        }
-      })
-      .catch((cause) => {
-        if (!closed) setError(cause instanceof Error ? cause.message : String(cause));
-      });
+    void refreshSnapshot();
+    scheduleSnapshotPoll();
     connect();
     return () => {
       closed = true;
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      stopSnapshotPoll();
+      clearConnectTimeout();
       socket?.close();
       setSocketStatus('disconnected');
     };
-  }, [projectId, setSnapshot, setSocketStatus]);
+  }, [projectId, setSnapshot, setSocketStatus, settings.updateIntervalSeconds]);
 
   useEffect(() => {
     if (!projectId) return;

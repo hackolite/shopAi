@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   aggregateSensorCells,
+  buildMetricStats,
   filterSensorSamples,
   normalizeMetricValue,
   projectSensorSample,
+  reconcileProgressiveSensorReveal,
+  sensorRevealBatchSize,
 } from './liveSensors';
 import type { SensorSnapshot, StoreConfig } from '../types/cad';
 
@@ -57,6 +60,12 @@ describe('live sensor helpers', () => {
     expect(normalizeMetricValue(20, snapshot.metrics[0])).toBeCloseTo(0.5);
   });
 
+  it('builds metric stats from the currently visible sample set', () => {
+    expect(buildMetricStats([snapshot.samples[0]])).toEqual([
+      { name: 'temperature', min: 10, max: 10, unit: null, count: 1 },
+    ]);
+  });
+
   it('filters samples by selected sources and metric range', () => {
     const filtered = filterSensorSamples(snapshot, ['s2'], {
       metricName: 'temperature',
@@ -97,5 +106,28 @@ describe('live sensor helpers', () => {
         sizeValue: 30,
       },
     ]);
+  });
+
+  it('keeps visible samples and queues only unseen ones for progressive live reveal', () => {
+    const next = reconcileProgressiveSensorReveal(['a'], [], snapshot.samples);
+    expect(next).toEqual({
+      visibleIds: ['a'],
+      pendingIds: ['b'],
+    });
+  });
+
+  it('drops missing ids from the progressive live reveal state', () => {
+    const next = reconcileProgressiveSensorReveal(['missing', 'a'], ['b', 'ghost'], [snapshot.samples[0]]);
+    expect(next).toEqual({
+      visibleIds: ['a'],
+      pendingIds: [],
+    });
+  });
+
+  it('scales live reveal batch sizes with larger pending queues', () => {
+    expect(sensorRevealBatchSize(1)).toBe(1);
+    expect(sensorRevealBatchSize(30)).toBe(2);
+    expect(sensorRevealBatchSize(70)).toBe(4);
+    expect(sensorRevealBatchSize(150)).toBe(6);
   });
 });

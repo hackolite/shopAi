@@ -17,7 +17,7 @@ interface SensorState {
   heightMetric: string | null;
   sizeMetric: string | null;
   selectedSourceIds: string[];
-  sourceSelectionInitialized: boolean;
+  sourceSelectionTouched: boolean;
   filterMetric: string | null;
   filterMinNormalized: number;
   filterMaxNormalized: number;
@@ -51,12 +51,12 @@ const baseState = {
   settings: defaultSensorLiveSettings(),
   snapshot: null,
   socketStatus: 'disconnected' as SensorSocketStatus,
-  renderMode: 'point' as SensorRenderMode,
+  renderMode: 'heatmap' as SensorRenderMode,
   colorMetric: null,
   heightMetric: null,
   sizeMetric: null,
   selectedSourceIds: [] as string[],
-  sourceSelectionInitialized: false,
+  sourceSelectionTouched: false,
   filterMetric: null,
   filterMinNormalized: 0,
   filterMaxNormalized: 1,
@@ -75,7 +75,8 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     const current = get();
     const metricNames = snapshot?.metrics.map((metric) => metric.name) ?? [];
     const sourceIds = snapshot?.sources ?? [];
-    const selectedSourceIds = current.sourceSelectionInitialized
+    const sourceSelectionTouched = sourceIds.length > 0 ? current.sourceSelectionTouched : false;
+    const selectedSourceIds = sourceSelectionTouched
       ? current.selectedSourceIds.filter((sourceId) => sourceIds.includes(sourceId))
       : sourceIds;
     set({
@@ -85,7 +86,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       sizeMetric: metricNames.includes(current.sizeMetric ?? '') ? current.sizeMetric : (metricNames[2] ?? metricNames[0] ?? null),
       filterMetric: metricNames.includes(current.filterMetric ?? '') ? current.filterMetric : (metricNames[0] ?? null),
       selectedSourceIds,
-      sourceSelectionInitialized: true,
+      sourceSelectionTouched,
     });
   },
   setSocketStatus: (socketStatus) => set({ socketStatus }),
@@ -97,11 +98,11 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     selectedSourceIds: state.selectedSourceIds.includes(sourceId)
       ? state.selectedSourceIds.filter((item) => item !== sourceId)
       : [...state.selectedSourceIds, sourceId],
-    sourceSelectionInitialized: true,
+    sourceSelectionTouched: true,
   })),
   setAllSources: (selected) => set((state) => ({
     selectedSourceIds: selected ? (state.snapshot?.sources ?? []) : [],
-    sourceSelectionInitialized: true,
+    sourceSelectionTouched: true,
   })),
   setFilterMetric: (filterMetric) => set({ filterMetric }),
   setFilterRange: (filterMinNormalized, filterMaxNormalized) => set({

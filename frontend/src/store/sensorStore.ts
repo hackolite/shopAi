@@ -26,6 +26,7 @@ interface SensorState {
   filterMaxNormalized: number;
   opacity: number;
   barMaxHeightCm: number;
+  cellSizePercent: number;
   mapGridResolution: number;
   colorRamp: SensorColorRampName;
   demoRunning: boolean;
@@ -46,6 +47,7 @@ interface SensorState {
   setFilterRange: (min: number, max: number) => void;
   setOpacity: (opacity: number) => void;
   setBarMaxHeightCm: (height: number) => void;
+  setCellSizePercent: (percent: number) => void;
   setMapGridResolution: (resolution: number) => void;
   setColorRamp: (ramp: SensorColorRampName) => void;
   setDemoRunning: (running: boolean) => void;
@@ -69,6 +71,7 @@ const baseState = {
   filterMaxNormalized: 1,
   opacity: 0.85,
   barMaxHeightCm: 600,
+  cellSizePercent: 20,
   mapGridResolution: 100,
   colorRamp: 'yellow-red' as SensorColorRampName,
   demoRunning: false,
@@ -118,6 +121,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   }),
   setOpacity: (opacity) => set({ opacity }),
   setBarMaxHeightCm: (barMaxHeightCm) => set({ barMaxHeightCm }),
+  setCellSizePercent: (cellSizePercent) => set({ cellSizePercent: Math.max(2, Math.min(50, Math.round(cellSizePercent))) }),
   setMapGridResolution: (mapGridResolution) => set({ mapGridResolution: Math.max(5, Math.min(100, Math.round(mapGridResolution))) }),
   setColorRamp: (colorRamp) => set({ colorRamp }),
   setDemoRunning: (demoRunning) => set({ demoRunning }),

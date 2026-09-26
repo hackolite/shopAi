@@ -57,6 +57,10 @@ export function SensorSelectionHud() {
   const texture = useMemo(() => (lines.length > 0 ? drawTexture(lines) : null), [lines]);
 
   useEffect(() => () => {
+    if (texture?.image instanceof HTMLCanvasElement) {
+      texture.image.width = 0;
+      texture.image.height = 0;
+    }
     texture?.dispose();
   }, [texture]);
 

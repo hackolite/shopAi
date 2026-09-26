@@ -862,6 +862,13 @@ async def live_sensor_websocket(project_id: str, websocket: WebSocket):
     if not load_project_file(project_id, "project.json"):
         await websocket.close(code=4404, reason="Unknown project")
         return
+    user = platform_service.resolve_websocket_user(websocket)
+    if user is None:
+        await websocket.close(code=4401, reason="Authentication required")
+        return
+    if project_id not in platform_service.list_owned_project_ids(user):
+        await websocket.close(code=4403, reason="This project does not belong to the current tenant")
+        return
     await websocket.accept()
     event_state = live_sensor_manager.get_event_state(project_id)
     snapshot = live_sensor_manager.get_snapshot(project_id)

@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response, WebSocket
 from pydantic import ValidationError
 
 import services.project_manager as project_manager
@@ -786,13 +786,7 @@ def _request_uses_forwarded_session(request: Request) -> bool:
     )
 
 
-def resolve_session_user(request: Request) -> dict[str, Any] | None:
-    ensure_platform_schema()
-    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
-    if _request_uses_forwarded_session(request):
-        token = _resolve_forwarded_session_token(request)
-    else:
-        token = cookie_token
+def _load_session_user_from_token(token: str | None) -> dict[str, Any] | None:
     if not token:
         return None
     now = datetime.now(timezone.utc)
@@ -823,6 +817,22 @@ def resolve_session_user(request: Request) -> dict[str, Any] | None:
     if row is None:
         return None
     return _row_to_user_payload(row)
+
+
+def resolve_session_user(request: Request) -> dict[str, Any] | None:
+    ensure_platform_schema()
+    cookie_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if _request_uses_forwarded_session(request):
+        token = _resolve_forwarded_session_token(request)
+    else:
+        token = cookie_token
+    return _load_session_user_from_token(token)
+
+
+def resolve_websocket_user(websocket: WebSocket) -> dict[str, Any] | None:
+    ensure_platform_schema()
+    token = websocket.headers.get(SESSION_HEADER_NAME) or websocket.cookies.get(SESSION_COOKIE_NAME)
+    return _load_session_user_from_token(token)
 
 
 def set_current_user(user: dict[str, Any] | None):

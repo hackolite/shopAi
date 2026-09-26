@@ -66,9 +66,36 @@ describe('live sensor helpers', () => {
     expect(filtered.map((sample) => sample.id)).toEqual(['b']);
   });
 
+  it('returns no samples when no source is selected', () => {
+    const filtered = filterSensorSamples(snapshot, [], {
+      metricName: 'temperature',
+      minNormalized: 0,
+      maxNormalized: 1,
+    });
+    expect(filtered).toEqual([]);
+  });
+
   it('aggregates samples into grid cells', () => {
     const cells = aggregateSensorCells(snapshot.samples, store, snapshot, 20, 'temperature', 'temperature', 'temperature');
-    expect(cells.length).toBeGreaterThan(0);
-    expect(cells[0].count).toBeGreaterThan(0);
+    expect(cells).toEqual([
+      {
+        key: '1:2',
+        xCm: 240,
+        zCm: 400,
+        count: 1,
+        colorValue: 10,
+        heightValue: 10,
+        sizeValue: 10,
+      },
+      {
+        key: '3:2',
+        xCm: 560,
+        zCm: 400,
+        count: 1,
+        colorValue: 30,
+        heightValue: 30,
+        sizeValue: 30,
+      },
+    ]);
   });
 });

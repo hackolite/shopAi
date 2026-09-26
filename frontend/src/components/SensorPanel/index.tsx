@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
+import { useProjectStore } from '../../store/projectStore';
 import { useSensorStore } from '../../store/sensorStore';
 import type { SensorSampleInput, SensorSnapshot } from '../../types/cad';
 
@@ -123,6 +124,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setDemoRunning,
     setShowLayer,
   } = useSensorStore();
+  const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const [error, setError] = useState<string | null>(null);
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
@@ -197,14 +199,14 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
 
   useEffect(() => {
     if (!projectId) return;
-    if (!persistReadyRef.current) {
+    if (loadedProjectId !== projectId || !persistReadyRef.current) {
       persistReadyRef.current = true;
       return;
     }
-    cadApi.updateSettings(projectId, { live: settings }).catch((cause) => {
+    cadApi.updateSettings(projectId, { live: { bufferSeconds: settings.bufferSeconds } }).catch((cause) => {
       setError(cause instanceof Error ? cause.message : String(cause));
     });
-  }, [projectId, settings, settings.bufferSeconds]);
+  }, [loadedProjectId, projectId, settings.bufferSeconds]);
 
   useEffect(() => {
     if (!demoRunning || !projectId) return;
@@ -218,10 +220,8 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   }, [demoRunning, projectId]);
 
   useEffect(() => {
-    if (!projectId) {
-      persistReadyRef.current = false;
-    }
-  }, [projectId]);
+    persistReadyRef.current = loadedProjectId === projectId && projectId !== null;
+  }, [loadedProjectId, projectId]);
 
   const latestTimestamp = snapshot?.latestTimestampMs
     ? new Date(snapshot.latestTimestampMs).toLocaleTimeString('fr-FR')

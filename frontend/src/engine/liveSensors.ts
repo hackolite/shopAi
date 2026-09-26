@@ -75,10 +75,11 @@ export function filterSensorSamples(
   filter: SensorMetricFilter,
 ): SensorSampleRecord[] {
   if (!snapshot) return [];
-  const allowedSources = selectedSourceIds.length > 0 ? new Set(selectedSourceIds) : null;
+  if (selectedSourceIds.length === 0) return [];
+  const allowedSources = new Set(selectedSourceIds);
   const stats = metricStatsByName(snapshot).get(filter.metricName ?? '');
   return snapshot.samples.filter((sample) => {
-    if (allowedSources && !allowedSources.has(sample.sourceId)) return false;
+    if (!allowedSources.has(sample.sourceId)) return false;
     if (!filter.metricName) return true;
     const normalized = normalizeMetricValue(getMetricValue(sample, filter.metricName), stats);
     return normalized >= filter.minNormalized && normalized <= filter.maxNormalized;
@@ -147,5 +148,15 @@ export function aggregateSensorCells(
     buckets.set(key, existing);
   }
 
-  return [...buckets.values()].sort((left, right) => left.key.localeCompare(right.key));
+  return [...buckets.values()]
+    .sort((left, right) => left.key.localeCompare(right.key))
+    .map(({ key, xCm, zCm, count, colorValue, heightValue, sizeValue }) => ({
+      key,
+      xCm,
+      zCm,
+      count,
+      colorValue,
+      heightValue,
+      sizeValue,
+    }));
 }

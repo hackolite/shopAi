@@ -6,6 +6,10 @@ interface BuildSensorHudLinesOptions {
   heightMetric: string | null;
 }
 
+/**
+ * Sensor source names are intentionally never rendered here: they add noise to the
+ * top-left HUD without helping the viewer, so only the active metrics are shown.
+ */
 export function buildSensorHudLines({
   selectedBuildingName,
   showLayer,
@@ -15,11 +19,8 @@ export function buildSensorHudLines({
 }: BuildSensorHudLinesOptions): string[] {
   if (selectedBuildingName) return [selectedBuildingName];
   if (!showLayer || selectedSourceLabels.length === 0) return [];
-  const visibleLabels = selectedSourceLabels.slice(0, 4);
-  const extra = selectedSourceLabels.length > 4 ? ` +${selectedSourceLabels.length - 4}` : '';
   return [
     'Live BAR',
-    `Capteurs: ${visibleLabels.join(',')}${extra}`,
     `Couleur: ${colorMetric ?? '—'}`,
     `Hauteur: ${heightMetric ?? '—'}`,
   ];

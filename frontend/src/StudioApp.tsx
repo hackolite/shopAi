@@ -110,10 +110,17 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const setSimulationConfig = useSimulationStore((state) => state.setConfig);
   const simulationConfig = useSimulationStore((state) => state.config);
   const setSensorSettings = useSensorStore((state) => state.setSettings);
+  const setSensorLiveTabActive = useSensorStore((state) => state.setLiveTabActive);
 
   useEffect(() => {
     setSaveStatus('idle');
   }, [scene, zones, simulationConfig]);
+
+  // The 3D sensor bars and their HUD must only ever appear while the "Live" tab is
+  // the active right-panel tab: otherwise stale live data lingers as residue on the map.
+  useEffect(() => {
+    setSensorLiveTabActive(rightTab === 'live');
+  }, [rightTab, setSensorLiveTabActive]);
 
   // Tracks the project ID currently being loaded; used to discard stale
   // responses when the user switches projects before a load completes.

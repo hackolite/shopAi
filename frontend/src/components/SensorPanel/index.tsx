@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
-import { buildDemoSamples, createDemoSensorDefinitions } from '../../engine/liveSensorDemo';
+import {
+  buildDemoSamples,
+  createDemoSensorDefinitions,
+  MAX_DEMO_SENSOR_COUNT,
+  MIN_DEMO_SENSOR_COUNT,
+} from '../../engine/liveSensorDemo';
 import {
   sensorSnapshotPollIntervalMs,
   sensorSocketConnectTimeoutMs,
@@ -103,11 +108,11 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     filterMinNormalized,
     filterMaxNormalized,
     opacity,
-    cellSizePercent,
     barMaxHeightCm,
     mapGridResolution,
     colorRamp,
     demoRunning,
+    demoSensorCount,
     showLayer,
     setSettings,
     setSnapshot,
@@ -119,11 +124,11 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setFilterMetric,
     setFilterRange,
     setOpacity,
-    setCellSizePercent,
     setBarMaxHeightCm,
     setMapGridResolution,
     setColorRamp,
     setDemoRunning,
+    setDemoSensorCount,
     setShowLayer,
   } = useSensorStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
@@ -131,7 +136,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
-  const demoDefinitions = useMemo(() => createDemoSensorDefinitions(), []);
+  const [demoDefinitions, setDemoDefinitions] = useState(() => createDemoSensorDefinitions(Math.random, demoSensorCount));
 
   const metricNames = useMemo(() => snapshot?.metrics.map((metric) => metric.name) ?? [], [snapshot]);
   const statsByName = useMemo(() => metricStatsByName(snapshot), [snapshot]);
@@ -393,6 +398,8 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                   const next = !demoRunning;
                   setDemoRunning(next);
                   if (next) {
+                    demoTickRef.current = 0;
+                    setDemoDefinitions(createDemoSensorDefinitions(Math.random, demoSensorCount));
                     setAllSources(true);
                     setShowLayer(true);
                   }
@@ -428,8 +435,23 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             step={0.5}
             onChange={(updateIntervalSeconds) => setSettings({ ...settings, updateIntervalSeconds })}
           />
+          <label className="flex items-center gap-2 text-xs text-gray-300">
+            <span className="w-28 shrink-0 text-gray-500">Nb capteurs démo</span>
+            <input
+              type="range"
+              min={MIN_DEMO_SENSOR_COUNT}
+              max={MAX_DEMO_SENSOR_COUNT}
+              step={1}
+              value={demoSensorCount}
+              disabled={demoRunning}
+              onChange={(event) => setDemoSensorCount(Number(event.target.value))}
+              className="flex-1 accent-cyan-500 disabled:opacity-50"
+            />
+            <span className="w-10 shrink-0 text-right text-gray-200">{demoSensorCount}</span>
+          </label>
           <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
             Démo: envoi live (1 échantillon à la fois) via REST puis push WebSocket environ toutes les {settings.updateIntervalSeconds.toFixed(1)}s.
+            {demoRunning ? ' Arrêtez la démo pour changer le nombre de capteurs.' : ` ${demoSensorCount} capteurs seront générés aléatoirement au prochain lancement.`}
           </div>
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Afficher la couche 3D</span>
@@ -445,7 +467,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
         <section className="space-y-3 rounded border border-gray-800 bg-gray-950/70 p-3">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Rendu</h4>
           <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
-            Mode fixe: barres 3D par cellule, hauteur/couleur issues des moyennes du tampon courant.
+            Mode fixe: barres 3D par secteur (grille "Vue 2D live" ci-dessous), hauteur/couleur issues des moyennes du tampon courant. La largeur des barres suit toujours la même grille en pourcentage du magasin, compatible coordonnées GPS ou normalisées.
           </div>
           <SelectField label="Couleur" value={colorMetric} options={metricNames} onChange={setColorMetric} />
           <SelectField label="Hauteur" value={heightMetric} options={metricNames} onChange={setHeightMetric} />
@@ -460,7 +482,6 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             <span>{COLOR_RAMP_OPTIONS.find((option) => option.value === colorRamp)?.label ?? colorRamp}</span>
           </div>
           <NumberField label="Opacité" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} />
-          <NumberField label="Largeur barres 3D %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
           <NumberField label="Bar max cm" value={barMaxHeightCm} min={50} max={1500} step={25} onChange={setBarMaxHeightCm} />
         </section>
 

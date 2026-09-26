@@ -40,6 +40,7 @@ export function SensorSelectionHud() {
   const colorMetric = useSensorStore((state) => state.colorMetric);
   const heightMetric = useSensorStore((state) => state.heightMetric);
   const showLayer = useSensorStore((state) => state.showLayer);
+  const isLiveTabActive = useSensorStore((state) => state.isLiveTabActive);
   const zones = useZoneStore((state) => state.zones);
   const selectedZoneId = useZoneStore((state) => state.selectedZoneId);
   const spriteRef = useRef<THREE.Sprite>(null);
@@ -52,17 +53,17 @@ export function SensorSelectionHud() {
   }, [selectedZoneId, zones]);
 
   const lines = useMemo(() => {
-    const selectedSourceLabels = !snapshot
+    const selectedSourceLabels = !snapshot || !isLiveTabActive
       ? []
       : selectedSourceIds.map((sourceId) => snapshot.sourceLabels[sourceId] || sourceId);
     return buildSensorHudLines({
       selectedBuildingName,
-      showLayer,
+      showLayer: showLayer && isLiveTabActive,
       selectedSourceLabels,
       colorMetric,
       heightMetric,
     });
-  }, [colorMetric, heightMetric, selectedBuildingName, selectedSourceIds, showLayer, snapshot]);
+  }, [colorMetric, heightMetric, isLiveTabActive, selectedBuildingName, selectedSourceIds, showLayer, snapshot]);
 
   const texture = useMemo(() => (lines.length > 0 ? drawTexture(lines) : null), [lines]);
 

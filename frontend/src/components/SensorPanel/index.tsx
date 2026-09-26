@@ -469,8 +469,13 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                   />
                   {recent && (
                     <>
-                      <circle cx={point.x} cy={point.y} r={2.8} fill="none" stroke="#fef08a" strokeWidth="0.6" opacity={0.7} />
-                      <circle cx={point.x} cy={point.y} r={1.3} fill="#fef08a" opacity={0.95} />
+                      <circle cx={point.x} cy={point.y} r={1.6} fill="none" stroke="#fef08a" strokeWidth="0.6" opacity={0.85}>
+                        <animate attributeName="r" values="1.4;3.8;1.4" dur="0.9s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.9;0.15;0.9" dur="0.9s" repeatCount="indefinite" />
+                      </circle>
+                      <circle cx={point.x} cy={point.y} r={1.2} fill="#fef08a" opacity={0.95}>
+                        <animate attributeName="opacity" values="0.95;0.35;0.95" dur="0.55s" repeatCount="indefinite" />
+                      </circle>
                     </>
                   )}
                 </g>

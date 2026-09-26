@@ -77,15 +77,23 @@ export function SensorLayer() {
   }, [snapshot, visibleSampleIds]);
 
   const filteredSamples = useMemo(
+    // `visibleSnapshot` only restricts which samples are progressively revealed;
+    // the metric filter's min/max normalization must still come from the full
+    // snapshot (every sample of that metric across the whole map), so `snapshot`
+    // is passed as the stats source explicitly.
     () => filterSensorSamples(visibleSnapshot, selectedSourceIds, {
       metricName: filterMetric,
       minNormalized: filterMinNormalized,
       maxNormalized: filterMaxNormalized,
-    }),
-    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, visibleSnapshot],
+    }, snapshot),
+    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, snapshot, visibleSnapshot],
   );
 
-  const statsByName = useMemo(() => metricStatsByName(visibleSnapshot), [visibleSnapshot]);
+  // Color/height normalization must use the min/max of every sample of that metric
+  // across the whole map (the full snapshot), not just the progressively-revealed
+  // subset in `visibleSnapshot` — otherwise bar colors/heights would keep rescaling
+  // as more sensors get revealed instead of reflecting a stable, map-wide range.
+  const statsByName = useMemo(() => metricStatsByName(snapshot), [snapshot]);
 
   const aggregatedSectors = useMemo(() => {
     if (!scene || !showLayer || !isLiveTabActive) return [];

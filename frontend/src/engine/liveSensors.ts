@@ -178,11 +178,19 @@ export function filterSensorSamples(
   snapshot: SensorSnapshot | null,
   selectedSourceIds: string[],
   filter: SensorMetricFilter,
+  /**
+   * Snapshot whose min/max define the normalization range for the metric filter.
+   * Defaults to `snapshot`, but callers that only pass a restricted subset of
+   * samples (e.g. a progressive-reveal subset) must pass the full, unrestricted
+   * snapshot here so the min/max always come from every sample of that metric
+   * across the whole map, not just the currently visible/revealed subset.
+   */
+  statsSnapshot: SensorSnapshot | null = snapshot,
 ): SensorSampleRecord[] {
   if (!snapshot) return [];
   if (selectedSourceIds.length === 0) return [];
   const allowedSources = new Set(selectedSourceIds);
-  const stats = metricStatsByName(snapshot).get(filter.metricName ?? '');
+  const stats = metricStatsByName(statsSnapshot).get(filter.metricName ?? '');
   return snapshot.samples.filter((sample) => {
     if (!allowedSources.has(sample.sourceId)) return false;
     if (!filter.metricName) return true;

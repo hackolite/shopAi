@@ -89,6 +89,24 @@ describe('live sensor helpers', () => {
     expect(filtered).toEqual([]);
   });
 
+  it('normalizes the metric filter range against a separate stats snapshot covering the whole map', () => {
+    // `restrictedSnapshot` mimics a progressive-reveal subset whose local min/max
+    // (10..10) would wrongly normalize every value to 1 if used for the filter
+    // range. Passing the full `snapshot` (10..30) as the stats source must keep
+    // normalization anchored to the true, map-wide min/max instead.
+    const restrictedSnapshot: SensorSnapshot = {
+      ...snapshot,
+      samples: [snapshot.samples[0]],
+      metrics: [{ name: 'temperature', min: 10, max: 10, count: 1 }],
+    };
+    const filtered = filterSensorSamples(restrictedSnapshot, ['s1'], {
+      metricName: 'temperature',
+      minNormalized: 0,
+      maxNormalized: 0.1,
+    }, snapshot);
+    expect(filtered.map((sample) => sample.id)).toEqual(['a']);
+  });
+
   it('aggregates samples into grid cells', () => {
     const cells = aggregateSensorCells(snapshot.samples, store, snapshot, 20, 'temperature', 'temperature');
     expect(cells).toEqual([

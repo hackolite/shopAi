@@ -31,7 +31,7 @@ import type { ExportFormat } from './components/ExportDialog';
 import { useZoneStore, type FloorZone } from './store/zoneStore';
 import { useProjectStore } from './store/projectStore';
 import { resetProjectStores } from './store/projectSwitch';
-import { useSensorStore } from './store/sensorStore';
+import { defaultSensorLiveSettings, useSensorStore } from './store/sensorStore';
 import type { FurnitureInstance, Planogram } from './types/cad';
 import { findFreeFurniturePosition } from './engine/furnitureCollision';
 import { directionFromKey, navigatePlanogramCell } from './engine/planogramCellNavigation';
@@ -251,7 +251,7 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       setZones(sceneData.store.zones ?? []);
       setProjectName(meta.name ?? id);
       setSimulationConfig(settings.simulation ?? defaultSimulationConfig());
-      setSensorSettings(settings.live ?? { bufferSeconds: 300 });
+      setSensorSettings({ ...defaultSensorLiveSettings(), ...settings.live });
       setLoadedProjectId(id);
 
       // Track the remaining work so the viewport can show a progress gauge:

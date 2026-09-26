@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cadApi } from '../../api/cad';
 import { buildDemoSamples, createDemoSensorDefinitions } from '../../engine/liveSensorDemo';
+import {
+  aggregateSensorSectors,
+  filterSensorSamples,
+  isSensorSampleRecent,
+  metricStatsByName,
+  normalizeMetricValue,
+  projectSensorSampleToGridPercent,
+  sensorColor,
+} from '../../engine/liveSensors';
 import { useProjectStore } from '../../store/projectStore';
-import { useSensorStore } from '../../store/sensorStore';
-import type { SensorSampleInput, SensorSnapshot } from '../../types/cad';
+import { useSensorStore, type SensorColorRampName } from '../../store/sensorStore';
+import type { SensorSnapshot } from '../../types/cad';
 
 interface SensorPanelProps {
   projectId: string | null;
@@ -66,8 +75,15 @@ function SelectField({
   );
 }
 
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+const COLOR_RAMP_OPTIONS = [
+  { value: 'yellow-red', label: 'Jaune → rouge' },
+  { value: 'blue-red', label: 'Bleu → rouge' },
+  { value: 'green-red', label: 'Vert → rouge' },
+  { value: 'cyan-blue', label: 'Cyan → bleu' },
+] as const;
+
+function isSensorColorRampName(value: string | null): value is SensorColorRampName {
+  return COLOR_RAMP_OPTIONS.some((option) => option.value === value);
 }
 
 export default function SensorPanel({ projectId }: SensorPanelProps) {
@@ -84,6 +100,8 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     opacity,
     cellSizePercent,
     barMaxHeightCm,
+    mapGridResolution,
+    colorRamp,
     demoRunning,
     showLayer,
     setSettings,
@@ -98,16 +116,47 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     setOpacity,
     setCellSizePercent,
     setBarMaxHeightCm,
+    setMapGridResolution,
+    setColorRamp,
     setDemoRunning,
     setShowLayer,
   } = useSensorStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const [error, setError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
   const demoDefinitions = useMemo(() => createDemoSensorDefinitions(), []);
 
   const metricNames = useMemo(() => snapshot?.metrics.map((metric) => metric.name) ?? [], [snapshot]);
+  const statsByName = useMemo(() => metricStatsByName(snapshot), [snapshot]);
+  const filteredSamples = useMemo(
+    () => filterSensorSamples(snapshot, selectedSourceIds, {
+      metricName: filterMetric,
+      minNormalized: filterMinNormalized,
+      maxNormalized: filterMaxNormalized,
+    }),
+    [filterMaxNormalized, filterMetric, filterMinNormalized, selectedSourceIds, snapshot],
+  );
+  const mapSectors = useMemo(
+    () => aggregateSensorSectors(filteredSamples, snapshot, mapGridResolution, colorMetric, heightMetric),
+    [colorMetric, filteredSamples, heightMetric, mapGridResolution, snapshot],
+  );
+  const recentWindowMs = Math.max(1200, settings.updateIntervalSeconds * 1000 * 0.9);
+  const mappedSamples = useMemo(
+    () => filteredSamples.map((sample) => ({
+      sample,
+      point: projectSensorSampleToGridPercent(sample, snapshot),
+      recent: isSensorSampleRecent(sample, nowMs, recentWindowMs),
+    })),
+    [filteredSamples, nowMs, recentWindowMs, snapshot],
+  );
+  const arrivalAgeMs = snapshot?.latestTimestampMs ? Math.max(0, nowMs - snapshot.latestTimestampMs) : null;
+  const arrivalStatus = arrivalAgeMs == null
+    ? 'idle'
+    : arrivalAgeMs <= settings.updateIntervalSeconds * 1500
+      ? 'ok'
+      : 'late';
 
   const clearSamples = async () => {
     if (!projectId) return;
@@ -123,6 +172,15 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     };
     setSnapshot(emptySnapshot);
   };
+
+  useEffect(() => {
+    if (!demoRunning && !(snapshot?.sampleCount ?? 0) && !snapshot?.latestTimestampMs) return undefined;
+    const timer = window.setInterval(
+      () => setNowMs(Date.now()),
+      Math.max(250, Math.min(1000, settings.updateIntervalSeconds * 500)),
+    );
+    return () => window.clearInterval(timer);
+  }, [demoRunning, settings.updateIntervalSeconds, snapshot?.latestTimestampMs, snapshot?.sampleCount]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -181,29 +239,29 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       persistReadyRef.current = true;
       return;
     }
-    cadApi.updateSettings(projectId, { live: { bufferSeconds: settings.bufferSeconds } }).catch((cause) => {
+    cadApi.updateSettings(projectId, {
+      live: {
+        bufferSeconds: settings.bufferSeconds,
+        updateIntervalSeconds: settings.updateIntervalSeconds,
+      },
+    }).catch((cause) => {
       setError(cause instanceof Error ? cause.message : String(cause));
     });
-  }, [loadedProjectId, projectId, settings.bufferSeconds]);
+  }, [loadedProjectId, projectId, settings.bufferSeconds, settings.updateIntervalSeconds]);
 
   useEffect(() => {
     if (!demoRunning || !projectId) return;
     let cancelled = false;
     let timer: number | null = null;
-    const schedule = (delayMs: number, fn: () => void) => {
-      timer = window.setTimeout(() => {
-        timer = null;
-        fn();
-      }, delayMs);
-    };
-    const sendSequentially = async (samples: SensorSampleInput[], index: number) => {
+    const runBurst = async () => {
       if (cancelled) return;
-      if (index >= samples.length) {
-        schedule(randomInt(250, 1200), runBurst);
-        return;
-      }
+      demoTickRef.current += 1;
+      const samples = buildDemoSamples(demoTickRef.current, demoDefinitions).map((sample, index) => ({
+        ...sample,
+        timestampMs: Date.now() + index * 25,
+      }));
       try {
-        await cadApi.ingestLiveSensorSamples(projectId, [samples[index]]);
+        await cadApi.ingestLiveSensorSamples(projectId, samples);
         setError(null);
       } catch (cause) {
         if (!cancelled) {
@@ -213,21 +271,16 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
         return;
       }
       if (cancelled) return;
-      schedule(randomInt(60, 220), () => {
-        void sendSequentially(samples, index + 1);
-      });
+      timer = window.setTimeout(() => {
+        void runBurst();
+      }, Math.max(500, settings.updateIntervalSeconds * 1000));
     };
-    const runBurst = () => {
-      if (cancelled) return;
-      demoTickRef.current += 1;
-      void sendSequentially(buildDemoSamples(demoTickRef.current, demoDefinitions), 0);
-    };
-    runBurst();
+    void runBurst();
     return () => {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [demoDefinitions, demoRunning, projectId, setDemoRunning]);
+  }, [demoDefinitions, demoRunning, projectId, setDemoRunning, settings.updateIntervalSeconds]);
 
   useEffect(() => {
     persistReadyRef.current = loadedProjectId === projectId && projectId !== null;
@@ -236,6 +289,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   const latestTimestamp = snapshot?.latestTimestampMs
     ? new Date(snapshot.latestTimestampMs).toLocaleString('fr-FR')
     : '—';
+  const latestArrivalDelta = arrivalAgeMs == null ? '—' : `${(arrivalAgeMs / 1000).toFixed(1)}s`;
 
   return (
     <section aria-label="Données live capteurs" className="flex h-full flex-col text-base">
@@ -253,6 +307,9 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
           </span>
           <span className="rounded-full bg-gray-950/70 px-2.5 py-1 text-gray-300">
             Dernier flux: {latestTimestamp}
+          </span>
+          <span className={`rounded-full px-2.5 py-1 ${arrivalStatus === 'ok' ? 'bg-emerald-950/70 text-emerald-200' : arrivalStatus === 'late' ? 'bg-amber-950/70 text-amber-200' : 'bg-gray-950/70 text-gray-300'}`}>
+            Cadence: {latestArrivalDelta} / cible {settings.updateIntervalSeconds.toFixed(1)}s
           </span>
         </div>
       </div>
@@ -294,8 +351,16 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             step={10}
             onChange={(bufferSeconds) => setSettings({ ...settings, bufferSeconds })}
           />
+          <NumberField
+            label="Update ~ (s)"
+            value={settings.updateIntervalSeconds}
+            min={0.5}
+            max={60}
+            step={0.5}
+            onChange={(updateIntervalSeconds) => setSettings({ ...settings, updateIntervalSeconds })}
+          />
           <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
-            Démo: capteurs typés à coordonnées fixes, envoyés goutte-à-goutte en JSON normalisé 100×100.
+            Démo: envoi batché via REST puis push WebSocket environ toutes les {settings.updateIntervalSeconds.toFixed(1)}s.
           </div>
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Afficher la couche 3D</span>
@@ -315,9 +380,112 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
           </div>
           <SelectField label="Couleur" value={colorMetric} options={metricNames} onChange={setColorMetric} />
           <SelectField label="Hauteur" value={heightMetric} options={metricNames} onChange={setHeightMetric} />
+          <SelectField
+            label="Gamme"
+            value={colorRamp}
+            options={[...COLOR_RAMP_OPTIONS.map((option) => option.value)]}
+            onChange={(value) => setColorRamp(isSensorColorRampName(value) ? value : 'yellow-red')}
+          />
+          <div className="flex items-center justify-between gap-2 rounded border border-gray-800 bg-gray-900/60 px-2 py-1 text-[11px] text-gray-300">
+            <span>Palette active</span>
+            <span>{COLOR_RAMP_OPTIONS.find((option) => option.value === colorRamp)?.label ?? colorRamp}</span>
+          </div>
           <NumberField label="Opacité" value={opacity} min={0.1} max={1} step={0.05} onChange={setOpacity} />
           <NumberField label="Largeur bar %" value={cellSizePercent} min={2} max={50} step={1} onChange={setCellSizePercent} />
           <NumberField label="Bar max cm" value={barMaxHeightCm} min={50} max={1500} step={25} onChange={setBarMaxHeightCm} />
+        </section>
+
+        <section className="space-y-3 rounded border border-gray-800 bg-gray-950/70 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Vue 2D live</h4>
+          <NumberField
+            label="Grille"
+            value={mapGridResolution}
+            min={5}
+            max={100}
+            step={1}
+            onChange={setMapGridResolution}
+          />
+          <div className="rounded border border-gray-800 bg-gray-900/50 px-2 py-1 text-xs text-gray-300">
+            Secteurs {mapGridResolution} × {mapGridResolution} · moyenne par secteur · clignotement à l’arrivée des données.
+          </div>
+          <div className="rounded border border-gray-800 bg-gray-900/60 p-2">
+            <svg viewBox="0 0 100 100" className="block aspect-square w-full overflow-hidden rounded bg-gray-950">
+              <rect x="0" y="0" width="100" height="100" fill="#050816" />
+              {Array.from({ length: mapGridResolution - 1 }, (_, index) => {
+                const offset = ((index + 1) / mapGridResolution) * 100;
+                return (
+                  <g key={`grid-${offset}`}>
+                    <line x1={offset} y1="0" x2={offset} y2="100" stroke="#1f2937" strokeWidth="0.18" />
+                    <line x1="0" y1={offset} x2="100" y2={offset} stroke="#1f2937" strokeWidth="0.18" />
+                  </g>
+                );
+              })}
+              {mapSectors.map((sector) => {
+                const sectorSize = 100 / mapGridResolution;
+                const normalizedColor = normalizeMetricValue(sector.colorValue, statsByName.get(colorMetric ?? ''));
+                const normalizedHeight = normalizeMetricValue(sector.heightValue, statsByName.get(heightMetric ?? ''));
+                const barHeight = Math.max(0, normalizedHeight * sectorSize * 0.85);
+                const sectorFill = sector.colorValue == null ? '#1f2937' : sensorColor(normalizedColor, colorRamp);
+                const sectorFillOpacity = sector.colorValue == null ? 0.18 : 0.2 + normalizedColor * 0.75;
+                return (
+                  <g key={sector.key}>
+                    <rect
+                      x={sector.col * sectorSize}
+                      y={sector.row * sectorSize}
+                      width={sectorSize}
+                      height={sectorSize}
+                      fill={sectorFill}
+                      fillOpacity={sectorFillOpacity}
+                      stroke="#0f172a"
+                      strokeWidth="0.18"
+                    />
+                    <rect
+                      x={sector.col * sectorSize + sectorSize * 0.32}
+                      y={sector.row * sectorSize + sectorSize * 0.92 - barHeight}
+                      width={Math.max(0.6, sectorSize * 0.36)}
+                      height={barHeight}
+                      rx={0.3}
+                      fill="rgba(255,255,255,0.92)"
+                    />
+                    {sectorSize >= 8 && (
+                      <text
+                        x={sector.centerX}
+                        y={sector.centerY}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={Math.max(2, sectorSize * 0.22)}
+                        fill="#f8fafc"
+                      >
+                        {sector.count}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+              {mappedSamples.map(({ sample, point, recent }) => (
+                <g key={`sensor-${sample.id}`}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={0.7}
+                    fill="#e2e8f0"
+                    opacity={recent ? 0.98 : 0.8}
+                  />
+                  {recent && (
+                    <>
+                      <circle cx={point.x} cy={point.y} r={1.6} fill="none" stroke="#fef08a" strokeWidth="0.6" opacity={0.85}>
+                        <animate attributeName="r" values="1.4;3.8;1.4" dur="0.9s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.9;0.15;0.9" dur="0.9s" repeatCount="indefinite" />
+                      </circle>
+                      <circle cx={point.x} cy={point.y} r={1.2} fill="#fef08a" opacity={0.95}>
+                        <animate attributeName="opacity" values="0.95;0.35;0.95" dur="0.55s" repeatCount="indefinite" />
+                      </circle>
+                    </>
+                  )}
+                </g>
+              ))}
+            </svg>
+          </div>
         </section>
 
         <section className="space-y-3 rounded border border-gray-800 bg-gray-950/70 p-3">
@@ -401,6 +569,11 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
                     {sample.coordinate.kind === 'normalized'
                       ? `100×100: ${sample.coordinate.x?.toFixed(2) ?? '—'}, ${sample.coordinate.y?.toFixed(2) ?? '—'}`
                       : `GPS: ${sample.coordinate.lat?.toFixed(6) ?? '—'}, ${sample.coordinate.lon?.toFixed(6) ?? '—'}`}
+                  </div>
+                  <div className="text-[10px] text-amber-300">
+                    {sample.timestampMs && nowMs - sample.timestampMs >= 0 && nowMs - sample.timestampMs <= recentWindowMs
+                      ? 'Arrivée récente'
+                      : 'Tampon'}
                   </div>
                   <ul className="mt-1 space-y-0.5 text-gray-400">
                     {sample.data.map((metric) => (

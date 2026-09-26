@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aggregateSensorSectors,
   aggregateSensorCells,
   buildMetricStats,
   filterSensorSamples,
   getSensorCellSizeCm,
+  isSensorSampleRecent,
   normalizeMetricValue,
   projectSensorSample,
+  projectSensorSampleToGridPercent,
   reconcileProgressiveSensorReveal,
+  sensorColor,
   sensorRevealBatchSize,
 } from './liveSensors';
 import type { SensorSnapshot, StoreConfig } from '../types/cad';
@@ -107,6 +111,48 @@ describe('live sensor helpers', () => {
     ]);
   });
 
+  it('aggregates samples into 2D sectors with averaged metrics', () => {
+    const sectors = aggregateSensorSectors([
+      {
+        id: 'a',
+        sourceId: 's1',
+        timestampMs: 1_000,
+        coordinate: { kind: 'normalized', x: 24, y: 48 },
+        data: [{ name: 'temperature', value: 10 }],
+      },
+      {
+        id: 'b',
+        sourceId: 's2',
+        timestampMs: 1_025,
+        coordinate: { kind: 'normalized', x: 26, y: 52 },
+        data: [{ name: 'temperature', value: 30 }],
+      },
+    ], snapshot, 10, 'temperature', 'temperature');
+
+    expect(sectors).toEqual([
+      {
+        key: '2:4',
+        col: 2,
+        row: 4,
+        centerX: 25,
+        centerY: 45,
+        count: 1,
+        colorValue: 10,
+        heightValue: 10,
+      },
+      {
+        key: '2:5',
+        col: 2,
+        row: 5,
+        centerX: 25,
+        centerY: 55,
+        count: 1,
+        colorValue: 30,
+        heightValue: 30,
+      },
+    ]);
+  });
+
   it('averages buffered sensor values inside the same bar cell', () => {
     const cells = aggregateSensorCells([
       {
@@ -139,6 +185,12 @@ describe('live sensor helpers', () => {
     expect(getSensorCellSizeCm(store, 20)).toBe(160);
   });
 
+  it('projects gps coordinates into a normalized 2D grid', () => {
+    const projected = projectSensorSampleToGridPercent(snapshot.samples[1], snapshot);
+    expect(projected.x).toBeCloseTo(50);
+    expect(projected.y).toBeCloseTo(50);
+  });
+
   it('keeps visible samples and queues only unseen ones for progressive live reveal', () => {
     const next = reconcileProgressiveSensorReveal(['a'], [], snapshot.samples);
     expect(next).toEqual({
@@ -160,5 +212,15 @@ describe('live sensor helpers', () => {
     expect(sensorRevealBatchSize(30)).toBe(2);
     expect(sensorRevealBatchSize(70)).toBe(4);
     expect(sensorRevealBatchSize(150)).toBe(6);
+  });
+
+  it('uses yellow to red as the default heat ramp family', () => {
+    expect(sensorColor(0, 'yellow-red')).toBe('rgb(250, 204, 21)');
+    expect(sensorColor(1, 'yellow-red')).toBe('rgb(220, 38, 38)');
+  });
+
+  it('flags only fresh samples as recent arrivals', () => {
+    expect(isSensorSampleRecent({ ...snapshot.samples[0], timestampMs: 2_000 }, 3_000, 1_500)).toBe(true);
+    expect(isSensorSampleRecent({ ...snapshot.samples[0], timestampMs: 1_000 }, 3_000, 1_500)).toBe(false);
   });
 });

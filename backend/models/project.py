@@ -162,11 +162,17 @@ class SensorGpsBounds(CADBaseModel):
 
 class SensorLiveSettings(CADBaseModel):
     bufferSeconds: int = 300
+    updateIntervalSeconds: float = 2.0
 
     @field_validator("bufferSeconds")
     @classmethod
     def validate_buffer_seconds(cls, value: int) -> int:
         return max(10, min(86_400, int(value)))
+
+    @field_validator("updateIntervalSeconds")
+    @classmethod
+    def validate_update_interval_seconds(cls, value: float) -> float:
+        return max(0.5, min(60.0, float(value)))
 
 
 class SensorSnapshot(CADBaseModel):

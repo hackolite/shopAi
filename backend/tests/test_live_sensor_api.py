@@ -39,11 +39,16 @@ _register()
 
 def test_live_sensor_ingest_snapshot_and_stats():
     project_id = _create_project()
+    initial_settings = client.get(f"/api/cad/projects/{project_id}/settings")
+    assert initial_settings.status_code == 200, initial_settings.text
+    assert initial_settings.json()["live"]["updateIntervalSeconds"] == 2.0
+
     settings = client.put(
         f"/api/cad/projects/{project_id}/settings",
-        json={"live": {"bufferSeconds": 120}},
+        json={"live": {"bufferSeconds": 120, "updateIntervalSeconds": 2.5}},
     )
     assert settings.status_code == 200, settings.text
+    assert settings.json()["live"]["updateIntervalSeconds"] == 2.5
 
     response = client.post(
         f"/api/cad/projects/{project_id}/live/ingest",

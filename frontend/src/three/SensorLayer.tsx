@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as THREE from 'three';
 import { CM_TO_UNIT } from '../constants';
 import {
   aggregateSensorCells,
@@ -9,15 +8,11 @@ import {
   metricStatsByName,
   normalizeMetricValue,
   reconcileProgressiveSensorReveal,
+  sensorColor,
   sensorRevealBatchSize,
 } from '../engine/liveSensors';
 import { useSceneStore } from '../store/sceneStore';
 import { useSensorStore } from '../store/sensorStore';
-
-function sensorColor(value: number): string {
-  const hue = (1 - Math.max(0, Math.min(1, value))) * 0.66;
-  return new THREE.Color().setHSL(hue, 0.9, 0.5).getStyle();
-}
 
 export function SensorLayer() {
   const scene = useSceneStore((state) => state.scene);
@@ -32,6 +27,7 @@ export function SensorLayer() {
     opacity,
     cellSizePercent,
     barMaxHeightCm,
+    colorRamp,
     showLayer,
   } = useSensorStore();
   const [visibleSampleIds, setVisibleSampleIds] = useState<string[]>([]);
@@ -118,7 +114,7 @@ export function SensorLayer() {
             renderOrder={1102}
           >
             <boxGeometry args={[cellSizeCm * CM_TO_UNIT * 0.72, heightCm * CM_TO_UNIT, cellSizeCm * CM_TO_UNIT * 0.72]} />
-            <meshStandardMaterial color={sensorColor(colorValue)} transparent opacity={opacity} emissive={sensorColor(colorValue)} emissiveIntensity={0.25} />
+            <meshStandardMaterial color={sensorColor(colorValue, colorRamp)} transparent opacity={opacity} emissive={sensorColor(colorValue, colorRamp)} emissiveIntensity={0.25} />
           </mesh>
         );
       })}

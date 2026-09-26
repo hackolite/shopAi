@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
@@ -35,6 +42,8 @@ const LAST_PROJECT_STORAGE_KEY = 'shopai.lastProjectId';
 /** Offset in cm applied to X and Z when pasting a copied gondola. */
 const PASTE_OFFSET_CM = 150;
 const ZONE_PASTE_OFFSET_CM = 150;
+const RIGHT_PANEL_MIN_WIDTH = 360;
+const RIGHT_PANEL_MAX_WIDTH = 900;
 
 function readStoredProjectId(): string {
   try {
@@ -63,6 +72,8 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const [rightTab, setRightTab] = useState<'assistant' | 'inspector' | 'simulation' | 'pedestrian' | 'live'>('assistant');
   const [leftPanelOpen, setLeftPanelOpen] = useState(false);
   const [rightPanelWidth, setRightPanelWidth] = useState(512);
+  const rightPanelSeparatorRef = useRef<HTMLDivElement | null>(null);
+  const rightPanelPointerIdRef = useRef<number | null>(null);
   const rightPanelResizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
     active: false,
     startX: 0,
@@ -128,20 +139,27 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
     const onPointerMove = (event: PointerEvent) => {
       if (!rightPanelResizeRef.current.active) return;
       const delta = rightPanelResizeRef.current.startX - event.clientX;
-      const maxWidth = Math.min(900, Math.floor(window.innerWidth * 0.7));
-      setRightPanelWidth(Math.max(360, Math.min(maxWidth, rightPanelResizeRef.current.startWidth + delta)));
+      const maxWidth = Math.min(RIGHT_PANEL_MAX_WIDTH, Math.floor(window.innerWidth * 0.7));
+      setRightPanelWidth(Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(maxWidth, rightPanelResizeRef.current.startWidth + delta)));
     };
     const onPointerUp = () => {
       if (!rightPanelResizeRef.current.active) return;
       rightPanelResizeRef.current.active = false;
+      const pointerId = rightPanelPointerIdRef.current;
+      if (pointerId != null && rightPanelSeparatorRef.current?.hasPointerCapture(pointerId)) {
+        rightPanelSeparatorRef.current.releasePointerCapture(pointerId);
+      }
+      rightPanelPointerIdRef.current = null;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
@@ -154,10 +172,30 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       startX: event.clientX,
       startWidth: rightPanelWidth,
     };
+    rightPanelPointerIdRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
     event.preventDefault();
   }, [rightPanelWidth]);
+
+  const handleRightPanelResizeByKeyboard = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const step = event.shiftKey ? 80 : 24;
+    const direction = event.key === 'ArrowLeft' ? 1 : -1;
+    const maxWidth = Math.min(RIGHT_PANEL_MAX_WIDTH, Math.floor(window.innerWidth * 0.7));
+    setRightPanelWidth((width) => Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(maxWidth, width + direction * step)));
+  }, []);
+
+  const rightPanelMaxWidth = Math.max(
+    RIGHT_PANEL_MIN_WIDTH,
+    Math.min(
+      RIGHT_PANEL_MAX_WIDTH,
+      Math.floor((typeof window !== 'undefined' ? window.innerWidth : RIGHT_PANEL_MAX_WIDTH) * 0.7),
+    ),
+  );
+  const rightPanelAriaNow = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(rightPanelMaxWidth, rightPanelWidth));
 
   // Remember the current project so a reload (F5) reopens it.
   useEffect(() => {
@@ -883,12 +921,20 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
           role="separator"
           aria-orientation="vertical"
           aria-label="Redimensionner le panneau de droite"
-          className="hidden w-1 shrink-0 cursor-col-resize bg-gray-800/70 hover:bg-cyan-500/70 md:block"
+          aria-controls="studio-right-panel"
+          aria-valuemin={RIGHT_PANEL_MIN_WIDTH}
+          aria-valuemax={rightPanelMaxWidth}
+          aria-valuenow={rightPanelAriaNow}
+          tabIndex={0}
+          ref={rightPanelSeparatorRef}
+          className="hidden w-1 shrink-0 cursor-col-resize bg-gray-800/70 hover:bg-cyan-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 md:block"
           onPointerDown={handleRightPanelResizeStart}
+          onKeyDown={handleRightPanelResizeByKeyboard}
         />
 
         {/* ── Right panel (resizable) ───────────────────────────────────── */}
         <aside
+          id="studio-right-panel"
           className="h-[45vh] w-full shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:h-auto"
           style={desktopLayout ? { width: `${rightPanelWidth}px`, maxWidth: '70vw' } : undefined}
         >

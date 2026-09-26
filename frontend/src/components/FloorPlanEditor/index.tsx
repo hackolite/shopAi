@@ -385,6 +385,8 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
       const overlapsNeighbour = buildingNeighbours.some((other) => axisAlignedRectZonesOverlap(candidate, other));
       if (!overlapsNeighbour) {
         setLivePos({ x: snapped.x, z: snapped.z });
+      } else {
+        setLivePos({ x: targetX, z: targetZ });
       }
     } else if (drag.kind === 'resize') {
       const { handle, origX, origZ, origW, origD } = drag;

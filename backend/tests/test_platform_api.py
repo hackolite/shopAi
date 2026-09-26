@@ -715,14 +715,17 @@ def test_store_layout_import_osm_maps_building_types_to_colors() -> None:
     assert zones_by_id["building-100"]["opacity"] == 1.0
     assert zones_by_id["building-100"]["heightCm"] == 900.0
     assert zones_by_id["building-100"]["mounted"] is True
+    assert zones_by_id["building-100"]["label"] == "Commerce / Magasin"
     assert zones_by_id["building-200"]["color"] == "#4D908E"
     assert zones_by_id["building-200"]["opacity"] == 1.0
     assert zones_by_id["building-200"]["heightCm"] == 600.0
     assert zones_by_id["building-200"]["mounted"] is True
+    assert zones_by_id["building-200"]["label"] == "Entrepôt"
     assert zones_by_id["building-300"]["color"] == "#9CA3AF"
     assert zones_by_id["building-300"]["opacity"] == 1.0
     assert zones_by_id["building-300"]["heightCm"] == 1000.0
     assert zones_by_id["building-300"]["mounted"] is True
+    assert zones_by_id["building-300"]["label"] == "Bâtiment"
     assert zones_by_id["building-100"]["source"]["osmWayId"] == "100"
     assert zones_by_id["building-100"]["source"]["buildingType"] == "retail"
     assert zones_by_id["building-100"]["source"]["heightSource"] == "height"

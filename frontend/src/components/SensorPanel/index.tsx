@@ -247,6 +247,8 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
       connectTimeout = window.setTimeout(() => {
         if (closed || nextSocket.readyState !== WebSocket.CONNECTING) return;
         setSocketStatus('error');
+        scheduleSnapshotPoll();
+        scheduleReconnect();
         nextSocket.close();
       }, sensorSocketConnectTimeoutMs(settings.updateIntervalSeconds));
       nextSocket.onopen = () => {

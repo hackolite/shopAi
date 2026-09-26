@@ -28,6 +28,15 @@ export interface AggregatedSensorSector {
   heightValue: number | null;
 }
 
+export interface AggregatedSensorCell {
+  key: string;
+  xCm: number;
+  zCm: number;
+  count: number;
+  colorValue: number | null;
+  heightValue: number | null;
+}
+
 export interface ProgressiveSensorRevealState {
   visibleIds: string[];
   pendingIds: string[];
@@ -271,6 +280,72 @@ export function mergeResidualSensorSectors(
     });
   }
   return [...merged.values()].sort((left, right) => (left.row - right.row) || (left.col - right.col));
+}
+
+export function getSensorCellSizeCm(store: StoreConfig, cellSizePercent: number): number {
+  const minSpan = Math.min(store.dimensions.width, store.dimensions.depth);
+  return (clamp(cellSizePercent, 1, 100) / 100) * minSpan;
+}
+
+export function aggregateSensorCells(
+  samples: SensorSampleRecord[],
+  store: StoreConfig,
+  snapshot: SensorSnapshot | null,
+  cellSizePercent: number,
+  colorMetric: string | null,
+  heightMetric: string | null,
+): AggregatedSensorCell[] {
+  const cellSizeCm = Math.max(1e-6, getSensorCellSizeCm(store, cellSizePercent));
+  const buckets = new Map<string, AggregatedSensorCell & {
+    colorSum: number;
+    colorCount: number;
+    heightSum: number;
+    heightCount: number;
+  }>();
+
+  for (const sample of samples) {
+    const point = projectSensorSample(sample, store, snapshot);
+    const col = Math.max(0, Math.floor(point.xCm / cellSizeCm));
+    const row = Math.max(0, Math.floor(point.zCm / cellSizeCm));
+    const key = `${col}:${row}`;
+    const existing = buckets.get(key) ?? {
+      key,
+      xCm: (col + 0.5) * cellSizeCm,
+      zCm: (row + 0.5) * cellSizeCm,
+      count: 0,
+      colorValue: null,
+      heightValue: null,
+      colorSum: 0,
+      colorCount: 0,
+      heightSum: 0,
+      heightCount: 0,
+    };
+    existing.count += 1;
+    const colorValue = getMetricValue(sample, colorMetric);
+    const heightValue = getMetricValue(sample, heightMetric);
+    if (colorValue != null) {
+      existing.colorSum += colorValue;
+      existing.colorCount += 1;
+    }
+    if (heightValue != null) {
+      existing.heightSum += heightValue;
+      existing.heightCount += 1;
+    }
+    existing.colorValue = existing.colorCount ? existing.colorSum / existing.colorCount : null;
+    existing.heightValue = existing.heightCount ? existing.heightSum / existing.heightCount : null;
+    buckets.set(key, existing);
+  }
+
+  return [...buckets.values()]
+    .sort((left, right) => (left.zCm - right.zCm) || (left.xCm - right.xCm))
+    .map(({ key, xCm, zCm, count, colorValue, heightValue }) => ({
+      key,
+      xCm,
+      zCm,
+      count,
+      colorValue,
+      heightValue,
+    }));
 }
 
 export function sensorSectorFootprintCm(

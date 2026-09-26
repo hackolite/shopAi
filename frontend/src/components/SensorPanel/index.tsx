@@ -8,6 +8,8 @@ interface SensorPanelProps {
   projectId: string | null;
 }
 
+type DemoCoordinateMode = 'normalized' | 'gps';
+
 function NumberField({
   label,
   value,
@@ -65,19 +67,28 @@ function SelectField({
   );
 }
 
-function buildDemoSamples(tick: number): SensorSampleInput[] {
+function buildDemoSamples(tick: number, mode: DemoCoordinateMode): SensorSampleInput[] {
   return Array.from({ length: 9 }, (_, index) => {
     const angle = tick * 0.18 + index * 0.7;
     const pulse = (Math.sin(tick * 0.12 + index) + 1) / 2;
+    const normalizedX = 12 + (index % 3) * 28 + Math.sin(angle) * 8;
+    const normalizedY = 18 + Math.floor(index / 3) * 22 + Math.cos(angle * 0.8) * 7;
+    const coordinate = mode === 'gps'
+      ? {
+        kind: 'gps' as const,
+        lat: 48.8566 + (normalizedY / 100 - 0.5) * 0.02,
+        lon: 2.3522 + (normalizedX / 100 - 0.5) * 0.03,
+      }
+      : {
+        kind: 'normalized' as const,
+        x: normalizedX,
+        y: normalizedY,
+      };
     return {
       sourceId: `demo-${index + 1}`,
       sourceLabel: `Capteur ${index + 1}`,
       timestampMs: Date.now(),
-      coordinate: {
-        kind: 'normalized',
-        x: 12 + (index % 3) * 28 + Math.sin(angle) * 8,
-        y: 18 + Math.floor(index / 3) * 22 + Math.cos(angle * 0.8) * 7,
-      },
+      coordinate,
       data: [
         { name: 'temperature', value: 18 + pulse * 11, unit: '°C' },
         { name: 'decibel', value: 42 + pulse * 33, unit: 'dB' },
@@ -126,6 +137,7 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
   } = useSensorStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const [error, setError] = useState<string | null>(null);
+  const [demoCoordinateMode, setDemoCoordinateMode] = useState<DemoCoordinateMode>('normalized');
   const persistReadyRef = useRef(false);
   const demoTickRef = useRef(0);
 
@@ -212,12 +224,12 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
     if (!demoRunning || !projectId) return;
     const timer = window.setInterval(() => {
       demoTickRef.current += 1;
-      void cadApi.ingestLiveSensorSamples(projectId, buildDemoSamples(demoTickRef.current)).catch((cause) => {
+      void cadApi.ingestLiveSensorSamples(projectId, buildDemoSamples(demoTickRef.current, demoCoordinateMode)).catch((cause) => {
         setError(cause instanceof Error ? cause.message : String(cause));
       });
     }, 700);
     return () => window.clearInterval(timer);
-  }, [demoRunning, projectId]);
+  }, [demoCoordinateMode, demoRunning, projectId]);
 
   useEffect(() => {
     persistReadyRef.current = loadedProjectId === projectId && projectId !== null;
@@ -253,7 +265,14 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setDemoRunning(!demoRunning)}
+                onClick={() => {
+                  const next = !demoRunning;
+                  setDemoRunning(next);
+                  if (next) {
+                    setAllSources(true);
+                    setShowLayer(true);
+                  }
+                }}
                 className={`rounded px-2.5 py-1 text-xs font-medium ${demoRunning ? 'bg-amber-700 text-amber-100' : 'bg-cyan-700 text-cyan-100'}`}
               >
                 {demoRunning ? 'Stop démo' : 'Mode démo'}
@@ -277,6 +296,17 @@ export default function SensorPanel({ projectId }: SensorPanelProps) {
             step={10}
             onChange={(bufferSeconds) => setSettings({ ...settings, bufferSeconds })}
           />
+          <label className="flex items-center gap-2 text-xs text-gray-300">
+            <span className="w-28 shrink-0 text-gray-500">Démo coords</span>
+            <select
+              value={demoCoordinateMode}
+              onChange={(event) => setDemoCoordinateMode(event.target.value as DemoCoordinateMode)}
+              className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-cyan-500 focus:outline-none"
+            >
+              <option value="normalized">100×100</option>
+              <option value="gps">GPS</option>
+            </select>
+          </label>
           <label className="flex items-center justify-between text-xs text-gray-300">
             <span className="text-gray-500">Afficher la couche 3D</span>
             <input

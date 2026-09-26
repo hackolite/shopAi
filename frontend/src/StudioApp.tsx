@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { cadApi } from './api/cad';
 import { useSceneStore } from './store/sceneStore';
 import { useCatalogStore } from './store/catalogStore';
@@ -62,6 +62,13 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'assistant' | 'inspector' | 'simulation' | 'pedestrian' | 'live'>('assistant');
   const [leftPanelOpen, setLeftPanelOpen] = useState(false);
+  const [rightPanelWidth, setRightPanelWidth] = useState(512);
+  const rightPanelResizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
+    active: false,
+    startX: 0,
+    startWidth: 512,
+  });
+  const [desktopLayout, setDesktopLayout] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 768 : true));
 
   // Dialog states
   const [nameDialog, setNameDialog] = useState<{
@@ -110,6 +117,47 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
       setProjectId(initialProjectId);
     }
   }, [initialProjectId]);
+
+  useEffect(() => {
+    const onResize = () => setDesktopLayout(window.innerWidth >= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      if (!rightPanelResizeRef.current.active) return;
+      const delta = rightPanelResizeRef.current.startX - event.clientX;
+      const maxWidth = Math.min(900, Math.floor(window.innerWidth * 0.7));
+      setRightPanelWidth(Math.max(360, Math.min(maxWidth, rightPanelResizeRef.current.startWidth + delta)));
+    };
+    const onPointerUp = () => {
+      if (!rightPanelResizeRef.current.active) return;
+      rightPanelResizeRef.current.active = false;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, []);
+
+  const handleRightPanelResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    rightPanelResizeRef.current = {
+      active: true,
+      startX: event.clientX,
+      startWidth: rightPanelWidth,
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    event.preventDefault();
+  }, [rightPanelWidth]);
 
   // Remember the current project so a reload (F5) reopens it.
   useEffect(() => {
@@ -831,8 +879,19 @@ export default function StudioApp({ initialProjectId, onBack }: StudioAppProps) 
           )}
         </main>
 
-        {/* ── Right panel (280px) ──────────────────────────────────────── */}
-        <aside className="h-[45vh] w-full shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:h-auto md:w-[32rem] md:max-w-[52vw]">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionner le panneau de droite"
+          className="hidden w-1 shrink-0 cursor-col-resize bg-gray-800/70 hover:bg-cyan-500/70 md:block"
+          onPointerDown={handleRightPanelResizeStart}
+        />
+
+        {/* ── Right panel (resizable) ───────────────────────────────────── */}
+        <aside
+          className="h-[45vh] w-full shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden md:h-auto"
+          style={desktopLayout ? { width: `${rightPanelWidth}px`, maxWidth: '70vw' } : undefined}
+        >
           <div className="flex flex-wrap shrink-0 border-b border-gray-800" aria-label="Outils du studio">
             <button type="button" aria-pressed={rightTab === 'assistant'}
               onClick={() => setRightTab('assistant')}

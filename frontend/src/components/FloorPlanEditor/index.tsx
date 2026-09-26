@@ -6,6 +6,13 @@ import type { FurnitureInstance } from '../../types/cad';
 import type { FloorZone } from '../../types/cad';
 import { GRID_CELL_CM, snapSizeToCell, snapToCell } from '../../engine/gridSnap';
 import { canPlaceFurniture } from '../../engine/furnitureCollision';
+import {
+  axisAlignedRectZonesOverlap,
+  magnetiseZoneOriginCm,
+  zoneIsLikelyBuilding,
+  zoneRotationDeg,
+  zoneShape,
+} from '../../engine/floorZones';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -358,7 +365,27 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
     if (drag.kind === 'move') {
       setLivePos({ x: snapX(drag.origX + dx), z: snapZ(drag.origZ + dy) });
     } else if (drag.kind === 'zone-move') {
-      setLivePos({ x: snapX(drag.origX + dx), z: snapZ(drag.origZ + dy) });
+      const zone = zones.find((z) => z.id === drag.zoneId);
+      if (!zone) return;
+      const targetX = snapX(drag.origX + dx);
+      const targetZ = snapZ(drag.origZ + dy);
+      const isAxisAlignedRectBuilding = zoneIsLikelyBuilding(zone) && zoneShape(zone) === 'rectangle' && Math.abs(zoneRotationDeg(zone)) < 1e-6;
+      if (!isAxisAlignedRectBuilding) {
+        setLivePos({ x: targetX, z: targetZ });
+        return;
+      }
+      const buildingNeighbours = zones.filter((other) => (
+        other.id !== zone.id
+        && zoneIsLikelyBuilding(other)
+        && zoneShape(other) === 'rectangle'
+        && Math.abs(zoneRotationDeg(other)) < 1e-6
+      ));
+      const snapped = magnetiseZoneOriginCm(zone, targetX, targetZ, buildingNeighbours);
+      const candidate: FloorZone = { ...zone, x: snapped.x, z: snapped.z };
+      const overlapsNeighbour = buildingNeighbours.some((other) => axisAlignedRectZonesOverlap(candidate, other));
+      if (!overlapsNeighbour) {
+        setLivePos({ x: snapped.x, z: snapped.z });
+      }
     } else if (drag.kind === 'resize') {
       const { handle, origX, origZ, origW, origD } = drag;
       let nx = origX, nz = origZ, nw = origW, nd = origD;
@@ -376,7 +403,7 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
       if (handle.includes('n')) { nd = snapDim(origD - dy); nz = snapZ(origZ + origD - nd); }
       setLivePos({ x: nx, z: nz, w: nw, d: nd });
     }
-  }, [drag, snapX, snapZ]);
+  }, [drag, snapX, snapZ, zones]);
 
   const handlePointerUp = useCallback((_e: React.PointerEvent<SVGSVGElement>) => {
     if (!drag || !livePos || !scene) { setDrag(null); setLivePos(null); return; }
@@ -408,7 +435,23 @@ export default function FloorPlanEditor({ projectId }: FloorPlanEditorProps) {
     } else if (drag.kind === 'zone-move') {
       const zone = zones.find((z) => z.id === drag.zoneId);
       if (zone) {
+        const isAxisAlignedRectBuilding = zoneIsLikelyBuilding(zone) && zoneShape(zone) === 'rectangle' && Math.abs(zoneRotationDeg(zone)) < 1e-6;
+        const buildingNeighbours = isAxisAlignedRectBuilding
+          ? zones.filter((other) => (
+            other.id !== zone.id
+            && zoneIsLikelyBuilding(other)
+            && zoneShape(other) === 'rectangle'
+            && Math.abs(zoneRotationDeg(other)) < 1e-6
+          ))
+          : [];
         const updated: FloorZone = { ...zone, x: livePos.x, z: livePos.z };
+        const overlapsNeighbour = isAxisAlignedRectBuilding
+          && buildingNeighbours.some((other) => axisAlignedRectZonesOverlap(updated, other));
+        if (overlapsNeighbour) {
+          setDrag(null);
+          setLivePos(null);
+          return;
+        }
         updateZone(updated);
         // zones are persisted as part of the scene store
         if (projectId && scene) {

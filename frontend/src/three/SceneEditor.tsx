@@ -146,6 +146,7 @@ const OSM_TILE_SIZE_CM = 1200;
 const QUALITY_MIN_FPS_PERFORMANCE = 28;
 const QUALITY_MIN_FPS_BALANCED = 48;
 const QUALITY_RECOVER_FPS_HIGH = 56;
+const QUALITY_HIGH_STABLE_WINDOWS = 3;
 const QUALITY_MAX_DRAWCALLS_PERFORMANCE = 2800;
 const QUALITY_MAX_TRIANGLES_PERFORMANCE = 1_800_000;
 
@@ -2384,13 +2385,19 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
   const dirRef = useRef(new THREE.Vector3(0, 0, -1));
   const streamSignatureRef = useRef('');
   const visibleTilesRef = useRef<string[]>([]);
+  const [zonesEpoch, setZonesEpoch] = useState(0);
   const selectedTileKeys = useMemo(
     () => (selectedZone ? (tileIndex.zoneToTiles.get(selectedZone.id) ?? []) : []),
     [selectedZone, tileIndex],
   );
 
   useEffect(() => {
-    if (streamSignatureRef.current.length > 0) return;
+    streamSignatureRef.current = '';
+    visibleTilesRef.current = [];
+    lruRef.current.clear();
+    lruStampRef.current = 0;
+    lastTickRef.current = 0;
+    setZonesEpoch((prev) => prev + 1);
     setStreamedZones(zones.map((zone) => ({ zone, lod: 0, interactive: true })));
   }, [zones]);
 
@@ -2455,7 +2462,9 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
       })
       .filter((entry): entry is StreamedZone => entry !== null);
 
-    const signature = nextStreamed.map((entry) => `${entry.zone.id}:${entry.lod}:${entry.interactive ? 1 : 0}`).join('|');
+    const signature = `${zonesEpoch}|${nextStreamed.map((entry) => (
+      `${entry.zone.id}:${entry.zone.x}:${entry.zone.z}:${entry.zone.width}:${entry.zone.depth}:${entry.zone.rotationDeg ?? 0}:${entry.zone.heightCm ?? 0}:${entry.zone.opacity ?? ''}:${entry.zone.color ?? ''}:${entry.zone.label}:${entry.zone.points?.length ?? 0}:${entry.lod}:${entry.interactive ? 1 : 0}`
+    )).join('|')}`;
     if (signature === streamSignatureRef.current) return;
     streamSignatureRef.current = signature;
     setStreamedZones(nextStreamed);
@@ -3544,6 +3553,7 @@ function FrameBudgetController({
   const qualityRef = useRef<OSMRenderQuality>(quality);
   const samplesRef = useRef<number[]>([]);
   const accumRef = useRef(0);
+  const stableHighTicksRef = useRef(0);
 
   useEffect(() => {
     qualityRef.current = quality;
@@ -3589,11 +3599,21 @@ function FrameBudgetController({
       || drawCalls > QUALITY_MAX_DRAWCALLS_PERFORMANCE
       || triangles > QUALITY_MAX_TRIANGLES_PERFORMANCE
     ) {
+      stableHighTicksRef.current = 0;
       next = 'performance';
     } else if (avgFps < QUALITY_MIN_FPS_BALANCED) {
+      stableHighTicksRef.current = 0;
       next = 'balanced';
     } else if (avgFps > QUALITY_RECOVER_FPS_HIGH) {
-      next = 'high';
+      if (current === 'high') {
+        stableHighTicksRef.current = 0;
+        next = 'high';
+      } else {
+        stableHighTicksRef.current += 1;
+        next = stableHighTicksRef.current >= QUALITY_HIGH_STABLE_WINDOWS ? 'high' : current;
+      }
+    } else {
+      stableHighTicksRef.current = 0;
     }
 
     if (next !== current) {

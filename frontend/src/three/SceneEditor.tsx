@@ -48,6 +48,16 @@ import {
   zoneSupportsResizeHandles,
 } from '../engine/floorZones';
 import {
+  buildStreamedZoneDecisions,
+  buildZoneTileIndex,
+  planActiveTileKeys,
+  qualitySettings,
+  rankTilesForStreaming,
+  updateTileLru,
+  type OSMRenderQuality,
+  type ZoneLodLevel,
+} from '../engine/osmStreaming';
+import {
   magnetiseFurnitureCentreCm,
   magnetiseFurniturePositionCm,
 } from '../engine/furnitureMagnet';
@@ -132,6 +142,19 @@ const RECORDING_TIMESLICE_MS = 1000;
  * real-time encoder does not stall the render loop.
  */
 const DEFAULT_DPR: [number, number] = [1, 2];
+const OSM_TILE_SIZE_CM = 1200;
+const QUALITY_MIN_FPS_PERFORMANCE = 28;
+const QUALITY_MIN_FPS_BALANCED = 48;
+const QUALITY_RECOVER_FPS_HIGH = 56;
+const QUALITY_HIGH_STABLE_WINDOWS = 3;
+const QUALITY_MAX_DRAWCALLS_PERFORMANCE = 2800;
+const QUALITY_MAX_TRIANGLES_PERFORMANCE = 1_800_000;
+
+type StreamedZone = {
+  zone: FloorZone;
+  lod: ZoneLodLevel;
+  interactive: boolean;
+};
 
 // ─── Camera state persistence across Canvas remounts ──────────────────────────
 // When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
@@ -1797,7 +1820,15 @@ function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
 }
 
 // ─── Floor zone mesh (movable) ────────────────────────────────────────────────
-function FloorZoneMesh({ zone }: { zone: FloorZone }) {
+function FloorZoneMesh({
+  zone,
+  lod = 0,
+  interactive = true,
+}: {
+  zone: FloorZone;
+  lod?: ZoneLodLevel;
+  interactive?: boolean;
+}) {
   const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds, zones } = useZoneStore();
   const { selectFurniture, scene } = useSceneStore();
   const { activeTool } = useUIStore();
@@ -1809,6 +1840,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   gridOriginRef.current = gridOrigin;
 
   const isSelected = selectedZoneIds.has(zone.id) || selectedZoneId === zone.id;
+  const canInteract = interactive && lod < 2;
   const W = zone.width  * CM_TO_UNIT;
   const D = zone.depth  * CM_TO_UNIT;
   const zoneCenter = zoneCenterCm(zone);
@@ -1853,23 +1885,26 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     [zones, zone.id],
   );
   const opaqueFlatObstacle = !mounted && isPedestrianObstacle;
-  const fillOpacity = opaqueFlatObstacle
+  const lodOpacityFactor = lod === 0 ? 1 : lod === 1 ? 0.78 : 0.58;
+  const fillOpacity = (opaqueFlatObstacle
     ? 1
     : isSolidWall
     ? 1
     : mounted
       ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
-      : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
+      : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity))) * lodOpacityFactor;
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
   const extrudedGeometry = useMemo(
     () => (mounted
       ? new THREE.ExtrudeGeometry(shapeGeometry, {
         depth: zoneHeightCm(zone) * CM_TO_UNIT,
         bevelEnabled: false,
-        curveSegments: zone.shape === 'polygon' ? 24 : 12,
+        curveSegments: zone.shape === 'polygon'
+          ? (lod === 0 ? 24 : lod === 1 ? 12 : 6)
+          : (lod === 0 ? 12 : lod === 1 ? 8 : 4),
       })
       : null),
-    [mounted, shapeGeometry, zone],
+    [mounted, shapeGeometry, zone, lod],
   );
   const extrudedHeight = zoneHeightCm(zone) * CM_TO_UNIT;
 
@@ -1966,7 +2001,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (activeTool === 'measure') return;
+    if (activeTool === 'measure' || !canInteract) return;
     e.stopPropagation();
     if (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey) {
       toggleZoneSelection(zone.id);
@@ -1988,7 +2023,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   // Prevent the click from bubbling to the floor's deselect handler so the
   // zone selection highlight persists after a simple click (not just drag).
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    if (activeTool === 'measure') return;
+    if (activeTool === 'measure' || !canInteract) return;
     e.stopPropagation();
   };
 
@@ -2011,7 +2046,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
 
   // Build interior grid lines for supply zones.
   const supplyGridLines: React.ReactElement[] = [];
-  if (zone.type === 'supply' && zoneShape(zone) === 'rectangle' && Math.abs(rotationDeg) < 1e-6) {
+  if (lod === 0 && zone.type === 'supply' && zoneShape(zone) === 'rectangle' && Math.abs(rotationDeg) < 1e-6) {
     const rows = Math.max(1, zone.rows ?? 1);
     const cols = Math.max(1, zone.cols ?? 1);
     const gridLineY = lineY + 0.001;
@@ -2052,7 +2087,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   // "volume paint". So the flat fill plane is only rendered for flat
   // (non-mounted) zones; mounted zones get their pointer/hover handling
   // moved onto the extruded mesh instead.
-  const showFlatFill = !(mounted && extrudedGeometry);
+  const showVolume = mounted && extrudedGeometry && lod < 2;
+  const showFlatFill = !showVolume;
+  const showBottomOutline = lod < 2 || isSelected;
+  const showTopOutline = showVolume && lod <= 1;
 
   return (
     <group>
@@ -2064,7 +2102,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
           onPointerDown={handlePointerDown}
           onClick={handleClick}
           onPointerOver={(e) => {
-            if (activeTool === 'measure') return;
+            if (activeTool === 'measure' || !canInteract) return;
             e.stopPropagation();
             setHovered(true);
             document.body.style.cursor = 'move';
@@ -2082,7 +2120,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         </mesh>
       )}
 
-      {mounted && extrudedGeometry && (
+      {showVolume && (
         <>
           <mesh
             position={[cx, y, cz]}
@@ -2090,7 +2128,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             onPointerDown={handlePointerDown}
             onClick={handleClick}
             onPointerOver={(e) => {
-              if (activeTool === 'measure') return;
+              if (activeTool === 'measure' || !canInteract) return;
               e.stopPropagation();
               setHovered(true);
               document.body.style.cursor = 'move';
@@ -2118,23 +2156,27 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
             />
           </mesh>
           <>
-            <Line
-              points={topBorderPts}
-              color={whiteEdgeColor}
-              lineWidth={isSelected ? 3 : 2}
-              depthTest={lineDepthTest}
-              renderOrder={2}
-            />
-            {verticalEdgePts.map((points, index) => (
-              <Line
-                key={`zone-vertical-edge-${zone.id}-${index}`}
-                points={points}
-                color={whiteEdgeColor}
-                lineWidth={isSelected ? 2.5 : 1.5}
-                depthTest={lineDepthTest}
-                renderOrder={2}
-              />
-            ))}
+            {showTopOutline && (
+              <>
+                <Line
+                  points={topBorderPts}
+                  color={whiteEdgeColor}
+                  lineWidth={isSelected ? 3 : 2}
+                  depthTest={lineDepthTest}
+                  renderOrder={2}
+                />
+                {verticalEdgePts.map((points, index) => (
+                  <Line
+                    key={`zone-vertical-edge-${zone.id}-${index}`}
+                    points={points}
+                    color={whiteEdgeColor}
+                    lineWidth={isSelected ? 2.5 : 1.5}
+                    depthTest={lineDepthTest}
+                    renderOrder={2}
+                  />
+                ))}
+              </>
+            )}
           </>
         </>
       )}
@@ -2148,23 +2190,27 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         Rendering it after everything else, with depth testing disabled,
         keeps it stable regardless of camera distance/angle.
       */}
-      <Line
-        points={borderPts}
-        color={whiteEdgeColor}
-        lineWidth={isSelected ? 3 : 2}
-        depthTest={lineDepthTest}
-        renderOrder={2}
-      />
+      {showBottomOutline && (
+        <Line
+          points={borderPts}
+          color={whiteEdgeColor}
+          lineWidth={isSelected ? 3 : 2}
+          depthTest={lineDepthTest}
+          renderOrder={2}
+        />
+      )}
 
       {/* Interior grid lines (supply zones only) */}
       {supplyGridLines}
 
       {/* Label — 3D sprite so it is captured by canvas.captureStream */}
-      <TextSprite3D
-        text={zoneLabel}
-        position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
-        scale={1.2}
-      />
+      {(lod <= 1 || isSelected) && (
+        <TextSprite3D
+          text={zoneLabel}
+          position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
+          scale={1.2}
+        />
+      )}
     </group>
   );
 }
@@ -2317,18 +2363,129 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
 }
 
 // ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
-function FloorZoneLayer() {
+function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
   const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
+  const zoneById = useMemo(
+    () => new Map(zones.map((zone) => [zone.id, zone])),
+    [zones],
+  );
+  const tileIndex = useMemo(() => buildZoneTileIndex(zones, OSM_TILE_SIZE_CM), [zones]);
+  const settings = useMemo(() => qualitySettings(quality), [quality]);
+  const [streamedZones, setStreamedZones] = useState<StreamedZone[]>(
+    () => zones.map((zone) => ({ zone, lod: 0, interactive: true })),
+  );
+  const streamedZonesRef = useRef<StreamedZone[]>(streamedZones);
+  const lruRef = useRef(new Map<string, number>());
+  const lruStampRef = useRef(0);
+  const lastTickSecondsRef = useRef(0);
+  const lastPosRef = useRef(new THREE.Vector3());
+  const lastPosSampleSecondsRef = useRef(0);
+  const dirRef = useRef(new THREE.Vector3(0, 0, -1));
+  const visibleTilesRef = useRef<string[]>([]);
+  const selectedTileKeys = useMemo(
+    () => (selectedZone ? (tileIndex.zoneToTiles.get(selectedZone.id) ?? []) : []),
+    [selectedZone, tileIndex],
+  );
+
+  useEffect(() => {
+    visibleTilesRef.current = [];
+    lruRef.current.clear();
+    lruStampRef.current = 0;
+    lastTickSecondsRef.current = 0;
+    lastPosRef.current.set(0, 0, 0);
+    lastPosSampleSecondsRef.current = 0;
+    const base = zones.map((zone) => ({ zone, lod: 0 as ZoneLodLevel, interactive: true }));
+    streamedZonesRef.current = base;
+    setStreamedZones(base);
+  }, [zones]);
+
+  useFrame((state) => {
+    const nowSeconds = state.clock.elapsedTime;
+    if (nowSeconds - lastTickSecondsRef.current < 0.12) return;
+    lastTickSecondsRef.current = nowSeconds;
+    const { camera } = state;
+
+    camera.getWorldDirection(dirRef.current);
+    const prevPosSeconds = lastPosSampleSecondsRef.current;
+    let speedCmPerSec = 0;
+    if (prevPosSeconds > 0) {
+      const dt = Math.max(0.016, nowSeconds - prevPosSeconds);
+      speedCmPerSec = camera.position.distanceTo(lastPosRef.current) / CM_TO_UNIT / dt;
+    }
+    lastPosRef.current.copy(camera.position);
+    lastPosSampleSecondsRef.current = nowSeconds;
+
+    const priorities = rankTilesForStreaming(tileIndex, {
+      x: camera.position.x / CM_TO_UNIT,
+      z: camera.position.z / CM_TO_UNIT,
+      dirX: dirRef.current.x,
+      dirZ: dirRef.current.z,
+      speedCmPerSec,
+    }, quality);
+    const nextTileKeys = planActiveTileKeys(
+      priorities,
+      visibleTilesRef.current,
+      selectedTileKeys,
+      settings,
+    );
+
+    const lruUpdate = updateTileLru(
+      lruRef.current,
+      nextTileKeys,
+      settings.maxResidentTiles,
+      lruStampRef.current,
+    );
+    lruStampRef.current = lruUpdate.nextStamp;
+    const resident = new Set(lruRef.current.keys());
+    const activeTileKeys = nextTileKeys.filter((key) => resident.has(key));
+    visibleTilesRef.current = activeTileKeys;
+
+    const decisions = buildStreamedZoneDecisions(
+      tileIndex,
+      zones,
+      activeTileKeys,
+      selectedZone?.id ?? null,
+      camera.position.x / CM_TO_UNIT,
+      camera.position.z / CM_TO_UNIT,
+      quality,
+    );
+    const nextStreamed: StreamedZone[] = decisions
+      .map((decision) => {
+        const zone = zoneById.get(decision.zoneId);
+        if (!zone) return null;
+        return {
+          zone,
+          lod: decision.lod,
+          interactive: decision.interactive,
+        };
+      })
+      .filter((entry): entry is StreamedZone => entry !== null);
+
+    const previous = streamedZonesRef.current;
+    const previousByZoneId = new Map(previous.map((entry) => [entry.zone.id, entry]));
+    const unchanged = previous.length === nextStreamed.length && nextStreamed.every((current) => {
+      const entry = previousByZoneId.get(current.zone.id);
+      return entry
+        && entry.zone === current.zone
+        && entry.lod === current.lod
+        && entry.interactive === current.interactive;
+    });
+    if (unchanged) return;
+    streamedZonesRef.current = nextStreamed;
+    setStreamedZones(nextStreamed);
+  });
 
   return (
     <>
-      {zones.map((zone) => (
+      {streamedZones.map(({ zone, lod, interactive }) => (
         <FloorZoneMesh
           key={zone.id}
           zone={zone}
+          lod={lod}
+          interactive={interactive}
         />
       ))}
       {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (
@@ -3391,13 +3548,99 @@ function BEVCameraController({ store }: { store: import('../types/cad').StoreCon
   return null;
 }
 
+function FrameBudgetController({
+  recording,
+  quality,
+  onQualityChange,
+}: {
+  recording: boolean;
+  quality: OSMRenderQuality;
+  onQualityChange: (next: OSMRenderQuality) => void;
+}) {
+  const setDpr = useThree((state) => state.setDpr);
+  const qualityRef = useRef<OSMRenderQuality>(quality);
+  const samplesRef = useRef<number[]>([]);
+  const accumRef = useRef(0);
+  const stableHighTicksRef = useRef(0);
+
+  useEffect(() => {
+    qualityRef.current = quality;
+  }, [quality]);
+
+  useEffect(() => {
+    const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+    const cap = Math.min(2, pixelRatio || 1);
+    if (recording) {
+      setDpr([1, 1]);
+      return;
+    }
+    if (quality === 'high') {
+      setDpr([1, cap]);
+      return;
+    }
+    if (quality === 'balanced') {
+      setDpr([1, Math.min(cap, 1.5)]);
+      return;
+    }
+    setDpr([1, 1]);
+  }, [quality, recording, setDpr]);
+
+  useFrame((state, delta) => {
+    const ms = delta * 1000;
+    samplesRef.current.push(ms);
+    if (samplesRef.current.length > 45) samplesRef.current.shift();
+    accumRef.current += ms;
+    if (accumRef.current < 300) return;
+    accumRef.current = 0;
+
+    if (samplesRef.current.length < 12) return;
+    const avgMs = samplesRef.current.reduce((sum, value) => sum + value, 0) / samplesRef.current.length;
+    const avgFps = 1000 / Math.max(1, avgMs);
+    const current = qualityRef.current;
+    const drawCalls = state.gl.info.render.calls;
+    const triangles = state.gl.info.render.triangles;
+
+    let next = current;
+    if (
+      recording
+      || avgFps < QUALITY_MIN_FPS_PERFORMANCE
+      || drawCalls > QUALITY_MAX_DRAWCALLS_PERFORMANCE
+      || triangles > QUALITY_MAX_TRIANGLES_PERFORMANCE
+    ) {
+      stableHighTicksRef.current = 0;
+      next = 'performance';
+    } else if (avgFps < QUALITY_MIN_FPS_BALANCED) {
+      stableHighTicksRef.current = 0;
+      next = 'balanced';
+    } else if (avgFps > QUALITY_RECOVER_FPS_HIGH) {
+      if (current === 'high') {
+        stableHighTicksRef.current = 0;
+        next = 'high';
+      } else {
+        stableHighTicksRef.current += 1;
+        next = stableHighTicksRef.current >= QUALITY_HIGH_STABLE_WINDOWS ? 'high' : current;
+      }
+    } else {
+      stableHighTicksRef.current = 0;
+    }
+
+    if (next !== current) {
+      qualityRef.current = next;
+      onQualityChange(next);
+    }
+  });
+
+  return null;
+}
+
 
 function SceneContent({ projectId }: { projectId: string | null }) {
   const { scene, selectedFurnitureId, selectFurniture } = useSceneStore();
-  const { activeTool, bevMode } = useUIStore();
+  const { activeTool, bevMode, recording } = useUIStore();
   const { zones, selectedZoneId, selectedZoneIds, selectZone, polygonDraft } = useZoneStore();
   const selectedWaypointId = useSimulationStore((state) => state.selectedWaypointId);
   const selectWaypoint = useSimulationStore((state) => state.selectWaypoint);
+  const [osmQuality, setOsmQuality] = useState<OSMRenderQuality>('high');
 
   const meshGroupsRef   = useRef<Map<string, THREE.Group>>(new Map());
   const [transformTarget, setTransformTarget] = useState<THREE.Group | null>(null);
@@ -3524,7 +3767,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         />
         <SensorLayer />
         <SimulationLayer setSceneNavigationDragging={setIsResizeDragging} />
-        <FloorZoneLayer />
+        <FloorZoneLayer quality={osmQuality} />
         <PolygonDraftTool store={scene.store} />
         <MeasureTool store={scene.store} />
 
@@ -3590,6 +3833,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
         <CameraStateSync savedPosition={_persistedCameraState?.position} />
         <BEVCameraController store={scene.store} />
+        <FrameBudgetController recording={recording} quality={osmQuality} onQualityChange={setOsmQuality} />
         <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>
     </ResizeDragCtx.Provider>

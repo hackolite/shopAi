@@ -1797,7 +1797,7 @@ function moveZone(zone: FloorZone, dxCm: number, dzCm: number): FloorZone {
 }
 
 // ─── Floor zone mesh (movable) ────────────────────────────────────────────────
-function FloorZoneMesh({ zone, reducedDetail = false }: { zone: FloorZone; reducedDetail?: boolean }) {
+function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const { selectZone, toggleZoneSelection, updateZone, selectedZoneId, selectedZoneIds, zones } = useZoneStore();
   const { selectFurniture, scene } = useSceneStore();
   const { activeTool } = useUIStore();
@@ -1860,7 +1860,6 @@ function FloorZoneMesh({ zone, reducedDetail = false }: { zone: FloorZone; reduc
     : mounted
       ? Math.max(0.08, Math.min(1, baseOpacity * (isSelected ? 0.95 : hovered ? 0.82 : 0.7)))
       : Math.max(0.08, Math.min(1, isSelected ? Math.max(baseOpacity, 0.55) : hovered ? Math.max(baseOpacity, 0.45) : baseOpacity));
-  const renderReducedDetail = reducedDetail && !isSelected && !hovered;
   const shapeGeometry = useMemo(() => zoneShapeGeometry(zone, storeBounds), [zone, storeBounds]);
   const extrudedGeometry = useMemo(
     () => (mounted
@@ -2099,50 +2098,44 @@ function FloorZoneMesh({ zone, reducedDetail = false }: { zone: FloorZone; reduc
             onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
           >
             <primitive object={extrudedGeometry} attach="geometry" />
-            {renderReducedDetail ? (
-              <meshBasicMaterial color={fillColor} transparent={!isSolidWall} opacity={isSolidWall ? 1 : fillOpacity} side={THREE.DoubleSide} />
-            ) : (
-              <meshStandardMaterial
-                color={fillColor}
-                transparent={!isSolidWall}
-                opacity={isSolidWall ? 1 : Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
-                roughness={0.85}
-                metalness={0.05}
-                // OSM-imported polygons can have either clockwise or
-                // counter-clockwise winding, which flips the extruded side
-                // faces' normals. With the default FrontSide only, that makes
-                // some building walls invisible (looking "transparent") when
-                // viewed from outside. Render both faces so solid buildings
-                // always show a full, opaque colored wall regardless of the
-                // source polygon's winding order.
-                side={THREE.DoubleSide}
-                polygonOffset
-                polygonOffsetFactor={1}
-                polygonOffsetUnits={1}
-              />
-            )}
+            <meshStandardMaterial
+              color={fillColor}
+              transparent={!isSolidWall}
+              opacity={isSolidWall ? 1 : Math.max(0.12, Math.min(1, fillOpacity * (isSelected ? 0.8 : hovered ? 0.72 : 0.62)))}
+              roughness={0.85}
+              metalness={0.05}
+              // OSM-imported polygons can have either clockwise or
+              // counter-clockwise winding, which flips the extruded side
+              // faces' normals. With the default FrontSide only, that makes
+              // some building walls invisible (looking "transparent") when
+              // viewed from outside. Render both faces so solid buildings
+              // always show a full, opaque colored wall regardless of the
+              // source polygon's winding order.
+              side={THREE.DoubleSide}
+              polygonOffset
+              polygonOffsetFactor={1}
+              polygonOffsetUnits={1}
+            />
           </mesh>
-          {!renderReducedDetail && (
-            <>
+          <>
+            <Line
+              points={topBorderPts}
+              color={whiteEdgeColor}
+              lineWidth={isSelected ? 3 : 2}
+              depthTest={lineDepthTest}
+              renderOrder={2}
+            />
+            {verticalEdgePts.map((points, index) => (
               <Line
-                points={topBorderPts}
+                key={`zone-vertical-edge-${zone.id}-${index}`}
+                points={points}
                 color={whiteEdgeColor}
-                lineWidth={isSelected ? 3 : 2}
+                lineWidth={isSelected ? 2.5 : 1.5}
                 depthTest={lineDepthTest}
                 renderOrder={2}
               />
-              {verticalEdgePts.map((points, index) => (
-                <Line
-                  key={`zone-vertical-edge-${zone.id}-${index}`}
-                  points={points}
-                  color={whiteEdgeColor}
-                  lineWidth={isSelected ? 2.5 : 1.5}
-                  depthTest={lineDepthTest}
-                  renderOrder={2}
-                />
-              ))}
-            </>
-          )}
+            ))}
+          </>
         </>
       )}
 
@@ -2155,15 +2148,13 @@ function FloorZoneMesh({ zone, reducedDetail = false }: { zone: FloorZone; reduc
         Rendering it after everything else, with depth testing disabled,
         keeps it stable regardless of camera distance/angle.
       */}
-      {!renderReducedDetail && (
-        <Line
-          points={borderPts}
-          color={whiteEdgeColor}
-          lineWidth={isSelected ? 3 : 2}
-          depthTest={lineDepthTest}
-          renderOrder={2}
-        />
-      )}
+      <Line
+        points={borderPts}
+        color={whiteEdgeColor}
+        lineWidth={isSelected ? 3 : 2}
+        depthTest={lineDepthTest}
+        renderOrder={2}
+      />
 
       {/* Interior grid lines (supply zones only) */}
       {supplyGridLines}
@@ -2326,18 +2317,8 @@ function FloorZoneResizeHandles({ zone }: { zone: FloorZone }) {
 }
 
 // ─── Floor zone layer (renders all zones + selected zone handles) ─────────────
-const LARGE_ZONE_RENDER_THRESHOLD = 220;
-
 function FloorZoneLayer() {
   const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
-  const largeOsmZoneSet = useMemo(() => {
-    const osmZoneCount = zones.reduce(
-      (count, zone) => (zone.source?.osmWayId ? count + 1 : count),
-      0,
-    );
-    return osmZoneCount >= LARGE_ZONE_RENDER_THRESHOLD;
-  }, [zones]);
-
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
     : null;
@@ -2348,7 +2329,6 @@ function FloorZoneLayer() {
         <FloorZoneMesh
           key={zone.id}
           zone={zone}
-          reducedDetail={largeOsmZoneSet && Boolean(zone.source?.osmWayId)}
         />
       ))}
       {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (

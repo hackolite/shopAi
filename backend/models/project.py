@@ -420,7 +420,7 @@ class FloorZone(CADBaseModel):
     opacity: float = 0.32
     points: list[FloorZonePoint] | None = None
     pathMode: Literal["linear", "smooth"] = "linear"
-    pedestrianObstacle: bool = False
+    pedestrianObstacle: bool | None = None
     mounted: bool = False
     heightCm: float = 120.0
     source: dict[str, Any] | None = Field(default=None, alias="_source")

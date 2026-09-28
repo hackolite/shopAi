@@ -357,12 +357,11 @@ def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> 
 
 
 def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None:
-    blocks_pedestrians = bool(
-        getattr(
-            zone,
-            "pedestrianObstacle",
-            getattr(zone, "type", None) == "forbidden",
-        )
+    raw_obstacle_flag = getattr(zone, "pedestrianObstacle", None)
+    blocks_pedestrians = (
+        getattr(zone, "type", None) == "forbidden"
+        if raw_obstacle_flag is None
+        else bool(raw_obstacle_flag)
     )
     if not blocks_pedestrians:
         return None

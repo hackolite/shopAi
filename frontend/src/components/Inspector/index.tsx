@@ -711,6 +711,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
   const { scene } = useSceneStore();
   const isSupply = zone.type === 'supply';
   const isForbidden = zone.type === 'forbidden';
+  const isPedestrianObstacle = zone.pedestrianObstacle ?? isForbidden;
   const isRotatable = isForbidden && zone.shape !== 'circle';
   const pointCount = zone.points?.length ?? 0;
   const isPolygon = zone.shape === 'polygon';
@@ -738,6 +739,15 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
             className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:border-blue-500 min-w-0"
           />
         </div>
+        <label className="flex items-center justify-between text-xs text-gray-300">
+          <span className="text-gray-500">Obstacle piéton</span>
+          <input
+            type="checkbox"
+            checked={isPedestrianObstacle}
+            onChange={(event) => save({ ...zone, pedestrianObstacle: event.target.checked })}
+            className="accent-blue-500"
+          />
+        </label>
         {isForbidden && (
           <>
             <div className="flex items-center gap-2">
@@ -961,7 +971,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
             )}
           </>
         )}
-        {isForbidden && (
+        {isPedestrianObstacle && (
           <div className="rounded-lg border border-red-900 bg-red-950/20 px-2 py-2 text-[11px] leading-snug text-red-200">
             Ce dessin au sol est un obstacle piéton : les agents le contournent comme un mobilier, à plat ou monté.
           </div>

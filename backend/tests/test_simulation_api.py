@@ -268,6 +268,58 @@ def test_rotated_forbidden_rectangle_is_removed_from_walkable_geometry() -> None
     assert not walkable.covers(Point(5.0, 5.0))
 
 
+def test_forbidden_zone_can_be_disabled_as_pedestrian_obstacle() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "paint-only-zone",
+            "type": "forbidden",
+            "label": "Peinture",
+            "shape": "rectangle",
+            "x": 400.0,
+            "z": 400.0,
+            "width": 200.0,
+            "depth": 200.0,
+            "pedestrianObstacle": False,
+        }
+    ]
+
+    walkable = simulation_service._build_walkable_geometry(simulation_service.SceneData.model_validate(scene))
+
+    assert walkable.covers(Point(5.0, 5.0))
+
+
+def test_non_forbidden_zone_can_block_when_marked_as_obstacle() -> None:
+    project_id = _create_project()
+
+    scene_response = client.get(f"/api/cad/projects/{project_id}/scene")
+    assert scene_response.status_code == 200, scene_response.text
+    scene = scene_response.json()
+    scene["furniture"] = []
+    scene["store"]["zones"] = [
+        {
+            "id": "supply-blocker",
+            "type": "supply",
+            "label": "Fournitures bloquantes",
+            "shape": "rectangle",
+            "x": 400.0,
+            "z": 400.0,
+            "width": 200.0,
+            "depth": 200.0,
+            "pedestrianObstacle": True,
+        }
+    ]
+
+    walkable = simulation_service._build_walkable_geometry(simulation_service.SceneData.model_validate(scene))
+
+    assert not walkable.covers(Point(5.0, 5.0))
+
+
 def test_run_simulation_reports_closest_waypoint_correction() -> None:
     project_id = _create_project()
 

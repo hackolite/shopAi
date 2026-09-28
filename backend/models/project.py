@@ -420,6 +420,7 @@ class FloorZone(CADBaseModel):
     opacity: float = 0.32
     points: list[FloorZonePoint] | None = None
     pathMode: Literal["linear", "smooth"] = "linear"
+    pedestrianObstacle: bool = False
     mounted: bool = False
     heightCm: float = 120.0
     source: dict[str, Any] | None = Field(default=None, alias="_source")
@@ -462,6 +463,8 @@ class FloorZone(CADBaseModel):
             raw_zone_type = raw_zone_type.value
         zone_type = ZoneTypeEnum(str(raw_zone_type).strip().lower())
         normalized["type"] = zone_type.value
+        if "pedestrianObstacle" not in normalized or normalized["pedestrianObstacle"] is None:
+            normalized["pedestrianObstacle"] = zone_type == ZoneTypeEnum.forbidden
         if "label" not in normalized or normalized["label"] in (None, ""):
             normalized["label"] = _default_zone_label(zone_type)
         normalized.setdefault("x", 0.0)

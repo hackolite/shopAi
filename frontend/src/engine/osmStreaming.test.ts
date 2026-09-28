@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildStreamedZoneDecisions,
   buildZoneTileIndex,
   lodLevelForDistance,
   planActiveTileKeys,
@@ -103,5 +104,28 @@ describe('osmStreaming helpers', () => {
     const next = planActiveTileKeys(priorities, ['3:0'], ['5:0'], settings);
 
     expect(next).toEqual(expect.arrayContaining(['0:0', '1:0', '2:0', '3:0', '5:0']));
+  });
+
+  it('builds streamed zone decisions with LOD and selected-zone pinning', () => {
+    const zones = [
+      zone({ id: 'near', x: 0, z: 0, width: 400, depth: 400 }),
+      zone({ id: 'far', x: 6000, z: 0, width: 400, depth: 400 }),
+    ];
+    const index = buildZoneTileIndex(zones, 1000);
+
+    const decisions = buildStreamedZoneDecisions(
+      index,
+      zones,
+      ['0:0'],
+      'far',
+      0,
+      0,
+      'balanced',
+    );
+
+    expect(decisions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ zoneId: 'near', interactive: true }),
+      expect.objectContaining({ zoneId: 'far', lod: 0, interactive: true }),
+    ]));
   });
 });

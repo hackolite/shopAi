@@ -48,8 +48,8 @@ import {
   zoneSupportsResizeHandles,
 } from '../engine/floorZones';
 import {
+  buildStreamedZoneDecisions,
   buildZoneTileIndex,
-  lodLevelForDistance,
   planActiveTileKeys,
   qualitySettings,
   rankTilesForStreaming,
@@ -143,6 +143,11 @@ const RECORDING_TIMESLICE_MS = 1000;
  */
 const DEFAULT_DPR: [number, number] = [1, 2];
 const OSM_TILE_SIZE_CM = 1200;
+const QUALITY_MIN_FPS_PERFORMANCE = 28;
+const QUALITY_MIN_FPS_BALANCED = 48;
+const QUALITY_RECOVER_FPS_HIGH = 56;
+const QUALITY_MAX_DRAWCALLS_PERFORMANCE = 2800;
+const QUALITY_MAX_TRIANGLES_PERFORMANCE = 1_800_000;
 
 type StreamedZone = {
   zone: FloorZone;
@@ -2368,7 +2373,9 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
   );
   const tileIndex = useMemo(() => buildZoneTileIndex(zones, OSM_TILE_SIZE_CM), [zones]);
   const settings = useMemo(() => qualitySettings(quality), [quality]);
-  const [streamedZones, setStreamedZones] = useState<StreamedZone[]>([]);
+  const [streamedZones, setStreamedZones] = useState<StreamedZone[]>(
+    () => zones.map((zone) => ({ zone, lod: 0, interactive: true })),
+  );
   const lruRef = useRef(new Map<string, number>());
   const lruStampRef = useRef(0);
   const lastTickRef = useRef(0);
@@ -2381,6 +2388,11 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
     () => (selectedZone ? (tileIndex.zoneToTiles.get(selectedZone.id) ?? []) : []),
     [selectedZone, tileIndex],
   );
+
+  useEffect(() => {
+    if (streamSignatureRef.current.length > 0) return;
+    setStreamedZones(zones.map((zone) => ({ zone, lod: 0, interactive: true })));
+  }, [zones]);
 
   useFrame(({ camera }) => {
     const now = performance.now();
@@ -2422,34 +2434,27 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
     const activeTileKeys = nextTileKeys.filter((key) => resident.has(key));
     visibleTilesRef.current = activeTileKeys;
 
-    const zoneIds = new Set<string>();
-    activeTileKeys.forEach((key) => {
-      const tileZones = tileIndex.tiles.get(key);
-      if (!tileZones) return;
-      tileZones.forEach((zoneId) => zoneIds.add(zoneId));
-    });
-    if (selectedZone) zoneIds.add(selectedZone.id);
+    const decisions = buildStreamedZoneDecisions(
+      tileIndex,
+      zones,
+      activeTileKeys,
+      selectedZone?.id ?? null,
+      camera.position.x / CM_TO_UNIT,
+      camera.position.z / CM_TO_UNIT,
+      quality,
+    );
+    const nextStreamed: StreamedZone[] = decisions
+      .map((decision) => {
+        const zone = zoneById.get(decision.zoneId);
+        if (!zone) return null;
+        return {
+          zone,
+          lod: decision.lod,
+          interactive: decision.interactive,
+        };
+      })
+      .filter((entry): entry is StreamedZone => entry !== null);
 
-    const cameraXCm = camera.position.x / CM_TO_UNIT;
-    const cameraZCm = camera.position.z / CM_TO_UNIT;
-    const nextStreamed: StreamedZone[] = [];
-    zoneIds.forEach((zoneId) => {
-      const zone = zoneById.get(zoneId);
-      const bounds = tileIndex.zoneBounds.get(zoneId);
-      if (!zone || !bounds) return;
-      const distanceCm = Math.max(0, Math.hypot(bounds.centerX - cameraXCm, bounds.centerZ - cameraZCm) - bounds.radiusCm);
-      const lod = selectedZone?.id === zoneId ? 0 : lodLevelForDistance(distanceCm, quality);
-      nextStreamed.push({
-        zone,
-        lod,
-        interactive: lod <= 1 || selectedZone?.id === zoneId,
-      });
-    });
-
-    nextStreamed.sort((left, right) => {
-      if (left.lod !== right.lod) return left.lod - right.lod;
-      return left.zone.id.localeCompare(right.zone.id);
-    });
     const signature = nextStreamed.map((entry) => `${entry.zone.id}:${entry.lod}:${entry.interactive ? 1 : 0}`).join('|');
     if (signature === streamSignatureRef.current) return;
     streamSignatureRef.current = signature;
@@ -3548,18 +3553,18 @@ function FrameBudgetController({
     const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
     const cap = Math.min(2, pixelRatio || 1);
     if (recording) {
-      setDpr(1);
+      setDpr([1, 1]);
       return;
     }
     if (quality === 'high') {
-      setDpr(cap);
+      setDpr([1, cap]);
       return;
     }
     if (quality === 'balanced') {
-      setDpr(Math.min(cap, 1.5));
+      setDpr([1, Math.min(cap, 1.5)]);
       return;
     }
-    setDpr(1);
+    setDpr([1, 1]);
   }, [quality, recording, setDpr]);
 
   useFrame((state, delta) => {
@@ -3578,9 +3583,18 @@ function FrameBudgetController({
     const triangles = state.gl.info.render.triangles;
 
     let next = current;
-    if (recording || avgFps < 28 || drawCalls > 2800 || triangles > 1_800_000) next = 'performance';
-    else if (avgFps < 48) next = 'balanced';
-    else if (avgFps > 56) next = 'high';
+    if (
+      recording
+      || avgFps < QUALITY_MIN_FPS_PERFORMANCE
+      || drawCalls > QUALITY_MAX_DRAWCALLS_PERFORMANCE
+      || triangles > QUALITY_MAX_TRIANGLES_PERFORMANCE
+    ) {
+      next = 'performance';
+    } else if (avgFps < QUALITY_MIN_FPS_BALANCED) {
+      next = 'balanced';
+    } else if (avgFps > QUALITY_RECOVER_FPS_HIGH) {
+      next = 'high';
+    }
 
     if (next !== current) {
       qualityRef.current = next;

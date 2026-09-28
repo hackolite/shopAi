@@ -50,6 +50,12 @@ export interface TileLruUpdateResult {
   nextStamp: number;
 }
 
+export interface StreamedZoneDecision {
+  zoneId: string;
+  lod: ZoneLodLevel;
+  interactive: boolean;
+}
+
 const QUALITY_SETTINGS: Record<OSMRenderQuality, StreamingQualitySettings> = {
   high: {
     nearRadiusTiles: 3,
@@ -254,4 +260,42 @@ export function updateTileLru(
   const toEvict = sorted.slice(0, Math.max(0, lru.size - maxSize)).map(([key]) => key);
   toEvict.forEach((key) => lru.delete(key));
   return { evicted: toEvict, nextStamp: stamp };
+}
+
+export function buildStreamedZoneDecisions(
+  index: ZoneTileIndex,
+  zones: FloorZone[],
+  activeTileKeys: Iterable<string>,
+  selectedZoneId: string | null,
+  cameraXCm: number,
+  cameraZCm: number,
+  quality: OSMRenderQuality,
+): StreamedZoneDecision[] {
+  const zoneIds = new Set<string>();
+  for (const key of activeTileKeys) {
+    const tileZones = index.tiles.get(key);
+    if (!tileZones) continue;
+    tileZones.forEach((zoneId) => zoneIds.add(zoneId));
+  }
+  if (selectedZoneId) zoneIds.add(selectedZoneId);
+
+  const zoneById = new Map(zones.map((zone) => [zone.id, zone]));
+  const decisions: StreamedZoneDecision[] = [];
+  zoneIds.forEach((zoneId) => {
+    const zone = zoneById.get(zoneId);
+    const bounds = index.zoneBounds.get(zoneId);
+    if (!zone || !bounds) return;
+    const distanceCm = Math.max(0, Math.hypot(bounds.centerX - cameraXCm, bounds.centerZ - cameraZCm) - bounds.radiusCm);
+    const lod = selectedZoneId === zoneId ? 0 : lodLevelForDistance(distanceCm, quality);
+    decisions.push({
+      zoneId,
+      lod,
+      interactive: lod <= 1 || selectedZoneId === zoneId,
+    });
+  });
+  decisions.sort((left, right) => {
+    if (left.lod !== right.lod) return left.lod - right.lod;
+    return left.zoneId.localeCompare(right.zoneId);
+  });
+  return decisions;
 }

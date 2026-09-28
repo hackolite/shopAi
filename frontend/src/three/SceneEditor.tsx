@@ -25,6 +25,12 @@ import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
 import {
+  edgeLodForDistanceSquared,
+  horizontalDistanceSquared,
+  shouldUseLightweightBuildingEdges,
+  type BuildingEdgeLod,
+} from '../engine/buildingEdgeLod';
+import {
   GRID_CELL_CM,
   furnitureCentreCm,
   gridPlaneSpec,
@@ -132,6 +138,8 @@ const RECORDING_TIMESLICE_MS = 1000;
  * real-time encoder does not stall the render loop.
  */
 const DEFAULT_DPR: [number, number] = [1, 2];
+const BUILDING_EDGE_LOD_CAMERA_MOVE_THRESHOLD = 4;
+const BUILDING_EDGE_LOD_UPDATE_INTERVAL_SECONDS = 0.15;
 
 // ─── Camera state persistence across Canvas remounts ──────────────────────────
 // When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
@@ -145,6 +153,8 @@ let _persistedCameraState: {
 
 /** Fallback OrbitControls look-at point used when no store is loaded yet. */
 const DEFAULT_ORBIT_TARGET: [number, number, number] = [25, 0, 15];
+type BuildingEdgeLodUpdater = (camera: THREE.Camera) => void;
+const _buildingEdgeLodUpdaters = new Set<BuildingEdgeLodUpdater>();
 
 /**
  * World-space centre of the store floor: the orbit pivot must sit inside the
@@ -1769,6 +1779,144 @@ function zoneWorldOutline(
   return points.length > 0 ? [...points, points[0]] : points;
 }
 
+function sameWorldPoint(a: readonly number[], b: readonly number[]): boolean {
+  return Math.abs(a[0] - b[0]) < 1e-6
+    && Math.abs(a[1] - b[1]) < 1e-6
+    && Math.abs(a[2] - b[2]) < 1e-6;
+}
+
+function compactLoopPoints(points: readonly [number, number, number][]): readonly [number, number, number][] {
+  if (points.length >= 2 && sameWorldPoint(points[0], points[points.length - 1])) {
+    return points.slice(0, -1);
+  }
+  return points;
+}
+
+function toPositionBuffer(points: readonly [number, number, number][]): Float32Array {
+  const data = new Float32Array(points.length * 3);
+  points.forEach((point, index) => {
+    const offset = index * 3;
+    data[offset] = point[0];
+    data[offset + 1] = point[1];
+    data[offset + 2] = point[2];
+  });
+  return data;
+}
+
+function toSegmentPositionBuffer(segments: readonly (readonly [number, number, number][])[]): Float32Array {
+  const data = new Float32Array(segments.length * 2 * 3);
+  segments.forEach((segment, index) => {
+    const offset = index * 6;
+    data[offset] = segment[0][0];
+    data[offset + 1] = segment[0][1];
+    data[offset + 2] = segment[0][2];
+    data[offset + 3] = segment[1][0];
+    data[offset + 4] = segment[1][1];
+    data[offset + 5] = segment[1][2];
+  });
+  return data;
+}
+
+function LightweightBuildingEdges({
+  borderPts,
+  topBorderPts,
+  verticalEdgePts,
+  color,
+  lineDepthTest,
+  zoneCenter,
+}: {
+  borderPts: readonly [number, number, number][];
+  topBorderPts: readonly [number, number, number][];
+  verticalEdgePts: readonly (readonly [number, number, number][])[];
+  color: string;
+  lineDepthTest: boolean;
+  zoneCenter: readonly [number, number, number];
+}) {
+  const { camera } = useThree();
+  const topRef = useRef<THREE.LineLoop>(null);
+  const verticalRef = useRef<THREE.LineSegments>(null);
+  const zoneCenterVec = useMemo(() => new THREE.Vector3(zoneCenter[0], zoneCenter[1], zoneCenter[2]), [zoneCenter]);
+  const bottomPositions = useMemo(() => toPositionBuffer(compactLoopPoints(borderPts)), [borderPts]);
+  const topPositions = useMemo(() => toPositionBuffer(compactLoopPoints(topBorderPts)), [topBorderPts]);
+  const verticalPositions = useMemo(() => toSegmentPositionBuffer(verticalEdgePts), [verticalEdgePts]);
+  const initialLod = useMemo(
+    () => edgeLodForDistanceSquared(horizontalDistanceSquared(camera.position, zoneCenterVec)),
+    [camera, zoneCenterVec],
+  );
+  const lodRef = useRef<BuildingEdgeLod>(initialLod);
+  const updateLod = useCallback<BuildingEdgeLodUpdater>((activeCamera) => {
+    const nextLod = edgeLodForDistanceSquared(horizontalDistanceSquared(activeCamera.position, zoneCenterVec));
+    if (lodRef.current === nextLod) return;
+    lodRef.current = nextLod;
+    if (topRef.current) topRef.current.visible = nextLod !== 'far';
+    if (verticalRef.current) verticalRef.current.visible = nextLod === 'near';
+  }, [zoneCenterVec]);
+
+  useEffect(() => {
+    _buildingEdgeLodUpdaters.add(updateLod);
+    updateLod(camera);
+    return () => {
+      _buildingEdgeLodUpdaters.delete(updateLod);
+    };
+  }, [camera, updateLod]);
+
+  return (
+    <>
+      <lineLoop renderOrder={2}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[bottomPositions, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial color={color} depthTest={lineDepthTest} depthWrite={false} toneMapped={false} />
+      </lineLoop>
+      {topPositions.length > 0 && (
+        <lineLoop ref={topRef} visible={initialLod !== 'far'} renderOrder={2}>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[topPositions, 3]} />
+          </bufferGeometry>
+          <lineBasicMaterial color={color} depthTest={lineDepthTest} depthWrite={false} toneMapped={false} />
+        </lineLoop>
+      )}
+      {verticalPositions.length > 0 && (
+        <lineSegments ref={verticalRef} visible={initialLod === 'near'} renderOrder={2}>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[verticalPositions, 3]} />
+          </bufferGeometry>
+          <lineBasicMaterial color={color} depthTest={lineDepthTest} depthWrite={false} toneMapped={false} />
+        </lineSegments>
+      )}
+    </>
+  );
+}
+
+function BuildingEdgeLodSync() {
+  const lastSyncedCameraPositionRef = useRef<THREE.Vector3 | null>(null);
+  const pendingCameraPositionRef = useRef<THREE.Vector3 | null>(null);
+  const lastUpdateTimeRef = useRef<number>(Number.NEGATIVE_INFINITY);
+
+  useFrame((state) => {
+    const cameraPosition = state.camera.position;
+    if (!lastSyncedCameraPositionRef.current) {
+      lastSyncedCameraPositionRef.current = cameraPosition.clone();
+      pendingCameraPositionRef.current = cameraPosition.clone();
+      lastUpdateTimeRef.current = state.clock.elapsedTime;
+      _buildingEdgeLodUpdaters.forEach((updateLod) => updateLod(state.camera));
+      return;
+    }
+    const pendingPosition = pendingCameraPositionRef.current ?? cameraPosition.clone();
+    pendingPosition.copy(cameraPosition);
+    pendingCameraPositionRef.current = pendingPosition;
+    const movedEnough = lastSyncedCameraPositionRef.current.distanceToSquared(pendingPosition)
+      >= BUILDING_EDGE_LOD_CAMERA_MOVE_THRESHOLD * BUILDING_EDGE_LOD_CAMERA_MOVE_THRESHOLD;
+    if (!movedEnough) return;
+    if (state.clock.elapsedTime - lastUpdateTimeRef.current < BUILDING_EDGE_LOD_UPDATE_INTERVAL_SECONDS) return;
+    lastSyncedCameraPositionRef.current.copy(pendingPosition);
+    lastUpdateTimeRef.current = state.clock.elapsedTime;
+    _buildingEdgeLodUpdaters.forEach((updateLod) => updateLod(state.camera));
+  });
+
+  return null;
+}
+
 function zoneShapeGeometry(
   zone: FloorZone,
   storeBounds?: { storeWidth?: number; storeDepth?: number; storeX?: number; storeZ?: number },
@@ -2002,6 +2150,12 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       : []),
     [borderPts, extrudedHeight, lineY, mounted],
   );
+  const useLightweightBuildingEdges = shouldUseLightweightBuildingEdges({
+    mounted,
+    isBuildingZone,
+    isSelected,
+    hovered,
+  });
   const bx = zone.x * CM_TO_UNIT;
   const bz = zone.z * CM_TO_UNIT;
 
@@ -2113,24 +2267,39 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
               polygonOffsetUnits={1}
             />
           </mesh>
-          <Line
-            points={topBorderPts}
-            color={whiteEdgeColor}
-            lineWidth={isSelected ? 3 : 2}
-            depthTest={lineDepthTest}
-            renderOrder={2}
-          />
-          {verticalEdgePts.map((points, index) => (
-            <Line
-              key={`zone-vertical-edge-${zone.id}-${index}`}
-              points={points}
-              color={whiteEdgeColor}
-              lineWidth={isSelected ? 2.5 : 1.5}
-              depthTest={lineDepthTest}
-              renderOrder={2}
-            />
-          ))}
+          {!useLightweightBuildingEdges && (
+            <>
+              <Line
+                points={topBorderPts}
+                color={whiteEdgeColor}
+                lineWidth={isSelected ? 3 : 2}
+                depthTest={lineDepthTest}
+                renderOrder={2}
+              />
+              {verticalEdgePts.map((points, index) => (
+                <Line
+                  key={`zone-vertical-edge-${zone.id}-${index}`}
+                  points={points}
+                  color={whiteEdgeColor}
+                  lineWidth={isSelected ? 2.5 : 1.5}
+                  depthTest={lineDepthTest}
+                  renderOrder={2}
+                />
+              ))}
+            </>
+          )}
         </>
+      )}
+
+      {useLightweightBuildingEdges && (
+        <LightweightBuildingEdges
+          borderPts={borderPts}
+          topBorderPts={topBorderPts}
+          verticalEdgePts={verticalEdgePts}
+          color={whiteEdgeColor}
+          lineDepthTest={lineDepthTest}
+          zoneCenter={[cx, y + extrudedHeight * 0.5, cz]}
+        />
       )}
 
       {/*
@@ -2142,13 +2311,15 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         Rendering it after everything else, with depth testing disabled,
         keeps it stable regardless of camera distance/angle.
       */}
-      <Line
-        points={borderPts}
-        color={whiteEdgeColor}
-        lineWidth={isSelected ? 3 : 2}
-        depthTest={lineDepthTest}
-        renderOrder={2}
-      />
+      {!useLightweightBuildingEdges && (
+        <Line
+          points={borderPts}
+          color={whiteEdgeColor}
+          lineWidth={isSelected ? 3 : 2}
+          depthTest={lineDepthTest}
+          renderOrder={2}
+        />
+      )}
 
       {/* Interior grid lines (supply zones only) */}
       {supplyGridLines}
@@ -3581,6 +3752,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
         <CameraStateSync savedPosition={_persistedCameraState?.position} />
+        <BuildingEdgeLodSync />
         <BEVCameraController store={scene.store} />
         <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>

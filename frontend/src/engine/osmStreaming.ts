@@ -45,6 +45,11 @@ export interface StreamingQualitySettings {
   lodMidCm: number;
 }
 
+export interface TileLruUpdateResult {
+  evicted: string[];
+  nextStamp: number;
+}
+
 const QUALITY_SETTINGS: Record<OSMRenderQuality, StreamingQualitySettings> = {
   high: {
     nearRadiusTiles: 3,
@@ -77,6 +82,11 @@ const QUALITY_SETTINGS: Record<OSMRenderQuality, StreamingQualitySettings> = {
 
 function tileCoord(valueCm: number, tileSizeCm: number): number {
   return Math.floor(valueCm / tileSizeCm);
+}
+
+function tileCoordMaxInclusive(valueCm: number, tileSizeCm: number): number {
+  const epsilon = Math.max(1e-6, tileSizeCm * 1e-6);
+  return Math.floor((valueCm - epsilon) / tileSizeCm);
 }
 
 export function tileKey(ix: number, iz: number): string {
@@ -117,9 +127,9 @@ export function buildZoneTileIndex(zones: FloorZone[], tileSizeCm: number): Zone
     zoneBounds.set(zone.id, tileBounds);
 
     const minIx = tileCoord(bounds.minX, tileSizeCm);
-    const maxIx = tileCoord(bounds.maxX, tileSizeCm);
+    const maxIx = tileCoordMaxInclusive(bounds.maxX, tileSizeCm);
     const minIz = tileCoord(bounds.minZ, tileSizeCm);
-    const maxIz = tileCoord(bounds.maxZ, tileSizeCm);
+    const maxIz = tileCoordMaxInclusive(bounds.maxZ, tileSizeCm);
 
     const keys: string[] = [];
     for (let iz = minIz; iz <= maxIz; iz += 1) {
@@ -197,20 +207,51 @@ export function lodLevelForDistance(distanceCm: number, quality: OSMRenderQualit
   return 2;
 }
 
+export function planActiveTileKeys(
+  priorities: StreamingPriority[],
+  previousActive: Iterable<string>,
+  selectedTileKeys: Iterable<string>,
+  settings: StreamingQualitySettings,
+): string[] {
+  const candidateKeys = priorities.map((priority) => priority.tileKey);
+  const candidateSet = new Set(candidateKeys);
+  const nextTileSet = new Set<string>();
+
+  priorities.forEach((priority) => {
+    if (priority.distanceTiles <= settings.nearRadiusTiles) nextTileSet.add(priority.tileKey);
+  });
+  for (let index = 0; index < Math.min(settings.immediateTiles, candidateKeys.length); index += 1) {
+    nextTileSet.add(candidateKeys[index]);
+  }
+  for (const key of selectedTileKeys) nextTileSet.add(key);
+  for (const key of previousActive) {
+    if (candidateSet.has(key)) nextTileSet.add(key);
+  }
+  let streamedAdds = 0;
+  for (const key of candidateKeys) {
+    if (nextTileSet.has(key)) continue;
+    if (streamedAdds >= settings.streamStepTiles) break;
+    nextTileSet.add(key);
+    streamedAdds += 1;
+  }
+  return [...nextTileSet];
+}
+
 export function updateTileLru(
   lru: Map<string, number>,
   activeKeys: Iterable<string>,
   maxSize: number,
-): string[] {
-  let stamp = lru.size > 0 ? Math.max(...lru.values()) : 0;
+  startStamp = 0,
+): TileLruUpdateResult {
+  let stamp = startStamp;
   for (const key of activeKeys) {
     stamp += 1;
     lru.set(key, stamp);
   }
-  if (lru.size <= maxSize) return [];
+  if (lru.size <= maxSize) return { evicted: [], nextStamp: stamp };
 
   const sorted = [...lru.entries()].sort((a, b) => a[1] - b[1]);
   const toEvict = sorted.slice(0, Math.max(0, lru.size - maxSize)).map(([key]) => key);
   toEvict.forEach((key) => lru.delete(key));
-  return toEvict;
+  return { evicted: toEvict, nextStamp: stamp };
 }

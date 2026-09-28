@@ -50,6 +50,7 @@ import {
 import {
   buildZoneTileIndex,
   lodLevelForDistance,
+  planActiveTileKeys,
   qualitySettings,
   rankTilesForStreaming,
   updateTileLru,
@@ -2369,6 +2370,7 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
   const settings = useMemo(() => qualitySettings(quality), [quality]);
   const [streamedZones, setStreamedZones] = useState<StreamedZone[]>([]);
   const lruRef = useRef(new Map<string, number>());
+  const lruStampRef = useRef(0);
   const lastTickRef = useRef(0);
   const lastPosRef = useRef(new THREE.Vector3());
   const lastPosTsRef = useRef(0);
@@ -2402,31 +2404,22 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
       dirZ: dirRef.current.z,
       speedCmPerSec,
     }, quality);
-    const candidateKeys = priorities.map((priority) => priority.tileKey);
-    const candidateSet = new Set(candidateKeys);
-    const nextTileSet = new Set<string>();
+    const nextTileKeys = planActiveTileKeys(
+      priorities,
+      visibleTilesRef.current,
+      selectedTileKeys,
+      settings,
+    );
 
-    priorities.forEach((priority) => {
-      if (priority.distanceTiles <= settings.nearRadiusTiles) nextTileSet.add(priority.tileKey);
-    });
-    for (let index = 0; index < Math.min(settings.immediateTiles, candidateKeys.length); index += 1) {
-      nextTileSet.add(candidateKeys[index]);
-    }
-    selectedTileKeys.forEach((key) => nextTileSet.add(key));
-    visibleTilesRef.current.forEach((key) => {
-      if (candidateSet.has(key)) nextTileSet.add(key);
-    });
-    let streamedAdds = 0;
-    for (const key of candidateKeys) {
-      if (nextTileSet.has(key)) continue;
-      if (streamedAdds >= settings.streamStepTiles) break;
-      nextTileSet.add(key);
-      streamedAdds += 1;
-    }
-
-    updateTileLru(lruRef.current, nextTileSet, settings.maxResidentTiles);
+    const lruUpdate = updateTileLru(
+      lruRef.current,
+      nextTileKeys,
+      settings.maxResidentTiles,
+      lruStampRef.current,
+    );
+    lruStampRef.current = lruUpdate.nextStamp;
     const resident = new Set(lruRef.current.keys());
-    const activeTileKeys = [...nextTileSet].filter((key) => resident.has(key));
+    const activeTileKeys = nextTileKeys.filter((key) => resident.has(key));
     visibleTilesRef.current = activeTileKeys;
 
     const zoneIds = new Set<string>();
@@ -2457,7 +2450,7 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
       if (left.lod !== right.lod) return left.lod - right.lod;
       return left.zone.id.localeCompare(right.zone.id);
     });
-    const signature = nextStreamed.map((entry) => `${entry.zone.id}:${entry.lod}`).join('|');
+    const signature = nextStreamed.map((entry) => `${entry.zone.id}:${entry.lod}:${entry.interactive ? 1 : 0}`).join('|');
     if (signature === streamSignatureRef.current) return;
     streamSignatureRef.current = signature;
     setStreamedZones(nextStreamed);
@@ -3552,7 +3545,8 @@ function FrameBudgetController({
   }, [quality]);
 
   useEffect(() => {
-    const cap = Math.min(2, window.devicePixelRatio || 1);
+    const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+    const cap = Math.min(2, pixelRatio || 1);
     if (recording) {
       setDpr(1);
       return;

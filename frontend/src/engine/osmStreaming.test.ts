@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildZoneTileIndex,
   lodLevelForDistance,
+  planActiveTileKeys,
+  qualitySettings,
   rankTilesForStreaming,
   updateTileLru,
 } from './osmStreaming';
@@ -33,6 +35,16 @@ describe('osmStreaming helpers', () => {
     expect(index.tiles.get('1:0')).toEqual(['b']);
     expect(index.zoneToTiles.get('a')).toEqual(['0:0']);
     expect(index.zoneToTiles.get('b')).toEqual(expect.arrayContaining(['0:0', '1:0']));
+  });
+
+  it('does not leak into the next tile when bounds end exactly on tile edge', () => {
+    const zones = [
+      zone({ id: 'edge', x: 0, z: 0, width: 1000, depth: 1000 }),
+    ];
+    const index = buildZoneTileIndex(zones, 1000);
+    expect(index.zoneToTiles.get('edge')).toEqual(['0:0']);
+    expect(index.tiles.get('1:0')).toBeUndefined();
+    expect(index.tiles.get('0:1')).toBeUndefined();
   });
 
   it('prioritizes forward-facing nearby tiles when streaming', () => {
@@ -68,11 +80,28 @@ describe('osmStreaming helpers', () => {
       ['c', 3],
     ]);
 
-    const evicted = updateTileLru(lru, ['b', 'd'], 3);
+    const update = updateTileLru(lru, ['b', 'd'], 3, 3);
 
-    expect(evicted).toEqual(['a']);
+    expect(update.evicted).toEqual(['a']);
+    expect(update.nextStamp).toBe(5);
     expect(lru.has('a')).toBe(false);
     expect(lru.has('b')).toBe(true);
     expect(lru.has('d')).toBe(true);
+  });
+
+  it('pins selected tiles and streams extra candidates progressively', () => {
+    const settings = qualitySettings('performance');
+    const priorities = [
+      { tileKey: '0:0', distanceTiles: 0.2, score: 0.2 },
+      { tileKey: '1:0', distanceTiles: 1.0, score: 1.0 },
+      { tileKey: '2:0', distanceTiles: 2.0, score: 2.0 },
+      { tileKey: '3:0', distanceTiles: 3.0, score: 3.0 },
+      { tileKey: '4:0', distanceTiles: 3.5, score: 3.5 },
+      { tileKey: '5:0', distanceTiles: 3.9, score: 3.9 },
+    ];
+
+    const next = planActiveTileKeys(priorities, ['3:0'], ['5:0'], settings);
+
+    expect(next).toEqual(expect.arrayContaining(['0:0', '1:0', '2:0', '3:0', '5:0']));
   });
 });

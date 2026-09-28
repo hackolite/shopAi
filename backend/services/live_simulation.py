@@ -119,11 +119,12 @@ class LiveSimulationSession:
 
     def _build_route_tokens(self, spawn_index: int) -> list[str]:
         selected_entry = self.entries[spawn_index % len(self.entries)]
+        transit_waypoints, exits = self.routes_by_entry[selected_entry.id]
         tokens: list[str] = [selected_entry.id]
-        for waypoint in self.transit_waypoints:
+        for waypoint in transit_waypoints:
             if (not waypoint.optional) or self.rng.random() <= float(waypoint.visitProbability):
                 tokens.append(waypoint.id)
-        selected_exit = self.exits[spawn_index % len(self.exits)]
+        selected_exit = exits[spawn_index % len(exits)]
         tokens.append(selected_exit.id)
         tokens.append(self._token_for_exit_stage(selected_exit.id))
         return tokens
@@ -134,6 +135,11 @@ class LiveSimulationSession:
     def _init_runtime(self, carry_agents: list[tuple[_LiveAgentRoute, tuple[float, float]]]) -> None:
         self.walkable = simsvc._build_walkable_geometry(self.scene)
         self.entries, self.transit_waypoints, self.exits = simsvc._partition_waypoints(self.scene, self.config)
+        self.routes_by_entry = {
+            entry.id: (transit, exits)
+            for scenario_entries, transit, exits in simsvc._scenario_routes(self.scene, self.config)
+            for entry in scenario_entries
+        }
         simsvc._validate_waypoint_constraints([*self.entries, *self.transit_waypoints, *self.exits], self.walkable)
         self.sim = jps.Simulation(
             model=jps.CollisionFreeSpeedModel(),
@@ -444,12 +450,13 @@ class LiveSimulationSession:
 
     def _pedestrian_route_tokens(self, plan: PedestrianPickupPlan, spawn_index: int) -> list[str]:
         entry = self.entries[spawn_index % len(self.entries)]
+        _, exits = self.routes_by_entry[entry.id]
         tokens: list[str] = [entry.id]
         for index, item in enumerate(plan.items):
             token = f"pickup:{plan.pedestrianId}:{index}"
             if token in self.token_to_stage:
                 tokens.append(token)
-        exit_wp = self.exits[spawn_index % len(self.exits)]
+        exit_wp = exits[spawn_index % len(exits)]
         tokens.append(exit_wp.id)
         tokens.append(self._token_for_exit_stage(exit_wp.id))
         return tokens

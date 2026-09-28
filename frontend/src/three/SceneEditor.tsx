@@ -25,6 +25,12 @@ import CheckoutChartsOverlay from '../components/CheckoutChartsOverlay';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { pickRecordingMimeType, computeRecordingDpr } from '../engine/recording';
 import {
+  edgeLodForDistanceSquared,
+  horizontalDistanceSquared,
+  shouldUseLightweightBuildingEdges,
+  type BuildingEdgeLod,
+} from '../engine/buildingEdgeLod';
+import {
   GRID_CELL_CM,
   furnitureCentreCm,
   gridPlaneSpec,
@@ -132,9 +138,8 @@ const RECORDING_TIMESLICE_MS = 1000;
  * real-time encoder does not stall the render loop.
  */
 const DEFAULT_DPR: [number, number] = [1, 2];
-/** Edge-only LOD thresholds for large mounted building zones (in world units/metres). */
-const BUILDING_EDGE_NEAR_DISTANCE = 90;
-const BUILDING_EDGE_MID_DISTANCE = 180;
+const BUILDING_EDGE_LOD_CAMERA_MOVE_THRESHOLD = 4;
+const BUILDING_EDGE_LOD_UPDATE_INTERVAL_SECONDS = 0.15;
 
 // ─── Camera state persistence across Canvas remounts ──────────────────────────
 // When viewMode switches between '3d' and 'planogram', the SceneEditor Canvas
@@ -148,6 +153,8 @@ let _persistedCameraState: {
 
 /** Fallback OrbitControls look-at point used when no store is loaded yet. */
 const DEFAULT_ORBIT_TARGET: [number, number, number] = [25, 0, 15];
+type BuildingEdgeLodUpdater = (camera: THREE.Camera) => void;
+const _buildingEdgeLodUpdaters = new Set<BuildingEdgeLodUpdater>();
 
 /**
  * World-space centre of the store floor: the orbit pivot must sit inside the
@@ -1772,14 +1779,6 @@ function zoneWorldOutline(
   return points.length > 0 ? [...points, points[0]] : points;
 }
 
-type BuildingEdgeLod = 'far' | 'mid' | 'near';
-
-function edgeLodForDistanceSquared(distanceSquared: number): BuildingEdgeLod {
-  if (distanceSquared <= BUILDING_EDGE_NEAR_DISTANCE * BUILDING_EDGE_NEAR_DISTANCE) return 'near';
-  if (distanceSquared <= BUILDING_EDGE_MID_DISTANCE * BUILDING_EDGE_MID_DISTANCE) return 'mid';
-  return 'far';
-}
-
 function sameWorldPoint(a: readonly number[], b: readonly number[]): boolean {
   return Math.abs(a[0] - b[0]) < 1e-6
     && Math.abs(a[1] - b[1]) < 1e-6
@@ -1841,18 +1840,25 @@ function LightweightBuildingEdges({
   const topPositions = useMemo(() => toPositionBuffer(compactLoopPoints(topBorderPts)), [topBorderPts]);
   const verticalPositions = useMemo(() => toSegmentPositionBuffer(verticalEdgePts), [verticalEdgePts]);
   const initialLod = useMemo(
-    () => edgeLodForDistanceSquared(camera.position.distanceToSquared(zoneCenterVec)),
+    () => edgeLodForDistanceSquared(horizontalDistanceSquared(camera.position, zoneCenterVec)),
     [camera, zoneCenterVec],
   );
   const lodRef = useRef<BuildingEdgeLod>(initialLod);
-
-  useFrame((state) => {
-    const nextLod = edgeLodForDistanceSquared(state.camera.position.distanceToSquared(zoneCenterVec));
+  const updateLod = useCallback<BuildingEdgeLodUpdater>((activeCamera) => {
+    const nextLod = edgeLodForDistanceSquared(horizontalDistanceSquared(activeCamera.position, zoneCenterVec));
     if (lodRef.current === nextLod) return;
     lodRef.current = nextLod;
     if (topRef.current) topRef.current.visible = nextLod !== 'far';
     if (verticalRef.current) verticalRef.current.visible = nextLod === 'near';
-  });
+  }, [zoneCenterVec]);
+
+  useEffect(() => {
+    _buildingEdgeLodUpdaters.add(updateLod);
+    updateLod(camera);
+    return () => {
+      _buildingEdgeLodUpdaters.delete(updateLod);
+    };
+  }, [camera, updateLod]);
 
   return (
     <>
@@ -1880,6 +1886,35 @@ function LightweightBuildingEdges({
       )}
     </>
   );
+}
+
+function BuildingEdgeLodSync() {
+  const lastSyncedCameraPositionRef = useRef<THREE.Vector3 | null>(null);
+  const pendingCameraPositionRef = useRef<THREE.Vector3 | null>(null);
+  const lastUpdateTimeRef = useRef<number>(Number.NEGATIVE_INFINITY);
+
+  useFrame((state) => {
+    const cameraPosition = state.camera.position;
+    if (!lastSyncedCameraPositionRef.current) {
+      lastSyncedCameraPositionRef.current = cameraPosition.clone();
+      pendingCameraPositionRef.current = cameraPosition.clone();
+      lastUpdateTimeRef.current = state.clock.elapsedTime;
+      _buildingEdgeLodUpdaters.forEach((updateLod) => updateLod(state.camera));
+      return;
+    }
+    const pendingPosition = pendingCameraPositionRef.current ?? cameraPosition.clone();
+    pendingPosition.copy(cameraPosition);
+    pendingCameraPositionRef.current = pendingPosition;
+    const movedEnough = lastSyncedCameraPositionRef.current.distanceToSquared(pendingPosition)
+      >= BUILDING_EDGE_LOD_CAMERA_MOVE_THRESHOLD * BUILDING_EDGE_LOD_CAMERA_MOVE_THRESHOLD;
+    if (!movedEnough) return;
+    if (state.clock.elapsedTime - lastUpdateTimeRef.current < BUILDING_EDGE_LOD_UPDATE_INTERVAL_SECONDS) return;
+    lastSyncedCameraPositionRef.current.copy(pendingPosition);
+    lastUpdateTimeRef.current = state.clock.elapsedTime;
+    _buildingEdgeLodUpdaters.forEach((updateLod) => updateLod(state.camera));
+  });
+
+  return null;
 }
 
 function zoneShapeGeometry(
@@ -2115,7 +2150,12 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       : []),
     [borderPts, extrudedHeight, lineY, mounted],
   );
-  const useLightweightBuildingEdges = mounted && isBuildingZone && !isSelected && !hovered;
+  const useLightweightBuildingEdges = shouldUseLightweightBuildingEdges({
+    mounted,
+    isBuildingZone,
+    isSelected,
+    hovered,
+  });
   const bx = zone.x * CM_TO_UNIT;
   const bz = zone.z * CM_TO_UNIT;
 
@@ -3712,6 +3752,7 @@ function SceneContent({ projectId }: { projectId: string | null }) {
         />
         {/* Saves/restores camera state across Canvas remounts (3D↔planogram mode switch). */}
         <CameraStateSync savedPosition={_persistedCameraState?.position} />
+        <BuildingEdgeLodSync />
         <BEVCameraController store={scene.store} />
         <CameraFlyToFurniture />
       </MeshRegistryCtx.Provider>

@@ -271,26 +271,27 @@ export function buildStreamedZoneDecisions(
   cameraZCm: number,
   quality: OSMRenderQuality,
 ): StreamedZoneDecision[] {
-  const zoneIds = new Set<string>();
+  const activeZoneIds = new Set<string>();
   for (const key of activeTileKeys) {
     const tileZones = index.tiles.get(key);
     if (!tileZones) continue;
-    tileZones.forEach((zoneId) => zoneIds.add(zoneId));
+    tileZones.forEach((zoneId) => activeZoneIds.add(zoneId));
   }
-  if (selectedZoneId) zoneIds.add(selectedZoneId);
-
-  const zoneById = new Map(zones.map((zone) => [zone.id, zone]));
   const decisions: StreamedZoneDecision[] = [];
-  zoneIds.forEach((zoneId) => {
-    const zone = zoneById.get(zoneId);
-    const bounds = index.zoneBounds.get(zoneId);
-    if (!zone || !bounds) return;
+  zones.forEach((zone) => {
+    const bounds = index.zoneBounds.get(zone.id);
+    if (!bounds) return;
     const distanceCm = Math.max(0, Math.hypot(bounds.centerX - cameraXCm, bounds.centerZ - cameraZCm) - bounds.radiusCm);
-    const lod = selectedZoneId === zoneId ? 0 : lodLevelForDistance(distanceCm, quality);
+    const isSelected = selectedZoneId === zone.id;
+    const isActive = activeZoneIds.has(zone.id);
+    let lod = isSelected ? 0 : lodLevelForDistance(distanceCm, quality);
+    if (!isSelected && !isActive) {
+      lod = Math.max(lod, 2) as ZoneLodLevel;
+    }
     decisions.push({
-      zoneId,
+      zoneId: zone.id,
       lod,
-      interactive: lod <= 1 || selectedZoneId === zoneId,
+      interactive: isSelected || (isActive && lod <= 1),
     });
   });
   decisions.sort((left, right) => {

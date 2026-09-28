@@ -130,17 +130,17 @@ describe('osmStreaming helpers', () => {
     ]));
   });
 
-  it('marks distant non-selected zones as non-interactive lod2', () => {
+  it('keeps non-active zones rendered as non-interactive lod2', () => {
     const zones = [
       zone({ id: 'near', x: 0, z: 0, width: 400, depth: 400 }),
-      zone({ id: 'distant', x: 7000, z: 0, width: 400, depth: 400 }),
+      zone({ id: 'distant', x: 2200, z: 0, width: 400, depth: 400 }),
     ];
     const index = buildZoneTileIndex(zones, 1000);
 
     const decisions = buildStreamedZoneDecisions(
       index,
       zones,
-      ['0:0', '7:0'],
+      ['0:0'],
       null,
       0,
       0,

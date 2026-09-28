@@ -2087,7 +2087,7 @@ function FloorZoneMesh({
   // "volume paint". So the flat fill plane is only rendered for flat
   // (non-mounted) zones; mounted zones get their pointer/hover handling
   // moved onto the extruded mesh instead.
-  const showVolume = mounted && extrudedGeometry && lod < 2;
+  const showVolume = mounted && extrudedGeometry && (lod < 2 || isBuildingZone);
   const showFlatFill = !showVolume;
   const showBottomOutline = lod < 2 || isSelected;
   const showTopOutline = showVolume && lod <= 1;

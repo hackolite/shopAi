@@ -501,10 +501,24 @@ function InstancedAgents({
 
   return (
     <>
+      {/*
+        frustumCulled={false} on all three agent meshes: InstancedMesh lazily
+        computes and caches its own `boundingSphere` (from whatever instance
+        matrices happen to be set the first time the renderer culls it) and
+        never recomputes it afterwards. Agents move every frame, so on large
+        stores (e.g. an OSM-imported map spanning hundreds of metres) that
+        stale sphere stops covering the agents' actual positions and the
+        renderer's frustum test starts rejecting them — they blink out as
+        soon as the camera zooms/pans instead of only when truly off-screen.
+        The instance count is capped (INSTANCED_AGENTS_MAX_CAPACITY) so
+        always drawing them is cheap; skipping culling avoids the stale
+        bounding-sphere bug entirely.
+      */}
       <instancedMesh
         ref={envelopeRef}
         args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
         onPointerDown={handleAgentClick}
+        frustumCulled={false}
       >
         <ringGeometry args={[envelopeInner, envelopeOuter, 36]} />
         {/* No `vertexColors` here: these geometries have no `color` attribute, and
@@ -516,11 +530,16 @@ function InstancedAgents({
         ref={bodyRef}
         args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
         onPointerDown={handleAgentClick}
+        frustumCulled={false}
       >
         <sphereGeometry args={[0.11, 20, 20]} />
         <meshStandardMaterial emissive="#111827" emissiveIntensity={0.35} />
       </instancedMesh>
-      <instancedMesh ref={coneRef} args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}>
+      <instancedMesh
+        ref={coneRef}
+        args={[undefined, undefined, INSTANCED_AGENTS_MAX_CAPACITY]}
+        frustumCulled={false}
+      >
         <circleGeometry args={[coneRange, 28, coneThetaStart, coneThetaLength]} />
         <meshBasicMaterial transparent opacity={0.18} depthWrite={false} />
       </instancedMesh>

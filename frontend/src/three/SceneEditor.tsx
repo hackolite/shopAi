@@ -2380,9 +2380,9 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
   const streamedZonesRef = useRef<StreamedZone[]>(streamedZones);
   const lruRef = useRef(new Map<string, number>());
   const lruStampRef = useRef(0);
-  const lastTickRef = useRef(0);
+  const lastTickSecondsRef = useRef(0);
   const lastPosRef = useRef(new THREE.Vector3());
-  const lastPosTsRef = useRef(0);
+  const lastPosSampleSecondsRef = useRef(0);
   const dirRef = useRef(new THREE.Vector3(0, 0, -1));
   const visibleTilesRef = useRef<string[]>([]);
   const selectedTileKeys = useMemo(
@@ -2394,28 +2394,29 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
     visibleTilesRef.current = [];
     lruRef.current.clear();
     lruStampRef.current = 0;
-    lastTickRef.current = 0;
+    lastTickSecondsRef.current = 0;
     lastPosRef.current.set(0, 0, 0);
-    lastPosTsRef.current = 0;
+    lastPosSampleSecondsRef.current = 0;
     const base = zones.map((zone) => ({ zone, lod: 0 as ZoneLodLevel, interactive: true }));
     streamedZonesRef.current = base;
     setStreamedZones(base);
   }, [zones]);
 
-  useFrame(({ camera }) => {
-    const now = performance.now();
-    if (now - lastTickRef.current < 120) return;
-    lastTickRef.current = now;
+  useFrame((state) => {
+    const nowSeconds = state.clock.elapsedTime;
+    if (nowSeconds - lastTickSecondsRef.current < 0.12) return;
+    lastTickSecondsRef.current = nowSeconds;
+    const { camera } = state;
 
     camera.getWorldDirection(dirRef.current);
-    const prevPosTs = lastPosTsRef.current;
+    const prevPosSeconds = lastPosSampleSecondsRef.current;
     let speedCmPerSec = 0;
-    if (prevPosTs > 0) {
-      const dt = Math.max(0.016, (now - prevPosTs) / 1000);
+    if (prevPosSeconds > 0) {
+      const dt = Math.max(0.016, nowSeconds - prevPosSeconds);
       speedCmPerSec = camera.position.distanceTo(lastPosRef.current) / CM_TO_UNIT / dt;
     }
     lastPosRef.current.copy(camera.position);
-    lastPosTsRef.current = now;
+    lastPosSampleSecondsRef.current = nowSeconds;
 
     const priorities = rankTilesForStreaming(tileIndex, {
       x: camera.position.x / CM_TO_UNIT,
@@ -2464,9 +2465,10 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
       .filter((entry): entry is StreamedZone => entry !== null);
 
     const previous = streamedZonesRef.current;
-    const unchanged = previous.length === nextStreamed.length && previous.every((entry, index) => {
-      const current = nextStreamed[index];
-      return current
+    const previousByZoneId = new Map(previous.map((entry) => [entry.zone.id, entry]));
+    const unchanged = previous.length === nextStreamed.length && nextStreamed.every((current) => {
+      const entry = previousByZoneId.get(current.zone.id);
+      return entry
         && entry.zone === current.zone
         && entry.lod === current.lod
         && entry.interactive === current.interactive;

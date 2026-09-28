@@ -103,7 +103,8 @@ describe('osmStreaming helpers', () => {
 
     const next = planActiveTileKeys(priorities, ['3:0'], ['5:0'], settings);
 
-    expect(next).toEqual(expect.arrayContaining(['0:0', '1:0', '2:0', '3:0', '5:0']));
+    expect(new Set(next)).toEqual(new Set(['0:0', '1:0', '2:0', '3:0', '4:0', '5:0']));
+    expect(next).toHaveLength(6);
   });
 
   it('builds streamed zone decisions with LOD and selected-zone pinning', () => {

@@ -2377,28 +2377,29 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
   const [streamedZones, setStreamedZones] = useState<StreamedZone[]>(
     () => zones.map((zone) => ({ zone, lod: 0, interactive: true })),
   );
+  const streamedZonesRef = useRef<StreamedZone[]>(streamedZones);
   const lruRef = useRef(new Map<string, number>());
   const lruStampRef = useRef(0);
   const lastTickRef = useRef(0);
   const lastPosRef = useRef(new THREE.Vector3());
   const lastPosTsRef = useRef(0);
   const dirRef = useRef(new THREE.Vector3(0, 0, -1));
-  const streamSignatureRef = useRef('');
   const visibleTilesRef = useRef<string[]>([]);
-  const [zonesEpoch, setZonesEpoch] = useState(0);
   const selectedTileKeys = useMemo(
     () => (selectedZone ? (tileIndex.zoneToTiles.get(selectedZone.id) ?? []) : []),
     [selectedZone, tileIndex],
   );
 
   useEffect(() => {
-    streamSignatureRef.current = '';
     visibleTilesRef.current = [];
     lruRef.current.clear();
     lruStampRef.current = 0;
     lastTickRef.current = 0;
-    setZonesEpoch((prev) => prev + 1);
-    setStreamedZones(zones.map((zone) => ({ zone, lod: 0, interactive: true })));
+    lastPosRef.current.set(0, 0, 0);
+    lastPosTsRef.current = 0;
+    const base = zones.map((zone) => ({ zone, lod: 0 as ZoneLodLevel, interactive: true }));
+    streamedZonesRef.current = base;
+    setStreamedZones(base);
   }, [zones]);
 
   useFrame(({ camera }) => {
@@ -2462,11 +2463,16 @@ function FloorZoneLayer({ quality }: { quality: OSMRenderQuality }) {
       })
       .filter((entry): entry is StreamedZone => entry !== null);
 
-    const signature = `${zonesEpoch}|${nextStreamed.map((entry) => (
-      `${entry.zone.id}:${entry.zone.x}:${entry.zone.z}:${entry.zone.width}:${entry.zone.depth}:${entry.zone.rotationDeg ?? 0}:${entry.zone.heightCm ?? 0}:${entry.zone.opacity ?? ''}:${entry.zone.color ?? ''}:${entry.zone.label}:${entry.zone.points?.length ?? 0}:${entry.lod}:${entry.interactive ? 1 : 0}`
-    )).join('|')}`;
-    if (signature === streamSignatureRef.current) return;
-    streamSignatureRef.current = signature;
+    const previous = streamedZonesRef.current;
+    const unchanged = previous.length === nextStreamed.length && previous.every((entry, index) => {
+      const current = nextStreamed[index];
+      return current
+        && entry.zone === current.zone
+        && entry.lod === current.lod
+        && entry.interactive === current.interactive;
+    });
+    if (unchanged) return;
+    streamedZonesRef.current = nextStreamed;
     setStreamedZones(nextStreamed);
   });
 

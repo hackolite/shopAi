@@ -11,6 +11,7 @@ interface AddZoneOptions {
   label?: string;
   points?: FloorZonePoint[];
   pathMode?: ZonePathMode;
+  pedestrianObstacle?: boolean;
   mounted?: boolean;
   heightCm?: number;
 }
@@ -111,6 +112,7 @@ function clampZoneOpacity(opacity: number | undefined): number {
 function normalizeZone(zone: FloorZone): FloorZone {
   return {
     ...zone,
+    pedestrianObstacle: zone.pedestrianObstacle ?? zone.type === 'forbidden',
     mounted: zone.mounted ?? false,
     heightCm: zone.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
     opacity: clampZoneOpacity(zone.opacity),
@@ -153,6 +155,7 @@ function buildZone(
     opacity: clampZoneOpacity(options?.opacity),
     points,
     pathMode: options?.pathMode ?? (shape === 'polygon' ? 'linear' : undefined),
+    pedestrianObstacle: options?.pedestrianObstacle ?? type === 'forbidden',
     mounted: options?.mounted ?? false,
     heightCm: options?.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
     ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),

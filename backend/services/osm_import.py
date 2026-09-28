@@ -1539,6 +1539,8 @@ def osm_xml_to_retail_layout(
 
             "pathMode": "linear",
 
+            "pedestrianObstacle": True,
+
             "mounted": True,
 
             "opacity": opacity,

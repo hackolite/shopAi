@@ -46,7 +46,21 @@ describe('zoneStore', () => {
     expect(duplicated?.mounted).toBe(true);
     expect(duplicated?.heightCm).toBe(180);
     expect(duplicated?.opacity).toBe(1);
+    expect(duplicated?.pedestrianObstacle).toBe(true);
     expect(duplicated?.points).toEqual(source.points);
+  });
+
+  it('defaults pedestrian obstacle by zone type and preserves explicit overrides', () => {
+    const store = useZoneStore.getState();
+    store.addZone('forbidden', 1200, 900, { shape: 'rectangle' });
+    store.addZone('supply', 1200, 900, { shape: 'rectangle' });
+
+    const [forbidden, supply] = useZoneStore.getState().zones;
+    expect(forbidden.pedestrianObstacle).toBe(true);
+    expect(supply.pedestrianObstacle).toBe(false);
+
+    store.updateZone({ ...forbidden, pedestrianObstacle: false });
+    expect(useZoneStore.getState().zones.find((zone) => zone.id === forbidden.id)?.pedestrianObstacle).toBe(false);
   });
 
   it('removes all selected zones together', () => {

@@ -99,6 +99,8 @@ export interface FloorZone {
   points?: FloorZonePoint[];
   /** Rendering mode for free-form floor drawings. */
   pathMode?: ZonePathMode;
+  /** When true, this zone is treated as a pedestrian obstacle in simulation. */
+  pedestrianObstacle?: boolean;
   /** When true, the floor drawing is extruded vertically in the 3D scene. */
   mounted?: boolean;
   /** Extrusion height in cm for mounted floor drawings. */

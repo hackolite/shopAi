@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import tempfile
 import random
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -92,6 +92,42 @@ def test_incomplete_scenario_cannot_route_to_another_scenarios_exit() -> None:
     })
     with pytest.raises(simulation_service.SimulationConstraintViolation):
         simulation_service._partition_waypoints(scene, config)
+
+
+def test_batch_simulation_builds_separate_journeys_for_scenarios(monkeypatch) -> None:
+    project_id = _create_project()
+    scene = SceneData.model_validate(client.get(f"/api/cad/projects/{project_id}/scene").json())
+    scene.store.zones = []
+    scene.furniture = []
+    journeys = []
+    original_journey = simulation_service.jps.JourneyDescription
+
+    def record_journey(stage_ids):
+        journeys.append(list(stage_ids))
+        return original_journey(stage_ids)
+
+    monkeypatch.setattr(simulation_service.jps, "JourneyDescription", record_journey)
+    config = SimulationConfig.model_validate({
+        "durationSeconds": 4,
+        "arrivalRatePerSecond": 2,
+        "maxCustomers": 4,
+        "waypointSystems": [
+            {
+                "id": f"scenario-{index}",
+                "waypoints": [
+                    {"id": f"entry-{index}", "type": "entry", "x": x, "z": 250},
+                    {"id": f"transit-{index}", "type": "transit", "x": x, "z": 750},
+                    {"id": f"exit-{index}", "type": "exit", "x": x, "z": 1300},
+                ],
+            }
+            for index, x in ((1, 1500), (2, 3500))
+        ],
+    })
+
+    result = simulation_service.run_flow_simulation(scene, config)
+    assert result.summary.spawnedCustomers >= 2
+    assert len(journeys[0]) == len(journeys[1]) == 4
+    assert set(journeys[0]).isdisjoint(journeys[1])
 
 
 def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:

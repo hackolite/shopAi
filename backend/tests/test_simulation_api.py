@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import tempfile
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from shapely.geometry import Point, Polygon
 
 import services.project_manager as pm
 import services.simulation as simulation_service
+from services.live_simulation import LiveSimulationSession
+from models.project import PedestrianPickupPlan, SceneData, SimulationConfig
 
 pm.STORAGE_ROOT = Path(tempfile.mkdtemp(prefix="shopai_sim_test_"))
 
@@ -21,6 +24,110 @@ def _create_project() -> str:
     response = client.post("/api/cad/projects/", json={"name": "simulation-test"})
     assert response.status_code == 200, response.text
     return response.json()["id"]
+
+
+def test_scenario_routes_keep_entries_on_their_own_waypoints() -> None:
+    project_id = _create_project()
+    scene = SceneData.model_validate(client.get(f"/api/cad/projects/{project_id}/scene").json())
+    systems = []
+    for index in (1, 2):
+        systems.append({
+            "id": f"scenario-{index}",
+            "label": f"Scénario {index}",
+            "waypoints": [
+                {"id": f"entry-{index}", "type": "entry", "x": 200 * index, "z": 200},
+                {"id": f"transit-{index}", "type": "transit", "x": 200 * index, "z": 500},
+                {"id": f"exit-{index}", "type": "exit", "x": 200 * index, "z": 800},
+            ],
+        })
+    config = SimulationConfig.model_validate({
+        "waypoints": systems[1]["waypoints"],
+        "activeWaypointSystemId": "scenario-2",
+        "waypointSystems": systems,
+    })
+    routes = simulation_service._scenario_routes(scene, config)
+    assert [[waypoint.id for group in route for waypoint in group] for route in routes] == [
+        ["entry-1", "transit-1", "exit-1"],
+        ["entry-2", "transit-2", "exit-2"],
+    ]
+    entries, transit, exits = simulation_service._partition_waypoints(scene, config)
+    assert [waypoint.id for waypoint in entries] == ["entry-1", "entry-2"]
+    assert [waypoint.id for waypoint in transit] == ["transit-1", "transit-2"]
+    assert [waypoint.id for waypoint in exits] == ["exit-1", "exit-2"]
+
+    session = LiveSimulationSession.__new__(LiveSimulationSession)
+    session.entries = entries
+    session.exits = exits
+    session.transit_waypoints = transit
+    session.routes_by_entry = {
+        entry.id: (route_transit, route_exits)
+        for route_entries, route_transit, route_exits in routes
+        for entry in route_entries
+    }
+    session.rng = random.Random(42)
+    assert session._build_route_tokens(0) == [
+        "entry-1", "transit-1", "exit-1", "exit_hidden:exit-1",
+    ]
+    assert session._build_route_tokens(1) == [
+        "entry-2", "transit-2", "exit-2", "exit_hidden:exit-2",
+    ]
+    session.token_to_stage = {}
+    plan = PedestrianPickupPlan(pedestrianId=1, startUnixTs=0, speedMps=1.0)
+    assert session._pedestrian_route_tokens(plan, 0) == [
+        "entry-1", "exit-1", "exit_hidden:exit-1",
+    ]
+    assert session._pedestrian_route_tokens(plan, 1) == [
+        "entry-2", "exit-2", "exit_hidden:exit-2",
+    ]
+
+
+def test_incomplete_scenario_cannot_route_to_another_scenarios_exit() -> None:
+    project_id = _create_project()
+    scene = SceneData.model_validate(client.get(f"/api/cad/projects/{project_id}/scene").json())
+    config = SimulationConfig.model_validate({
+        "waypointSystems": [
+            {"id": "one", "waypoints": [{"id": "entry-1", "type": "entry", "x": 200, "z": 200}]},
+            {"id": "two", "waypoints": [{"id": "exit-2", "type": "exit", "x": 500, "z": 500}]},
+        ],
+    })
+    with pytest.raises(simulation_service.SimulationConstraintViolation):
+        simulation_service._partition_waypoints(scene, config)
+
+
+def test_batch_simulation_builds_separate_journeys_for_scenarios(monkeypatch) -> None:
+    project_id = _create_project()
+    scene = SceneData.model_validate(client.get(f"/api/cad/projects/{project_id}/scene").json())
+    scene.store.zones = []
+    scene.furniture = []
+    journeys = []
+    original_journey = simulation_service.jps.JourneyDescription
+
+    def record_journey(stage_ids):
+        journeys.append(list(stage_ids))
+        return original_journey(stage_ids)
+
+    monkeypatch.setattr(simulation_service.jps, "JourneyDescription", record_journey)
+    config = SimulationConfig.model_validate({
+        "durationSeconds": 4,
+        "arrivalRatePerSecond": 2,
+        "maxCustomers": 4,
+        "waypointSystems": [
+            {
+                "id": f"scenario-{index}",
+                "waypoints": [
+                    {"id": f"entry-{index}", "type": "entry", "x": x, "z": 250},
+                    {"id": f"transit-{index}", "type": "transit", "x": x, "z": 750},
+                    {"id": f"exit-{index}", "type": "exit", "x": x, "z": 1300},
+                ],
+            }
+            for index, x in ((1, 1500), (2, 3500))
+        ],
+    })
+
+    result = simulation_service.run_flow_simulation(scene, config)
+    assert result.summary.spawnedCustomers >= 2
+    assert len(journeys[0]) == len(journeys[1]) == 4
+    assert set(journeys[0]).isdisjoint(journeys[1])
 
 
 def test_run_simulation_with_entry_exit_and_retention_waypoints() -> None:

@@ -188,14 +188,14 @@ def _default_exit_waypoint(scene: SceneData) -> SimulationWaypoint:
     )
 
 
-def _partition_waypoints(
+def _partition_waypoint_list(
     scene: SceneData,
-    config: SimulationConfig,
+    waypoints: list[SimulationWaypoint],
 ) -> tuple[list[SimulationWaypoint], list[SimulationWaypoint], list[SimulationWaypoint]]:
-    entries = [waypoint for waypoint in config.waypoints if waypoint.type == "entry"]
-    exits = [waypoint for waypoint in config.waypoints if waypoint.type == "exit"]
-    transit = [waypoint for waypoint in config.waypoints if waypoint.type == "transit"]
-    if not config.waypoints:
+    entries = [waypoint for waypoint in waypoints if waypoint.type == "entry"]
+    exits = [waypoint for waypoint in waypoints if waypoint.type == "exit"]
+    transit = [waypoint for waypoint in waypoints if waypoint.type == "transit"]
+    if not waypoints:
         # No waypoints at all: use full built-in defaults so the simulation
         # can still run without any configuration.
         entries = [_default_entry_waypoint(scene)]
@@ -218,6 +218,32 @@ def _partition_waypoints(
                 }
             )
     return entries, transit, exits
+
+
+def _scenario_routes(
+    scene: SceneData,
+    config: SimulationConfig,
+) -> list[tuple[list[SimulationWaypoint], list[SimulationWaypoint], list[SimulationWaypoint]]]:
+    systems = [system for system in config.waypointSystems if system.waypoints]
+    if not systems:
+        return [_partition_waypoint_list(scene, config.waypoints)]
+    routes = []
+    for system in systems:
+        entries, transit, exits = _partition_waypoint_list(scene, system.waypoints)
+        if len(systems) > 1 and not any(w.type == "entry" for w in system.waypoints):
+            raise SimulationConstraintViolation({
+                "message": f"Le scénario « {system.label} » doit comporter une entrée."
+            })
+        routes.append((entries, transit, exits))
+    return routes
+
+
+def _partition_waypoints(
+    scene: SceneData,
+    config: SimulationConfig,
+) -> tuple[list[SimulationWaypoint], list[SimulationWaypoint], list[SimulationWaypoint]]:
+    routes = _scenario_routes(scene, config)
+    return tuple([waypoint for route in routes for waypoint in route[index]] for index in range(3))
 
 
 def _waypoint_point(waypoint: SimulationWaypoint) -> tuple[float, float]:
@@ -854,6 +880,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
     rng = random.Random(int(config.randomSeed))
     walkable = _build_walkable_geometry(scene)
     entries, transit_waypoints, exits = _partition_waypoints(scene, config)
+    routes_by_entry = {
+        entry.id: (transit, scenario_exits)
+        for scenario_entries, transit, scenario_exits in _scenario_routes(scene, config)
+        for entry in scenario_entries
+    }
     _validate_waypoint_constraints([*entries, *transit_waypoints, *exits], walkable)
     sim = jps.Simulation(
         model=jps.CollisionFreeSpeedModel(),
@@ -935,11 +966,12 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
 
         while arrival_index < len(arrival_times) and arrival_times[arrival_index] <= current_time:
             selected_entry = entries[spawned % len(entries)]
+            route_transit, route_exits = routes_by_entry[selected_entry.id]
             selected_stage_ids: list[int] = [waypoint_stage_ids[selected_entry.id]]
-            for waypoint in transit_waypoints:
+            for waypoint in route_transit:
                 if not waypoint.optional or rng.random() <= float(waypoint.visitProbability):
                     selected_stage_ids.append(waypoint_stage_ids[waypoint.id])
-            selected_exit = exits[spawned % len(exits)]
+            selected_exit = route_exits[spawned % len(route_exits)]
             selected_stage_ids.append(waypoint_stage_ids[selected_exit.id])
             selected_stage_ids.append(exit_stage_ids[selected_exit.id])
             journey = jps.JourneyDescription(selected_stage_ids)

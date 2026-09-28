@@ -2169,13 +2169,11 @@ function FloorZoneMesh({ zone, reducedDetail = false }: { zone: FloorZone; reduc
       {supplyGridLines}
 
       {/* Label — 3D sprite so it is captured by canvas.captureStream */}
-      {!renderReducedDetail && (
-        <TextSprite3D
-          text={zoneLabel}
-          position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
-          scale={1.2}
-        />
-      )}
+      <TextSprite3D
+        text={zoneLabel}
+        position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
+        scale={1.2}
+      />
     </group>
   );
 }
@@ -2332,7 +2330,11 @@ const LARGE_ZONE_RENDER_THRESHOLD = 220;
 
 function FloorZoneLayer() {
   const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
-  const largeZoneSet = zones.length >= LARGE_ZONE_RENDER_THRESHOLD;
+  const osmZoneCount = zones.reduce(
+    (count, zone) => (zone.source?.osmWayId ? count + 1 : count),
+    0,
+  );
+  const largeOsmZoneSet = osmZoneCount >= LARGE_ZONE_RENDER_THRESHOLD;
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null
@@ -2341,7 +2343,11 @@ function FloorZoneLayer() {
   return (
     <>
       {zones.map((zone) => (
-        <FloorZoneMesh key={zone.id} zone={zone} reducedDetail={largeZoneSet} />
+        <FloorZoneMesh
+          key={zone.id}
+          zone={zone}
+          reducedDetail={largeOsmZoneSet && Boolean(zone.source?.osmWayId)}
+        />
       ))}
       {selectedZone && selectedZoneIds.size <= 1 && zoneSupportsResizeHandles(selectedZone) && (
         <FloorZoneResizeHandles zone={selectedZone} />

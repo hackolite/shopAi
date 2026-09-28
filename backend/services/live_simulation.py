@@ -257,9 +257,12 @@ class LiveSimulationSession:
             remaining_tokens = route_state.route_tokens[route_state.token_index :]
             stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
-                fallback_exit = self.exits[0]
-                remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
-                stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
+                original_entry = route_state.route_tokens[0] if route_state.route_tokens else None
+                scenario_route = self.routes_by_entry.get(original_entry)
+                if scenario_route is not None:
+                    fallback_exit = scenario_route[1][0]
+                    remaining_tokens = [fallback_exit.id, self._token_for_exit_stage(fallback_exit.id)]
+                    stage_ids = self._route_tokens_to_stage_ids(remaining_tokens)
             if len(stage_ids) < 2:
                 continue
             position = simsvc._closest_walkable_point(old_pos, placement_walkable)

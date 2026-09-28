@@ -2330,11 +2330,13 @@ const LARGE_ZONE_RENDER_THRESHOLD = 220;
 
 function FloorZoneLayer() {
   const { zones, selectedZoneId, selectedZoneIds } = useZoneStore();
-  const osmZoneCount = zones.reduce(
-    (count, zone) => (zone.source?.osmWayId ? count + 1 : count),
-    0,
-  );
-  const largeOsmZoneSet = osmZoneCount >= LARGE_ZONE_RENDER_THRESHOLD;
+  const largeOsmZoneSet = useMemo(() => {
+    const osmZoneCount = zones.reduce(
+      (count, zone) => (zone.source?.osmWayId ? count + 1 : count),
+      0,
+    );
+    return osmZoneCount >= LARGE_ZONE_RENDER_THRESHOLD;
+  }, [zones]);
 
   const selectedZone = selectedZoneId
     ? zones.find((z) => z.id === selectedZoneId) ?? null

@@ -745,6 +745,7 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
             type="checkbox"
             checked={isPedestrianObstacle}
             onChange={(event) => save({ ...zone, pedestrianObstacle: event.target.checked })}
+            aria-label={`Considérer ${zone.label || 'cette zone'} comme obstacle piéton pour la simulation`}
             className="accent-blue-500"
           />
         </label>

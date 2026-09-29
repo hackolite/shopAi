@@ -14,6 +14,7 @@ import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
+import { selectNonBlockingZones, useZoneStore } from '../store/zoneStore';
 import {
   computeJourneySummary,
   journeyMetricDisplay,
@@ -23,6 +24,7 @@ import {
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { computeAbsoluteYield, type AbsoluteYieldStats } from '../engine/absoluteYield';
 import { yieldMetricDisplay, type YieldMetricId } from '../engine/yieldMetrics';
+import { zoneMetricDisplay } from '../engine/zoneMetrics';
 import {
   computeRevenueSummary,
   revenueMetricDisplay,
@@ -75,6 +77,7 @@ function drawHudTexture(
   summary: JourneySummary,
   yieldMetrics: YieldMetricId[],
   yieldStats: AbsoluteYieldStats | null,
+  zoneMetricRows: HudRow[],
   revenueMetrics: RevenueMetricId[],
   revenueSummary: RevenueSummary,
   chrono: string | null,
@@ -88,6 +91,7 @@ function drawHudTexture(
       color: YIELD_COLOR,
       border: YIELD_BORDER,
     })),
+    ...zoneMetricRows,
     ...revenueMetrics.map((metricId) => ({
       ...revenueMetricDisplay(metricId, revenueSummary),
       color: REVENUE_COLOR,
@@ -131,6 +135,8 @@ export function JourneyMetricsHud() {
   const pinnedJourneyMetrics = useSimulationStore((state) => state.pinnedJourneyMetrics);
   const pinnedYieldMetrics = useSimulationStore((state) => state.pinnedYieldMetrics);
   const pinnedRevenueMetrics = useSimulationStore((state) => state.pinnedRevenueMetrics);
+  const pinnedZoneMetrics = useSimulationStore((state) => state.pinnedZoneMetrics);
+  const zoneMetrics = useSimulationStore((state) => state.zoneMetrics);
   const journeyBaskets = useSimulationStore((state) => state.journeyBaskets);
   const customers = useSimulationStore((state) => state.analytics?.customers);
   const visitHeatmap = useSimulationStore((state) => state.analytics?.visitHeatmap);
@@ -144,6 +150,8 @@ export function JourneyMetricsHud() {
   const scene = useSceneStore((state) => state.scene);
   const planogramDetails = usePlanogramStore((state) => state.planogramDetails);
   const catalogProducts = useCatalogStore((state) => state.products);
+  const zones = useZoneStore((state) => state.zones);
+  const nonBlockingZones = useMemo(() => selectNonBlockingZones(zones), [zones]);
   const spriteRef = useRef<THREE.Sprite>(null);
 
   // Whole-second chrono string so the HUD texture is only redrawn once per
@@ -169,10 +177,25 @@ export function JourneyMetricsHud() {
     [marginHeatmap, timeSeconds, visitHeatmap],
   );
 
+  const zoneMetricRows = useMemo(
+    () => pinnedZoneMetrics.flatMap(({ zoneId, kind }) => {
+      const index = nonBlockingZones.findIndex((zone) => zone.id === zoneId);
+      if (index < 0) return [];
+      const zone = nonBlockingZones[index];
+      return [{
+        ...zoneMetricDisplay(kind, `Zone ${index + 1}`, zoneMetrics[zoneId]),
+        color: JOURNEY_COLOR,
+        border: JOURNEY_BORDER,
+      }];
+    }),
+    [nonBlockingZones, pinnedZoneMetrics, zoneMetrics],
+  );
+
   const rowCount =
     (chrono !== null ? 1 : 0) +
     pinnedYieldMetrics.length +
     pinnedRevenueMetrics.length +
+    zoneMetricRows.length +
     pinnedJourneyMetrics.length;
   const texture = useMemo(
     () =>
@@ -182,6 +205,7 @@ export function JourneyMetricsHud() {
             summary,
             pinnedYieldMetrics,
             yieldStats,
+            zoneMetricRows,
             pinnedRevenueMetrics,
             revenueSummary,
             chrono,
@@ -196,6 +220,7 @@ export function JourneyMetricsHud() {
       rowCount,
       summary,
       yieldStats,
+      zoneMetricRows,
     ],
   );
   useEffect(() => () => { texture?.dispose(); }, [texture]);
@@ -207,7 +232,11 @@ export function JourneyMetricsHud() {
     if (!sprite || !texture || !(camera instanceof THREE.PerspectiveCamera)) return;
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * HUD_DISTANCE;
     const halfW = halfH * camera.aspect;
-    const rowH = ROW_SCREEN_FRACTION * 2 * halfH;
+    const rowFraction = Math.min(
+      ROW_SCREEN_FRACTION,
+      (1 - MARGIN_SCREEN_FRACTION * 2) / rowCount,
+    );
+    const rowH = rowFraction * 2 * halfH;
     const spriteH = rowH * rowCount;
     const spriteW = rowH * (ROW_WIDTH_PX / ROW_HEIGHT_PX);
     const margin = MARGIN_SCREEN_FRACTION * 2 * halfH;

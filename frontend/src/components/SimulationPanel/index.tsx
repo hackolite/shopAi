@@ -254,7 +254,10 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const { scene } = useSceneStore();
   const zones = useZoneStore((state) => state.zones);
   const zonesLoaded = useZoneStore((state) => state.zonesLoaded);
-  const forbiddenFloorZones = useMemo(() => selectForbiddenZones(zones), [zones]);
+  const forbiddenFloorZones = useMemo(
+    () => selectForbiddenZones(zones).filter((zone) => zone.blocksAccess !== false),
+    [zones],
+  );
   const {
     config,
     patchConfig,
@@ -1203,17 +1206,17 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
         <CollapsibleSection
           sectionId="zones"
-          title="Zones"
+          title="Zones bloquantes"
           collapsedSections={collapsedSections}
           setCollapsedSections={setCollapsedSections}
         >
           <p className="text-xs text-gray-500">
-            Densité (personnes/m²) et flux (personnes/s) mesurés dans chaque zone interdite pendant la simulation.
+            Densité (personnes/m²) et flux (personnes/s) mesurés dans chaque zone bloquante pendant la simulation.
           </p>
           <div className="space-y-2">
             {forbiddenFloorZones.length === 0 ? (
               <div className="rounded border border-dashed border-gray-800 px-3 py-4 text-center text-xs text-gray-600">
-                Aucune zone interdite dessinée sur le sol.
+                Aucune zone bloquante dessinée sur le sol.
               </div>
             ) : (
               forbiddenFloorZones.map((zone) => {
@@ -1222,11 +1225,6 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                   <div key={zone.id} className="space-y-1 rounded border border-red-900/60 bg-red-950/20 p-2">
                     <div className="flex items-center justify-between text-xs text-gray-300">
                       <span className="truncate">{zone.label}</span>
-                      {zone.blocksAccess === false && (
-                        <span className="shrink-0 rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400">
-                          Non bloquante
-                        </span>
-                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-x-2 text-[11px] text-gray-400">
                       <div className="flex justify-between"><span>Densité</span><span>{(metrics?.densityPerM2 ?? 0).toFixed(2)} pers/m²</span></div>

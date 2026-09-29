@@ -352,3 +352,7 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
 export function selectForbiddenZones(zones: FloorZone[]): FloorZone[] {
   return zones.filter((zone) => zone.type === 'forbidden');
 }
+
+export function selectNonBlockingZones(zones: FloorZone[]): FloorZone[] {
+  return zones.filter((zone) => zone.type === 'forbidden' && zone.blocksAccess === false);
+}

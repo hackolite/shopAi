@@ -12,7 +12,7 @@ import type {
 import type { JourneyMetricId } from '../engine/journeyMetrics';
 import type { YieldMetricId } from '../engine/yieldMetrics';
 import type { RevenueMetricId } from '../engine/revenueMetrics';
-import type { ZoneOccupancyMetrics } from '../engine/zoneMetrics';
+import type { PinnedZoneMetric, ZoneOccupancyMetrics } from '../engine/zoneMetrics';
 
 const MAX_HISTORY = 50;
 
@@ -174,6 +174,8 @@ interface SimulationState {
   pinnedYieldMetrics: YieldMetricId[];
   /** Same as `pinnedJourneyMetrics` for the CA/marge (revenue) tiles. */
   pinnedRevenueMetrics: RevenueMetricId[];
+  /** Zone density/flow tiles selected for the in-canvas 3D HUD. */
+  pinnedZoneMetrics: PinnedZoneMetric[];
   history: SimulationConfig[];
   addWaypointSystem: () => void;
   removeWaypointSystem: (id: string) => void;
@@ -195,7 +197,8 @@ interface SimulationState {
    * floor zones, keyed by zone id. Recomputed periodically while a simulation
    * is running (see SimulationLayer). Drawn as an in-scene sprite label (so it
    * is captured by canvas.captureStream and appears in the recorded video) and
-   * listed in the « Zones » section of the simulation panel.
+   * listed in the simulation panel for blocking zones and in « Waypoints &
+   * rendement » for non-blocking zones.
    */
   zoneMetrics: Record<string, ZoneOccupancyMetrics>;
   setConfig: (config: SimulationConfig) => void;
@@ -223,6 +226,7 @@ interface SimulationState {
   toggleYieldMetric: (id: YieldMetricId) => void;
   /** Toggles one CA/marge metric tile in/out of the pinned HUD selection. */
   toggleRevenueMetric: (id: RevenueMetricId) => void;
+  toggleZoneMetric: (selection: PinnedZoneMetric) => void;
   setPedestrianImport: (result: PedestrianImportResult | null) => void;
   selectAgent: (id: number | null) => void;
   setAgentBasket: (basket: AgentBasket | null) => void;
@@ -256,6 +260,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   pinnedJourneyMetrics: [],
   pinnedYieldMetrics: [],
   pinnedRevenueMetrics: [],
+  pinnedZoneMetrics: [],
   history: [],
   pedestrianImport: null,
   selectedAgentId: null,
@@ -471,6 +476,16 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         ? state.pinnedRevenueMetrics.filter((metricId) => metricId !== id)
         : [...state.pinnedRevenueMetrics, id],
     })),
+  toggleZoneMetric: (selection) =>
+    set((state) => ({
+      pinnedZoneMetrics: state.pinnedZoneMetrics.some(
+        (metric) => metric.zoneId === selection.zoneId && metric.kind === selection.kind,
+      )
+        ? state.pinnedZoneMetrics.filter(
+          (metric) => metric.zoneId !== selection.zoneId || metric.kind !== selection.kind,
+        )
+        : [...state.pinnedZoneMetrics, selection],
+    })),
   setPedestrianImport: (result) => set({ pedestrianImport: result }),
   selectAgent: (id) => set({ selectedAgentId: id, agentBasket: null }),
   setAgentBasket: (basket) => set({ agentBasket: basket }),
@@ -518,6 +533,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       pinnedJourneyMetrics: [],
       pinnedYieldMetrics: [],
       pinnedRevenueMetrics: [],
+      pinnedZoneMetrics: [],
       history: [],
       pedestrianImport: null,
       selectedAgentId: null,

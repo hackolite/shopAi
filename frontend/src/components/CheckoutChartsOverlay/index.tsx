@@ -536,13 +536,13 @@ export default function CheckoutChartsOverlay() {
 
             <Section
               id="nonblocking-zones"
-              title="Zones non bloquantes"
+              title="Zones traversables"
               subtitle={`${nonBlockingZones.length} zone${nonBlockingZones.length === 1 ? '' : 's'}`}
               open={openSections.has('nonblocking-zones')}
               onToggle={toggleSection}
             >
               {nonBlockingZones.length === 0 ? (
-                <p className="text-[10px] text-gray-600">Aucune zone non bloquante.</p>
+                <p className="text-[10px] text-gray-600">Aucune zone traversable dessinée (« Dessin au sol »).</p>
               ) : (
                 <div className="space-y-1">
                   {nonBlockingZones.map((zone, index) => {

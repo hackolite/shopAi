@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { useZoneStore } from './zoneStore';
+import { selectNonBlockingZones, useZoneStore } from './zoneStore';
 
 describe('zoneStore', () => {
   afterEach(() => {
@@ -63,5 +63,24 @@ describe('zoneStore', () => {
     expect(next.zones).toHaveLength(0);
     expect(next.selectedZoneId).toBeNull();
     expect(next.selectedZoneIds.size).toBe(0);
+  });
+
+  it('measures density only on user-drawn traversable zones', () => {
+    const store = useZoneStore.getState();
+    store.addZone('forbidden', 1200, 900, { shape: 'rectangle' });
+    store.addZone('forbidden', 1200, 900, { shape: 'circle' });
+    store.addZone('entrance', 1200, 900);
+    const [blocking, traversable] = useZoneStore.getState().zones;
+    useZoneStore.getState().updateZone({ ...traversable, blocksAccess: false });
+    useZoneStore.getState().addExistingZones([{
+      ...traversable,
+      id: 'building-1',
+      blocksAccess: false,
+      source: { osmWayId: '1', isLikelyBuilding: true },
+    }]);
+
+    const measured = selectNonBlockingZones(useZoneStore.getState().zones);
+    expect(measured.map((zone) => zone.id)).toEqual([traversable.id]);
+    expect(measured.some((zone) => zone.id === blocking.id)).toBe(false);
   });
 });

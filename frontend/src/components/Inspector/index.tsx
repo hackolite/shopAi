@@ -786,7 +786,10 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
             </label>
             {zone.blocksAccess === false && (
               <p className="pl-[4.5rem] text-[11px] text-gray-500">
-                La zone reste colorée et déplaçable mais n’est plus un obstacle pour la simulation piétonne.
+                Zone traversable : elle reste colorée et déplaçable mais n’est plus un obstacle pour la simulation
+                piétonne. {zone.source == null
+                  ? 'La densité et le flux y sont mesurés pendant la simulation.'
+                  : 'Zone importée : aucune mesure de densité (réservée aux zones « Dessin au sol »).'}
               </p>
             )}
             {zone.mounted === true && (

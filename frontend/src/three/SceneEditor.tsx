@@ -7,7 +7,7 @@ import { useSceneStore } from '../store/sceneStore';
 import { useUIStore } from '../store/uiStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useCatalogStore } from '../store/catalogStore';
-import { useZoneStore } from '../store/zoneStore';
+import { isDensityMeasuredZone, useZoneStore } from '../store/zoneStore';
 import { useProjectStore } from '../store/projectStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { loadRatio, useAssetStore } from '../store/assetStore';
@@ -1989,12 +1989,11 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const isSolidWall = mounted && (baseOpacity >= 0.99 || isBuildingZone);
   const lineDepthTest = isSolidWall;
   const zoneLabel = zoneDisplayLabel(zone);
-  const zoneMetrics = useSimulationStore((state) => (zone.type === 'forbidden' ? state.zoneMetrics[zone.id] : undefined));
-  const zoneMetricsLabel = zoneMetrics
-    // Blocking zones are carved out of the walkable area, so their readout is
-    // almost always 0: skip the sprite (one canvas texture per zone) unless
-    // agents can walk there or somebody is actually inside.
-    && (zone.blocksAccess === false || zoneMetrics.occupantCount > 0 || zoneMetrics.flowPerSecond > 0)
+  // Density/flow readout only on user-drawn traversable zones: blocking and
+  // imported zones are never measured, so no sprite is created for them.
+  const measured = isDensityMeasuredZone(zone);
+  const zoneMetrics = useSimulationStore((state) => (measured ? state.zoneMetrics[zone.id] : undefined));
+  const zoneMetricsLabel = measured && zoneMetrics
     ? `${zoneMetrics.densityPerM2.toFixed(2)} pers/m² · ${zoneMetrics.flowPerSecond.toFixed(2)} pers/s`
     : null;
   const buildingNeighbours = useMemo(

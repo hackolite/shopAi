@@ -39,6 +39,28 @@ function outlineBoundsCm(outline: FloorZonePoint[]): OutlineBoundsCm {
   return { minX, maxX, minZ, maxZ };
 }
 
+interface ZoneGeometryCm {
+  outline: FloorZonePoint[];
+  bounds: OutlineBoundsCm;
+  areaM2: number;
+}
+
+/**
+ * Zone objects are immutable in the store (every edit creates a new object),
+ * so the outline/bounds/area can be cached per object and reused by every
+ * sample instead of being rebuilt for every zone twice a second.
+ */
+const zoneGeometryCache = new WeakMap<FloorZone, ZoneGeometryCm>();
+
+function zoneGeometryCm(zone: FloorZone): ZoneGeometryCm {
+  const cached = zoneGeometryCache.get(zone);
+  if (cached) return cached;
+  const outline = zoneOutlinePointsCm(zone);
+  const geometry = { outline, bounds: outlineBoundsCm(outline), areaM2: zoneAreaM2(zone) };
+  zoneGeometryCache.set(zone, geometry);
+  return geometry;
+}
+
 /** Shoelace polygon area (m²) for a zone's floor outline. */
 export function zoneAreaM2(zone: FloorZone): number {
   const outline = zoneOutlinePointsCm(zone);
@@ -93,26 +115,29 @@ export function zoneMetricDisplay(
  * @param agents           Current agent frame (store coordinates, cm).
  * @param previousOccupants Occupant id sets per zone from the previous sample.
  * @param dtSeconds        Elapsed time since the previous sample, in seconds.
+ * @param previousMetrics  Metrics returned by the previous call: a zone whose
+ *                         values did not change keeps the very same object, so
+ *                         reference-equality consumers (store selectors) skip
+ *                         re-rendering it.
  */
 export function computeZoneOccupancyMetrics(
   zones: FloorZone[],
   agents: SimulationAgentFrame[],
   previousOccupants: Map<string, Set<number>>,
   dtSeconds: number,
+  previousMetrics?: ReadonlyMap<string, ZoneOccupancyMetrics>,
 ): { metrics: Map<string, ZoneOccupancyMetrics>; occupants: Map<string, Set<number>> } {
   const metrics = new Map<string, ZoneOccupancyMetrics>();
   const occupants = new Map<string, Set<number>>();
   const safeDt = dtSeconds > 0 ? dtSeconds : 0;
 
   for (const zone of zones) {
-    const areaM2 = zoneAreaM2(zone);
-    const outline = zoneOutlinePointsCm(zone);
+    const { outline, bounds, areaM2 } = zoneGeometryCm(zone);
     const currentOccupants = new Set<number>();
     if (outline.length >= 3) {
       // Cheap bounding-box pre-check before the O(vertices) ray-casting test:
       // most agents sit far outside any given zone, so this skips the
       // per-vertex loop entirely for the vast majority of agent/zone pairs.
-      const bounds = outlineBoundsCm(outline);
       for (const agent of agents) {
         if (
           agent.xCm < bounds.minX || agent.xCm > bounds.maxX
@@ -131,11 +156,18 @@ export function computeZoneOccupancyMetrics(
       if (!previous || !previous.has(id)) newEntrants += 1;
     }
     const flowPerSecond = safeDt > 0 ? newEntrants / safeDt : 0;
-    metrics.set(zone.id, {
+    const densityPerM2 = areaM2 > 0 ? currentOccupants.size / areaM2 : 0;
+    const previousMetric = previousMetrics?.get(zone.id);
+    const unchanged = previousMetric !== undefined
+      && previousMetric.areaM2 === areaM2
+      && previousMetric.occupantCount === currentOccupants.size
+      && previousMetric.densityPerM2 === densityPerM2
+      && previousMetric.flowPerSecond === flowPerSecond;
+    metrics.set(zone.id, unchanged ? previousMetric : {
       zoneId: zone.id,
       areaM2,
       occupantCount: currentOccupants.size,
-      densityPerM2: areaM2 > 0 ? currentOccupants.size / areaM2 : 0,
+      densityPerM2,
       flowPerSecond,
     });
     occupants.set(zone.id, currentOccupants);

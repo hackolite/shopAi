@@ -827,16 +827,25 @@ export function SimulationLayer({
       if (zoneMetricsElapsed.current >= ZONE_METRICS_SAMPLE_SECONDS) {
         const sampledDt = zoneMetricsElapsed.current;
         zoneMetricsElapsed.current = 0;
+        const previousMetrics = useSimulationStore.getState().zoneMetrics;
         const { metrics, occupants } = computeZoneOccupancyMetrics(
           forbiddenZones,
           frameB.agents,
           zoneOccupants.current,
           sampledDt,
+          new Map(Object.entries(previousMetrics)),
         );
         zoneOccupants.current = occupants;
+        // Only publish when a zone's values actually changed: a new record on
+        // every sample re-rendered every zone mesh, the HUD and the panel twice
+        // a second, which made agent playback stutter on maps with many zones.
+        let changed = metrics.size !== Object.keys(previousMetrics).length;
         const asRecord: Record<string, ZoneOccupancyMetrics> = {};
-        metrics.forEach((value, key) => { asRecord[key] = value; });
-        setZoneMetrics(asRecord);
+        metrics.forEach((value, key) => {
+          asRecord[key] = value;
+          if (previousMetrics[key] !== value) changed = true;
+        });
+        if (changed) setZoneMetrics(asRecord);
       }
     } else if (zoneOccupants.current.size > 0) {
       // The last forbidden zone was deleted/reclassified: drop stale entries

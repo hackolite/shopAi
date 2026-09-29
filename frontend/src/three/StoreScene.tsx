@@ -79,7 +79,7 @@ const SceneContent = memo(function SceneContent({ store, voxels, searchResult, o
         onClickVoxel={onClickVoxel}
       />
 
-      <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
+      <OrbitControls makeDefault enableDamping={false} />
       <CameraFlyTo target={flyTarget} />
     </>
   );

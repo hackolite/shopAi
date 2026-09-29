@@ -2281,8 +2281,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
                 points={topBorderPts}
                 color={whiteEdgeColor}
                 lineWidth={isSelected ? 3 : 2}
-                depthTest={lineDepthTest}
-                renderOrder={2}
+                depthTest={false}
+                renderOrder={3}
               />
               {verticalEdgePts.map((points, index) => (
                 <Line
@@ -2290,8 +2290,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
                   points={points}
                   color={whiteEdgeColor}
                   lineWidth={isSelected ? 2.5 : 1.5}
-                  depthTest={lineDepthTest}
-                  renderOrder={2}
+                  depthTest={false}
+                  renderOrder={3}
                 />
               ))}
             </>
@@ -2324,8 +2324,8 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
           points={borderPts}
           color={whiteEdgeColor}
           lineWidth={isSelected ? 3 : 2}
-          depthTest={lineDepthTest}
-          renderOrder={2}
+          depthTest={false}
+          renderOrder={3}
         />
       )}
 

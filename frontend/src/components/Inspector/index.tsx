@@ -775,6 +775,20 @@ function ZoneInspector({ zone, projectId }: { zone: FloorZone; projectId: string
                 className="accent-blue-500"
               />
             </label>
+            <label className="flex items-center justify-between text-xs text-gray-300">
+              <span className="text-gray-500">Zone interdite (bloque le passage)</span>
+              <input
+                type="checkbox"
+                checked={zone.blocksAccess !== false}
+                onChange={(event) => save({ ...zone, blocksAccess: event.target.checked })}
+                className="accent-blue-500"
+              />
+            </label>
+            {zone.blocksAccess === false && (
+              <p className="pl-[4.5rem] text-[11px] text-gray-500">
+                La zone reste colorée et déplaçable mais n’est plus un obstacle pour la simulation piétonne.
+              </p>
+            )}
             {zone.mounted === true && (
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-500 w-16 shrink-0">Hauteur</label>

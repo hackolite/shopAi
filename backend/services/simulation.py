@@ -385,6 +385,8 @@ def _furniture_polygon(furniture: FurnitureInstance, store_polygon: Polygon) -> 
 def _zone_polygon(zone, store_polygon: Polygon) -> Polygon | MultiPolygon | None:
     if getattr(zone, "type", None) != "forbidden":
         return None
+    if getattr(zone, "blocksAccess", None) is False:
+        return None
     shape = getattr(zone, "shape", "rectangle")
     x = float(getattr(zone, "x", 0.0))
     z = float(getattr(zone, "z", 0.0))

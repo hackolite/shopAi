@@ -10,7 +10,7 @@ import {
   pickClosestWaypointId,
 } from '../../engine/simulationConstraint';
 import { useSceneStore } from '../../store/sceneStore';
-import { useZoneStore } from '../../store/zoneStore';
+import { selectForbiddenZones, useZoneStore } from '../../store/zoneStore';
 import {
   buildRuntimeSimulationConfig,
   useSimulationStore,
@@ -81,7 +81,7 @@ function NumberField({
   );
 }
 
-type SimulationSectionId = 'config' | 'dataset' | 'waypoints' | 'analysis' | 'queues' | 'summary';
+type SimulationSectionId = 'config' | 'dataset' | 'waypoints' | 'zones' | 'analysis' | 'queues' | 'summary';
 
 function CollapsibleSection({
   sectionId,
@@ -254,6 +254,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const { scene } = useSceneStore();
   const zones = useZoneStore((state) => state.zones);
   const zonesLoaded = useZoneStore((state) => state.zonesLoaded);
+  const forbiddenFloorZones = useMemo(() => selectForbiddenZones(zones), [zones]);
   const {
     config,
     patchConfig,
@@ -290,6 +291,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     pushPickupEvents,
     waypointPlacementType,
     setWaypointPlacementType,
+    zoneMetrics,
   } = useSimulationStore();
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -329,6 +331,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     config: false,
     dataset: false,
     waypoints: false,
+    zones: false,
     analysis: false,
     queues: false,
     summary: false,
@@ -1194,6 +1197,44 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
               <div className="rounded border border-amber-600/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
                 ⚠ Aucun point de type « Sortie » configuré — la simulation ne peut pas démarrer. Ajoutez un point de type « Sortie (disparition) ».
               </div>
+            )}
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          sectionId="zones"
+          title="Zones"
+          collapsedSections={collapsedSections}
+          setCollapsedSections={setCollapsedSections}
+        >
+          <p className="text-xs text-gray-500">
+            Densité (personnes/m²) et flux (personnes/s) mesurés dans chaque zone interdite pendant la simulation.
+          </p>
+          <div className="space-y-2">
+            {forbiddenFloorZones.length === 0 ? (
+              <div className="rounded border border-dashed border-gray-800 px-3 py-4 text-center text-xs text-gray-600">
+                Aucune zone interdite dessinée sur le sol.
+              </div>
+            ) : (
+              forbiddenFloorZones.map((zone) => {
+                const metrics = zoneMetrics[zone.id];
+                return (
+                  <div key={zone.id} className="space-y-1 rounded border border-red-900/60 bg-red-950/20 p-2">
+                    <div className="flex items-center justify-between text-xs text-gray-300">
+                      <span className="truncate">{zone.label}</span>
+                      {zone.blocksAccess === false && (
+                        <span className="shrink-0 rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400">
+                          Non bloquante
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 text-[11px] text-gray-400">
+                      <div className="flex justify-between"><span>Densité</span><span>{(metrics?.densityPerM2 ?? 0).toFixed(2)} pers/m²</span></div>
+                      <div className="flex justify-between"><span>Flux</span><span>{(metrics?.flowPerSecond ?? 0).toFixed(2)} pers/s</span></div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </CollapsibleSection>

@@ -422,6 +422,7 @@ class FloorZone(CADBaseModel):
     pathMode: Literal["linear", "smooth"] = "linear"
     mounted: bool = False
     heightCm: float = 120.0
+    blocksAccess: bool | None = None
     source: dict[str, Any] | None = Field(default=None, alias="_source")
 
     @model_validator(mode="before")

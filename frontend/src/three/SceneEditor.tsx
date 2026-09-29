@@ -87,6 +87,8 @@ function useGridOrigin(): GridOriginCm {
 const GRID_FADE_MULTIPLIER = 1.8;
 /** Y offset of the Grid plane above the floor slab (avoids Z-fighting). */
 const GRID_Y_OFFSET = 0.012;
+/** Vertical gap between a zone's name label and its density/flow readout above it. */
+const ZONE_METRICS_LABEL_Y_OFFSET = 0.28;
 /** Shared up-vector reused across components to avoid per-render allocations. */
 const UP_VEC3 = new THREE.Vector3(0, 1, 0);
 
@@ -1952,9 +1954,6 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const { gl, raycaster, camera } = useThree();
   const setResizeDragging = useContext(ResizeDragCtx);
   const [hovered, setHovered] = useState(false);
-  const gridOrigin = useGridOrigin();
-  const gridOriginRef = useRef(gridOrigin);
-  gridOriginRef.current = gridOrigin;
 
   const isSelected = selectedZoneIds.has(zone.id) || selectedZoneId === zone.id;
   const W = zone.width  * CM_TO_UNIT;
@@ -1990,6 +1989,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const isSolidWall = mounted && (baseOpacity >= 0.99 || isBuildingZone);
   const lineDepthTest = isSolidWall;
   const zoneLabel = zoneDisplayLabel(zone);
+  const zoneMetrics = useSimulationStore((state) => (zone.type === 'forbidden' ? state.zoneMetrics[zone.id] : undefined));
+  const zoneMetricsLabel = zoneMetrics
+    ? `${zoneMetrics.densityPerM2.toFixed(2)} pers/m² · ${zoneMetrics.flowPerSecond.toFixed(2)} pers/s`
+    : null;
   const buildingNeighbours = useMemo(
     () => zones.filter((other) => (
       other.id !== zone.id
@@ -2078,10 +2081,9 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         }
         return;
       }
-      const cur = curZoneRef.current;
-      const snappedX = snapToCell(cur.x, gridOriginRef.current.x);
-      const snappedZ = snapToCell(cur.z, gridOriginRef.current.z);
-      updateZone(moveZone(cur, snappedX - cur.x, snappedZ - cur.z));
+      // No grid snapping here: zones are free-form and a forced 50cm grid snap
+      // on release made fine positioning feel sticky/hard to control. The
+      // position already committed live in onMove is kept as-is.
     };
 
     gl.domElement.addEventListener('pointermove', onMove);
@@ -2330,6 +2332,15 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
         position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12), cz]}
         scale={1.2}
       />
+      {/* Live density/flow readout, also a 3D sprite so it shows up in the
+          recorded video (not an HTML overlay). */}
+      {zoneMetricsLabel && (
+        <TextSprite3D
+          text={zoneMetricsLabel}
+          position={[cx, y + (mounted ? extrudedHeight + 0.12 : 0.12) + ZONE_METRICS_LABEL_Y_OFFSET, cz]}
+          scale={1}
+        />
+      )}
     </group>
   );
 }

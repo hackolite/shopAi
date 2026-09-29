@@ -146,8 +146,29 @@ export interface SimulationWaypointSystem {
   waypoints: SimulationWaypoint[];
 }
 
+/**
+ * Pedestrian micro-movement model (JuPedSim operational model):
+ * - `social_force`: Social Force Model (acceleration forces),
+ * - `centrifugal_force`: Generalized Centrifugal Force Model (relative speed + vision cone),
+ * - `velocity`: velocity-based Collision-Free Speed Model (no oscillations, default).
+ */
+export type MovementModelId = 'social_force' | 'centrifugal_force' | 'velocity';
+
+/** Speed-dependent social repulsion range: B(v) = B_marche · (1 − λ · e^(−v / v0)). */
+export interface SpeedDependentRepulsionConfig {
+  enabled: boolean;
+  /** B_marche — social bubble radius at nominal walking speed (m). */
+  walkingRangeM: number;
+  /** λ — compression coefficient at standstill, in [0.4, 0.7]. */
+  compressionLambda: number;
+  /** v0 — reference / desired speed (m/s). */
+  referenceSpeedMps: number;
+}
+
 export interface SimulationConfig {
   enabled: boolean;
+  movementModel?: MovementModelId;
+  speedDependentRepulsion?: SpeedDependentRepulsionConfig;
   arrivalRatePerSecond: number;
   durationSeconds: number;
   maxCustomers: number;

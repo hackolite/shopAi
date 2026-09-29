@@ -185,6 +185,7 @@ shopAi/
 │   │   ├── ean_search.py             # EAN lookup + analytics
 │   │   ├── simulation.py             # Batch simulation engine (waypoints, pathfinding, heatmaps)
 │   │   ├── live_simulation.py        # Live real-time simulation sessions (start/tick/pause/resume/stop)
+│   │   ├── movement_models.py        # Pluggable micro-movement models (SFM / CFM / velocity) + B(v) repulsion
 │   │   ├── flow_analytics.py         # Occupancy heatmap + agent trajectories recorder
 │   │   ├── gondola_adapter.py        # Converts gondola geometry for simulation obstacles
 │   │   └── retail_layout.py          # Retail-specific layout helpers
@@ -201,6 +202,7 @@ shopAi/
 │   │       └── demo_store/           # Legacy voxel viewer demo
 │   ├── tests/
 │   │   ├── test_simulation_api.py    # Simulation + live simulation API tests
+│   │   ├── test_movement_models.py   # Movement model strategies + speed-dependent repulsion tests
 │   │   ├── test_scene_concurrency.py # Concurrent scene write tests
 │   │   └── test_retail_layout.py     # Retail layout helper tests
 │   └── requirements.txt
@@ -423,6 +425,30 @@ The simulation engine models customer foot traffic inside the store using an age
 | `entry` | Spawns agents at the specified rate (agents/hour). First arrival scheduled at t=0, then exponential inter-arrivals. |
 | `transit` | Routes agents through the store; used for aisle traversal or dwell points. |
 | `exit` | Despawns agents once they arrive (circular exit zone of configurable radius). |
+
+### Movement Models (micro-déplacement)
+
+`SimulationConfig.movementModel` selects the JuPedSim operational model via a
+Strategy/Factory (`backend/services/movement_models.py`), editable in the
+simulation panel (**Mode de simulation → Modèle de déplacement**):
+
+| `movementModel` | Model | Notes |
+|-----------------|-------|-------|
+| `social_force` | A · Social Force Model | Acceleration forces; runs 5 sub-steps (dt 0.02 s) per 0.1 s step for stability |
+| `centrifugal_force` | B · Generalized Centrifugal Force Model | Relative-velocity repulsion within the vision cone; 10 sub-steps (dt 0.01 s) |
+| `velocity` (default) | C · Velocity-Based (Collision-Free Speed Model V2) | Direct optimal velocity, no oscillations |
+
+`SimulationConfig.speedDependentRepulsion` modulates the social repulsion range
+from each agent's instantaneous speed `v` after every step:
+
+`B(v) = walkingRangeM · (1 − compressionLambda · e^(−v / referenceSpeedMps))`
+
+Defaults: `walkingRangeM` (B_marche) = 0.8 m, `compressionLambda` (λ, 0.4–0.7)
+= 0.55, `referenceSpeedMps` (v0) = 1.34 m/s. Each model's native range
+parameter (SFM `force_distance`, CFM ellipse semi-axes, CFSM
+`range_neighbor_repulsion`) is scaled by `B(v) / 0.8 m`. Stopped agents accept a
+closer proximity, letting densities rise from ≈2.5 pers/m² (free flow) to
+4+ pers/m² in congestion/queues.
 
 ### Simulation Modes
 

@@ -13,12 +13,19 @@ import { useSceneStore } from '../../store/sceneStore';
 import { selectForbiddenZones, useZoneStore } from '../../store/zoneStore';
 import {
   buildRuntimeSimulationConfig,
+  defaultSpeedDependentRepulsion,
   useSimulationStore,
   type HeatmapMode,
 } from '../../store/simulationStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useAssetStore } from '../../store/assetStore';
-import type { SimulationConfig, SimulationWaypoint, WaypointMetrics } from '../../types/cad';
+import type {
+  MovementModelId,
+  SimulationConfig,
+  SimulationWaypoint,
+  SpeedDependentRepulsionConfig,
+  WaypointMetrics,
+} from '../../types/cad';
 
 interface SimulationPanelProps {
   projectId: string | null;
@@ -37,6 +44,34 @@ const MAX_CATCH_UP_STEPS = 50;
 
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)} s`;
+}
+
+const MOVEMENT_MODEL_OPTIONS: { id: MovementModelId; label: string; description: string }[] = [
+  {
+    id: 'social_force',
+    label: 'A · Social Force Model',
+    description: "Forces d'accélération (Helbing) : attraction vers la cible, répulsion exponentielle entre agents.",
+  },
+  {
+    id: 'centrifugal_force',
+    label: 'B · Centrifugal Force Model',
+    description: 'Répulsion selon la vitesse relative, limitée au cône de vision ; corps elliptiques.',
+  },
+  {
+    id: 'velocity',
+    label: 'C · Velocity-Based Model',
+    description: 'Vecteur vitesse optimal calculé directement (sans oscillations). Modèle par défaut.',
+  },
+];
+
+const MIN_COMPRESSION_LAMBDA = 0.4;
+const MAX_COMPRESSION_LAMBDA = 0.7;
+
+/** B(v) = B_marche · (1 − λ · e^(−v / v0)), mirrors backend services/movement_models.py. */
+function speedDependentRange(speedMps: number, repulsion: SpeedDependentRepulsionConfig): number {
+  if (!repulsion.enabled) return repulsion.walkingRangeM;
+  const v0 = Math.max(1e-6, repulsion.referenceSpeedMps);
+  return repulsion.walkingRangeM * (1 - repulsion.compressionLambda * Math.exp(-Math.max(0, speedMps) / v0));
 }
 
 function NumberField({
@@ -296,6 +331,13 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
     setWaypointPlacementType,
     zoneMetrics,
   } = useSimulationStore();
+  const movementModel: MovementModelId = config.movementModel ?? 'velocity';
+  const repulsion: SpeedDependentRepulsionConfig = {
+    ...defaultSpeedDependentRepulsion(),
+    ...config.speedDependentRepulsion,
+  };
+  const patchRepulsion = (patch: Partial<SpeedDependentRepulsionConfig>) =>
+    patchConfig({ speedDependentRepulsion: { ...repulsion, ...patch } });
   const loadedProjectId = useProjectStore((state) => state.loadedProjectId);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -966,6 +1008,73 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
             title={pedestrianCsvLoaded ? jupedsimFieldOverriddenTitle : undefined}
             onChange={(value) => patchConfig({ speedVariation: Math.max(0, value) })}
           />
+          <div className="space-y-2 rounded-xl border border-gray-800 bg-gray-900/70 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">Modèle de déplacement</p>
+            <label className="flex items-center gap-2 text-xs text-gray-300">
+              <span className="w-28 shrink-0 text-gray-500">Algorithme</span>
+              <select
+                value={movementModel}
+                onChange={(event) => patchConfig({ movementModel: event.target.value as MovementModelId })}
+                className="flex-1 min-w-0 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 focus:border-blue-500 focus:outline-none"
+              >
+                {MOVEMENT_MODEL_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="text-[11px] leading-snug text-gray-400">
+              {MOVEMENT_MODEL_OPTIONS.find((option) => option.id === movementModel)?.description}
+            </p>
+            <label className="flex items-center gap-2 text-xs text-gray-300">
+              <input
+                type="checkbox"
+                checked={repulsion.enabled}
+                onChange={(event) => patchRepulsion({ enabled: event.target.checked })}
+              />
+              <span>Répulsion dépendante de la vitesse</span>
+            </label>
+            <NumberField
+              label="B marche (m)"
+              value={repulsion.walkingRangeM}
+              min={0.1}
+              max={5}
+              step={0.05}
+              disabled={!repulsion.enabled}
+              title="Rayon de la bulle sociale à vitesse nominale"
+              onChange={(value) => patchRepulsion({ walkingRangeM: Math.min(5, Math.max(0.1, value)) })}
+            />
+            <NumberField
+              label="λ compression"
+              value={repulsion.compressionLambda}
+              min={MIN_COMPRESSION_LAMBDA}
+              max={MAX_COMPRESSION_LAMBDA}
+              step={0.05}
+              disabled={!repulsion.enabled}
+              title="Coefficient de compression à l'arrêt (0,4 – 0,7)"
+              onChange={(value) =>
+                patchRepulsion({
+                  compressionLambda: Math.min(MAX_COMPRESSION_LAMBDA, Math.max(MIN_COMPRESSION_LAMBDA, value)),
+                })
+              }
+            />
+            <NumberField
+              label="v0 réf. (m/s)"
+              value={repulsion.referenceSpeedMps}
+              min={0.1}
+              max={5}
+              step={0.01}
+              disabled={!repulsion.enabled}
+              title="Vitesse de référence / désirée"
+              onChange={(value) => patchRepulsion({ referenceSpeedMps: Math.min(5, Math.max(0.1, value)) })}
+            />
+            <p className="text-[11px] leading-snug text-gray-400">
+              B(v) = B<sub>marche</sub> · (1 − λ · e<sup>−v/v0</sup>) — à l'arrêt : {speedDependentRange(0, repulsion).toFixed(2)} m,
+              à v0 : {speedDependentRange(repulsion.referenceSpeedMps, repulsion).toFixed(2)} m. La bulle se contracte à
+              l'arrêt pour laisser la densité monter (≈2,5 → 4+ pers/m² en congestion).
+            </p>
+          </div>
           {playing ? (
             <div className="grid grid-cols-2 gap-2">
               {paused ? (

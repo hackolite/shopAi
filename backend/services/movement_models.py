@@ -320,9 +320,23 @@ class VelocityBasedStrategy(MovementModelStrategy):
     RANGE_GEOMETRY_REPULSION_M = 0.02
 
     def create_model(self) -> Any:
+        # The legacy model has no neighbour-repulsion pass at all.  Besides
+        # matching the meaning of the UI toggle, using it when repulsion is
+        # disabled avoids paying for V2's neighbour search on every tick.
+        if not self.repulsion.enabled:
+            return jps.CollisionFreeSpeedModel()
         return jps.CollisionFreeSpeedModelV2()
 
     def build_agent_params(self, position, journey_id, stage_id, desired_speed):
+        if not self.repulsion.enabled:
+            return jps.CollisionFreeSpeedModelAgentParameters(
+                position=position,
+                journey_id=journey_id,
+                stage_id=stage_id,
+                desired_speed=desired_speed,
+                radius=self.agent_radius_m,
+                time_gap=self.TIME_GAP_S,
+            )
         return jps.CollisionFreeSpeedModelV2AgentParameters(
             position=position,
             journey_id=journey_id,

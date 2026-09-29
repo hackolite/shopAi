@@ -3,6 +3,7 @@ import { useCatalogStore } from '../../store/catalogStore';
 import { usePlanogramStore } from '../../store/planogramStore';
 import { useSceneStore } from '../../store/sceneStore';
 import { useSimulationStore } from '../../store/simulationStore';
+import { selectNonBlockingZones, useZoneStore } from '../../store/zoneStore';
 import { buildMarginHeatmap } from '../../engine/marginHeatmap';
 import { computeAbsoluteYield } from '../../engine/absoluteYield';
 import { computeMultiSelectedProductMetrics, computeSelectedProductMetrics } from '../../engine/selectedProductMetrics';
@@ -14,6 +15,7 @@ import {
 } from '../../engine/journeyMetrics';
 import { YIELD_METRIC_IDS, yieldMetricDisplay } from '../../engine/yieldMetrics';
 import { REVENUE_METRIC_IDS, computeRevenueSummary, revenueMetricDisplay } from '../../engine/revenueMetrics';
+import { zoneMetricDisplay } from '../../engine/zoneMetrics';
 
 /** Margin (px) kept between the panel and the edges of the 3D viewport. */
 const PANEL_MARGIN_PX = 16;
@@ -141,6 +143,11 @@ export default function CheckoutChartsOverlay() {
   const toggleYieldMetric = useSimulationStore((state) => state.toggleYieldMetric);
   const pinnedRevenueMetrics = useSimulationStore((state) => state.pinnedRevenueMetrics);
   const toggleRevenueMetric = useSimulationStore((state) => state.toggleRevenueMetric);
+  const zoneMetrics = useSimulationStore((state) => state.zoneMetrics);
+  const pinnedZoneMetrics = useSimulationStore((state) => state.pinnedZoneMetrics);
+  const toggleZoneMetric = useSimulationStore((state) => state.toggleZoneMetric);
+  const zones = useZoneStore((state) => state.zones);
+  const nonBlockingZones = useMemo(() => selectNonBlockingZones(zones), [zones]);
   const journeyBaskets = useSimulationStore((state) => state.journeyBaskets);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -524,6 +531,56 @@ export default function CheckoutChartsOverlay() {
                 <p className="mt-1 text-[10px] text-gray-600">
                   Nécessite une simulation en cours et un assortiment valorisé (prix / marge).
                 </p>
+              )}
+            </Section>
+
+            <Section
+              id="nonblocking-zones"
+              title="Zones non bloquantes"
+              subtitle={`${nonBlockingZones.length} zone${nonBlockingZones.length === 1 ? '' : 's'}`}
+              open={openSections.has('nonblocking-zones')}
+              onToggle={toggleSection}
+            >
+              {nonBlockingZones.length === 0 ? (
+                <p className="text-[10px] text-gray-600">Aucune zone non bloquante.</p>
+              ) : (
+                <div className="space-y-1">
+                  {nonBlockingZones.map((zone, index) => {
+                    const zoneLabel = `Zone ${index + 1}`;
+                    return (
+                      <details key={zone.id} className="rounded border border-gray-800 bg-black/20">
+                        <summary className="cursor-pointer px-2 py-1 text-[10px] text-gray-300">
+                          {zoneLabel}{zone.label ? ` · ${zone.label}` : ''}
+                        </summary>
+                        <div className="grid grid-cols-2 gap-1 p-1">
+                          {(['density', 'flow'] as const).map((kind) => {
+                            const pinned = pinnedZoneMetrics.some(
+                              (metric) => metric.zoneId === zone.id && metric.kind === kind,
+                            );
+                            const { label, value } = zoneMetricDisplay(kind, zoneLabel, zoneMetrics[zone.id]);
+                            return (
+                              <button
+                                key={kind}
+                                type="button"
+                                aria-pressed={pinned}
+                                title="Afficher en grand en haut à droite de la scène 3D (visible dans l'enregistrement vidéo)"
+                                onClick={() => toggleZoneMetric({ zoneId: zone.id, kind })}
+                                className={`rounded border px-1.5 py-1 text-left transition-colors ${
+                                  pinned
+                                    ? 'border-amber-400 bg-amber-500/20 text-amber-200'
+                                    : 'border-gray-800 bg-black/30 text-gray-400 hover:border-gray-600 hover:bg-gray-800/60'
+                                }`}
+                              >
+                                <span className="block truncate text-[9px] uppercase tracking-wide opacity-80">{label}</span>
+                                <span className="block text-[12px] font-semibold">{value}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
               )}
             </Section>
 

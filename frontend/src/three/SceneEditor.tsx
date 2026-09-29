@@ -2024,6 +2024,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
 
   // Drag state (same pattern as ResizeHandles / FurnitureMesh)
   const isDragging   = useRef(false);
+  const pointerIdRef = useRef<number | null>(null);
   const dragStart    = useRef(new THREE.Vector3());
   const baseZoneRef  = useRef<FloorZone>(zone);
   const curZoneRef   = useRef<FloorZone>(zone);
@@ -2074,6 +2075,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
       cancelAnimationFrame(rafId);
       isDragging.current = false;
       setResizeDragging(false);
+      if (pointerIdRef.current !== null) {
+        try { gl.domElement.releasePointerCapture(pointerIdRef.current); } catch { /* ignore */ }
+        pointerIdRef.current = null;
+      }
       if (isAxisAlignedRectBuilding) {
         const lastFree = lastFreeZoneRef.current;
         if (Math.abs(curZoneRef.current.x - lastFree.x) > 1e-6 || Math.abs(curZoneRef.current.z - lastFree.z) > 1e-6) {
@@ -2125,6 +2130,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
     baseZoneRef.current = curZoneRef.current;
     lastFreeZoneRef.current = curZoneRef.current;
     isDragging.current  = true;
+    pointerIdRef.current = e.nativeEvent.pointerId;
     // Freeze OrbitControls for the whole body-drag so the camera cannot
     // rotate/pan at the same time as the zone is being moved.
     setResizeDragging(true);

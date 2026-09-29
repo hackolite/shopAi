@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeZoneOccupancyMetrics, pointInPolygonCm, zoneAreaM2 } from './zoneMetrics';
+import { computeZoneOccupancyMetrics, pointInPolygonCm, zoneAreaM2, zoneMetricDisplay } from './zoneMetrics';
 import type { FloorZone, SimulationAgentFrame } from '../types/cad';
 
 function zone(partial: Partial<FloorZone>): FloorZone {
@@ -77,5 +77,19 @@ describe('computeZoneOccupancyMetrics', () => {
     const { metrics } = computeZoneOccupancyMetrics(zones, [agent(1, 0, 0)], new Map(), 1);
     expect(metrics.get('z1')!.areaM2).toBe(0);
     expect(metrics.get('z1')!.densityPerM2).toBe(0);
+  });
+});
+
+describe('zoneMetricDisplay', () => {
+  it('formats density and flow tiles with French labels and units', () => {
+    const metrics = computeZoneOccupancyMetrics([zone({ id: 'z1' })], [agent(1, 50, 50)], new Map(), 0.5).metrics.get('z1');
+    expect(zoneMetricDisplay('density', 'Zone 1', metrics)).toEqual({
+      label: 'Zone 1 · Densité',
+      value: '0,25 pers/m²',
+    });
+    expect(zoneMetricDisplay('flow', 'Zone 1', metrics)).toEqual({
+      label: 'Zone 1 · Flux',
+      value: '2 pers/s',
+    });
   });
 });

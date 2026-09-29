@@ -60,6 +60,26 @@ export interface ZoneOccupancyMetrics {
   flowPerSecond: number;
 }
 
+export type ZoneMetricKind = 'density' | 'flow';
+
+export interface PinnedZoneMetric {
+  zoneId: string;
+  kind: ZoneMetricKind;
+}
+
+export function zoneMetricDisplay(
+  kind: ZoneMetricKind,
+  zoneLabel: string,
+  metrics: ZoneOccupancyMetrics | undefined,
+): { label: string; value: string } {
+  const format = (value: number) => (
+    Number.isFinite(value) ? value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—'
+  );
+  return kind === 'density'
+    ? { label: `${zoneLabel} · Densité`, value: `${format(metrics?.densityPerM2 ?? 0)} pers/m²` }
+    : { label: `${zoneLabel} · Flux`, value: `${format(metrics?.flowPerSecond ?? 0)} pers/s` };
+}
+
 /**
  * Computes, for each given zone, how many agents currently sit inside its
  * floor outline, the resulting density (people/m²) and the flow of new

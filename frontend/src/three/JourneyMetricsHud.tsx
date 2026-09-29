@@ -181,7 +181,6 @@ export function JourneyMetricsHud() {
     () => pinnedZoneMetrics.flatMap(({ zoneId, kind }) => {
       const index = nonBlockingZones.findIndex((zone) => zone.id === zoneId);
       if (index < 0) return [];
-      const zone = nonBlockingZones[index];
       return [{
         ...zoneMetricDisplay(kind, `Zone ${index + 1}`, zoneMetrics[zoneId]),
         color: JOURNEY_COLOR,

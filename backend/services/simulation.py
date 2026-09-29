@@ -26,6 +26,7 @@ from models.project import (
     WaypointMetrics,
 )
 from services.flow_analytics import build_analytics
+from services.movement_models import MovementModelStrategy, strategy_from_config
 
 CM_TO_M = 0.01
 M_TO_CM = 100.0
@@ -679,19 +680,23 @@ def _random_point_in_polygon(polygon: Polygon, rng: random.Random) -> tuple[floa
     return (center.x, center.y)
 
 
+def movement_strategy_for(config: SimulationConfig) -> MovementModelStrategy:
+    """Instantiate the micro-movement model strategy selected in ``config``."""
+    return strategy_from_config(config, _cm_to_m(AGENT_RADIUS_CM))
+
+
 def _build_agent_params(
+    strategy: MovementModelStrategy,
     journey_id: int,
     stage_id: int,
     position: tuple[float, float],
     desired_speed: float,
 ):
-    return jps.CollisionFreeSpeedModelAgentParameters(
+    return strategy.build_agent_params(
         position=position,
         journey_id=journey_id,
         stage_id=stage_id,
         desired_speed=desired_speed,
-        radius=_cm_to_m(AGENT_RADIUS_CM),
-        time_gap=1.0,
     )
 
 
@@ -704,6 +709,7 @@ def current_agent_positions(sim: object) -> list[tuple[float, float]]:
 
 def add_agent_with_spawn_retry(
     sim: object,
+    strategy: MovementModelStrategy,
     waypoint: SimulationWaypoint,
     walkable: Polygon,
     rng: random.Random,
@@ -719,6 +725,7 @@ def add_agent_with_spawn_retry(
         try:
             agent_id = sim.add_agent(
                 _build_agent_params(
+                    strategy=strategy,
                     journey_id=journey_id,
                     stage_id=stage_id,
                     position=spawn_position,
@@ -814,8 +821,9 @@ def _freeze_retained_agents(
     all_enqueued: set[int] = set().union(*enqueued_by_stage.values()) if enqueued_by_stage else set()
 
     for agent in sim.agents():
+        # Every supported operational model state exposes ``desired_speed``.
         model_state = agent.model
-        if not isinstance(model_state, jps.CollisionFreeSpeedModelState):
+        if not hasattr(model_state, "desired_speed"):
             continue
         agent_id = int(agent.id)
         if agent_id in all_enqueued:
@@ -851,7 +859,9 @@ def _apply_right_hand_bias(sim: object) -> None:
             continue
         if speed >= _BLOCKING_SPEED_RATIO * desired_speed:
             continue
-        ex, ez = model_state.e0
+        # ``e0`` is a deprecated alias that JuPedSim 1.4 wires to desired_speed;
+        # always use ``desired_direction``.
+        ex, ez = model_state.desired_direction
         # Right-perpendicular in the XZ plane: -90° rotation around Y axis
         # (clockwise when seen from above in a right-handed Y-up system).
         rx, rz = -ez, ex
@@ -859,7 +869,7 @@ def _apply_right_hand_bias(sim: object) -> None:
         bz = ez + _RIGHT_HAND_BIAS * rz
         length = math.hypot(bx, bz)
         if length > 1e-9:
-            model_state.e0 = (bx / length, bz / length)
+            model_state.desired_direction = (bx / length, bz / length)
 
 
 def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> SimulationResult:
@@ -888,10 +898,11 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         for entry in scenario_entries
     }
     _validate_waypoint_constraints([*entries, *transit_waypoints, *exits], walkable)
+    strategy = movement_strategy_for(config)
     sim = jps.Simulation(
-        model=jps.CollisionFreeSpeedModel(),
+        model=strategy.create_model(),
         geometry=walkable,
-        dt=SIMULATION_DT_S,
+        dt=strategy.simulation_dt(SIMULATION_DT_S),
     )
 
     exit_stage_ids: dict[str, int] = {}
@@ -983,6 +994,7 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
             desired_speed = max(0.5, rng.gauss(float(config.desiredSpeedMps), float(config.speedVariation)))
             agent_id, spawn_position = add_agent_with_spawn_retry(
                 sim=sim,
+                strategy=strategy,
                 waypoint=selected_entry,
                 walkable=walkable,
                 rng=rng,
@@ -1002,9 +1014,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         for runtime in waypoint_runtimes.values():
             _tick_queue_runtime(runtime, current_time)
         _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
-        sim.iterate()
+        removed_agent_ids = strategy.advance(sim, SIMULATION_DT_S)
         _apply_right_hand_bias(sim)
-        completed += len(sim.removed_agents())
+        completed += len(removed_agent_ids)
         passages.observe(sim, stage_to_waypoint_id)
 
         if step_index % steps_per_snapshot == 0:
@@ -1063,9 +1075,9 @@ def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> Simulatio
         for runtime in waypoint_runtimes.values():
             _tick_queue_runtime(runtime, current_time)
         _freeze_retained_agents(sim, waypoint_runtimes, agent_desired_speeds, frozen_agents)
-        sim.iterate()
+        removed_agent_ids = strategy.advance(sim, SIMULATION_DT_S)
         _apply_right_hand_bias(sim)
-        completed += len(sim.removed_agents())
+        completed += len(removed_agent_ids)
         passages.observe(sim, stage_to_waypoint_id)
         if overtime_index % steps_per_snapshot == 0:
             frame_agents = []

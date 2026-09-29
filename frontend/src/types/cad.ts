@@ -99,6 +99,12 @@ export interface FloorZone {
   points?: FloorZonePoint[];
   /** Rendering mode for free-form floor drawings. */
   pathMode?: ZonePathMode;
+  /**
+   * When the zone type is 'forbidden', whether it actually blocks pedestrian
+   * access during simulation (default true). Set to false to keep a colored,
+   * manipulable floor zone that does not act as an obstacle.
+   */
+  blocksAccess?: boolean;
   /** When true, the floor drawing is extruded vertically in the 3D scene. */
   mounted?: boolean;
   /** Extrusion height in cm for mounted floor drawings. */

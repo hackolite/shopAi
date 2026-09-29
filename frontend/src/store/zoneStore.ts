@@ -115,6 +115,7 @@ function normalizeZone(zone: FloorZone): FloorZone {
     heightCm: zone.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
     opacity: clampZoneOpacity(zone.opacity),
     pathMode: zone.pathMode ?? (zone.shape === 'polygon' ? 'linear' : undefined),
+    blocksAccess: zone.type === 'forbidden' ? (zone.blocksAccess ?? true) : zone.blocksAccess,
   };
 }
 
@@ -155,6 +156,7 @@ function buildZone(
     pathMode: options?.pathMode ?? (shape === 'polygon' ? 'linear' : undefined),
     mounted: options?.mounted ?? false,
     heightCm: options?.heightCm ?? DEFAULT_ZONE_HEIGHT_CM,
+    blocksAccess: type === 'forbidden' ? true : undefined,
     ...(type === 'supply' ? { rows: DEFAULT_SUPPLY_ROWS, cols: DEFAULT_SUPPLY_COLS } : {}),
   };
 }
@@ -343,3 +345,10 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
     zonesLoaded: false,
   }),
 }));
+
+/** Zones of type 'forbidden' — the closed floor drawings used as pedestrian
+ * obstacles and measured for live density/flow metrics. Shared selector so
+ * the panel and the 3D layer filter the same list consistently. */
+export function selectForbiddenZones(zones: FloorZone[]): FloorZone[] {
+  return zones.filter((zone) => zone.type === 'forbidden');
+}

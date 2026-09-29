@@ -12,6 +12,7 @@ import type {
 import type { JourneyMetricId } from '../engine/journeyMetrics';
 import type { YieldMetricId } from '../engine/yieldMetrics';
 import type { RevenueMetricId } from '../engine/revenueMetrics';
+import type { ZoneOccupancyMetrics } from '../engine/zoneMetrics';
 
 const MAX_HISTORY = 50;
 
@@ -189,6 +190,14 @@ interface SimulationState {
   journeyBaskets: AgentBasket[];
   /** Transient gamified pop-ups shown above agents that just picked a product. */
   pickupPopups: PickupPopup[];
+  /**
+   * Live occupancy metrics (density people/m², flow people/s) for closed
+   * floor zones, keyed by zone id. Recomputed periodically while a simulation
+   * is running (see SimulationLayer). Drawn as an in-scene sprite label (so it
+   * is captured by canvas.captureStream and appears in the recorded video) and
+   * listed in the « Zones » section of the simulation panel.
+   */
+  zoneMetrics: Record<string, ZoneOccupancyMetrics>;
   setConfig: (config: SimulationConfig) => void;
   patchConfig: (patch: Partial<SimulationConfig>) => void;
   addWaypoint: (type?: SimulationWaypoint['type'], position?: { x: number; z: number }) => void;
@@ -224,6 +233,7 @@ interface SimulationState {
     agentPositions: Map<number, { xCm: number; zCm: number }>,
   ) => void;
   removePickupPopup: (id: string) => void;
+  setZoneMetrics: (metrics: Record<string, ZoneOccupancyMetrics>) => void;
   /** Clears every simulation state. Called when switching project. */
   reset: () => void;
 }
@@ -252,6 +262,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   agentBasket: null,
   journeyBaskets: [],
   pickupPopups: [],
+  zoneMetrics: {},
   setConfig: (config) =>
     set({
       config: normalizeConfig(config),
@@ -490,6 +501,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     }),
   removePickupPopup: (id) =>
     set((state) => ({ pickupPopups: state.pickupPopups.filter((popup) => popup.id !== id) })),
+  setZoneMetrics: (metrics) => set({ zoneMetrics: metrics }),
   reset: () =>
     set({
       config: normalizeConfig(defaultSimulationConfig()),
@@ -512,5 +524,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       agentBasket: null,
       journeyBaskets: [],
       pickupPopups: [],
+      zoneMetrics: {},
     }),
 }));

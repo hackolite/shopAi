@@ -7,11 +7,13 @@ import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep, isClockResnap } from '../engine/simulationPlayback';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
+import { computeZoneOccupancyMetrics, type ZoneOccupancyMetrics } from '../engine/zoneMetrics';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { useUIStore } from '../store/uiStore';
+import { selectForbiddenZones, useZoneStore } from '../store/zoneStore';
 import { PickupPopups } from './PickupPopups';
 import type { AgentTrajectory, SimulationHeatmap } from '../types/cad';
 
@@ -27,6 +29,12 @@ const HEATMAP_Y = 0.012;
 const TRAJECTORY_Y = 0.03;
 const TRAJECTORY_ACTIVE_OPACITY = 0.85;
 const TRAJECTORY_PAST_OPACITY = 0.35;
+/**
+ * Cadence at which zone occupancy metrics (density/flow) are recomputed. A
+ * full point-in-polygon scan per zone per agent every render frame would be
+ * wasteful and compete with the agent pose updates for main-thread time.
+ */
+const ZONE_METRICS_SAMPLE_SECONDS = 0.5;
 
 function hexToRgb(color: string): [number, number, number] {
   const normalized = color.replace('#', '');
@@ -681,6 +689,12 @@ export function SimulationLayer({
   const catalogProducts = useCatalogStore((state) => state.products);
   const showTrajectories = useSimulationStore((state) => state.showTrajectories);
   const pickupPopups = useSimulationStore((state) => state.pickupPopups);
+  const setZoneMetrics = useSimulationStore((state) => state.setZoneMetrics);
+  const zones = useZoneStore((state) => state.zones);
+  // Density/flow are about physical occupancy of the drawn area, independent
+  // of whether the zone currently blocks pedestrian pathfinding, so metrics
+  // are still measured for 'forbidden' zones with blocksAccess === false.
+  const forbiddenZones = useMemo(() => selectForbiddenZones(zones), [zones]);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
@@ -725,6 +739,13 @@ export function SimulationLayer({
   );
   const showProfilingHud = import.meta.env.DEV;
 
+  // Zone occupancy metrics (density people/m², flow people/s), sampled at a
+  // fixed cadence (not every render frame) since a full point-in-polygon scan
+  // per zone per agent is unnecessary at 60 fps and would compete with the
+  // agent pose updates above for main-thread time.
+  const zoneMetricsElapsed = useRef(0);
+  const zoneOccupants = useRef<Map<string, Set<number>>>(new Map());
+
   useEffect(() => {
     prevAgentIds.current = new Set();
     colorAssignments.current = new Map();
@@ -739,7 +760,10 @@ export function SimulationLayer({
     profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
     setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
-  }, [playing]);
+    zoneMetricsElapsed.current = 0;
+    zoneOccupants.current = new Map();
+    setZoneMetrics({});
+  }, [playing, setZoneMetrics]);
 
   // When returning to the 3D view from planogram mode, reset the playback clock
   // so it immediately re-syncs to the current simulation time.  Without this,
@@ -797,6 +821,29 @@ export function SimulationLayer({
     const aIdx = Math.max(0, bIdx - 1);
     const frameA = result.frames[aIdx];
     const frameB = result.frames[bIdx];
+
+    if (forbiddenZones.length > 0) {
+      zoneMetricsElapsed.current += delta;
+      if (zoneMetricsElapsed.current >= ZONE_METRICS_SAMPLE_SECONDS) {
+        const sampledDt = zoneMetricsElapsed.current;
+        zoneMetricsElapsed.current = 0;
+        const { metrics, occupants } = computeZoneOccupancyMetrics(
+          forbiddenZones,
+          frameB.agents,
+          zoneOccupants.current,
+          sampledDt,
+        );
+        zoneOccupants.current = occupants;
+        const asRecord: Record<string, ZoneOccupancyMetrics> = {};
+        metrics.forEach((value, key) => { asRecord[key] = value; });
+        setZoneMetrics(asRecord);
+      }
+    } else if (zoneOccupants.current.size > 0) {
+      // The last forbidden zone was deleted/reclassified: drop stale entries
+      // instead of leaving the previous zone's metrics displayed forever.
+      zoneOccupants.current = new Map();
+      setZoneMetrics({});
+    }
 
     // Rebuild frame-A lookup when the bracket changes OR when result.frames is replaced
     // (same index can point to a different frame after each tick's windowed snapshot).

@@ -66,6 +66,17 @@ def test_factory_returns_expected_strategies() -> None:
         create_movement_strategy("unknown")
 
 
+def test_velocity_without_repulsion_uses_low_cost_legacy_model() -> None:
+    strategy = create_movement_strategy(
+        "velocity",
+        RepulsionSettings(enabled=False),
+        0.25,
+    )
+
+    assert isinstance(strategy, VelocityBasedStrategy)
+    assert isinstance(strategy.create_model(), jps.CollisionFreeSpeedModel)
+
+
 def test_config_defaults_and_lambda_validation() -> None:
     config = SimulationConfig()
     assert config.movementModel == "velocity"

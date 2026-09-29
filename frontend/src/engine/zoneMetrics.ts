@@ -18,6 +18,27 @@ export function pointInPolygonCm(xCm: number, zCm: number, outline: FloorZonePoi
   return inside;
 }
 
+interface OutlineBoundsCm {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+function outlineBoundsCm(outline: FloorZonePoint[]): OutlineBoundsCm {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const point of outline) {
+    if (point.x < minX) minX = point.x;
+    if (point.x > maxX) maxX = point.x;
+    if (point.z < minZ) minZ = point.z;
+    if (point.z > maxZ) maxZ = point.z;
+  }
+  return { minX, maxX, minZ, maxZ };
+}
+
 /** Shoelace polygon area (m²) for a zone's floor outline. */
 export function zoneAreaM2(zone: FloorZone): number {
   const outline = zoneOutlinePointsCm(zone);
@@ -68,7 +89,17 @@ export function computeZoneOccupancyMetrics(
     const outline = zoneOutlinePointsCm(zone);
     const currentOccupants = new Set<number>();
     if (outline.length >= 3) {
+      // Cheap bounding-box pre-check before the O(vertices) ray-casting test:
+      // most agents sit far outside any given zone, so this skips the
+      // per-vertex loop entirely for the vast majority of agent/zone pairs.
+      const bounds = outlineBoundsCm(outline);
       for (const agent of agents) {
+        if (
+          agent.xCm < bounds.minX || agent.xCm > bounds.maxX
+          || agent.zCm < bounds.minZ || agent.zCm > bounds.maxZ
+        ) {
+          continue;
+        }
         if (pointInPolygonCm(agent.xCm, agent.zCm, outline)) {
           currentOccupants.add(agent.id);
         }

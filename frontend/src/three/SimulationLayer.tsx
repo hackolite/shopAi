@@ -691,6 +691,9 @@ export function SimulationLayer({
   const pickupPopups = useSimulationStore((state) => state.pickupPopups);
   const setZoneMetrics = useSimulationStore((state) => state.setZoneMetrics);
   const zones = useZoneStore((state) => state.zones);
+  // Density/flow are about physical occupancy of the drawn area, independent
+  // of whether the zone currently blocks pedestrian pathfinding, so metrics
+  // are still measured for 'forbidden' zones with blocksAccess === false.
   const forbiddenZones = useMemo(() => selectForbiddenZones(zones), [zones]);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;

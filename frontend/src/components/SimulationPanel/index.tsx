@@ -71,7 +71,8 @@ const MAX_COMPRESSION_LAMBDA = 0.7;
 function speedDependentRange(speedMps: number, repulsion: SpeedDependentRepulsionConfig): number {
   if (!repulsion.enabled) return repulsion.walkingRangeM;
   const v0 = Math.max(1e-6, repulsion.referenceSpeedMps);
-  return repulsion.walkingRangeM * (1 - repulsion.compressionLambda * Math.exp(-Math.max(0, speedMps) / v0));
+  const lambda = Math.min(MAX_COMPRESSION_LAMBDA, Math.max(MIN_COMPRESSION_LAMBDA, repulsion.compressionLambda));
+  return repulsion.walkingRangeM * (1 - lambda * Math.exp(-Math.max(0, speedMps) / v0));
 }
 
 function NumberField({

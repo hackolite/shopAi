@@ -186,9 +186,11 @@ class MovementModelStrategy(ABC):
     def apply_speed_dependent_repulsion(self, sim: Any, dt: float) -> None:
         """Update every agent's repulsion range from its current speed.
 
-        Must be called once per ``sim.iterate()``.  No-op when disabled.
+        Called once per application step (after all sub-steps) with ``dt``
+        the full step duration.  No-op when disabled.
         """
         if not self.repulsion.enabled:
+            self._previous_positions.clear()
             return
         seen: dict[int, tuple[float, float]] = {}
         for agent in sim.agents():
@@ -254,6 +256,7 @@ class CentrifugalForceStrategy(MovementModelStrategy):
     model_id = "centrifugal_force"
     label = "Centrifugal Force Model"
     substeps = 10
+    # GCFM uses a normalised (dimensionless) mass.
     MASS = 1.0
     TAU_S = 0.5
     A_V = 1.0

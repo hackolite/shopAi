@@ -221,8 +221,32 @@ class SimulationWaypointSystem(CADBaseModel):
     waypoints: list[SimulationWaypoint] = Field(default_factory=list)
 
 
+MovementModelId = Literal["social_force", "centrifugal_force", "velocity"]
+
+
+class SpeedDependentRepulsionConfig(CADBaseModel):
+    """Speed-dependent range of the inter-agent social repulsion.
+
+    B(v) = walkingRangeM * (1 - compressionLambda * exp(-v / referenceSpeedMps))
+    """
+
+    enabled: bool = True
+    # B_marche: social bubble radius at nominal walking speed (m).
+    walkingRangeM: float = Field(default=0.8, gt=0.0, le=5.0)
+    # λ: compression coefficient at standstill, λ ∈ [0.4, 0.7].
+    compressionLambda: float = Field(default=0.55, ge=0.4, le=0.7)
+    # v0: reference / desired speed (m/s).
+    referenceSpeedMps: float = Field(default=1.34, gt=0.0, le=5.0)
+
+
 class SimulationConfig(CADBaseModel):
     enabled: bool = True
+    # Micro-movement model: A = Social Force, B = Centrifugal Force,
+    # C = Velocity-based (collision-free speed model, default).
+    movementModel: MovementModelId = "velocity"
+    speedDependentRepulsion: SpeedDependentRepulsionConfig = Field(
+        default_factory=SpeedDependentRepulsionConfig
+    )
     arrivalRatePerSecond: float = 0.25
     durationSeconds: int = 120
     maxCustomers: int = 80

@@ -8,6 +8,7 @@ import type {
   SimulationResult,
   SimulationWaypoint,
   SimulationWaypointSystem,
+  SpeedDependentRepulsionConfig,
 } from '../types/cad';
 import type { JourneyMetricId } from '../engine/journeyMetrics';
 import type { YieldMetricId } from '../engine/yieldMetrics';
@@ -119,8 +120,17 @@ export function buildRuntimeSimulationConfig(config: SimulationConfig): Simulati
   };
 }
 
+export const defaultSpeedDependentRepulsion = (): SpeedDependentRepulsionConfig => ({
+  enabled: true,
+  walkingRangeM: 0.8,
+  compressionLambda: 0.55,
+  referenceSpeedMps: 1.34,
+});
+
 export const defaultSimulationConfig = (): SimulationConfig => ({
   enabled: true,
+  movementModel: 'velocity',
+  speedDependentRepulsion: defaultSpeedDependentRepulsion(),
   arrivalRatePerSecond: 0.25,
   durationSeconds: 120,
   maxCustomers: 80,

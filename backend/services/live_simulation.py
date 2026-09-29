@@ -141,10 +141,11 @@ class LiveSimulationSession:
             for entry in scenario_entries
         }
         simsvc._validate_waypoint_constraints([*self.entries, *self.transit_waypoints, *self.exits], self.walkable)
+        self.movement_strategy = simsvc.movement_strategy_for(self.config)
         self.sim = jps.Simulation(
-            model=jps.CollisionFreeSpeedModel(),
+            model=self.movement_strategy.create_model(),
             geometry=self.walkable,
-            dt=simsvc.SIMULATION_DT_S,
+            dt=self.movement_strategy.simulation_dt(simsvc.SIMULATION_DT_S),
         )
         previous_queue_stats = {
             waypoint_id: (
@@ -274,6 +275,7 @@ class LiveSimulationSession:
             try:
                 new_agent_id = self.sim.add_agent(
                     simsvc._build_agent_params(
+                        strategy=self.movement_strategy,
                         journey_id=journey_id,
                         stage_id=stage_ids[0],
                         position=position,
@@ -348,6 +350,7 @@ class LiveSimulationSession:
             try:
                 agent_id, spawn_position = simsvc.add_agent_with_spawn_retry(
                     sim=self.sim,
+                    strategy=self.movement_strategy,
                     waypoint=entry_wp,
                     walkable=self.walkable,
                     rng=self.rng,
@@ -489,6 +492,7 @@ class LiveSimulationSession:
             try:
                 agent_id, spawn_position = simsvc.add_agent_with_spawn_retry(
                     sim=self.sim,
+                    strategy=self.movement_strategy,
                     waypoint=entry_wp,
                     walkable=self.walkable,
                     rng=self.rng,
@@ -667,9 +671,8 @@ class LiveSimulationSession:
                     self.agent_speeds,
                     self.frozen_agents,
                 )
-                self.sim.iterate()
+                removed_agent_ids = self.movement_strategy.advance(self.sim, simsvc.SIMULATION_DT_S)
                 simsvc._apply_right_hand_bias(self.sim)
-                removed_agent_ids = [int(agent_id) for agent_id in self.sim.removed_agents()]
                 for removed_id in removed_agent_ids:
                     if removed_id in self.agent_routes:
                         self.completed += 1

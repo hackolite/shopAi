@@ -13,7 +13,7 @@ import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
 import { useSimulationStore } from '../store/simulationStore';
 import { useUIStore } from '../store/uiStore';
-import { selectForbiddenZones, useZoneStore } from '../store/zoneStore';
+import { selectNonBlockingZones, useZoneStore } from '../store/zoneStore';
 import { PickupPopups } from './PickupPopups';
 import type { AgentTrajectory, SimulationHeatmap } from '../types/cad';
 
@@ -691,10 +691,10 @@ export function SimulationLayer({
   const pickupPopups = useSimulationStore((state) => state.pickupPopups);
   const setZoneMetrics = useSimulationStore((state) => state.setZoneMetrics);
   const zones = useZoneStore((state) => state.zones);
-  // Density/flow are about physical occupancy of the drawn area, independent
-  // of whether the zone currently blocks pedestrian pathfinding, so metrics
-  // are still measured for 'forbidden' zones with blocksAccess === false.
-  const forbiddenZones = useMemo(() => selectForbiddenZones(zones), [zones]);
+  // Density/flow are only measured on floor drawings created by the user
+  // (« Dessin au sol ») and marked traversable: a blocking zone is carved out
+  // of the walkable area, so measuring it is pointless.
+  const measuredZones = useMemo(() => selectNonBlockingZones(zones), [zones]);
   const viewMode = useUIStore((s) => s.viewMode);
   const canDrag = scene != null;
   const storePos = scene?.store.position ?? [0, 0, 0];
@@ -822,14 +822,14 @@ export function SimulationLayer({
     const frameA = result.frames[aIdx];
     const frameB = result.frames[bIdx];
 
-    if (forbiddenZones.length > 0) {
+    if (measuredZones.length > 0) {
       zoneMetricsElapsed.current += delta;
       if (zoneMetricsElapsed.current >= ZONE_METRICS_SAMPLE_SECONDS) {
         const sampledDt = zoneMetricsElapsed.current;
         zoneMetricsElapsed.current = 0;
         const previousMetrics = useSimulationStore.getState().zoneMetrics;
         const { metrics, occupants } = computeZoneOccupancyMetrics(
-          forbiddenZones,
+          measuredZones,
           frameB.agents,
           zoneOccupants.current,
           sampledDt,
@@ -848,7 +848,7 @@ export function SimulationLayer({
         if (changed) setZoneMetrics(asRecord);
       }
     } else if (zoneOccupants.current.size > 0) {
-      // The last forbidden zone was deleted/reclassified: drop stale entries
+      // The last measured zone was deleted/reclassified: drop stale entries
       // instead of leaving the previous zone's metrics displayed forever.
       zoneOccupants.current = new Map();
       setZoneMetrics({});

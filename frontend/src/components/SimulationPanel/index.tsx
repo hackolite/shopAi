@@ -10,7 +10,7 @@ import {
   pickClosestWaypointId,
 } from '../../engine/simulationConstraint';
 import { useSceneStore } from '../../store/sceneStore';
-import { selectForbiddenZones, useZoneStore } from '../../store/zoneStore';
+import { selectNonBlockingZones, useZoneStore } from '../../store/zoneStore';
 import {
   buildRuntimeSimulationConfig,
   defaultSpeedDependentRepulsion,
@@ -290,10 +290,7 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
   const { scene } = useSceneStore();
   const zones = useZoneStore((state) => state.zones);
   const zonesLoaded = useZoneStore((state) => state.zonesLoaded);
-  const forbiddenFloorZones = useMemo(
-    () => selectForbiddenZones(zones).filter((zone) => zone.blocksAccess !== false),
-    [zones],
-  );
+  const measuredFloorZones = useMemo(() => selectNonBlockingZones(zones), [zones]);
   const {
     config,
     patchConfig,
@@ -1316,23 +1313,24 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
 
         <CollapsibleSection
           sectionId="zones"
-          title="Zones bloquantes"
+          title="Zones mesurées"
           collapsedSections={collapsedSections}
           setCollapsedSections={setCollapsedSections}
         >
           <p className="text-xs text-gray-500">
-            Densité (personnes/m²) et flux (personnes/s) mesurés dans chaque zone bloquante pendant la simulation.
+            Densité (personnes/m²) et flux (personnes/s) mesurés uniquement dans les zones créées avec « Dessin au sol »
+            et rendues traversables (case « Zone interdite » décochée). Les zones interdites ne sont pas mesurées.
           </p>
           <div className="space-y-2">
-            {forbiddenFloorZones.length === 0 ? (
+            {measuredFloorZones.length === 0 ? (
               <div className="rounded border border-dashed border-gray-800 px-3 py-4 text-center text-xs text-gray-600">
-                Aucune zone bloquante dessinée sur le sol.
+                Aucune zone traversable dessinée sur le sol.
               </div>
             ) : (
-              forbiddenFloorZones.map((zone) => {
+              measuredFloorZones.map((zone) => {
                 const metrics = zoneMetrics[zone.id];
                 return (
-                  <div key={zone.id} className="space-y-1 rounded border border-red-900/60 bg-red-950/20 p-2">
+                  <div key={zone.id} className="space-y-1 rounded border border-emerald-900/60 bg-emerald-950/20 p-2">
                     <div className="flex items-center justify-between text-xs text-gray-300">
                       <span className="truncate">{zone.label}</span>
                     </div>

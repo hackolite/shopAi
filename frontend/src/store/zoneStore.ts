@@ -347,12 +347,25 @@ export const useZoneStore = create<ZoneState>((set, get) => ({
 }));
 
 /** Zones of type 'forbidden' — the closed floor drawings used as pedestrian
- * obstacles and measured for live density/flow metrics. Shared selector so
- * the panel and the 3D layer filter the same list consistently. */
+ * obstacles. */
 export function selectForbiddenZones(zones: FloorZone[]): FloorZone[] {
   return zones.filter((zone) => zone.type === 'forbidden');
 }
 
+/**
+ * True for a floor drawing created by the user with « Dessin au sol » and
+ * marked traversable (blocksAccess === false). Only these zones are measured
+ * for live density/flow: blocking zones are carved out of the walkable area
+ * (nobody is ever inside) and imported zones (e.g. OSM buildings, which carry
+ * `source` metadata) were not drawn by the user.
+ */
+export function isDensityMeasuredZone(zone: FloorZone): boolean {
+  return zone.type === 'forbidden' && zone.blocksAccess === false && zone.source == null;
+}
+
+/** User-drawn traversable zones measured for live density/flow metrics.
+ * Shared selector so the panels, the HUD and the 3D layer filter the same
+ * list consistently. */
 export function selectNonBlockingZones(zones: FloorZone[]): FloorZone[] {
-  return zones.filter((zone) => zone.type === 'forbidden' && zone.blocksAccess === false);
+  return zones.filter(isDensityMeasuredZone);
 }

@@ -1991,6 +1991,10 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const zoneLabel = zoneDisplayLabel(zone);
   const zoneMetrics = useSimulationStore((state) => (zone.type === 'forbidden' ? state.zoneMetrics[zone.id] : undefined));
   const zoneMetricsLabel = zoneMetrics
+    // Blocking zones are carved out of the walkable area, so their readout is
+    // almost always 0: skip the sprite (one canvas texture per zone) unless
+    // agents can walk there or somebody is actually inside.
+    && (zone.blocksAccess === false || zoneMetrics.occupantCount > 0 || zoneMetrics.flowPerSecond > 0)
     ? `${zoneMetrics.densityPerM2.toFixed(2)} pers/m² · ${zoneMetrics.flowPerSecond.toFixed(2)} pers/s`
     : null;
   const buildingNeighbours = useMemo(

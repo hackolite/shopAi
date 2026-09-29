@@ -72,6 +72,17 @@ describe('computeZoneOccupancyMetrics', () => {
     expect(second.metrics.get('z1')!.occupantCount).toBe(2);
   });
 
+  it('reuses the previous metric object when a zone did not change', () => {
+    const zones = [zone({ id: 'z1' }), zone({ id: 'z2', x: 1000 })];
+    const first = computeZoneOccupancyMetrics(zones, [agent(1, 50, 50)], new Map(), 0.5);
+    const second = computeZoneOccupancyMetrics(zones, [agent(1, 50, 50)], first.occupants, 0.5, first.metrics);
+    // z1: occupant unchanged but flow dropped to 0 -> new object; z2 still empty -> same object.
+    expect(second.metrics.get('z1')).not.toBe(first.metrics.get('z1'));
+    expect(second.metrics.get('z2')).toBe(first.metrics.get('z2'));
+    const third = computeZoneOccupancyMetrics(zones, [agent(1, 50, 50)], second.occupants, 0.7, second.metrics);
+    expect(third.metrics.get('z1')).toBe(second.metrics.get('z1'));
+  });
+
   it('returns zero density for degenerate (zero-area) zones', () => {
     const zones = [zone({ id: 'z1', width: 0, depth: 0 })];
     const { metrics } = computeZoneOccupancyMetrics(zones, [agent(1, 0, 0)], new Map(), 1);

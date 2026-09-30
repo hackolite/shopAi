@@ -546,11 +546,11 @@ export default function CheckoutChartsOverlay() {
               ) : (
                 <div className="space-y-1">
                   {nonBlockingZones.map((zone, index) => {
-                    const zoneLabel = `Zone ${index + 1}`;
+                    const zoneLabel = zone.label.trim() || `Zone ${index + 1}`;
                     return (
                       <details key={zone.id} className="rounded border border-gray-800 bg-black/20">
                         <summary className="cursor-pointer px-2 py-1 text-[10px] text-gray-300">
-                          {zoneLabel}{zone.label ? ` · ${zone.label}` : ''}
+                          {zoneLabel}
                         </summary>
                         <div className="grid grid-cols-2 gap-1 p-1">
                           {(['density', 'flow'] as const).map((kind) => {

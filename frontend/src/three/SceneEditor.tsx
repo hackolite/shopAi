@@ -1994,7 +1994,7 @@ function FloorZoneMesh({ zone }: { zone: FloorZone }) {
   const measured = isDensityMeasuredZone(zone);
   const zoneMetrics = useSimulationStore((state) => (measured ? state.zoneMetrics[zone.id] : undefined));
   const zoneMetricsLabel = measured && zoneMetrics
-    ? `${zoneMetrics.densityPerM2.toFixed(2)} pers/m² · ${zoneMetrics.flowPerSecond.toFixed(2)} pers/s`
+    ? `Densité moy. ${zoneMetrics.averageDensityPerM2.toFixed(2)} pers/m² · Flux moy. ${zoneMetrics.averageFlowPerSecond.toFixed(2)} pers/s`
     : null;
   const buildingNeighbours = useMemo(
     () => zones.filter((other) => (
@@ -3296,10 +3296,9 @@ function MeasureTool({ store }: { store: StoreConfig }) {
   const [previewEnd, setPreviewEnd] = useState<THREE.Vector3 | null>(null);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
-  // Reset all state when leaving measure tool
+  // Cancel an in-progress measurement when leaving the measure tool.
   useEffect(() => {
     if (activeTool !== 'measure') {
-      setLines([]);
       setDrawStart(null);
       setPreviewEnd(null);
       setSelectedLineId(null);
@@ -3329,8 +3328,6 @@ function MeasureTool({ store }: { store: StoreConfig }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeTool, selectedLineId, drawStart]);
-
-  if (activeTool !== 'measure') return null;
 
   const storeOriginX = (store.position?.[0] ?? 0) * CM_TO_UNIT;
   const storeOriginZ = (store.position?.[2] ?? 0) * CM_TO_UNIT;
@@ -3374,15 +3371,17 @@ function MeasureTool({ store }: { store: StoreConfig }) {
   return (
     <>
       {/* Invisible floor plane — receives all floor interactions */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[storeOriginX + w / 2, GRID_Y_OFFSET + 0.02, storeOriginZ + d / 2]}
-        onClick={handleFloorClick}
-        onPointerMove={handleFloorPointerMove}
-      >
-        <planeGeometry args={[w, d]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
+      {activeTool === 'measure' && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[storeOriginX + w / 2, GRID_Y_OFFSET + 0.02, storeOriginZ + d / 2]}
+          onClick={handleFloorClick}
+          onPointerMove={handleFloorPointerMove}
+        >
+          <planeGeometry args={[w, d]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
 
       {/* Finished measurement lines */}
       {lines.map((line) => {
@@ -3393,11 +3392,13 @@ function MeasureTool({ store }: { store: StoreConfig }) {
         return (
           <group key={line.id}>
             <Line points={[line.start, line.end]} color={lineColor} lineWidth={isSelected ? 3 : 2} />
-            <MeasureLineHit
-              line={line}
-              isSelected={isSelected}
-              onSelect={() => setSelectedLineId(isSelected ? null : line.id)}
-            />
+            {activeTool === 'measure' && (
+              <MeasureLineHit
+                line={line}
+                isSelected={isSelected}
+                onSelect={() => setSelectedLineId(isSelected ? null : line.id)}
+              />
+            )}
             {/* Start / end endpoint dots */}
             <mesh position={line.start}>
               <sphereGeometry args={[0.04, 8, 8]} />
@@ -3418,7 +3419,7 @@ function MeasureTool({ store }: { store: StoreConfig }) {
       })}
 
       {/* Preview line while drawing (from drawStart to mouse position) */}
-      {drawStart && previewEnd && (() => {
+      {activeTool === 'measure' && drawStart && previewEnd && (() => {
         const dist = drawStart.distanceTo(previewEnd);
         const mid = drawStart.clone().add(previewEnd).multiplyScalar(0.5);
         return (
@@ -3434,7 +3435,7 @@ function MeasureTool({ store }: { store: StoreConfig }) {
       })()}
 
       {/* Start-point dot while drawing */}
-      {drawStart && (
+      {activeTool === 'measure' && drawStart && (
         <mesh position={drawStart}>
           <sphereGeometry args={[0.06, 8, 8]} />
           <meshBasicMaterial color="#facc15" />

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { computeZoneOccupancyMetrics, pointInPolygonCm, zoneAreaM2, zoneMetricDisplay } from './zoneMetrics';
+import {
+  averageZoneOccupancyMetrics,
+  computeZoneOccupancyMetrics,
+  pointInPolygonCm,
+  zoneAreaM2,
+  zoneMetricDisplay,
+} from './zoneMetrics';
 import type { FloorZone, SimulationAgentFrame } from '../types/cad';
 
 function zone(partial: Partial<FloorZone>): FloorZone {
@@ -91,15 +97,41 @@ describe('computeZoneOccupancyMetrics', () => {
   });
 });
 
+describe('averageZoneOccupancyMetrics', () => {
+  it('calculates time-weighted density and flow averages', () => {
+    const first = computeZoneOccupancyMetrics(
+      [zone({ id: 'z1' })],
+      [agent(1, 50, 50), agent(2, 60, 60)],
+      new Map(),
+      1,
+    );
+    const firstAverage = averageZoneOccupancyMetrics(first.metrics, new Map(), 1);
+    const second = computeZoneOccupancyMetrics(
+      [zone({ id: 'z1' })],
+      [agent(1, 50, 50)],
+      first.occupants,
+      1,
+    );
+    const secondAverage = averageZoneOccupancyMetrics(
+      second.metrics,
+      firstAverage.accumulators,
+      1,
+    );
+
+    expect(secondAverage.metrics.get('z1')?.averageDensityPerM2).toBeCloseTo(0.375, 5);
+    expect(secondAverage.metrics.get('z1')?.averageFlowPerSecond).toBeCloseTo(1, 5);
+  });
+});
+
 describe('zoneMetricDisplay', () => {
   it('formats density and flow tiles with French labels and units', () => {
     const metrics = computeZoneOccupancyMetrics([zone({ id: 'z1' })], [agent(1, 50, 50)], new Map(), 0.5).metrics.get('z1');
     expect(zoneMetricDisplay('density', 'Zone 1', metrics)).toEqual({
-      label: 'Zone 1 · Densité',
+      label: 'Zone 1 · Densité moyenne',
       value: '0,25 pers/m²',
     });
     expect(zoneMetricDisplay('flow', 'Zone 1', metrics)).toEqual({
-      label: 'Zone 1 · Flux',
+      label: 'Zone 1 · Flux moyen',
       value: '2 pers/s',
     });
   });

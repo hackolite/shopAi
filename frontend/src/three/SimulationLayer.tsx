@@ -7,7 +7,12 @@ import { buildHeatmapPixels } from '../engine/heatmap';
 import { buildMarginHeatmap } from '../engine/marginHeatmap';
 import { advancePlaybackClock, clampNoReverseStep, isClockResnap } from '../engine/simulationPlayback';
 import { buildYieldHeatmap } from '../engine/yieldHeatmap';
-import { computeZoneOccupancyMetrics, type ZoneOccupancyMetrics } from '../engine/zoneMetrics';
+import {
+  averageZoneOccupancyMetrics,
+  computeZoneOccupancyMetrics,
+  type ZoneMetricAccumulator,
+  type ZoneOccupancyMetrics,
+} from '../engine/zoneMetrics';
 import { useCatalogStore } from '../store/catalogStore';
 import { usePlanogramStore } from '../store/planogramStore';
 import { useSceneStore } from '../store/sceneStore';
@@ -745,6 +750,9 @@ export function SimulationLayer({
   // agent pose updates above for main-thread time.
   const zoneMetricsElapsed = useRef(0);
   const zoneOccupants = useRef<Map<string, Set<number>>>(new Map());
+  const zoneMetricAverages = useRef<Map<string, ZoneMetricAccumulator>>(new Map());
+  const previousZoneMetrics = useRef<Map<string, ZoneOccupancyMetrics>>(new Map());
+  const lastZoneMetricsTime = useRef<number | null>(null);
 
   useEffect(() => {
     prevAgentIds.current = new Set();
@@ -760,10 +768,7 @@ export function SimulationLayer({
     profile.current = { frameCount: 0, elapsed: 0, maxMs: 0, accMs: 0 };
     setProfilingText('FPS -- | frame -- ms | max -- ms');
     setAgentSlots(new Map());
-    zoneMetricsElapsed.current = 0;
-    zoneOccupants.current = new Map();
-    setZoneMetrics({});
-  }, [playing, setZoneMetrics]);
+  }, [playing]);
 
   // When returning to the 3D view from planogram mode, reset the playback clock
   // so it immediately re-syncs to the current simulation time.  Without this,
@@ -822,23 +827,43 @@ export function SimulationLayer({
     const frameA = result.frames[aIdx];
     const frameB = result.frames[bIdx];
 
+    if (
+      lastZoneMetricsTime.current != null
+      && frameB.timeSeconds < lastZoneMetricsTime.current
+    ) {
+      zoneMetricsElapsed.current = 0;
+      zoneOccupants.current = new Map();
+      zoneMetricAverages.current = new Map();
+      previousZoneMetrics.current = new Map();
+      setZoneMetrics({});
+    }
+    lastZoneMetricsTime.current = frameB.timeSeconds;
+
     if (measuredZones.length > 0) {
       zoneMetricsElapsed.current += delta;
       if (zoneMetricsElapsed.current >= ZONE_METRICS_SAMPLE_SECONDS) {
         const sampledDt = zoneMetricsElapsed.current;
         zoneMetricsElapsed.current = 0;
-        const previousMetrics = useSimulationStore.getState().zoneMetrics;
-        const { metrics, occupants } = computeZoneOccupancyMetrics(
+        const { metrics: currentMetrics, occupants } = computeZoneOccupancyMetrics(
           measuredZones,
           frameB.agents,
           zoneOccupants.current,
           sampledDt,
-          new Map(Object.entries(previousMetrics)),
+          previousZoneMetrics.current,
         );
         zoneOccupants.current = occupants;
+        previousZoneMetrics.current = currentMetrics;
+        const averaged = averageZoneOccupancyMetrics(
+          currentMetrics,
+          zoneMetricAverages.current,
+          sampledDt,
+        );
+        zoneMetricAverages.current = averaged.accumulators;
         // Only publish when a zone's values actually changed: a new record on
         // every sample re-rendered every zone mesh, the HUD and the panel twice
         // a second, which made agent playback stutter on maps with many zones.
+        const previousMetrics = useSimulationStore.getState().zoneMetrics;
+        const metrics = averaged.metrics;
         let changed = metrics.size !== Object.keys(previousMetrics).length;
         const asRecord: Record<string, ZoneOccupancyMetrics> = {};
         metrics.forEach((value, key) => {
@@ -851,6 +876,8 @@ export function SimulationLayer({
       // The last measured zone was deleted/reclassified: drop stale entries
       // instead of leaving the previous zone's metrics displayed forever.
       zoneOccupants.current = new Map();
+      zoneMetricAverages.current = new Map();
+      previousZoneMetrics.current = new Map();
       setZoneMetrics({});
     }
 

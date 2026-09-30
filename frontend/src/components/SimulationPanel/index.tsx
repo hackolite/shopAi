@@ -1335,8 +1335,8 @@ export default function SimulationPanel({ projectId }: SimulationPanelProps) {
                       <span className="truncate">{zone.label}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-2 text-[11px] text-gray-400">
-                      <div className="flex justify-between"><span>Densité</span><span>{(metrics?.densityPerM2 ?? 0).toFixed(2)} pers/m²</span></div>
-                      <div className="flex justify-between"><span>Flux</span><span>{(metrics?.flowPerSecond ?? 0).toFixed(2)} pers/s</span></div>
+                      <div className="flex justify-between"><span>Densité moyenne</span><span>{(metrics?.averageDensityPerM2 ?? 0).toFixed(2)} pers/m²</span></div>
+                      <div className="flex justify-between"><span>Flux moyen</span><span>{(metrics?.averageFlowPerSecond ?? 0).toFixed(2)} pers/s</span></div>
                     </div>
                   </div>
                 );

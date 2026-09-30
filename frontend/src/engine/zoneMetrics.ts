@@ -80,9 +80,46 @@ export interface ZoneOccupancyMetrics {
   densityPerM2: number;
   /** People entering the zone per second, averaged since the previous sample. */
   flowPerSecond: number;
+  averageDensityPerM2: number;
+  averageFlowPerSecond: number;
 }
 
 export type ZoneMetricKind = 'density' | 'flow';
+
+export interface ZoneMetricAccumulator {
+  elapsedSeconds: number;
+  densityPersonSeconds: number;
+  flowPeople: number;
+}
+
+export function averageZoneOccupancyMetrics(
+  metrics: ReadonlyMap<string, ZoneOccupancyMetrics>,
+  accumulators: ReadonlyMap<string, ZoneMetricAccumulator>,
+  dtSeconds: number,
+): { metrics: Map<string, ZoneOccupancyMetrics>; accumulators: Map<string, ZoneMetricAccumulator> } {
+  const averagedMetrics = new Map<string, ZoneOccupancyMetrics>();
+  const nextAccumulators = new Map<string, ZoneMetricAccumulator>();
+  const dt = Math.max(0, dtSeconds);
+
+  metrics.forEach((metric, zoneId) => {
+    const previous = accumulators.get(zoneId) ?? {
+      elapsedSeconds: 0,
+      densityPersonSeconds: 0,
+      flowPeople: 0,
+    };
+    const elapsedSeconds = previous.elapsedSeconds + dt;
+    const densityPersonSeconds = previous.densityPersonSeconds + metric.densityPerM2 * dt;
+    const flowPeople = previous.flowPeople + metric.flowPerSecond * dt;
+    nextAccumulators.set(zoneId, { elapsedSeconds, densityPersonSeconds, flowPeople });
+    averagedMetrics.set(zoneId, {
+      ...metric,
+      averageDensityPerM2: elapsedSeconds > 0 ? densityPersonSeconds / elapsedSeconds : metric.densityPerM2,
+      averageFlowPerSecond: elapsedSeconds > 0 ? flowPeople / elapsedSeconds : metric.flowPerSecond,
+    });
+  });
+
+  return { metrics: averagedMetrics, accumulators: nextAccumulators };
+}
 
 export interface PinnedZoneMetric {
   zoneId: string;
@@ -98,8 +135,8 @@ export function zoneMetricDisplay(
     Number.isFinite(value) ? value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—'
   );
   return kind === 'density'
-    ? { label: `${zoneLabel} · Densité`, value: `${format(metrics?.densityPerM2 ?? 0)} pers/m²` }
-    : { label: `${zoneLabel} · Flux`, value: `${format(metrics?.flowPerSecond ?? 0)} pers/s` };
+    ? { label: `${zoneLabel} · Densité moyenne`, value: `${format(metrics?.averageDensityPerM2 ?? 0)} pers/m²` }
+    : { label: `${zoneLabel} · Flux moyen`, value: `${format(metrics?.averageFlowPerSecond ?? 0)} pers/s` };
 }
 
 /**
@@ -169,6 +206,8 @@ export function computeZoneOccupancyMetrics(
       occupantCount: currentOccupants.size,
       densityPerM2,
       flowPerSecond,
+      averageDensityPerM2: densityPerM2,
+      averageFlowPerSecond: flowPerSecond,
     });
     occupants.set(zone.id, currentOccupants);
   }

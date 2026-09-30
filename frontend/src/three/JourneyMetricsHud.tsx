@@ -179,10 +179,12 @@ export function JourneyMetricsHud() {
 
   const zoneMetricRows = useMemo(
     () => pinnedZoneMetrics.flatMap(({ zoneId, kind }) => {
-      const index = nonBlockingZones.findIndex((zone) => zone.id === zoneId);
-      if (index < 0) return [];
+      const index = nonBlockingZones.findIndex((candidate) => candidate.id === zoneId);
+      const zone = nonBlockingZones[index];
+      if (!zone) return [];
+      const label = zone.label.trim() || `Zone ${index + 1}`;
       return [{
-        ...zoneMetricDisplay(kind, `Zone ${index + 1}`, zoneMetrics[zoneId]),
+        ...zoneMetricDisplay(kind, label, zoneMetrics[zoneId]),
         color: JOURNEY_COLOR,
         border: JOURNEY_BORDER,
       }];

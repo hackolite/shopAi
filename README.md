@@ -746,6 +746,13 @@ après l'enregistrement du compte. Réinstallez la version corrigée après avoi
 arrêté ShopAI, puis connectez-vous avec le compte déjà créé pour reprendre cette
 préparation. Il n'est pas nécessaire de supprimer la base ni les projets.
 
+Si la création d'un projet renvoie `[405] {"detail":"Method Not Allowed"}`
+uniquement dans la version compilée, arrêtez ShopAI puis réinstallez une version
+intégrant le correctif de routage. L'API accepte désormais les URL de liste et de
+création des projets avec ou sans slash final, sans interception par le serveur
+du frontend compilé. La liste du mobilier bénéficie du même correctif.
+Les projets existants sont conservés.
+
 ### Compiler l’installeur Windows
 
 Sur une machine Windows x64 avec Node.js 20+ et Inno Setup 6 installés, lancez

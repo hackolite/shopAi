@@ -238,6 +238,7 @@ def _merge_model(model_cls, current: Any, payload: dict[str, Any]) -> Any:
     return model_cls.model_validate(data)
 
 
+@router.get("", include_in_schema=False)
 @router.get("/")
 def get_projects() -> dict[str, Any]:
     user = platform_service.get_current_user()
@@ -248,6 +249,7 @@ def get_projects() -> dict[str, Any]:
     return {"projects": [{"id": item["id"], "name": item["name"]} for item in projects]}
 
 
+@router.post("", include_in_schema=False)
 @router.post("/")
 def post_project(payload: CreateProjectPayload):
     project_id = str(uuid4())

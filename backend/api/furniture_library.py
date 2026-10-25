@@ -20,6 +20,7 @@ def _load_library() -> list[FurnitureDefinition]:
     return [FurnitureDefinition.model_validate(item) for item in payload.get("furniture", [])]
 
 
+@router.get("", include_in_schema=False)
 @router.get("/")
 def list_furniture_definitions():
     return {"furniture": [item.model_dump(mode="json") for item in _load_library()]}

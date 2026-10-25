@@ -744,6 +744,32 @@ déclenché dans GitHub Actions en lançant manuellement
 **Windows installer** ou en poussant un tag commençant par `v` ; l’installeur
 est alors disponible dans les artefacts du workflow.
 
+### Option PyInstaller (prototype du backend)
+
+PyInstaller peut empaqueter Python et les dépendances du backend dans un
+répertoire distribuable, ce qui évite d’installer Python sur le poste cible.
+Pour installer l’outil dans l’environnement de développement :
+
+```bash
+python -m pip install pyinstaller
+```
+
+Cette option n’est pas encore un installeur ShopAI complet : le backend expose
+une application ASGI (`main:app`) et n’a pas de lanceur PyInstaller dédié. Il
+faudrait ajouter un point d’entrée qui démarre Uvicorn, puis vérifier
+l’inclusion des dépendances natives de JuPedSim et des ressources du backend.
+Le frontend compilé et l’orchestrateur LLM sont des services séparés et ne
+seraient pas inclus automatiquement dans cet exécutable. Les données des
+projets devraient aussi être dirigées vers un emplacement persistant, par
+exemple via `SHOPAI_STORAGE_ROOT`, et non stockées dans le répertoire temporaire
+de PyInstaller.
+
+En attendant ce travail et des tests sur une installation Windows propre,
+l’installeur **ShopAI-Setup.exe** ci-dessus reste la méthode recommandée pour
+installer et lancer l’application complète. PyInstaller convient ici à une
+expérimentation de distribution du backend seul, pas à un remplacement direct
+de l’installeur actuel.
+
 ### Prerequisites
 
 - Python 3.11+

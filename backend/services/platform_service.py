@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import sqlite3
@@ -28,6 +29,8 @@ from services.reference_templates import (
     load_default_assortment,
     load_reference_template,
 )
+
+_log = logging.getLogger(__name__)
 
 SESSION_COOKIE_NAME = "shopai_session"
 SESSION_HEADER_NAME = "X-ShopAI-Session"
@@ -368,6 +371,7 @@ def ensure_tenant_defaults(user: dict[str, Any]) -> None:
             if asset_key in existing:
                 continue
             name = REFERENCE_PROJECT_NAMES[source_id] + (" – Implantation seule" if layout_only else "")
+            _log.info("Provisioning default asset: tenant=%s asset=%s", user["tenantId"], asset_key)
             snapshot = load_reference_template(source_id, layout_only=layout_only)
             metadata = project_manager.import_project(snapshot, name)
             project_manager.save_project_file(metadata["id"], "textures.json", snapshot["textures"])
@@ -478,7 +482,13 @@ def _row_to_user_payload(row: sqlite3.Row) -> dict[str, Any]:
 
 def _provisioned_user_payload(row: sqlite3.Row) -> dict[str, Any]:
     user = _row_to_user_payload(row)
-    ensure_tenant_defaults(user)
+    _log.info("Provisioning account defaults: tenant=%s", user["tenantId"])
+    try:
+        ensure_tenant_defaults(user)
+    except Exception:
+        _log.exception("Account defaults failed: tenant=%s", user["tenantId"])
+        raise
+    _log.info("Account defaults ready: tenant=%s", user["tenantId"])
     return user
 
 

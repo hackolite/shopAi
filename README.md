@@ -729,6 +729,23 @@ et 8010 doivent être libres. Les données des projets restent dans
 `%LOCALAPPDATA%\ShopAI\projects` et ne sont pas supprimées lors de la
 désinstallation.
 
+Les journaux d'exécution sont dans `%LOCALAPPDATA%\ShopAI\logs` :
+`backend.log` conserve les erreurs HTTP avec leur traceback et les étapes de
+préparation des comptes (rotation à 5 Mo, trois archives). `launcher.log` trace
+le lancement ; `backend-stdout.log`, `backend-stderr.log` et les fichiers
+`orchestrator-stdout.log` / `orchestrator-stderr.log` capturent les sorties des
+services, y compris les échecs avant initialisation du backend. Ces sorties sont
+remplacées au lancement de chaque service. Les corps des requêtes, mots de passe,
+cookies et clés API ne sont pas ajoutés aux journaux de diagnostic.
+Hors du lanceur Windows, `SHOPAI_LOG_DIR` permet de choisir le dossier des logs
+du backend.
+
+Un ancien installeur omettait `assortment.json`, nécessaire à la préparation des
+données de démonstration lors de l'inscription, ce qui pouvait provoquer un 500
+après l'enregistrement du compte. Réinstallez la version corrigée après avoir
+arrêté ShopAI, puis connectez-vous avec le compte déjà créé pour reprendre cette
+préparation. Il n'est pas nécessaire de supprimer la base ni les projets.
+
 ### Compiler l’installeur Windows
 
 Sur une machine Windows x64 avec Node.js 20+ et Inno Setup 6 installés, lancez

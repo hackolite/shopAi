@@ -27,6 +27,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+Source: "..\..\assortment.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\backend\*"; DestDir: "{app}\backend"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__\*;tests\*;storage\projects\*"
 Source: "..\..\orchestrator\*"; DestDir: "{app}\orchestrator"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__\*;tests\*"
 Source: "..\..\frontend\dist\*"; DestDir: "{app}\frontend\dist"; Flags: ignoreversion recursesubdirs createallsubdirs

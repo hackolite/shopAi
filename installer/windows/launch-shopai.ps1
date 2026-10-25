@@ -9,10 +9,16 @@ $OrchestratorPython = Join-Path $AppDataRoot 'orchestrator-venv\Scripts\python.e
 $InstallCompletionMarker = Join-Path $AppDataRoot 'install-complete'
 $StorageRoot = Join-Path $AppDataRoot 'projects'
 $ProcessDirectory = Join-Path $AppDataRoot 'processes'
+$LogDirectory = Join-Path $AppDataRoot 'logs'
+$TranscriptStarted = $false
 $BackendUrl = 'http://127.0.0.1:8000/'
 $OrchestratorUrl = 'http://127.0.0.1:8010/'
 
 try {
+    New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
+    Start-Transcript -Path (Join-Path $LogDirectory 'launcher.log') -Append | Out-Null
+    $TranscriptStarted = $true
+    Write-Host "Starting ShopAI from $AppRoot"
     $MissingComponents = @()
     if (-not (Test-Path $VenvPython)) {
         $MissingComponents += 'backend Python environment'
@@ -31,6 +37,7 @@ try {
     New-Item -ItemType Directory -Force -Path $StorageRoot | Out-Null
     New-Item -ItemType Directory -Force -Path $ProcessDirectory | Out-Null
     $env:SHOPAI_STORAGE_ROOT = $StorageRoot
+    $env:SHOPAI_LOG_DIR = $LogDirectory
     $env:PYTHONUTF8 = '1'
     $env:STUDIO_LLM_WEBHOOK_URL = 'http://127.0.0.1:8010/webhook/llm'
     $env:BACKEND_BASE_URL = 'http://127.0.0.1:8000'
@@ -81,6 +88,8 @@ try {
         $Server = Start-Process -FilePath $VenvPython `
             -ArgumentList @('-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8000') `
             -WorkingDirectory $BackendRoot `
+            -RedirectStandardOutput (Join-Path $LogDirectory 'backend-stdout.log') `
+            -RedirectStandardError (Join-Path $LogDirectory 'backend-stderr.log') `
             -WindowStyle Hidden `
             -PassThru
         Set-Content -LiteralPath (Join-Path $ProcessDirectory 'backend.pid') -Value $Server.Id
@@ -126,6 +135,8 @@ try {
         $Agent = Start-Process -FilePath $OrchestratorPython `
             -ArgumentList @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8010') `
             -WorkingDirectory $OrchestratorRoot `
+            -RedirectStandardOutput (Join-Path $LogDirectory 'orchestrator-stdout.log') `
+            -RedirectStandardError (Join-Path $LogDirectory 'orchestrator-stderr.log') `
             -WindowStyle Hidden `
             -PassThru
         Set-Content -LiteralPath (Join-Path $ProcessDirectory 'orchestrator.pid') -Value $Agent.Id
@@ -156,7 +167,15 @@ try {
     Start-Process $BackendUrl
 }
 catch {
+    Write-Host "ShopAI launch failed: $($_.Exception.Message)"
     Add-Type -AssemblyName PresentationFramework
-    [System.Windows.MessageBox]::Show($_.Exception.Message, 'ShopAI', 'OK', 'Error') | Out-Null
+    [System.Windows.MessageBox]::Show(
+        "$($_.Exception.Message)`nLogs: $LogDirectory", 'ShopAI', 'OK', 'Error'
+    ) | Out-Null
     exit 1
+}
+finally {
+    if ($TranscriptStarted) {
+        Stop-Transcript | Out-Null
+    }
 }

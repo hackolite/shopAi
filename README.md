@@ -712,6 +712,14 @@ dépendances Python. À la fin, choisissez le fournisseur LLM (OpenAI, Anthropic
 xAI, OpenRouter ou mode déterministe) et saisissez sa clé API. Cette clé est
 chiffrée pour le compte Windows courant.
 
+ShopAI utilise le Python classique situé dans
+`%LOCALAPPDATA%\Programs\Python\Python312` (installé depuis python.org si absent),
+sans sélectionner le Python du Microsoft Store via `py.exe`. Cela évite la
+redirection des environnements virtuels vers le cache du Store. Si une installation
+précédente a échoué avec un chemin contenant `PythonSoftwareFoundation.Python.3.12`,
+relancez l’installeur corrigé : il recrée les environnements manquants aux chemins
+attendus, sans supprimer les projets.
+
 Depuis le menu Démarrer, utilisez **ShopAI** pour lancer le backend, l’orchestrateur
 LLM et le frontend compilé, puis ouvrir l’interface dans le navigateur à
 **http://127.0.0.1:8000**. **Configure LLM** permet de changer de fournisseur ou

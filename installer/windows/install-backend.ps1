@@ -22,15 +22,8 @@ try {
     $TranscriptStarted = $true
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-    $Launcher = Get-Command py.exe -ErrorAction SilentlyContinue
-    if ($Launcher) {
-        & $Launcher.Source -3.12 -c 'import sys' 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            $PythonExe = (& $Launcher.Source -3.12 -c 'import sys; print(sys.executable)').Trim()
-        }
-    }
-
-    if (-not (Test-Path $PythonExe)) {
+    # Microsoft Store Python redirects LOCALAPPDATA, hiding venvs from the launch scripts.
+    if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
         $InstallerPath = Join-Path $env:TEMP 'python-3.12.10-amd64.exe'
         $InstallerUrl = 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe'
         Write-Host 'Downloading Python 3.12...'
@@ -38,7 +31,7 @@ try {
         $InstallArgs = @(
             '/quiet',
             'InstallAllUsers=0',
-            "TargetDir=$PythonRoot",
+            "TargetDir=`"$PythonRoot`"",
             'Include_pip=1',
             'Include_launcher=1',
             'InstallLauncherAllUsers=0',
@@ -47,15 +40,8 @@ try {
         )
         $PythonSetup = Start-Process -FilePath $InstallerPath -ArgumentList $InstallArgs -Wait -PassThru
         Remove-Item -LiteralPath $InstallerPath -Force
-        if ($PythonSetup.ExitCode -ne 0 -or -not (Test-Path $PythonExe)) {
+        if ($PythonSetup.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
             throw 'Python 3.12 could not be installed.'
-        }
-    }
-
-    if (-not (Test-Path $VenvPython)) {
-        & $PythonExe -m venv $VenvRoot
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Could not create the ShopAI Python environment.'
         }
     }
 
@@ -63,10 +49,10 @@ try {
         @{ Python = $VenvPython; Path = $VenvRoot; Requirements = (Join-Path $BackendRoot 'requirements.txt') },
         @{ Python = $OrchestratorVenvPython; Path = $OrchestratorVenvRoot; Requirements = (Join-Path $OrchestratorRoot 'requirements.txt') }
     )) {
-        if (-not (Test-Path $Environment.Python)) {
+        if (-not (Test-Path -LiteralPath $Environment.Python -PathType Leaf)) {
             & $PythonExe -m venv $Environment.Path
-            if ($LASTEXITCODE -ne 0) {
-                throw "Could not create the Python environment at $($Environment.Path)."
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $Environment.Python -PathType Leaf)) {
+                throw "Could not create the Python environment at $($Environment.Path). Expected executable: $($Environment.Python)."
             }
         }
         & $Environment.Python -m pip install --disable-pip-version-check -r $Environment.Requirements

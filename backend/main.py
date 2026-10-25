@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -14,6 +15,16 @@ from api.platform import router as platform_router
 from api.projects import router as projects_router
 from services.demo_initializer import init_retail_cad_demo
 from services import platform_service
+from services.runtime_logging import configure_file_logging
+
+_log_path = configure_file_logging()
+_log = logging.getLogger(__name__)
+_log.info(
+    "Backend starting: application=%s storage=%s log=%s",
+    Path(__file__).resolve().parent,
+    platform_service.project_manager.STORAGE_ROOT,
+    _log_path,
+)
 
 app = FastAPI(
     title="Retail Digital Twin API",
@@ -52,11 +63,21 @@ else:
 
 @app.middleware("http")
 async def attach_current_user(request: Request, call_next):
-    user = platform_service.resolve_session_user(request)
-    if platform_service._request_uses_forwarded_session(request) and user is None:
-        return JSONResponse(status_code=401, content={"detail": "Invalid forwarded agent session"})
-    token = platform_service.set_current_user(user)
     try:
-        return await call_next(request)
-    finally:
-        platform_service.reset_current_user(token)
+        user = platform_service.resolve_session_user(request)
+        if platform_service._request_uses_forwarded_session(request) and user is None:
+            return JSONResponse(status_code=401, content={"detail": "Invalid forwarded agent session"})
+        token = platform_service.set_current_user(user)
+        try:
+            response = await call_next(request)
+        finally:
+            platform_service.reset_current_user(token)
+    except Exception:
+        _log.exception("Unhandled request error: %s %s", request.method, request.url.path)
+        raise
+    if response.status_code >= 500:
+        _log.error(
+            "Request failed: %s %s status=%s",
+            request.method, request.url.path, response.status_code,
+        )
+    return response

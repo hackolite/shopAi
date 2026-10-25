@@ -10,8 +10,18 @@ $VenvRoot = Join-Path $AppDataRoot 'backend-venv'
 $OrchestratorVenvRoot = Join-Path $AppDataRoot 'orchestrator-venv'
 $VenvPython = Join-Path $VenvRoot 'Scripts\python.exe'
 $OrchestratorVenvPython = Join-Path $OrchestratorVenvRoot 'Scripts\python.exe'
+$LogPath = Join-Path $AppDataRoot 'install-backend.log'
+$CompletionMarker = Join-Path $AppDataRoot 'install-complete'
+$TranscriptStarted = $false
+$InstallFailed = $false
 
 try {
+    New-Item -ItemType Directory -Force -Path $AppDataRoot | Out-Null
+    Remove-Item -LiteralPath $CompletionMarker -Force -ErrorAction SilentlyContinue
+    Start-Transcript -Path $LogPath -Append | Out-Null
+    $TranscriptStarted = $true
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
     $Launcher = Get-Command py.exe -ErrorAction SilentlyContinue
     if ($Launcher) {
         & $Launcher.Source -3.12 -c 'import sys' 2>$null
@@ -66,6 +76,17 @@ try {
     }
 }
 catch {
-    Write-Error $_
+    Write-Host "ShopAI dependency installation failed: $($_.Exception.Message)"
+    $InstallFailed = $true
+}
+finally {
+    if ($TranscriptStarted) {
+        Stop-Transcript | Out-Null
+    }
+}
+
+if ($InstallFailed) {
     exit 1
 }
+
+Set-Content -LiteralPath $CompletionMarker -Value 'complete'

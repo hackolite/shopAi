@@ -21,7 +21,12 @@ from services.reference_templates import REFERENCE_PROJECT_IDS
 
 _log = logging.getLogger(__name__)
 
-STORAGE_ROOT = Path(__file__).resolve().parent.parent / "storage" / "projects"
+STORAGE_ROOT = Path(
+    os.environ.get(
+        "SHOPAI_STORAGE_ROOT",
+        str(Path(__file__).resolve().parent.parent / "storage" / "projects"),
+    )
+)
 _DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "storage" / "default_catalog.json"
 _ALLOWED_FILENAMES = frozenset({
     "project.json",

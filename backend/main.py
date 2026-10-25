@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +41,14 @@ _icons_path = os.path.join(os.path.dirname(__file__), "storage", "icons")
 if os.path.isdir(_icons_path):
     app.mount("/icons", StaticFiles(directory=_icons_path), name="icons")
 
+_frontend_path = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _frontend_path.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend_path), html=True), name="frontend")
+else:
+    @app.get("/")
+    def health():
+        return {"status": "ok", "service": "Retail Digital Twin API"}
+
 
 @app.middleware("http")
 async def attach_current_user(request: Request, call_next):
@@ -51,8 +60,3 @@ async def attach_current_user(request: Request, call_next):
         return await call_next(request)
     finally:
         platform_service.reset_current_user(token)
-
-
-@app.get("/")
-def health():
-    return {"status": "ok", "service": "Retail Digital Twin API"}

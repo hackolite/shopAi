@@ -42,9 +42,55 @@ Name: "{group}\Stop ShopAI"; Filename: "powershell.exe"; Parameters: "-NoProfile
 Name: "{autodesktop}\ShopAI"; Filename: "powershell.exe"; Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\scripts\launch-shopai.ps1"""; Tasks: desktopicon
 Name: "{group}\Uninstall ShopAI"; Filename: "{uninstallexe}"
 
-[Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\install-backend.ps1"""; Description: "Install the ShopAI backend and Python dependencies"; StatusMsg: "Installing Python and ShopAI dependencies..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\scripts\configure-llm.ps1"""; Description: "Configure the LLM provider"; Flags: waituntilterminated runasoriginaluser
-
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\stop-shopai.ps1"""; Flags: runhidden waituntilterminated
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  CompletionMarker: String;
+  ResultCode: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    WizardForm.StatusLabel.Caption := 'Installing Python and ShopAI dependencies...';
+    WizardForm.Update;
+    if not Exec(
+      ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -ExecutionPolicy Bypass -File "' +
+        ExpandConstant('{app}\scripts\install-backend.ps1') + '"',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) then
+      RaiseException(
+        'Could not start the ShopAI dependency installer. Check that Windows PowerShell is available.'
+      );
+    if ResultCode <> 0 then
+      RaiseException(
+        'ShopAI could not install its Python dependencies. See ' +
+        ExpandConstant('{localappdata}\ShopAI\install-backend.log') +
+        ' for details, then run the installer again.'
+      );
+
+    CompletionMarker := ExpandConstant('{localappdata}\ShopAI\install-complete');
+    if not FileExists(CompletionMarker) then
+      RaiseException(
+        'ShopAI could not install its Python dependencies. See ' +
+        ExpandConstant('{localappdata}\ShopAI\install-backend.log') +
+        ' for details, then run the installer again.'
+      );
+
+    if not Exec(
+      ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -ExecutionPolicy Bypass -File "' +
+        ExpandConstant('{app}\scripts\configure-llm.ps1') + '"',
+      '',
+      SW_SHOW,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) then
+      RaiseException('Could not start the ShopAI LLM configuration window.');
+  end;
+end;

@@ -6,14 +6,26 @@ $OrchestratorRoot = Join-Path $AppRoot 'orchestrator'
 $AppDataRoot = Join-Path $env:LOCALAPPDATA 'ShopAI'
 $VenvPython = Join-Path $AppDataRoot 'backend-venv\Scripts\python.exe'
 $OrchestratorPython = Join-Path $AppDataRoot 'orchestrator-venv\Scripts\python.exe'
+$InstallCompletionMarker = Join-Path $AppDataRoot 'install-complete'
 $StorageRoot = Join-Path $AppDataRoot 'projects'
 $ProcessDirectory = Join-Path $AppDataRoot 'processes'
 $BackendUrl = 'http://127.0.0.1:8000/'
 $OrchestratorUrl = 'http://127.0.0.1:8010/'
 
 try {
-    if (-not (Test-Path $VenvPython) -or -not (Test-Path $OrchestratorPython)) {
-        throw 'ShopAI is not fully installed. Run the installer again.'
+    $MissingComponents = @()
+    if (-not (Test-Path $VenvPython)) {
+        $MissingComponents += 'backend Python environment'
+    }
+    if (-not (Test-Path $OrchestratorPython)) {
+        $MissingComponents += 'LLM orchestrator Python environment'
+    }
+    if (-not (Test-Path $InstallCompletionMarker)) {
+        $MissingComponents += 'Python dependency installation'
+    }
+    if ($MissingComponents.Count -gt 0) {
+        $MissingList = $MissingComponents -join ', '
+        throw "ShopAI installation is incomplete: missing $MissingList. Check $AppDataRoot\install-backend.log, then run ShopAI-Setup.exe again."
     }
 
     New-Item -ItemType Directory -Force -Path $StorageRoot | Out-Null

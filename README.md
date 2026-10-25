@@ -697,6 +697,53 @@ Where they are displayed:
 
 ## Quick Start
 
+### Installation et lancement sous Windows
+
+Le workflow est fourni dans `.github/workflows-mirror/windows-installer.yml`.
+Ce dossier miroir est inactif : pour activer la compilation GitHub Actions,
+déplacez ce fichier vers `.github/workflows/windows-installer.yml` avec votre
+compte GitHub, puis enregistrez le changement sur la branche par défaut.
+
+L’installeur cible Windows x64. Téléchargez `ShopAI-Setup.exe` depuis l’artefact
+du workflow GitHub Actions **Windows installer**, puis exécutez-le. L’installation
+est limitée à l’utilisateur courant et ne demande pas de droits administrateur.
+Une connexion Internet est nécessaire pour installer Python 3.12 et les
+dépendances Python. À la fin, choisissez le fournisseur LLM (OpenAI, Anthropic,
+xAI, OpenRouter ou mode déterministe) et saisissez sa clé API. Cette clé est
+chiffrée pour le compte Windows courant.
+
+Depuis le menu Démarrer, utilisez **ShopAI** pour lancer le backend, l’orchestrateur
+LLM et le frontend compilé, puis ouvrir l’interface dans le navigateur à
+**http://127.0.0.1:8000**. **Configure LLM** permet de changer de fournisseur ou
+de clé ; **Stop ShopAI** arrête les deux services locaux. Si le navigateur ne
+s’ouvre pas automatiquement, entrez l’adresse ci-dessus. Les ports locaux 8000
+et 8010 doivent être libres. Les données des projets restent dans
+`%LOCALAPPDATA%\ShopAI\projects` et ne sont pas supprimées lors de la
+désinstallation.
+
+### Compiler l’installeur Windows
+
+Sur une machine Windows x64 avec Node.js 20+ et Inno Setup 6 installés, lancez
+PowerShell à la racine du dépôt :
+
+```powershell
+cd frontend
+npm ci
+npm run build
+cd ..
+New-Item -ItemType Directory -Force -Path dist\windows | Out-Null
+iscc installer\windows\ShopAI.iss
+```
+
+Le fichier généré est `dist\windows\ShopAI-Setup.exe`. `iscc` est le compilateur
+Inno Setup ; si son dossier n’est pas dans `PATH`, appelez-le avec son chemin
+complet, par exemple
+`& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\windows\ShopAI.iss`.
+Après activation du workflow depuis le dossier miroir, le même build peut être
+déclenché dans GitHub Actions en lançant manuellement
+**Windows installer** ou en poussant un tag commençant par `v` ; l’installeur
+est alors disponible dans les artefacts du workflow.
+
 ### Prerequisites
 
 - Python 3.11+

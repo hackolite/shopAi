@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
 
-STORAGE_ROOT = Path(__file__).parent.parent / "storage" / "projects"
+STORAGE_ROOT = Path(
+    os.environ.get(
+        "SHOPAI_STORAGE_ROOT",
+        str(Path(__file__).parent.parent / "storage" / "projects"),
+    )
+)
 
 # Only allow safe project identifiers — no path traversal characters
 _SAFE_ID_RE = re.compile(r'^[A-Za-z0-9_\-]{1,64}$')
@@ -114,5 +120,3 @@ def build_ean_index(project_id: str) -> dict:
 
     save_json(project_id, "ean_index.json", index)
     return index
-
-

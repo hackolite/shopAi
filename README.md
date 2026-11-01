@@ -769,6 +769,47 @@ déclenché dans GitHub Actions en lançant manuellement
 **Windows installer** ou en poussant un tag commençant par `v` ; l’installeur
 est alors disponible dans les artefacts du workflow.
 
+### Installation sous Linux
+
+Téléchargez `ShopAI-Setup.run` depuis l’artefact GitHub Actions
+**Linux installer**, rendez-le exécutable puis lancez-le depuis un terminal :
+
+```sh
+chmod +x ShopAI-Setup.run
+./ShopAI-Setup.run
+```
+
+L’installeur cible Linux x64 et installe ShopAI dans `~/.local/share/ShopAI`,
+sans droits administrateur. Python 3.11+ et son module `venv` sont nécessaires ;
+une connexion Internet est requise pour télécharger les dépendances. Sur Debian
+ou Ubuntu, installez au besoin `python3` et `python3-venv` avant de lancer
+l’installeur. Les données restent dans `~/.local/share/ShopAI/data` lors d’une
+réinstallation. ShopAI est ensuite disponible dans le menu des applications ou
+avec `~/.local/bin/shopai` ; arrêtez ses services avec
+`~/.local/bin/shopai-stop`. Le workflow peut être lancé manuellement ou lors
+de la création d’un tag `v*`.
+
+### Compiler l’installeur Linux
+
+Sur Linux avec Node.js 20+ et Python 3.11+, lancez à la racine du dépôt :
+
+```sh
+cd frontend
+npm ci
+npm run build
+cd ..
+mkdir -p dist/linux/bundle/frontend dist/linux/bundle/scripts
+cp -a assortment.json backend orchestrator dist/linux/bundle/
+cp -a frontend/dist dist/linux/bundle/frontend/
+cp installer/linux/launch-shopai.sh installer/linux/stop-shopai.sh dist/linux/bundle/scripts/
+chmod +x dist/linux/bundle/scripts/*.sh
+tar --exclude='backend/tests' --exclude='backend/storage/projects/*' --exclude='*/__pycache__' \
+  -czf - -C dist/linux/bundle . > dist/linux/ShopAI-Setup.run
+cat installer/linux/ShopAI-Installer.sh dist/linux/ShopAI-Setup.run > dist/linux/ShopAI-Setup.tmp
+mv dist/linux/ShopAI-Setup.tmp dist/linux/ShopAI-Setup.run
+chmod +x dist/linux/ShopAI-Setup.run
+```
+
 ### Option PyInstaller (prototype du backend)
 
 PyInstaller peut empaqueter Python et les dépendances du backend dans un

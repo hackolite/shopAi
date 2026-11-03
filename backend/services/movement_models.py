@@ -40,10 +40,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable
 
-try:
-    import jupedsim as jps
-except ImportError:  # pragma: no cover - handled at runtime
-    jps = None
+from services.jupedsim_runtime import jps
 
 # Social bubble radius (m) the native model constants below are calibrated for.
 REFERENCE_BUBBLE_M = 0.8

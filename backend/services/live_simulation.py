@@ -25,6 +25,7 @@ from models.project import (
     WaypointMetrics,
 )
 from services.flow_analytics import FlowAnalyticsRecorder
+from services.jupedsim_runtime import raise_jupedsim_unavailable
 
 if simsvc.jps is None:  # pragma: no cover - validated at runtime in endpoints
     jps = None
@@ -60,7 +61,7 @@ class _LiveAgentRoute:
 class LiveSimulationSession:
     def __init__(self, project_id: str, scene: SceneData, config: SimulationConfig):
         if jps is None:
-            raise RuntimeError("JuPedSim is not installed on the backend")
+            raise_jupedsim_unavailable()
         self.id = str(uuid4())
         self.project_id = project_id
         self.lock = threading.Lock()

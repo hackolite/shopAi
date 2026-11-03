@@ -32,6 +32,19 @@ jobs:
       - name: Set up Inno Setup
         run: choco install innosetup --no-progress -y
 
+      - name: Smoke test installed Python dependencies
+        shell: pwsh
+        run: |
+          $AppRoot = Join-Path $env:RUNNER_TEMP 'ShopAI'
+          New-Item -ItemType Directory -Force -Path "$AppRoot\scripts" | Out-Null
+          Copy-Item backend, orchestrator -Destination $AppRoot -Recurse
+          Copy-Item installer\windows\install-backend.ps1 -Destination "$AppRoot\scripts"
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$AppRoot\scripts\install-backend.ps1"
+          if ($LASTEXITCODE -ne 0) { throw 'ShopAI dependency smoke test failed.' }
+          if (-not (Test-Path "$env:LOCALAPPDATA\ShopAI\install-complete")) {
+            throw 'ShopAI dependency installation did not complete.'
+          }
+
       - name: Build installer
         run: |
           New-Item -ItemType Directory -Force -Path dist\windows | Out-Null

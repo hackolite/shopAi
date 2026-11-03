@@ -706,7 +706,9 @@ compte GitHub, puis enregistrez le changement sur la branche par défaut.
 
 L’installeur cible Windows x64. Téléchargez `ShopAI-Setup.exe` depuis l’artefact
 du workflow GitHub Actions **Windows installer**, puis exécutez-le. L’installation
-est limitée à l’utilisateur courant et ne demande pas de droits administrateur.
+est limitée à l’utilisateur courant. Si les DLL du runtime Microsoft Visual C++
+x64 manquent, l’installeur télécharge le redistribuable officiel, vérifie sa
+signature Microsoft et demande une autorisation administrateur pour l’installer.
 Une connexion Internet est nécessaire pour installer Python 3.12 et les
 dépendances Python. À la fin, choisissez le fournisseur LLM (OpenAI, Anthropic,
 xAI, OpenRouter ou mode déterministe) et saisissez sa clé API. Cette clé est
@@ -719,6 +721,24 @@ redirection des environnements virtuels vers le cache du Store. Si une installat
 précédente a échoué avec un chemin contenant `PythonSoftwareFoundation.Python.3.12`,
 relancez l’installeur corrigé : il recrée les environnements manquants aux chemins
 attendus, sans supprimer les projets.
+
+Si la simulation affiche `503 JuPedSim is not installed on the backend` alors
+que `pip` indique `Requirement already satisfied`, le paquet peut être présent
+mais son extension native impossible à charger (notamment `MSVCP140.dll` ou
+`VCRUNTIME140_1.dll` manquante). Pour obtenir l’erreur exacte sur une installation
+existante, exécutez dans PowerShell :
+
+```powershell
+& "$env:LOCALAPPDATA\ShopAI\backend-venv\Scripts\python.exe" -c "import jupedsim"
+```
+
+Arrêtez ShopAI puis relancez l’installeur corrigé. Il contrôle les DLL du runtime
+et exécute une simulation JuPedSim avec le Python du backend avant de marquer
+l’installation terminée ; il ne se contente plus du résultat de `pip`.
+En cas d’échec, consultez `%LOCALAPPDATA%\ShopAI\install-backend.log`
+(et `install-vcredist.log` pour le redistribuable). Si un redémarrage Windows
+est demandé, redémarrez puis relancez l’installeur. Les projets sont conservés.
+Le lanceur vérifie aussi l’import avant de démarrer les services.
 
 Depuis le menu Démarrer, utilisez **ShopAI** pour lancer le backend, l’orchestrateur
 LLM et le frontend compilé, puis ouvrir l’interface dans le navigateur à

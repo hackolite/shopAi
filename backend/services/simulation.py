@@ -5,11 +5,6 @@ import math
 import random
 from dataclasses import dataclass, field
 
-try:
-    import jupedsim as jps
-except ImportError:  # pragma: no cover - handled at runtime
-    jps = None
-
 from shapely import affinity
 from shapely.geometry import GeometryCollection, MultiPolygon, Point, Polygon
 
@@ -26,6 +21,7 @@ from models.project import (
     WaypointMetrics,
 )
 from services.flow_analytics import build_analytics
+from services.jupedsim_runtime import jps, raise_jupedsim_unavailable
 from services.movement_models import MovementModelStrategy, strategy_from_config
 
 CM_TO_M = 0.01
@@ -874,7 +870,7 @@ def _apply_right_hand_bias(sim: object) -> None:
 
 def run_flow_simulation(scene: SceneData, config: SimulationConfig) -> SimulationResult:
     if jps is None:
-        raise RuntimeError("JuPedSim is not installed on the backend")
+        raise_jupedsim_unavailable()
     if not config.enabled:
         return SimulationResult(
             frames=[],

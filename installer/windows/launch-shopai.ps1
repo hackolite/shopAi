@@ -34,6 +34,11 @@ try {
         throw "ShopAI installation is incomplete: missing $MissingList. Check $AppDataRoot\install-backend.log, then run ShopAI-Setup.exe again."
     }
 
+    & $VenvPython -c 'import jupedsim'
+    if ($LASTEXITCODE -ne 0) {
+        throw "JuPedSim cannot load in the backend Python environment. See $LogDirectory\launcher.log for the import error, then run ShopAI-Setup.exe again to repair the dependencies and Microsoft Visual C++ x64 runtime."
+    }
+
     New-Item -ItemType Directory -Force -Path $StorageRoot | Out-Null
     New-Item -ItemType Directory -Force -Path $ProcessDirectory | Out-Null
     $env:SHOPAI_STORAGE_ROOT = $StorageRoot

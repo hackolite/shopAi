@@ -45,6 +45,39 @@ try {
         }
     }
 
+    # Python bundles its own C runtime, but JuPedSim also needs the C++ runtime.
+    $RuntimeProbe = "import ctypes; [ctypes.WinDLL(name) for name in ('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')]"
+    & $PythonExe -c $RuntimeProbe
+    if ($LASTEXITCODE -ne 0) {
+        $RuntimeInstaller = Join-Path $AppDataRoot 'vc_redist.x64.exe'
+        try {
+            Write-Host 'Installing Microsoft Visual C++ x64 runtime (administrator approval may be required)...'
+            Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' `
+                -OutFile $RuntimeInstaller -UseBasicParsing
+            $Signature = Get-AuthenticodeSignature -LiteralPath $RuntimeInstaller
+            if ($Signature.Status -ne 'Valid' -or
+                $Signature.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
+                throw 'The Microsoft Visual C++ runtime installer signature could not be verified.'
+            }
+            $RuntimeSetup = Start-Process -FilePath $RuntimeInstaller -Verb RunAs `
+                -ArgumentList @('/install', '/quiet', '/norestart', '/log', "`"$(Join-Path $AppDataRoot 'install-vcredist.log')`"") `
+                -Wait -PassThru
+            if ($RuntimeSetup.ExitCode -eq 3010) {
+                throw 'The Visual C++ runtime requires a Windows restart. Restart Windows, then run ShopAI-Setup.exe again.'
+            }
+            if ($RuntimeSetup.ExitCode -notin @(0, 1638)) {
+                throw "Microsoft Visual C++ runtime installation failed (exit code $($RuntimeSetup.ExitCode)). See $AppDataRoot\install-vcredist.log."
+            }
+            & $PythonExe -c $RuntimeProbe
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Microsoft Visual C++ x64 runtime DLLs still cannot load. See the import error above and repair the runtime before retrying.'
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $RuntimeInstaller -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     foreach ($Environment in @(
         @{ Python = $VenvPython; Path = $VenvRoot; Requirements = (Join-Path $BackendRoot 'requirements.txt') },
         @{ Python = $OrchestratorVenvPython; Path = $OrchestratorVenvRoot; Requirements = (Join-Path $OrchestratorRoot 'requirements.txt') }
@@ -59,6 +92,12 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Could not install dependencies from $($Environment.Requirements)."
         }
+    }
+
+    Write-Host 'Checking JuPedSim native simulation in the backend environment...'
+    & $VenvPython -c "import jupedsim as jps; sim = jps.Simulation(model=jps.CollisionFreeSpeedModel(), geometry=[(0, 0), (10, 0), (10, 10), (0, 10)]); sim.iterate(); print('JuPedSim native simulation OK')"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'JuPedSim could not run in the backend environment. See the Python error above; ShopAI installation is not complete.'
     }
 }
 catch {
